@@ -42,6 +42,31 @@ void wena_http_listener_set_security(WenaHttpListener *listener, WenaSecuritySto
     listener->now_context = context;
 }
 
+void wena_http_listener_set_domain_adapter(WenaHttpListener *listener,
+                                           WenaDomainAdapter *adapter)
+{
+    if (listener == NULL || listener->open) return;
+    listener->domain_adapter = adapter;
+}
+
+static int wena_positive_number(const char *value, unsigned long *number)
+{
+    unsigned long result;
+    const unsigned char *cursor;
+    if (value == NULL || value[0] == '\0' || number == NULL) return 0;
+    result = 0ul;
+    for (cursor = (const unsigned char *)value; *cursor != '\0'; ++cursor) {
+        unsigned long digit;
+        if (*cursor < '0' || *cursor > '9') return 0;
+        digit = (unsigned long)(*cursor - '0');
+        if (result > (4294967295ul - digit) / 10ul) return 0;
+        result = result * 10ul + digit;
+    }
+    if (result == 0ul) return 0;
+    *number = result;
+    return 1;
+}
+
 int wena_http_listener_start(WenaHttpListener *listener, WenaServerSettings *settings)
 {
     WENA_SOCKET socket_handle;
@@ -117,29 +142,38 @@ static int wena_send_all(WENA_SOCKET socket_handle, const char *value, size_t le
     return 1;
 }
 
-static int wena_response_typed(WENA_SOCKET client, int status, const char *reason,
-                               const WenaResponsePolicy *policy, const char *content_type,
-                               const char *body)
+static int wena_response_typed_length(WENA_SOCKET client, int status, const char *reason,
+                                      const WenaResponsePolicy *policy,
+                                      const char *content_type, const char *body,
+                                      size_t body_length)
 {
-    char response[16384];
+    char response[65536];
     char line[512];
     size_t index;
     size_t used;
     int written;
     written = sprintf(response, "HTTP/1.1 %d %s\r\nConnection: close\r\nContent-Type: %s\r\nContent-Length: %lu\r\n",
-                      status, reason, content_type, (unsigned long)strlen(body));
+                      status, reason, content_type, (unsigned long)body_length);
     if (written < 0) return 0;
     used = (size_t)written;
     for (index = 0; index < policy->header_count; ++index) {
         written = sprintf(line, "%s: %s\r\n", policy->headers[index].name,
                           policy->headers[index].value);
-        if (written < 0 || used + (size_t)written + 2 + strlen(body) >= sizeof(response)) return 0;
+        if (written < 0 || used + (size_t)written + 2 + body_length >= sizeof(response)) return 0;
         memcpy(response + used, line, (size_t)written);
         used += (size_t)written;
     }
     memcpy(response + used, "\r\n", 2); used += 2;
-    memcpy(response + used, body, strlen(body)); used += strlen(body);
+    memcpy(response + used, body, body_length); used += body_length;
     return wena_send_all(client, response, used);
+}
+
+static int wena_response_typed(WENA_SOCKET client, int status, const char *reason,
+                               const WenaResponsePolicy *policy, const char *content_type,
+                               const char *body)
+{
+    return wena_response_typed_length(client, status, reason, policy, content_type,
+                                      body, strlen(body));
 }
 
 static int wena_response(WENA_SOCKET client, int status, const char *reason,
@@ -278,13 +312,55 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
     }
     if (strcmp(request.method, "POST") == 0) {
         unsigned long now;
+        unsigned long request_version;
+        const char *accept;
+        const char *version;
+        int enhancement;
         now = listener->now == NULL ? 0ul : listener->now(listener->now_context);
+        accept = wena_http_header(&request, "accept");
+        version = wena_http_header(&request, "x-wena-request-version");
+        enhancement = accept != NULL || version != NULL;
+        request_version = 0ul;
+        if (enhancement && (accept == NULL ||
+            strcmp(accept, "application/vnd.wena.regions-v1") != 0 ||
+            !wena_positive_number(version, &request_version))) {
+            wena_response(client, 406, "Not Acceptable", &policy, "Not Acceptable");
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_REJECTED;
+        }
+        if (enhancement && listener->domain_adapter == NULL) {
+            wena_response(client, 503, "Service Unavailable", &policy,
+                          "Mutation adapter is not enabled");
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_REJECTED;
+        }
         if (listener->security == NULL || listener->now == NULL ||
             wena_route_dispatch(&request, listener->security, now, &intent) !=
             WENA_ROUTE_MUTATION_INTENT) {
             wena_response(client, 403, "Forbidden", &policy, "Forbidden");
             wena_close_socket(client);
             return WENA_HTTP_SERVE_REJECTED;
+        }
+        if (enhancement) {
+            WenaRegionResponse region_response;
+            char encoded[WENA_REGION_RESPONSE_MAX_BYTES];
+            size_t encoded_length;
+            if (!wena_domain_operation_dispatch(listener->domain_adapter, &intent,
+                                                 request_version, &region_response) ||
+                !wena_region_response_encode(&region_response, encoded, sizeof(encoded),
+                                             &encoded_length)) {
+                wena_response(client, 409, "Conflict", &policy, "Mutation rejected");
+                wena_close_socket(client);
+                return WENA_HTTP_SERVE_REJECTED;
+            }
+            if (!wena_response_typed_length(client, 200, "OK", &policy,
+                                            "application/vnd.wena.regions-v1", encoded,
+                                            encoded_length)) {
+                wena_close_socket(client);
+                return WENA_HTTP_SERVE_ERROR;
+            }
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_OK;
         }
         wena_response(client, 503, "Service Unavailable", &policy,
                       "Mutation dispatch is not enabled");

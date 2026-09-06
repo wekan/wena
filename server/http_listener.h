@@ -3,6 +3,7 @@
 
 #include "settings.h"
 #include "security.h"
+#include "domain_operation.h"
 
 #include <stddef.h>
 
@@ -16,6 +17,7 @@ typedef struct WenaHttpListener {
     WenaSecurityStore *security;
     WenaHttpNow now;
     void *now_context;
+    WenaDomainAdapter *domain_adapter;
 } WenaHttpListener;
 
 typedef enum WenaHttpServeResult {
@@ -28,6 +30,8 @@ typedef enum WenaHttpServeResult {
 void wena_http_listener_init(WenaHttpListener *listener);
 void wena_http_listener_set_security(WenaHttpListener *listener, WenaSecurityStore *security,
                                      WenaHttpNow now, void *context);
+void wena_http_listener_set_domain_adapter(WenaHttpListener *listener,
+                                           WenaDomainAdapter *adapter);
 int wena_http_listener_start(WenaHttpListener *listener, WenaServerSettings *settings);
 void wena_http_listener_stop(WenaHttpListener *listener, WenaServerSettings *settings);
 int wena_http_listener_restart(WenaHttpListener *listener, WenaServerSettings *settings);

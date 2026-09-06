@@ -133,6 +133,12 @@
       valid bounded `WENA-REGIONS/1` result; invalid/auth/replay/callback failures
       have no adapter-side version advance. Only a fake callback is tested: no
       SQLite, listener dispatch, or production persistence is connected yet.
+    - [x] Connect that adapter optionally to the listener, null by default. Only an
+      exact V1 Accept header paired with a bounded positive request-version reaches
+      it after the security gate; encode the callback result as the exact regions
+      media type. Missing adapter, malformed negotiation/version, replay, and callback
+      errors fail closed. Ordinary no-JS POST stays on its separate non-mutating 503
+      path until a persistence-backed HTML result/redirect transaction exists.
   - [_] Add Meteor HTML4 route-parity and golden/contract tests, cookieless/no-JS
     HTTP E2E, forged-scope/CSRF/replay/open-redirect/escaping negative tests, and
     configured startup/restart/listener tests.
