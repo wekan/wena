@@ -1,6 +1,7 @@
 #include "http_listener.h"
 
 #include "http.h"
+#include "capability.h"
 #include "legacy_html4.h"
 #include "response_policy.h"
 #include "router.h"
@@ -107,16 +108,17 @@ static int wena_send_all(WENA_SOCKET socket_handle, const char *value, size_t le
     return 1;
 }
 
-static int wena_response(WENA_SOCKET client, int status, const char *reason,
-                         const WenaResponsePolicy *policy, const char *body)
+static int wena_response_typed(WENA_SOCKET client, int status, const char *reason,
+                               const WenaResponsePolicy *policy, const char *content_type,
+                               const char *body)
 {
     char response[16384];
     char line[512];
     size_t index;
     size_t used;
     int written;
-    written = sprintf(response, "HTTP/1.1 %d %s\r\nConnection: close\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: %lu\r\n",
-                      status, reason, (unsigned long)strlen(body));
+    written = sprintf(response, "HTTP/1.1 %d %s\r\nConnection: close\r\nContent-Type: %s\r\nContent-Length: %lu\r\n",
+                      status, reason, content_type, (unsigned long)strlen(body));
     if (written < 0) return 0;
     used = (size_t)written;
     for (index = 0; index < policy->header_count; ++index) {
@@ -129,6 +131,13 @@ static int wena_response(WENA_SOCKET client, int status, const char *reason,
     memcpy(response + used, "\r\n", 2); used += 2;
     memcpy(response + used, body, strlen(body)); used += strlen(body);
     return wena_send_all(client, response, used);
+}
+
+static int wena_response(WENA_SOCKET client, int status, const char *reason,
+                         const WenaResponsePolicy *policy, const char *body)
+{
+    return wena_response_typed(client, status, reason, policy,
+                               "text/html; charset=utf-8", body);
 }
 
 static int wena_strip_base_path(WenaHttpRequest *request, const char *base_path)
@@ -236,6 +245,17 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
         wena_response(client, 404, "Not Found", &policy, "Not Found");
         wena_close_socket(client);
         return WENA_HTTP_SERVE_REJECTED;
+    }
+    if (strcmp(request.method, "GET") == 0 &&
+        strcmp(request.target, "/legacy-html4-capabilities.js") == 0) {
+        if (!wena_response_typed(client, 200, "OK", &policy,
+                                 "application/javascript; charset=utf-8",
+                                 wena_legacy_html4_capability_script())) {
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_ERROR;
+        }
+        wena_close_socket(client);
+        return WENA_HTTP_SERVE_OK;
     }
     if (strcmp(request.method, "POST") == 0) {
         wena_response(client, 503, "Service Unavailable", &policy,

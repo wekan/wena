@@ -67,6 +67,7 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
 {
     WenaWriter writer;
     char canonical[WENA_SERVER_ROOT_URL_CAPACITY + 128];
+    char capability[WENA_SERVER_ROOT_URL_CAPACITY + 128];
     size_t index;
     wena_writer_init(&writer, output, capacity);
     if (page == NULL || page->rows == NULL ||
@@ -76,7 +77,12 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     }
     wena_write(&writer, "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"><html lang=\"");
     wena_escape(&writer, page->language); wena_write(&writer, "\"><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><title>");
-    wena_escape(&writer, page->title); wena_write(&writer, "</title></head><body style=\"background-color:");
+    wena_escape(&writer, page->title);
+    wena_write(&writer, "</title><script type=\"text/javascript\" src=\"");
+    if (!wena_root_url_join(root, "/legacy-html4-capabilities.js", capability,
+                            sizeof(capability))) writer.valid = 0;
+    wena_escape(&writer, capability);
+    wena_write(&writer, "\"></script></head><body style=\"background-color:");
     wena_write(&writer, wena_theme(page->theme_name)); wena_write(&writer, "\"><h1>");
     wena_escape(&writer, page->heading); wena_write(&writer, "</h1><table summary=\"");
     wena_escape(&writer, page->heading); wena_write(&writer, "\"><caption>");

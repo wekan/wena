@@ -131,6 +131,10 @@
     hide only equivalent card/list/swimlane move controls and expose minimal drag/drop
     with the same session, route, operation, and single-use-CSRF POST semantics;
     never branch on User-Agent, and restore baseline controls on any failure.
+    - [x] Serve a small same-origin external capability script under ROOT_URL. It
+      performs a real synthetic DataTransfer/DragEvent probe, never reads User-Agent,
+      hides only paired move baseline controls, transfers focus and keyboard/ARIA
+      semantics, and restores controls on failure or bounded-operation timeout.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;

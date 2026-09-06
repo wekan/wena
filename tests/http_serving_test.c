@@ -71,6 +71,13 @@ int main(void)
     assert(strstr(response, "href=\"http://127.0.0.1:") != NULL);
     assert(strstr(response, "/base/allboards\"") != NULL);
 
+    sprintf(request, "GET /base/legacy-html4-capabilities.js HTTP/1.1\r\nHost: 127.0.0.1:%u\r\n\r\n",
+            listener.bound_port);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_OK);
+    assert(strstr(response, "Content-Type: application/javascript; charset=utf-8") != NULL);
+    assert(strstr(response, "window.WenaLegacyEnhancement") != NULL);
+
     sprintf(request, "GET /base/allboards HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nOrigin: http://127.0.0.1:%u\r\n\r\n",
             listener.bound_port, listener.bound_port);
     assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
