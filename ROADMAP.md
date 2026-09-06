@@ -1,0 +1,72 @@
+# WeKan - WeKan Native
+
+- Made with C89, SDL2, Nuklear GUI, SQLite.
+- Drag drop, looks same like Meteor 3 WeKan.
+- For all desktop and mobile operating systems.
+
+# Roadmap
+
+- Add GitHub Actions release-all.yml that crosscompiles for many operating systems
+- Operating systems:
+  - Mobile
+    - [_] iOS
+    - [_] Android
+    - [_] Ubuntu Touch
+    - [_] postmarketOS
+  - Desktop
+    - Linux
+      - [_] x86
+      - [_] x86_64
+      - [_] arm64
+      - [_] armhf
+      - [_] ppc
+      - [_] ppc64le
+      - [_] s390x
+      - [_] riscv64
+    - BSD
+      - NetBSD
+      - FreeBSD
+      - OpenBSD
+    - Windows
+      - [_] Win32
+      - [_] Win64
+      - [_] arm64
+    - macOS
+      - arm64
+      - amd64
+      - ppc
+    - Haiku https://download.haiku-os.org/nightly-images/
+      - x86
+      - x86_64
+      - arm
+      - arm64
+      - riscv64
+      - sparc
+    - Amiga
+      - [_] AmigaOS 3.x m68k
+      - [_] AmigaOS 4.x PPC
+      - [_] MorphOS PPC
+      - AROS https://aros.sourceforge.io/nightly1.html
+        - PC
+          - [_] x86
+          - [_] amd64
+          - [_] arm64
+        - RasPi
+          - [_] aarch64
+          - [_] armhf
+        - Darwin
+          - amd64
+          - arm64
+        - Linux
+          - m68k
+          - i386
+          - amd64
+          - arm64
+          - armhf
+          - riscv64
+          - ppc
+          - ppc64le
+          - s390x
+        - sam440-ppc
+        - opensbi-riscv64
+    - 
