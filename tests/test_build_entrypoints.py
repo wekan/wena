@@ -43,6 +43,12 @@ def main():
 
     tests = command("tests", "--list")
     assert tests.returncode == 0
+    assert "models\tStrict-C89" in tests.stdout
+    model_tests = command("tests", "models")
+    assert model_tests.returncode == 0, model_tests.stderr
+    bad_tests = command("tests", "unknown")
+    assert bad_tests.returncode != 0
+    assert "unknown test suite" in bad_tests.stderr
     server = command("server", "status")
     assert server.returncode == 3
     tools = command("tools", "targets")

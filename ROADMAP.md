@@ -48,7 +48,7 @@
   - [x] Share target dispatch/validation between menus and CI to prevent drift.
 - [_] Add fast native equivalents of WeKan test categories, running against the
   current OS/CPU executable wherever behavior crosses a process boundary:
-  - [_] Strict-C89 model/unit and negative-validation suites.
+  - [x] Strict-C89 model/unit and negative-validation suites.
   - [_] Nuklear component, interaction-state, accessibility, keyboard, mouse,
     touch, responsive-layout, drag/drop, and collapse suites.
   - [_] Headless SDL executable smoke/startup/crash and command-line suites.

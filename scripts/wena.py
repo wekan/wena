@@ -107,9 +107,11 @@ def build_menu():
 
 
 def tests_menu():
-    answer = choose("Tests", [("1", "Show planned fast native suites"), ("b", "Back")])
+    answer = choose("Tests", [("1", "Strict-C89 models"), ("b", "Back")])
     if answer == "1":
-        print("Fast native test commands are the next ROADMAP phase.")
+        result = run_test("models")
+        if result:
+            print(f"Tests failed with exit code {result}.")
 
 
 def server_menu():
@@ -122,6 +124,15 @@ def tools_menu():
     answer = choose("Tools", [("1", "List target catalog"), ("b", "Back")])
     if answer == "1":
         list_targets()
+
+
+def run_test(name):
+    suites = {"models": ROOT / "tests" / "test_models.sh"}
+    script = suites.get(name)
+    if script is None:
+        raise SystemExit(f"unknown test suite: {name}")
+    print(f"Running {name} tests", flush=True)
+    return subprocess.call(shell_command(script), cwd=ROOT)
 
 
 def menu():
@@ -153,8 +164,10 @@ def main(argv):
     if len(argv) == 2 and argv[0] == "build":
         return build(argv[1])
     if argv == ["tests", "--list"]:
-        print("Fast native test commands are the next ROADMAP phase.")
+        print("models\tStrict-C89 model/unit and negative validation")
         return 0
+    if len(argv) == 2 and argv[0] == "tests":
+        return run_test(argv[1])
     if argv == ["server", "status"]:
         print("Wena Server is not implemented yet; see ROADMAP.md.")
         return 3
