@@ -1,0 +1,82 @@
+name: Release all
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+# Keep this list in the same order as ROADMAP.md. A target becomes active when its
+# .github/release/<target>.sh cross-compilation script is added.
+jobs:
+  cross-compile:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-arm64
+            name: Linux arm64
+            runner: ubuntu-24.04
+          - target: linux-amd64
+            name: Linux amd64
+            runner: ubuntu-24.04
+          - target: linux-armhf
+            name: Linux armhf
+            runner: ubuntu-24.04
+          - target: windows-amd64
+            name: Windows amd64
+            runner: ubuntu-24.04
+          - target: macos-arm64
+            name: macOS arm64
+            runner: macos-15
+          - target: macos-amd64
+            name: macOS amd64
+            runner: macos-15
+          - target: amigaos-m68k
+            name: AmigaOS 3.x m68k
+            runner: ubuntu-24.04
+          - target: aros-x86
+            name: AROS x86
+            runner: ubuntu-24.04
+          - target: android-arm64
+            name: Android arm64
+            runner: ubuntu-24.04
+          - target: ios-arm64
+            name: iOS arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check target support
+        id: support
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          script=".github/release/${TARGET}.sh"
+          if test -x "$script"; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${TARGET} is planned but not implemented yet"
+          fi
+
+      - name: Cross-compile
+        if: steps.support.outputs.enabled == 'true'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: ".github/release/${TARGET}.sh"
+
+      - name: Upload release artifact
+        if: steps.support.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wena-${{ matrix.target }}
+          path: dist/${{ matrix.target }}/
+          if-no-files-found: error

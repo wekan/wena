@@ -14,7 +14,10 @@
 
 # Roadmap
 
-- [_] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
+- [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
+  - Added the target matrix, runner selection, per-target build-script contract,
+    artifact upload, and a structural regression test. Targets remain pending until
+    their cross-compilation scripts produce verified binaries.
 - Operating systems at the beginning at release-all.yml:
   - [_] Linux arm64
   - [_] Linux amd64
