@@ -112,11 +112,16 @@ def build_menu():
 
 
 def tests_menu():
-    answer = choose("Tests", [("1", "Strict-C89 models"), ("b", "Back")])
+    answer = choose("Tests", [("1", "Strict-C89 models"),
+                              ("2", "Locale normalization and fallback"), ("b", "Back")])
     if answer == "1":
         result = run_test("models")
-        if result:
-            print(f"Tests failed with exit code {result}.")
+    elif answer == "2":
+        result = run_test("locale")
+    else:
+        return
+    if result:
+        print(f"Tests failed with exit code {result}.")
 
 
 def server_menu():
@@ -132,7 +137,8 @@ def tools_menu():
 
 
 def run_test(name):
-    suites = {"models": ROOT / "tests" / "test_models.sh"}
+    suites = {"models": ROOT / "tests" / "test_models.sh",
+              "locale": ROOT / "tests" / "test_locale.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -170,6 +176,7 @@ def main(argv):
         return build(argv[1])
     if argv == ["tests", "--list"]:
         print("models\tStrict-C89 model/unit and negative validation")
+        print("locale\tOS locale normalization, fallback, and RTL direction")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

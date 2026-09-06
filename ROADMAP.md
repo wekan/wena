@@ -57,7 +57,7 @@
     differs, a language is absent, or the embedded catalog marker/hash is missing.
   - [x] Add a strict-C89 runtime reader and link the same catalog into every ready
     target (and every future target before it becomes `ready`) without network use.
-  - [_] Normalize OS locale identifiers deterministically (`language_REGION`,
+  - [x] Normalize OS locale identifiers deterministically (`language_REGION`,
     `language-Region`, encodings, and modifiers) and resolve exact variant, then
     base language, then English; support Windows, macOS/iOS, POSIX Linux/BSD,
     Android, AmigaOS, and AROS locale APIs with explicit capability fallbacks.
