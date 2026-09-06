@@ -133,8 +133,13 @@
       source integrity/FKs and bounded free space, snapshot through SQLite's backup API,
       recheck schema/integrity/FKs, stream SHA-256 into a sidecar, then publish data and
       checksum from deterministic temporary names. Refuse overwrite, stale temp files,
-      relative paths, insufficient space, and partial publication. Restore validation,
-      listener stop/swap/reopen/restart, and rollback to the original remain pending.
+      relative paths, insufficient space, and partial publication.
+    - [x] Restore only a sidecar-verified, schema-version-1, migration-checksum-matched,
+      integrity/FK-clean snapshot after bounded disk-space preflight. Copy to a
+      deterministic staging file before listener stop, atomically preserve/swap the
+      original, reopen/restart through a lifecycle adapter, and restore plus restart
+      the original on swap or reopen failure. Refuse stale recovery files, corruption,
+      truncation, wrong checksums and newer schemas before disrupting the listener.
     - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
       and domain adapters, then starts the listener; stop reverses that order and all
       partial-start failures close the database. Successful no-JS mutations use a
