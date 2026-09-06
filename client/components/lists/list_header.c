@@ -1,4 +1,5 @@
 #include "list_header.h"
+#include "../../../imports/ui/page_contract.h"
 
 #include <nuklear.h>
 
@@ -15,11 +16,11 @@ unsigned int wena_list_header_render(struct nk_context *context,
     nk_layout_row_push(context, 0.58f);
     nk_label(context, list->title, NK_TEXT_LEFT);
     nk_layout_row_push(context, 0.25f);
-    if (nk_button_label(context, "Add card")) {
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_ADD_CARD))) {
         action |= WENA_LIST_HEADER_ADD_CARD;
     }
     nk_layout_row_push(context, 0.17f);
-    if (nk_button_label(context, "List menu")) {
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_LIST_MENU))) {
         action |= WENA_LIST_HEADER_OPEN_MENU;
     }
     nk_layout_row_end(context);

@@ -1,4 +1,5 @@
 #include "board_header.h"
+#include "../../../imports/ui/page_contract.h"
 
 #include <nuklear.h>
 
@@ -15,7 +16,7 @@ unsigned int wena_board_header_render(struct nk_context *context,
     nk_layout_row_push(context, 0.78f);
     nk_label(context, board->title, NK_TEXT_LEFT);
     nk_layout_row_push(context, 0.22f);
-    if (nk_button_label(context, "Board menu")) {
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_BOARD_MENU))) {
         action |= WENA_BOARD_HEADER_OPEN_MENU;
     }
     nk_layout_row_end(context);
