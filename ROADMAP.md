@@ -31,7 +31,9 @@
   - [x] Windows amd64
     - Cross-builds a strict C89 PE32+ executable with MinGW-w64 and verifies its
       x86-64 COFF architecture before artifact upload.
-  - [_] macOS arm64
+  - [x] macOS arm64
+    - Builds a strict C89 Mach-O executable with Apple's arm64 target and verifies
+      both the Mach-O format and the single arm64 architecture before upload.
   - [_] macOS amd64
   - [_] AmigaOS 3.x m68k
   - [_] AROS x86
