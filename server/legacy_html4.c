@@ -68,6 +68,7 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     WenaWriter writer;
     char canonical[WENA_SERVER_ROOT_URL_CAPACITY + 128];
     char capability[WENA_SERVER_ROOT_URL_CAPACITY + 128];
+    char capability_css[WENA_SERVER_ROOT_URL_CAPACITY + 128];
     size_t index;
     wena_writer_init(&writer, output, capacity);
     if (page == NULL || page->rows == NULL ||
@@ -78,7 +79,11 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     wena_write(&writer, "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"><html lang=\"");
     wena_escape(&writer, page->language); wena_write(&writer, "\"><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"><title>");
     wena_escape(&writer, page->title);
-    wena_write(&writer, "</title><script type=\"text/javascript\" src=\"");
+    wena_write(&writer, "</title><link rel=\"stylesheet\" type=\"text/css\" href=\"");
+    if (!wena_root_url_join(root, "/legacy-html4-capabilities.css", capability_css,
+                            sizeof(capability_css))) writer.valid = 0;
+    wena_escape(&writer, capability_css);
+    wena_write(&writer, "\"><script type=\"text/javascript\" src=\"");
     if (!wena_root_url_join(root, "/legacy-html4-capabilities.js", capability,
                             sizeof(capability))) writer.valid = 0;
     wena_escape(&writer, capability);
@@ -101,7 +106,8 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
 }
 
 int wena_html4_render_post_form(const WenaRootUrl *root, const char *route_path,
-                                const char *operation, const char *csrf_token,
+                                const char *operation, const char *session_token,
+                                const char *csrf_token,
                                 const char *label, const char *ascii_control,
                                 char *output, size_t capacity)
 {
@@ -109,17 +115,58 @@ int wena_html4_render_post_form(const WenaRootUrl *root, const char *route_path,
     char action[WENA_SERVER_ROOT_URL_CAPACITY + 128];
     wena_writer_init(&writer, output, capacity);
     action[0] = '\0';
-    if (operation == NULL || operation[0] == '\0' || csrf_token == NULL ||
+    if (operation == NULL || operation[0] == '\0' || session_token == NULL ||
+        session_token[0] == '\0' || csrf_token == NULL ||
         csrf_token[0] == '\0' || !wena_root_url_join(root, route_path, action, sizeof(action))) {
         if (output != NULL && capacity > 0) output[0] = '\0';
         return 0;
     }
     wena_write(&writer, "<form method=\"post\" action=\""); wena_escape(&writer, action);
+    wena_write(&writer, "\"><input type=\"hidden\" name=\"legacySession\" value=\"");
+    wena_escape(&writer, session_token);
     wena_write(&writer, "\"><input type=\"hidden\" name=\"legacyOperation\" value=\"");
     wena_escape(&writer, operation); wena_write(&writer, "\"><input type=\"hidden\" name=\"csrf\" value=\"");
     wena_escape(&writer, csrf_token); wena_write(&writer, "\"><button type=\"submit\">");
     wena_escape(&writer, ascii_control); wena_write(&writer, " "); wena_escape(&writer, label);
     wena_write(&writer, "</button></form>");
+    if (!writer.valid) { if (output != NULL && capacity > 0) output[0] = '\0'; return 0; }
+    return 1;
+}
+
+static int wena_control_id_valid(const char *value)
+{
+    const unsigned char *cursor;
+    if (value == NULL || value[0] == '\0' || strlen(value) > 64) return 0;
+    for (cursor = (const unsigned char *)value; *cursor != '\0'; ++cursor)
+        if (!( (*cursor >= 'a' && *cursor <= 'z') || (*cursor >= 'A' && *cursor <= 'Z') ||
+               (*cursor >= '0' && *cursor <= '9') || *cursor == '-' || *cursor == '_')) return 0;
+    return 1;
+}
+
+int wena_html4_render_move_control(const WenaRootUrl *root, const char *route_path,
+                                   const char *control_id, const char *operation,
+                                   const char *session_token, const char *csrf_token,
+                                   const char *label, const char *ascii_control,
+                                   char *output, size_t capacity)
+{
+    WenaWriter writer;
+    char action[WENA_SERVER_ROOT_URL_CAPACITY + 128];
+    wena_writer_init(&writer, output, capacity);
+    if (!wena_control_id_valid(control_id) || operation == NULL || operation[0] == '\0' ||
+        session_token == NULL || session_token[0] == '\0' || csrf_token == NULL ||
+        csrf_token[0] == '\0' || !wena_root_url_join(root, route_path, action, sizeof(action)))
+        return 0;
+    wena_write(&writer, "<form class=\"wena-move-baseline\" id=\""); wena_escape(&writer, control_id);
+    wena_write(&writer, "-baseline\" method=\"post\" action=\""); wena_escape(&writer, action);
+    wena_write(&writer, "\"><input type=\"hidden\" name=\"legacySession\" value=\""); wena_escape(&writer, session_token);
+    wena_write(&writer, "\"><input type=\"hidden\" name=\"legacyOperation\" value=\""); wena_escape(&writer, operation);
+    wena_write(&writer, "\"><input type=\"hidden\" name=\"csrf\" value=\""); wena_escape(&writer, csrf_token);
+    wena_write(&writer, "\"><button type=\"submit\">"); wena_escape(&writer, ascii_control);
+    wena_write(&writer, " "); wena_escape(&writer, label); wena_write(&writer, "</button></form><button type=\"button\" class=\"wena-drag-control wena-drag-source wena-drop-target\" id=\"");
+    wena_escape(&writer, control_id); wena_write(&writer, "-drag\" data-wena-form=\"");
+    wena_escape(&writer, control_id); wena_write(&writer, "-baseline\">");
+    wena_escape(&writer, ascii_control); wena_write(&writer, " "); wena_escape(&writer, label);
+    wena_write(&writer, "</button>");
     if (!writer.valid) { if (output != NULL && capacity > 0) output[0] = '\0'; return 0; }
     return 1;
 }

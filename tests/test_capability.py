@@ -56,3 +56,5 @@ for required in (
 assert "eval(" not in script and "innerHTML" not in script
 assert "userAgent" not in script
 assert script.count("style.display='none'") == 1
+assert "doc.body.className+=' wena-enhanced'" in script
+assert "replace(/ ?wena-enhanced/g,'')" in script

@@ -141,6 +141,11 @@
       never an object ID or operation; the target form alone supplies semantics to the
       bounded transport. Failure restores every baseline control and live status.
       Server persistence remains closed, so this is client wiring only.
+    - [x] Render stable-ID move controls as a visible, ordinary HTML4 POST form with
+      session, scoped one-use CSRF, and operation fields plus an initially hidden
+      drag control bound back to that exact form. A same-origin external stylesheet
+      hides enhancement controls without JavaScript; capability success alone swaps
+      visibility. Cover the real listener's cookieless/no-JS GET and asset paths.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;

@@ -23,8 +23,14 @@ typedef struct WenaHtml4Page {
 int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
                            char *output, size_t capacity);
 int wena_html4_render_post_form(const WenaRootUrl *root, const char *route_path,
-                                const char *operation, const char *csrf_token,
+                                const char *operation, const char *session_token,
+                                const char *csrf_token,
                                 const char *label, const char *ascii_control,
                                 char *output, size_t capacity);
+int wena_html4_render_move_control(const WenaRootUrl *root, const char *route_path,
+                                   const char *control_id, const char *operation,
+                                   const char *session_token, const char *csrf_token,
+                                   const char *label, const char *ascii_control,
+                                   char *output, size_t capacity);
 
 #endif

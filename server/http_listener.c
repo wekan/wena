@@ -257,6 +257,16 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
         wena_close_socket(client);
         return WENA_HTTP_SERVE_OK;
     }
+    if (strcmp(request.method, "GET") == 0 &&
+        strcmp(request.target, "/legacy-html4-capabilities.css") == 0) {
+        if (!wena_response_typed(client, 200, "OK", &policy, "text/css; charset=utf-8",
+                                 wena_legacy_html4_capability_stylesheet())) {
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_ERROR;
+        }
+        wena_close_socket(client);
+        return WENA_HTTP_SERVE_OK;
+    }
     if (strcmp(request.method, "POST") == 0) {
         wena_response(client, 503, "Service Unavailable", &policy,
                       "Mutation dispatch is not enabled");

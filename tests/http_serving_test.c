@@ -78,6 +78,13 @@ int main(void)
     assert(strstr(response, "Content-Type: application/javascript; charset=utf-8") != NULL);
     assert(strstr(response, "window.WenaLegacyEnhancement") != NULL);
 
+    sprintf(request, "GET /base/legacy-html4-capabilities.css HTTP/1.1\r\nHost: 127.0.0.1:%u\r\n\r\n",
+            listener.bound_port);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_OK);
+    assert(strstr(response, "Content-Type: text/css; charset=utf-8") != NULL);
+    assert(strstr(response, ".wena-drag-control{display:none}") != NULL);
+
     sprintf(request, "GET /base/allboards HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nOrigin: http://127.0.0.1:%u\r\n\r\n",
             listener.bound_port, listener.bound_port);
     assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
@@ -97,6 +104,16 @@ int main(void)
            response, sizeof(response)) == WENA_HTTP_SERVE_REJECTED);
     assert(strstr(response, "HTTP/1.1 503 Service Unavailable") != NULL);
     assert(strstr(response, "Mutation dispatch is not enabled") != NULL);
+
+    /* A cookieless/no-JS client gets semantic HTML and can follow the GET link;
+       no inline script or enhancement-only control is needed to read the page. */
+    sprintf(request, "GET /base/allboards HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nCookie:\r\n\r\n",
+            listener.bound_port);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_OK);
+    assert(strstr(response, "<!DOCTYPE HTML PUBLIC") != NULL);
+    assert(strstr(response, "<script>") == NULL);
+    assert(strstr(response, "<table ") != NULL);
 
     sprintf(request, "GET /allboards HTTP/1.1\r\nHost: 127.0.0.1:%u\r\n\r\n",
             listener.bound_port);

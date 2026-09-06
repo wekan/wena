@@ -53,6 +53,7 @@ int main(void)
     assert(strstr(output, "id=\"wena-region-board\"") != NULL);
     assert(strstr(output, "background-color:#2980b9") != NULL);
     assert(strstr(output, "src=\"https://kanban.example:8443/team/legacy-html4-capabilities.js\"") != NULL);
+    assert(strstr(output, "href=\"https://kanban.example:8443/team/legacy-html4-capabilities.css\"") != NULL);
     assert(strstr(output, "<script>") == NULL);
     assert(strstr(output, "&lt;script&gt;alert(1)&lt;/script&gt;") != NULL);
     assert(strstr(output, "href=\"https://kanban.example:8443/team/b/board-1/demo\"") != NULL);
@@ -60,15 +61,28 @@ int main(void)
     add_card = wena_ui_control(WENA_UI_ADD_CARD);
     assert(add_card != NULL && strcmp(add_card->http_method, "POST") == 0);
     assert(wena_html4_render_post_form(&root, "/b/board-1/demo", add_card->domain_operation,
-                                       "token&amp;forged", "Add <card>", add_card->ascii_control,
+                                       "session-token", "token&amp;forged", "Add <card>", add_card->ascii_control,
                                        output, sizeof(output)));
     assert(strstr(output, "method=\"post\"") != NULL);
     assert(strstr(output, "action=\"https://kanban.example:8443/team/b/board-1/demo\"") != NULL);
     assert(strstr(output, "token&amp;amp;forged") != NULL);
+    assert(strstr(output, "name=\"legacySession\" value=\"session-token\"") != NULL);
     assert(strstr(output, "Add &lt;card&gt;") != NULL);
     assert(!wena_html4_render_post_form(&root, "/b/board-1/demo", "create-card",
-                                        "", "Add", "[+]", output, sizeof(output)));
+                                        "session", "", "Add", "[+]", output, sizeof(output)));
     assert(output[0] == '\0');
+    assert(wena_html4_render_move_control(&root, "/b/board-1/demo", "card-1-to-list-2",
+                                         "move-card", "session-token", "csrf-token",
+                                         "Move card", "[>]", output, sizeof(output)));
+    assert(strstr(output, "class=\"wena-move-baseline\" id=\"card-1-to-list-2-baseline\"") != NULL);
+    assert(strstr(output, "name=\"legacySession\" value=\"session-token\"") != NULL);
+    assert(strstr(output, "name=\"legacyOperation\" value=\"move-card\"") != NULL);
+    assert(strstr(output, "name=\"csrf\" value=\"csrf-token\"") != NULL);
+    assert(strstr(output, "class=\"wena-drag-control wena-drag-source wena-drop-target\"") != NULL);
+    assert(strstr(output, "data-wena-form=\"card-1-to-list-2-baseline\"") != NULL);
+    assert(!wena_html4_render_move_control(&root, "/b/board-1/demo", "bad/id",
+                                          "move-card", "session", "csrf", "Move", "[>]",
+                                          output, sizeof(output)));
     assert(!wena_html4_render_page(&root, &page, output, 32));
     assert(output[0] == '\0');
     return 0;
