@@ -9,7 +9,8 @@
 typedef enum WenaDomainOperation {
     WENA_DOMAIN_CREATE_CARD = 1,
     WENA_DOMAIN_EDIT_CARD_TITLE = 2,
-    WENA_DOMAIN_ARCHIVE_CARD = 3
+    WENA_DOMAIN_ARCHIVE_CARD = 3,
+    WENA_DOMAIN_EDIT_BOARD_TITLE = 4
 } WenaDomainOperation;
 
 typedef struct WenaDomainCommand {

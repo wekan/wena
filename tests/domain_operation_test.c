@@ -59,5 +59,9 @@ int main(void)
     fake.fail = 1;
     assert(!wena_domain_operation_dispatch(&adapter, &intent, 2ul, &response));
     assert(fake.calls == 2 && adapter.last_request_version == 1ul);
+    fake.fail = 0;
+    strcpy(intent.operation, "edit-board-title");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 2ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_EDIT_BOARD_TITLE);
     return 0;
 }

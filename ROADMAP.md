@@ -146,6 +146,12 @@
       pinned migration, delegates listener stop/swap/reopen/restart to the verified
       lifecycle, reports rollback distinctly, rejects re-entry, and never records
       database paths, URLs, session material, or detailed storage errors.
+    - [x] Add the first hierarchy mutation beyond cards: an explicit
+      `edit-board-title` domain allowlist value backed by the shared SQLite adapter.
+      Require an authenticated actor, route-owned board, nonempty bounded title,
+      optimistic version and exact idempotency tuple inside one transaction; conflict,
+      unknown actor/board and replay leave both board and metadata unchanged. List and
+      swimlane operations remain separate follow-up slices.
     - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
       and domain adapters, then starts the listener; stop reverses that order and all
       partial-start failures close the database. Successful no-JS mutations use a
