@@ -48,6 +48,7 @@ def main():
     assert "language\tPersistent override" in tests.stdout
     assert "server-settings\tAdmin server" in tests.stdout
     assert "html4-render\tROOT_URL" in tests.stdout
+    assert "http-server\tBounded parser" in tests.stdout
     model_tests = command("tests", "models")
     assert model_tests.returncode == 0, model_tests.stderr
     locale_tests = command("tests", "locale")

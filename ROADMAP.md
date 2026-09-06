@@ -84,6 +84,10 @@
     validated port (for example `127.0.0.1:3000`), with restart/status/error state.
   - [_] Server adapter with bounded HTTP parsing, connection/request limits,
     timeouts, authentication tokens, authorization, audit logging, and safe CORS.
+    - [x] Add a fail-closed bounded HTTP/1.x request parser and fixed connection,
+      per-connection request, body/header, and timeout limits; add an IPv4-only
+      listener start/stop/restart lifecycle driven exclusively by validated Admin
+      settings, without accepting or dispatching mutations yet.
   - [_] Versioned WeKan-compatible REST routes for users, boards, swimlanes, lists,
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and
