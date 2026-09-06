@@ -103,6 +103,12 @@
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and
     preserve transactional parent relationships.
+    - [x] Pin and execute the version-1 SQLite schema golden for actors/sessions and
+      board/swimlane/list/card parent hierarchies, deterministic position indexes,
+      optimistic row versions, and actor+route+operation+request-version idempotency.
+      Document forward-only atomic checksum migrations, WAL/foreign-key/integrity
+      startup gates, crash recovery, and verified atomic backup/restore. The SQLite
+      migration runner and production adapter remain unimplemented.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card

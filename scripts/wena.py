@@ -153,7 +153,8 @@ def run_test(name):
               "capability": ROOT / "tests" / "test_capability.sh",
               "regions": ROOT / "tests" / "test_region_response.sh",
               "domain-operation": ROOT / "tests" / "test_domain_operation.sh",
-              "persistence": ROOT / "tests" / "test_persistence.sh"}
+              "persistence": ROOT / "tests" / "test_persistence.sh",
+              "sqlite-schema": ROOT / "tests" / "test_sqlite_schema.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -204,6 +205,7 @@ def main(argv):
         print("regions\tBounded versioned visible-region response protocol")
         print("domain-operation\tVerified intent to allowlisted domain callback")
         print("persistence\tAtomic in-memory transaction and rollback contract")
+        print("sqlite-schema\tVersioned SQLite schema and migration golden")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])
