@@ -84,7 +84,8 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     wena_escape(&writer, capability);
     wena_write(&writer, "\"></script></head><body style=\"background-color:");
     wena_write(&writer, wena_theme(page->theme_name)); wena_write(&writer, "\"><h1>");
-    wena_escape(&writer, page->heading); wena_write(&writer, "</h1><table summary=\"");
+    wena_escape(&writer, page->heading);
+    wena_write(&writer, "</h1><div id=\"wena-region-board\"><table summary=\"");
     wena_escape(&writer, page->heading); wena_write(&writer, "\"><caption>");
     wena_escape(&writer, page->heading); wena_write(&writer, "</caption><tbody>");
     for (index = 0; index < page->row_count; ++index) {
@@ -92,7 +93,7 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
         wena_write(&writer, "</th><td>"); wena_escape(&writer, page->rows[index].content);
         wena_write(&writer, "</td></tr>");
     }
-    wena_write(&writer, "</tbody></table><p><a href=\""); wena_escape(&writer, canonical);
+    wena_write(&writer, "</tbody></table></div><p><a href=\""); wena_escape(&writer, canonical);
     wena_write(&writer, "\">[R] "); wena_escape(&writer, page->heading);
     wena_write(&writer, "</a></p></body></html>");
     if (!writer.valid) { if (output != NULL && capacity > 0) output[0] = '\0'; return 0; }

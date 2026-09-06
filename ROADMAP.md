@@ -145,6 +145,10 @@
       allowlisted visible-region names, monotonically increasing request/region
       versions, partial updates, and replay/stale/out-of-order rejection. HTML is
       intentionally absent until a separately tested sanitizer/schema version.
+    - [x] Add the matching browser V1 byte parser and atomic applicator: fatal UTF-8,
+      identical schema/name/count/size/version checks, current-visible-ID lookup,
+      validate-all-before-write, `textContent` only, and baseline restoration on
+      unknown/malformed/stale/out-of-order data. Fetch/drop remain disconnected.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
