@@ -169,6 +169,7 @@ def run_test(name):
     suites["executable-path"] = ROOT / "tests" / "test_executable_path.sh"
     suites["sqlite-backup"] = ROOT / "tests" / "test_sqlite_backup.sh"
     suites["sqlite-restore"] = ROOT / "tests" / "test_sqlite_restore.sh"
+    suites["admin-storage"] = ROOT / "tests" / "test_admin_storage.sh"
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")

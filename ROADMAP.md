@@ -140,6 +140,12 @@
       original, reopen/restart through a lifecycle adapter, and restore plus restart
       the original on swap or reopen failure. Refuse stale recovery files, corruption,
       truncation, wrong checksums and newer schemas before disrupting the listener.
+    - [x] Connect backup and restore to bounded Admin Settings feature actions with
+      idle/busy/success/error state and a fixed-capacity, secret-free event audit.
+      Backup requires a running managed database; restore loads the executable's
+      pinned migration, delegates listener stop/swap/reopen/restart to the verified
+      lifecycle, reports rollback distinctly, rejects re-entry, and never records
+      database paths, URLs, session material, or detailed storage errors.
     - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
       and domain adapters, then starts the listener; stop reverses that order and all
       partial-start failures close the database. Successful no-JS mutations use a
