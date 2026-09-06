@@ -46,6 +46,26 @@
   - [x] Build the current host target, one selected catalog target, or every ready
     target; long non-menu commands return directly to the prompt without pauses.
   - [x] Share target dispatch/validation between menus and CI to prevent drift.
+- [_] Embed every canonical `wekan/imports/i18n/data/*.i18n.json` translation in
+  every one-file Wena executable/artifact; semantic equivalents of Meteor WeKan
+  pages and actions use the same WeKan keys and values, never a parallel catalog:
+  - [x] Generate one deterministic, compact offline catalog from the canonical
+    UTF-8 JSON files, rejecting missing/reordered English keys and changed
+    underscore/printf placeholder inventories; record source revision and hashes.
+  - [_] Pin the canonical WeKan revision, commit its generated catalog, document
+    MIT provenance/size budget, and make local/release builds fail when regeneration
+    differs, a language is absent, or the embedded catalog marker/hash is missing.
+  - [_] Add a strict-C89 runtime reader and link the same catalog into every ready
+    target (and every future target before it becomes `ready`) without network use.
+  - [_] Normalize OS locale identifiers deterministically (`language_REGION`,
+    `language-Region`, encodings, and modifiers) and resolve exact variant, then
+    base language, then English; support Windows, macOS/iOS, POSIX Linux/BSD,
+    Android, AmigaOS, and AROS locale APIs with explicit capability fallbacks.
+  - [_] Persist an explicit user language that overrides first-run OS detection,
+    and support immediate runtime language switching including RTL direction.
+  - [_] Map implemented Wena views/actions to canonical WeKan i18n keys and add
+    parity tests for all languages, key order, placeholders, UTF-8/RTL, missing
+    keys, locale normalization/fallback, runtime switching, and offline binaries.
 - [_] Add fast native equivalents of WeKan test categories, running against the
   current OS/CPU executable wherever behavior crosses a process boundary:
   - [x] Strict-C89 model/unit and negative-validation suites.
