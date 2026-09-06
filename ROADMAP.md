@@ -88,6 +88,10 @@
       per-connection request, body/header, and timeout limits; add an IPv4-only
       listener start/stop/restart lifecycle driven exclusively by validated Admin
       settings, without accepting or dispatching mutations yet.
+    - [x] Add bounded opaque auth sessions and route/operation/session-scoped,
+      single-use CSRF tokens sourced through a required entropy adapter; audit
+      accept/reject/expiry/replay/scope/capacity decisions without storing secrets.
+      Mutation dispatch remains closed until these controls are integrated.
   - [_] Versioned WeKan-compatible REST routes for users, boards, swimlanes, lists,
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and
