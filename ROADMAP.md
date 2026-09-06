@@ -96,6 +96,9 @@
     the same semantic accessible Legacy HTML4 Kanban pages and POST-button actions
     on the same WeKan URL families; generate every link/form action below ROOT_URL
     while listening only on the Admin-configured IPv4 address and port.
+    - [x] Add fail-closed ROOT_URL path joining plus an escaped strict HTML 4.01
+      one-content-table baseline and token-required POST form rendering from the
+      shared contract; listener/route dispatch remains a later server slice.
   - [x] Share one page/component contract with Meteor HTML4: canonical WeKan i18n
     keys/values, colors, one content-table baseline, ASCII controls, natural tab
     order, and REST-domain operations; do not create another visual/text catalog.

@@ -143,7 +143,8 @@ def run_test(name):
     suites = {"models": ROOT / "tests" / "test_models.sh",
               "locale": ROOT / "tests" / "test_locale.sh",
               "language": ROOT / "tests" / "test_language.sh",
-              "server-settings": ROOT / "tests" / "test_server_settings.sh"}
+              "server-settings": ROOT / "tests" / "test_server_settings.sh",
+              "html4-render": ROOT / "tests" / "test_legacy_html4_render.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -184,6 +185,7 @@ def main(argv):
         print("locale\tOS locale normalization, fallback, and RTL direction")
         print("language\tPersistent override and immediate runtime switching")
         print("server-settings\tAdmin server address, ROOT_URL, and lifecycle state")
+        print("html4-render\tROOT_URL-scoped escaped Legacy HTML4 baseline")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])
