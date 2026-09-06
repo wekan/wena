@@ -36,7 +36,7 @@ def main() -> None:
     assert "dist/${{ matrix.target }}/" in workflow
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
-        "macOS arm64",
+        "macOS arm64", "macOS amd64",
     }
     for display_name in (
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",

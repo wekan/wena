@@ -34,7 +34,9 @@
   - [x] macOS arm64
     - Builds a strict C89 Mach-O executable with Apple's arm64 target and verifies
       both the Mach-O format and the single arm64 architecture before upload.
-  - [_] macOS amd64
+  - [x] macOS amd64
+    - Builds a strict C89 Mach-O executable with Apple's x86-64 target and verifies
+      both the Mach-O format and the single x86-64 architecture before upload.
   - [_] AmigaOS 3.x m68k
   - [_] AROS x86
   - [_] Android arm64
