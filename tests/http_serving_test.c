@@ -231,12 +231,21 @@ int main(void)
     assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
                                     100ul, 50ul, csrf, sizeof(csrf)));
     sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=archive-card", session, csrf);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",listener.bound_port,(unsigned long)strlen(body),body);
+    assert(exchange(&listener,&settings,request,response,sizeof(response))==WENA_HTTP_SERVE_OK);
+    assert(strstr(response,"HTTP/1.1 303 See Other")!=NULL);
+    assert(strstr(response,"Location: http://127.0.0.1:")!=NULL);
+    assert(strstr(response,"/base/b/one/demo\r\n")!=NULL);
+
+    assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
+                                    100ul, 50ul, csrf, sizeof(csrf)));
+    sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=archive-card", session, csrf);
     sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nAccept: application/vnd.wena.regions-v1\r\nX-Wena-Request-Version: broken\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
             listener.bound_port, (unsigned long)strlen(body), body);
     assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
            WENA_HTTP_SERVE_REJECTED);
     assert(strstr(response, "HTTP/1.1 406 Not Acceptable") != NULL);
-    assert(fake_domain.calls == 1);
+    assert(fake_domain.calls == 2);
     sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nAccept: application/vnd.wena.regions-v1\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
             listener.bound_port, (unsigned long)strlen(body), body);
     assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
@@ -248,12 +257,12 @@ int main(void)
            WENA_HTTP_SERVE_REJECTED);
     assert(strstr(response, "HTTP/1.1 406 Not Acceptable") != NULL);
     fake_domain.fail = 1;
-    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nAccept: application/vnd.wena.regions-v1\r\nX-Wena-Request-Version: 2\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nAccept: application/vnd.wena.regions-v1\r\nX-Wena-Request-Version: 3\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
             listener.bound_port, (unsigned long)strlen(body), body);
     assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
            WENA_HTTP_SERVE_REJECTED);
     assert(strstr(response, "HTTP/1.1 409 Conflict") != NULL);
-    assert(fake_domain.calls == 2 && domain_adapter.last_request_version == 1ul);
+    assert(fake_domain.calls == 3 && domain_adapter.last_request_version == 2ul);
 
     /* A cookieless/no-JS client gets semantic HTML and can follow the GET link;
        no inline script or enhancement-only control is needed to read the page. */

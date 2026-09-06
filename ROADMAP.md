@@ -129,6 +129,11 @@
       listener registration and broader board/list/swimlane mutations remain pending.
       Idempotency metadata stores the actual SHA-256 of the fully encoded region
       response, and commit requires exactly one pending-to-checksummed transition.
+    - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
+      and domain adapters, then starts the listener; stop reverses that order and all
+      partial-start failures close the database. Successful no-JS mutations use a
+      server-owned version and return 303 only to ROOT_URL plus the validated current
+      route; enhancement mutations keep the negotiated V1 response path.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card

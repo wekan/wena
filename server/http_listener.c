@@ -5,6 +5,7 @@
 #include "legacy_html4.h"
 #include "response_policy.h"
 #include "router.h"
+#include "root_url.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -30,7 +31,7 @@
 
 void wena_http_listener_init(WenaHttpListener *listener)
 {
-    if (listener != NULL) memset(listener, 0, sizeof(*listener));
+    if (listener != NULL) { memset(listener, 0, sizeof(*listener)); listener->next_request_version=1ul; }
 }
 
 void wena_http_listener_set_security(WenaHttpListener *listener, WenaSecurityStore *security,
@@ -183,6 +184,15 @@ static int wena_response(WENA_SOCKET client, int status, const char *reason,
                                "text/html; charset=utf-8", body);
 }
 
+static int wena_redirect(WENA_SOCKET client,const WenaResponsePolicy *policy,const char *location)
+{
+    char response[4096];char line[512];size_t used,index;int written;
+    if(location==NULL||strchr(location,'\r')||strchr(location,'\n'))return 0;
+    written=sprintf(response,"HTTP/1.1 303 See Other\r\nConnection: close\r\nLocation: %s\r\nContent-Length: 0\r\n",location);if(written<0)return 0;used=(size_t)written;
+    for(index=0;index<policy->header_count;++index){written=sprintf(line,"%s: %s\r\n",policy->headers[index].name,policy->headers[index].value);if(written<0||used+(size_t)written+2>=sizeof(response))return 0;memcpy(response+used,line,(size_t)written);used+=(size_t)written;}
+    memcpy(response+used,"\r\n",2);used+=2;return wena_send_all(client,response,used);
+}
+
 static int wena_strip_base_path(WenaHttpRequest *request, const char *base_path)
 {
     size_t base_length;
@@ -316,6 +326,7 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
         const char *accept;
         const char *version;
         int enhancement;
+        WenaRegionResponse region_response;
         now = listener->now == NULL ? 0ul : listener->now(listener->now_context);
         accept = wena_http_header(&request, "accept");
         version = wena_http_header(&request, "x-wena-request-version");
@@ -342,7 +353,6 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
             return WENA_HTTP_SERVE_REJECTED;
         }
         if (enhancement) {
-            WenaRegionResponse region_response;
             char encoded[WENA_REGION_RESPONSE_MAX_BYTES];
             size_t encoded_length;
             if (!wena_domain_operation_dispatch(listener->domain_adapter, &intent,
@@ -353,6 +363,7 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
                 wena_close_socket(client);
                 return WENA_HTTP_SERVE_REJECTED;
             }
+            if(request_version>=listener->next_request_version)listener->next_request_version=request_version+1ul;
             if (!wena_response_typed_length(client, 200, "OK", &policy,
                                             "application/vnd.wena.regions-v1", encoded,
                                             encoded_length)) {
@@ -362,6 +373,7 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
             wena_close_socket(client);
             return WENA_HTTP_SERVE_OK;
         }
+        if(listener->domain_adapter!=NULL){char location[WENA_SERVER_ROOT_URL_CAPACITY+128];request_version=listener->next_request_version;if(wena_domain_operation_dispatch(listener->domain_adapter,&intent,request_version,&region_response)){if(!wena_root_url_join(&settings->parsed_root_url,request.target,location,sizeof(location))||!wena_redirect(client,&policy,location)){wena_close_socket(client);return WENA_HTTP_SERVE_ERROR;}listener->next_request_version=request_version+1ul;wena_close_socket(client);return WENA_HTTP_SERVE_OK;}}
         wena_response(client, 503, "Service Unavailable", &policy,
                       "Mutation dispatch is not enabled");
         wena_close_socket(client);

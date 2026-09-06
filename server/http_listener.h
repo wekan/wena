@@ -18,6 +18,7 @@ typedef struct WenaHttpListener {
     WenaHttpNow now;
     void *now_context;
     WenaDomainAdapter *domain_adapter;
+    unsigned long next_request_version;
 } WenaHttpListener;
 
 typedef enum WenaHttpServeResult {
