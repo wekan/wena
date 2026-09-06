@@ -45,10 +45,13 @@ def main():
     assert tests.returncode == 0
     assert "models\tStrict-C89" in tests.stdout
     assert "locale\tOS locale" in tests.stdout
+    assert "language\tPersistent override" in tests.stdout
     model_tests = command("tests", "models")
     assert model_tests.returncode == 0, model_tests.stderr
     locale_tests = command("tests", "locale")
     assert locale_tests.returncode == 0, locale_tests.stderr
+    language_tests = command("tests", "language")
+    assert language_tests.returncode == 0, language_tests.stderr
     bad_tests = command("tests", "unknown")
     assert bad_tests.returncode != 0
     assert "unknown test suite" in bad_tests.stderr

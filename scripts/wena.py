@@ -113,11 +113,14 @@ def build_menu():
 
 def tests_menu():
     answer = choose("Tests", [("1", "Strict-C89 models"),
-                              ("2", "Locale normalization and fallback"), ("b", "Back")])
+                              ("2", "Locale normalization and fallback"),
+                              ("3", "Language override and runtime switch"), ("b", "Back")])
     if answer == "1":
         result = run_test("models")
     elif answer == "2":
         result = run_test("locale")
+    elif answer == "3":
+        result = run_test("language")
     else:
         return
     if result:
@@ -138,7 +141,8 @@ def tools_menu():
 
 def run_test(name):
     suites = {"models": ROOT / "tests" / "test_models.sh",
-              "locale": ROOT / "tests" / "test_locale.sh"}
+              "locale": ROOT / "tests" / "test_locale.sh",
+              "language": ROOT / "tests" / "test_language.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -177,6 +181,7 @@ def main(argv):
     if argv == ["tests", "--list"]:
         print("models\tStrict-C89 model/unit and negative validation")
         print("locale\tOS locale normalization, fallback, and RTL direction")
+        print("language\tPersistent override and immediate runtime switching")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

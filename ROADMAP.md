@@ -61,7 +61,7 @@
     `language-Region`, encodings, and modifiers) and resolve exact variant, then
     base language, then English; support Windows, macOS/iOS, POSIX Linux/BSD,
     Android, AmigaOS, and AROS locale APIs with explicit capability fallbacks.
-  - [_] Persist an explicit user language that overrides first-run OS detection,
+  - [x] Persist an explicit user language that overrides first-run OS detection,
     and support immediate runtime language switching including RTL direction.
   - [_] Map implemented Wena views/actions to canonical WeKan i18n keys and add
     parity tests for all languages, key order, placeholders, UTF-8/RTL, missing
