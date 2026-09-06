@@ -127,6 +127,8 @@
       complete region validation, and mutation+idempotency commit in one transaction.
       Temp-db tests cover success, replay, conflict rollback and restart persistence;
       listener registration and broader board/list/swimlane mutations remain pending.
+      Idempotency metadata stores the actual SHA-256 of the fully encoded region
+      response, and commit requires exactly one pending-to-checksummed transition.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card
