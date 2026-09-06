@@ -177,3 +177,83 @@ jobs:
           name: wena-release-assets
           path: release-assets/
           if-no-files-found: error
+
+  upload-assets:
+    name: Attach assets to newest existing release
+    needs: [resolve-release, collect-assets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download collected release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: wena-release-assets
+          path: release-assets
+
+      - name: Replace release assets deterministically
+        id: upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: |
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | LC_ALL=C sort)
+          if test "${#assets[@]}" -eq 0; then
+            echo "::error::No collected release assets were downloaded"
+            exit 1
+          fi
+          uploaded=false
+          for attempt in 1 2 3; do
+            echo "Uploading ${#assets[@]} assets to ${RELEASE_TAG} (attempt ${attempt}/3)"
+            if timeout 10m gh release upload \
+              --repo wekan/wena \
+              "$RELEASE_TAG" \
+              "${assets[@]}" \
+              --clobber; then
+              uploaded=true
+              break
+            fi
+            echo "::warning::Release asset upload attempt ${attempt}/3 failed"
+          done
+          if test "$uploaded" != true; then
+            echo "::error::Could not attach release assets after 3 attempts"
+            exit 1
+          fi
+
+      - name: Verify attached asset names, sizes, and checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.resolve-release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: |
+          verified=false
+          for attempt in 1 2 3; do
+            if timeout 2m gh api \
+              --method GET \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "repos/wekan/wena/releases/${RELEASE_ID}/assets?per_page=100" \
+              > release-assets-response.json && \
+              python3 scripts/verify_release_assets.py \
+                --local release-assets \
+                --response release-assets-response.json; then
+              verified=true
+              break
+            fi
+            echo "::warning::Post-upload verification attempt ${attempt}/3 failed"
+          done
+          if test "$verified" != true; then
+            echo "::error::Release ${RELEASE_TAG} failed post-upload verification"
+            exit 1
+          fi
+          asset_count=$(find release-assets -maxdepth 1 -type f | wc -l)
+          {
+            echo "### Wena release assets"
+            echo "Attached and verified ${asset_count} assets on existing release ${RELEASE_TAG}."
+            echo "Replacement policy: deterministic names with \`--clobber\`."
+          } >> "$GITHUB_STEP_SUMMARY"

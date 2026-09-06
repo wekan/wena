@@ -28,15 +28,15 @@
   - [_] WebAssembly wasm32 as a self-contained web artifact bundle.
   - [_] Replace the old AROS SDK image when a maintained compatible image or
     reproducible current-source toolchain is available.
-- [_] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
+- [x] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
   - [x] Require an existing newest `github.com/wekan/wena` release and resolve its
     tag without creating, publishing, editing, or pushing a release.
   - [x] Build every `ready` catalog target; a missing script or artifact is a hard
     failure rather than a skipped target.
   - [x] Collect every verified executable/bundle under unique release asset names.
-  - [_] Attach all collected assets to that newest release with `contents: write`,
+  - [x] Attach all collected assets to that newest release with `contents: write`,
     collision handling, post-upload verification, timeouts, and per-job summaries.
-  - [_] Add static regression tests for permissions, dependencies, complete asset
+  - [x] Add static regression tests for permissions, dependencies, complete asset
     coverage, and the no-release-creation/no-push boundary. Implement/test only;
     never run this workflow or invoke a release/upload command from an assistant.
 - [_] Add WeKan-style local build entry points:

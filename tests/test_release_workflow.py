@@ -47,7 +47,6 @@ def main() -> None:
     assert "latest Wena release response lacks id or tag_name" in workflow
     assert "--request POST" not in workflow
     assert "--request PATCH" not in workflow
-    assert "gh release" not in workflow
     assert "action-gh-release" not in workflow
     assert "needs: cross-compile" in workflow
     assert "actions/download-artifact@v4" in workflow
@@ -56,6 +55,20 @@ def main() -> None:
     assert "--repository \"$GITHUB_REPOSITORY\"" in workflow
     assert "--commit \"$GITHUB_SHA\"" in workflow
     assert "name: wena-release-assets" in workflow
+    assert "needs: [resolve-release, collect-assets]" in workflow
+    assert workflow.count("contents: write") == 1
+    assert "timeout-minutes: 20" in workflow
+    assert "timeout 10m gh release upload" in workflow
+    assert "--clobber" in workflow
+    assert "for attempt in 1 2 3" in workflow
+    assert "--method GET" in workflow
+    assert "scripts/verify_release_assets.py" in workflow
+    assert "GITHUB_STEP_SUMMARY" in workflow
+    assert "gh release create" not in workflow
+    assert "gh release edit" not in workflow
+    assert "git push" not in workflow
+    assert "--draft" not in workflow
+    assert "--publish" not in workflow
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",
