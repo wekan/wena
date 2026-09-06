@@ -51,6 +51,7 @@ def main():
     assert "http-server\tBounded parser" in tests.stdout
     assert "security\tOpaque sessions" in tests.stdout
     assert "router\tRead-only GET" in tests.stdout
+    assert "platform-security\tOS entropy" in tests.stdout
     model_tests = command("tests", "models")
     assert model_tests.returncode == 0, model_tests.stderr
     locale_tests = command("tests", "locale")

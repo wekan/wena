@@ -92,6 +92,10 @@
       single-use CSRF tokens sourced through a required entropy adapter; audit
       accept/reject/expiry/replay/scope/capacity decisions without storing secrets.
       Mutation dispatch remains closed until these controls are integrated.
+    - [x] Add production OS cryptographic entropy (Windows CNG, Apple/BSD
+      `arc4random_buf`, Linux/Android `getrandom`, fail-closed `/dev/urandom`
+      fallback) and strict same-origin CORS plus no-store/nosniff/frame/referrer/
+      CSP response headers; unsupported platforms cannot enable authenticated mode.
   - [_] Versioned WeKan-compatible REST routes for users, boards, swimlanes, lists,
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and
@@ -119,6 +123,16 @@
   - [_] Add Meteor HTML4 route-parity and golden/contract tests, cookieless/no-JS
     HTTP E2E, forged-scope/CSRF/replay/open-redirect/escaping negative tests, and
     configured startup/restart/listener tests.
+  - [_] Keep visible HTML4 move buttons as the always-working no-JS baseline.
+    After a capability script proves JavaScript and required drag/drop APIs work,
+    hide only equivalent card/list/swimlane move controls and expose minimal drag/drop
+    with the same session, route, operation, and single-use-CSRF POST semantics;
+    never branch on User-Agent, and restore baseline controls on any failure.
+  - [_] Define a bounded same-origin enhancement response containing operation result
+    plus versioned replacements only for named regions already visible on the page.
+    Validate region names/schema/size and stale or out-of-order versions client-side;
+    never execute returned script or accept unknown targets, and cover replay,
+    abort/timeout, focus, keyboard/accessibility, CSP, and no-JS negative behavior.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
