@@ -33,6 +33,15 @@ void wena_http_listener_init(WenaHttpListener *listener)
     if (listener != NULL) memset(listener, 0, sizeof(*listener));
 }
 
+void wena_http_listener_set_security(WenaHttpListener *listener, WenaSecurityStore *security,
+                                     WenaHttpNow now, void *context)
+{
+    if (listener == NULL || listener->open) return;
+    listener->security = security;
+    listener->now = now;
+    listener->now_context = context;
+}
+
 int wena_http_listener_start(WenaHttpListener *listener, WenaServerSettings *settings)
 {
     WENA_SOCKET socket_handle;
@@ -268,6 +277,15 @@ WenaHttpServeResult wena_http_listener_serve_once(WenaHttpListener *listener,
         return WENA_HTTP_SERVE_OK;
     }
     if (strcmp(request.method, "POST") == 0) {
+        unsigned long now;
+        now = listener->now == NULL ? 0ul : listener->now(listener->now_context);
+        if (listener->security == NULL || listener->now == NULL ||
+            wena_route_dispatch(&request, listener->security, now, &intent) !=
+            WENA_ROUTE_MUTATION_INTENT) {
+            wena_response(client, 403, "Forbidden", &policy, "Forbidden");
+            wena_close_socket(client);
+            return WENA_HTTP_SERVE_REJECTED;
+        }
         wena_response(client, 503, "Service Unavailable", &policy,
                       "Mutation dispatch is not enabled");
         wena_close_socket(client);

@@ -7,6 +7,27 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+typedef struct TestSecurityContext {
+    unsigned int entropy_value;
+    unsigned long now;
+} TestSecurityContext;
+
+static int entropy_bytes(void *context, unsigned char *output, size_t length)
+{
+    TestSecurityContext *state;
+    size_t index;
+    state = (TestSecurityContext *)context;
+    ++state->entropy_value;
+    for (index = 0; index < length; ++index)
+        output[index] = (unsigned char)(state->entropy_value + (unsigned int)index);
+    return 1;
+}
+
+static unsigned long test_now(void *context)
+{
+    return ((TestSecurityContext *)context)->now;
+}
+
 static int connect_client(unsigned int port)
 {
     int client;
@@ -49,9 +70,18 @@ int main(void)
     char response[16384];
     char request[1024];
     int started;
+    WenaSecurityStore security;
+    TestSecurityContext security_context;
+    char session[WENA_SECURITY_TOKEN_CAPACITY];
+    char csrf[WENA_SECURITY_TOKEN_CAPACITY];
+    char body[512];
 
     wena_http_listener_init(&listener);
     wena_server_settings_init(&settings);
+    memset(&security_context, 0, sizeof(security_context));
+    security_context.now = 100ul;
+    wena_security_init(&security, entropy_bytes, &security_context);
+    wena_http_listener_set_security(&listener, &security, test_now, &security_context);
     started = 0;
     for (port = 39100u; port < 39200u && !started; ++port) {
         sprintf(root_url, "http://127.0.0.1:%u/base", port);
@@ -102,8 +132,60 @@ int main(void)
             listener.bound_port);
     assert(exchange(&listener, &settings, request,
            response, sizeof(response)) == WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
+
+    assert(wena_security_session_create(&security, "user-1", 100ul, 100ul,
+                                        session, sizeof(session)));
+    assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
+                                    100ul, 50ul, csrf, sizeof(csrf)));
+    sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=archive-card", session, csrf);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
     assert(strstr(response, "HTTP/1.1 503 Service Unavailable") != NULL);
     assert(strstr(response, "Mutation dispatch is not enabled") != NULL);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
+
+    assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
+                                    100ul, 50ul, csrf, sizeof(csrf)));
+    sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=create-card", session, csrf);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
+
+    assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
+                                    100ul, 50ul, csrf, sizeof(csrf)));
+    sprintf(body, "legacySession=bad-session&csrf=%s&legacyOperation=archive-card", csrf);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
+    sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=archive-card", session, csrf);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 503 Service Unavailable") != NULL);
+
+    assert(wena_security_csrf_issue(&security, session, "/b/one/demo", "archive-card",
+                                    100ul, 50ul, csrf, sizeof(csrf)));
+    sprintf(body, "legacySession=%s&csrf=%s&legacyOperation=archive-card", session, csrf);
+    sprintf(request, "POST /base/b/two/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
+    sprintf(request, "POST /base/b/one/demo HTTP/1.1\r\nHost: 127.0.0.1:%u\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: %lu\r\n\r\n%s",
+            listener.bound_port, (unsigned long)strlen(body), body);
+    assert(exchange(&listener, &settings, request, response, sizeof(response)) ==
+           WENA_HTTP_SERVE_REJECTED);
+    assert(strstr(response, "HTTP/1.1 403 Forbidden") != NULL);
 
     /* A cookieless/no-JS client gets semantic HTML and can follow the GET link;
        no inline script or enhancement-only control is needed to read the page. */

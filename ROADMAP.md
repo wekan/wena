@@ -123,9 +123,17 @@
     order, and REST-domain operations; do not create another visual/text catalog.
   - [_] Protect HTML4 sessions and mutations with scoped CSRF tokens, replay
     prevention, authorization, safe redirects, output escaping, and GET immutability.
+    - [x] Connect the bounded listener POST gate to the audited session and exact
+      route/operation/single-use-CSRF verifier with an injected monotonic clock.
+      Valid no-JS forms reach a non-mutating 503 intent boundary; invalid auth,
+      scope, media type, operation, and replay fail closed as 403 over real sockets.
   - [_] Add Meteor HTML4 route-parity and golden/contract tests, cookieless/no-JS
     HTTP E2E, forged-scope/CSRF/replay/open-redirect/escaping negative tests, and
     configured startup/restart/listener tests.
+    - [x] Pin the Meteor Legacy HTML4 route-family golden with its source revision
+      and require exact ordered parity from Wena's shared page contract. Exercise
+      cookieless GET plus authenticated valid, wrong-session, wrong-operation,
+      wrong-route, and replayed no-JS POSTs through the real IPv4 listener.
   - [_] Keep visible HTML4 move buttons as the always-working no-JS baseline.
     After a capability script proves JavaScript and required drag/drop APIs work,
     hide only equivalent card/list/swimlane move controls and expose minimal drag/drop

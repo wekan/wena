@@ -1,0 +1,17 @@
+# Golden route families from wekan/wekan imports/lib/legacyHtml4.js
+# Source revision: 93c87ece665b85e949d1525b12617b9d2eb77c91
+/
+/sign-in
+/sign-up
+/allboards
+/public
+/my-cards
+/due-cards
+/global-search
+/bookmarks
+/import
+/support
+/accessibility
+/shortcuts
+/admin
+/b/:boardId/:slug

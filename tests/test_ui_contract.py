@@ -26,11 +26,10 @@ def main():
     contract_keys = re.findall(r'\{(?:WENA_UI_[A-Z_]+|"/[^"]*"), "([^"]+)"', source)
     assert contract_keys
     assert not sorted(set(contract_keys) - keys), "contract contains noncanonical i18n keys"
-    expected_routes = [
-        "/", "/sign-in", "/sign-up", "/allboards", "/public", "/my-cards",
-        "/due-cards", "/global-search", "/bookmarks", "/import", "/support",
-        "/accessibility", "/shortcuts", "/admin", "/b/:boardId/:slug",
-    ]
+    expected_routes = [line for line in
+                       (ROOT / "tests" / "fixtures" /
+                        "meteor_legacy_html4_routes.txt").read_text(encoding="utf-8").splitlines()
+                       if line and not line.startswith("#")]
     routes = re.findall(r'\{"(/[^"]*)", "[^"]+"\}', source)
     assert routes == expected_routes
     with tempfile.TemporaryDirectory() as temporary:

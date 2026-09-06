@@ -2,14 +2,20 @@
 #define WENA_SERVER_HTTP_LISTENER_H
 
 #include "settings.h"
+#include "security.h"
 
 #include <stddef.h>
+
+typedef unsigned long (*WenaHttpNow)(void *context);
 
 typedef struct WenaHttpListener {
     size_t socket_handle;
     int open;
     char bound_ipv4[WENA_SERVER_IPV4_CAPACITY];
     unsigned int bound_port;
+    WenaSecurityStore *security;
+    WenaHttpNow now;
+    void *now_context;
 } WenaHttpListener;
 
 typedef enum WenaHttpServeResult {
@@ -20,6 +26,8 @@ typedef enum WenaHttpServeResult {
 } WenaHttpServeResult;
 
 void wena_http_listener_init(WenaHttpListener *listener);
+void wena_http_listener_set_security(WenaHttpListener *listener, WenaSecurityStore *security,
+                                     WenaHttpNow now, void *context);
 int wena_http_listener_start(WenaHttpListener *listener, WenaServerSettings *settings);
 void wena_http_listener_stop(WenaHttpListener *listener, WenaServerSettings *settings);
 int wena_http_listener_restart(WenaHttpListener *listener, WenaServerSettings *settings);
