@@ -252,6 +252,12 @@
       the router can authorize exactly the operations rendered by HTML4 and enhanced
       DnD. Exercise visible signed baseline rendering for all hierarchy types. The
       SQLite position transaction for these newly admitted intents remains pending.
+    - [x] Persist the first admitted movement intent, `move-card`, atomically: accept
+      object and destination IDs only from the verified baseline form, require the
+      card plus target list/swimlane to share the route board, reject archived cards,
+      enforce optimistic version/idempotency, and append at a collision-free target
+      position in the same SQLite transaction. Invalid parents, conflicts and replay
+      roll back without movement or metadata; list/swimlane reordering remains pending.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;
