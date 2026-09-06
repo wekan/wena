@@ -258,6 +258,11 @@
       enforce optimistic version/idempotency, and append at a collision-free target
       position in the same SQLite transaction. Invalid parents, conflicts and replay
       roll back without movement or metadata; list/swimlane reordering remains pending.
+    - [x] Persist `move-list` from the same signed HTML4/DnD POST contract. Validate
+      actor, route-board parent, list ID, bounded target position and optimistic
+      version before shifting the board's unique contiguous positions atomically;
+      record the exact idempotency response in that transaction. Cover success,
+      forged parent, conflict, replay, reopen persistence and the no-JS baseline.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;

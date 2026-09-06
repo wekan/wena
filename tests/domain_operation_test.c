@@ -72,5 +72,8 @@ int main(void)
     strcpy(intent.operation, "move-card");
     assert(wena_domain_operation_dispatch(&adapter, &intent, 5ul, &response));
     assert(fake.last.operation == WENA_DOMAIN_MOVE_CARD);
+    strcpy(intent.operation, "move-list");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 6ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_MOVE_LIST);
     return 0;
 }
