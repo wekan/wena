@@ -140,6 +140,11 @@
     Validate region names/schema/size and stale or out-of-order versions client-side;
     never execute returned script or accept unknown targets, and cover replay,
     abort/timeout, focus, keyboard/accessibility, CSP, and no-JS negative behavior.
+    - [x] Define and parse `WENA-REGIONS/1`, an atomic text-only first version with
+      explicit byte lengths, strict UTF-8, 32 KiB/8-region/4 KiB-region limits,
+      allowlisted visible-region names, monotonically increasing request/region
+      versions, partial updates, and replay/stale/out-of-order rejection. HTML is
+      intentionally absent until a separately tested sanitizer/schema version.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,

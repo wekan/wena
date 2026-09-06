@@ -54,6 +54,7 @@ def main():
     assert "platform-security\tOS entropy" in tests.stdout
     assert "http-serving\tTimed read-only" in tests.stdout
     assert "capability\tProgressive drag/drop" in tests.stdout
+    assert "regions\tBounded versioned" in tests.stdout
     model_tests = command("tests", "models")
     assert model_tests.returncode == 0, model_tests.stderr
     locale_tests = command("tests", "locale")
