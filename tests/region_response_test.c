@@ -71,6 +71,8 @@ int main(void)
     assert(!wena_region_response_parse(
         "WENA-REGIONS/1\nrequest-version 1\nregion board 1 4097\n",
         strlen("WENA-REGIONS/1\nrequest-version 1\nregion board 1 4097\n"), &parsed));
+    memset(wire, 'x', sizeof(wire));
+    assert(!wena_region_response_parse(wire, sizeof(wire), &parsed));
 
     source.regions[0].content[0] = (char)0xc0;
     source.regions[0].content[1] = (char)0x80;

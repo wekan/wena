@@ -205,6 +205,12 @@
       media type/response limit, monotonic request IDs, one in-flight request, and
       AbortController timeout/failure restoration. No handler invokes it yet, so
       mutation dispatch and drag/drop remain closed.
+    - [x] Discover every currently visible allowlisted region from renderer-owned
+      stable IDs and versions instead of hard-coding the board. The integration suite
+      combines no-JS HTML/socket fallback, capability-supported/unsupported and POST
+      failure contracts, and strict-C behavioral malformed/oversized/stale/replay plus
+      atomic multi-region/partial-update tests. A real browser-runtime E2E remains
+      pending because the build environment provides no browser or JavaScript engine.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,

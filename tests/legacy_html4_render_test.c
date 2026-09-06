@@ -51,6 +51,7 @@ int main(void)
     assert(strstr(output, "HTML 4.01") != NULL);
     assert(occurrences(output, "<table ") == 1);
     assert(strstr(output, "id=\"wena-region-board\"") != NULL);
+    assert(strstr(output, "class=\"wena-visible-region\" data-wena-region=\"board\" data-wena-version=\"1\"") != NULL);
     assert(strstr(output, "background-color:#2980b9") != NULL);
     assert(strstr(output, "src=\"https://kanban.example:8443/team/legacy-html4-capabilities.js\"") != NULL);
     assert(strstr(output, "href=\"https://kanban.example:8443/team/legacy-html4-capabilities.css\"") != NULL);

@@ -90,7 +90,7 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     wena_write(&writer, "\"></script></head><body style=\"background-color:");
     wena_write(&writer, wena_theme(page->theme_name)); wena_write(&writer, "\"><h1>");
     wena_escape(&writer, page->heading);
-    wena_write(&writer, "</h1><div id=\"wena-region-board\"><table summary=\"");
+    wena_write(&writer, "</h1><div id=\"wena-region-board\" class=\"wena-visible-region\" data-wena-region=\"board\" data-wena-version=\"1\"><table summary=\"");
     wena_escape(&writer, page->heading); wena_write(&writer, "\"><caption>");
     wena_escape(&writer, page->heading); wena_write(&writer, "</caption><tbody>");
     for (index = 0; index < page->row_count; ++index) {

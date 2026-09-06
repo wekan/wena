@@ -51,6 +51,10 @@ for required in (
     "Move selected; choose a destination.",
     "live.textContent='Move complete.'", "if(target.focus){target.focus();}",
     "if(!activate(doc)){return false;}", "if(!bindDragDrop(doc,state,5000)){restore();return false;}",
+    "function visibleState(doc)", "getElementsByClassName('wena-visible-region')",
+    "data-wena-region", "data-wena-version", "hasOwnProperty.call(visible,name)",
+    "nodes[i].id!=='wena-region-'+name", "nodes.length>8", "allowed.test(name)",
+    "visible:visibleState(doc)",
 ):
     assert required in script, required
 assert "eval(" not in script and "innerHTML" not in script
