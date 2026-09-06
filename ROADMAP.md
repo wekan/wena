@@ -52,7 +52,9 @@
 - [_] Using same directory structure like Meteor 3 WeKan, save files as C89 and Nuklear GUI code
   - [x] Establish documented `client/components`, `client/features`, `models`,
     `imports`, and `server` source boundaries and move the C89 entry point to client.
-  - [_] Add shared C89 model modules matching Meteor WeKan collections.
+  - [x] Add shared C89 model modules matching the core Meteor WeKan board,
+    swimlane, list, and card collections, with bounded strings and relationship
+    validation. Remaining collections will be added as their features are ported.
   - [_] Add Nuklear component and feature modules matching the Jade UI areas.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
