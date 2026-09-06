@@ -75,5 +75,8 @@ int main(void)
     strcpy(intent.operation, "move-list");
     assert(wena_domain_operation_dispatch(&adapter, &intent, 6ul, &response));
     assert(fake.last.operation == WENA_DOMAIN_MOVE_LIST);
+    strcpy(intent.operation, "move-swimlane");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 7ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_MOVE_SWIMLANE);
     return 0;
 }

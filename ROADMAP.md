@@ -263,6 +263,11 @@
       version before shifting the board's unique contiguous positions atomically;
       record the exact idempotency response in that transaction. Cover success,
       forged parent, conflict, replay, reopen persistence and the no-JS baseline.
+    - [x] Persist `move-swimlane` with the identical signed baseline/DnD operation
+      boundary and collision-free contiguous reorder transaction. Validate actor,
+      route-board scope, target bounds and optimistic version before writes; commit
+      reorder, response checksum and idempotency together. Test success, forged scope,
+      conflict, replay, reopen persistence and progressive/no-JS regressions.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;
