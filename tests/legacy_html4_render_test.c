@@ -81,6 +81,14 @@ int main(void)
     assert(strstr(output, "name=\"csrf\" value=\"csrf-token\"") != NULL);
     assert(strstr(output, "class=\"wena-drag-control wena-drag-source wena-drop-target\"") != NULL);
     assert(strstr(output, "data-wena-form=\"card-1-to-list-2-baseline\"") != NULL);
+    assert(wena_html4_render_move_control(&root, "/b/board-1/demo", "list-1-after-list-2",
+                                         wena_ui_control(WENA_UI_MOVE_LIST)->domain_operation,
+                                         "session", "csrf", "Move list", "[>]", output, sizeof(output)));
+    assert(strstr(output, "legacyOperation\" value=\"move-list") != NULL);
+    assert(wena_html4_render_move_control(&root, "/b/board-1/demo", "swimlane-1-after-swimlane-2",
+                                         wena_ui_control(WENA_UI_MOVE_SWIMLANE)->domain_operation,
+                                         "session", "csrf", "Move swimlane", "[>]", output, sizeof(output)));
+    assert(strstr(output, "legacyOperation\" value=\"move-swimlane") != NULL);
     assert(!wena_html4_render_move_control(&root, "/b/board-1/demo", "bad/id",
                                           "move-card", "session", "csrf", "Move", "[>]",
                                           output, sizeof(output)));

@@ -14,7 +14,10 @@ typedef enum WenaUiControlId {
     WENA_UI_CARD_MENU,
     WENA_UI_EDIT_TITLE,
     WENA_UI_ARCHIVE_CARD,
-    WENA_UI_CLOSE
+    WENA_UI_CLOSE,
+    WENA_UI_MOVE_CARD,
+    WENA_UI_MOVE_LIST,
+    WENA_UI_MOVE_SWIMLANE
 } WenaUiControlId;
 
 typedef struct WenaUiControlContract {

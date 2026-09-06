@@ -8,7 +8,10 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_CARD_MENU, "card", "Card menu", "[>]", "GET", "open-card-menu", 5u},
     {WENA_UI_EDIT_TITLE, "edit", "Edit title", "[E]", "POST", "edit-card-title", 6u},
     {WENA_UI_ARCHIVE_CARD, "archive-card", "Archive card", "[A]", "POST", "archive-card", 7u},
-    {WENA_UI_CLOSE, "close", "Close details", "[X]", "GET", "close-card", 8u}
+    {WENA_UI_CLOSE, "close", "Close details", "[X]", "GET", "close-card", 8u},
+    {WENA_UI_MOVE_CARD, "move-card-up", "Move card", "[>]", "POST", "move-card", 9u},
+    {WENA_UI_MOVE_LIST, "move-list-right", "Move list", "[>]", "POST", "move-list", 10u},
+    {WENA_UI_MOVE_SWIMLANE, "move-swimlane", "Move swimlane", "[>]", "POST", "move-swimlane", 11u}
 };
 
 static const WenaUiPageContract pages[] = {

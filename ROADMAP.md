@@ -247,6 +247,11 @@
       drag control bound back to that exact form. A same-origin external stylesheet
       hides enhancement controls without JavaScript; capability success alone swaps
       visibility. Cover the real listener's cookieless/no-JS GET and asset paths.
+    - [x] Close the shared-contract gap for card/list/swimlane movement: define the
+      three canonical POST operation and i18n keys in the common UI control table so
+      the router can authorize exactly the operations rendered by HTML4 and enhanced
+      DnD. Exercise visible signed baseline rendering for all hierarchy types. The
+      SQLite position transaction for these newly admitted intents remains pending.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;
