@@ -24,6 +24,7 @@ mkdir -p "$output_dir"
   "$root_dir/client/main.c" \
   "$root_dir/imports/i18n/catalog.c" \
   -o "$binary"
+python3 "$root_dir/scripts/embed_migrations.py" --executable "$binary"
 python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'Mach-O 64-bit.*x86_64'

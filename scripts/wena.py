@@ -64,6 +64,11 @@ def build_one(target):
     )
     if verification:
         return verification
+    verification = subprocess.call(
+        [sys.executable, str(ROOT / "scripts" / "verify_migrations.py")], cwd=ROOT
+    )
+    if verification:
+        return verification
     print(f"Building {record['name']} ({target})", flush=True)
     return subprocess.call(shell_command(script), cwd=ROOT)
 
@@ -157,6 +162,7 @@ def run_test(name):
               "sqlite-schema": ROOT / "tests" / "test_sqlite_schema.sh"}
     suites["sqlite-storage"] = ROOT / "tests" / "test_sqlite_storage.sh"
     suites["progressive"] = ROOT / "tests" / "test_progressive_integration.sh"
+    suites["migration-embed"] = ROOT / "tests" / "test_migration_embedding.py"
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -210,6 +216,7 @@ def main(argv):
         print("sqlite-schema\tVersioned SQLite schema and migration golden")
         print("sqlite-storage\tChecksummed atomic SQLite migration runner")
         print("progressive\tHTML4 fallback, DnD, POST, and multi-region integration")
+        print("migration-embed\tPinned SQLite migration in every ready artifact")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

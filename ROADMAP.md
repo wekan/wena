@@ -117,6 +117,11 @@
       idempotent reopen, uncommitted crash rollback, bad SQL rollback, modified hash,
       newer schema, corruption, and the SHA-256 known vector. Migration embedding,
       backup execution, and the production persistence adapter remain pending.
+    - [x] Pin migration bytes, size, schema version, and SHA-256 in a reviewed lock;
+      fail every local/CI target before compile when it is stale. Append the exact
+      migration plus a checksummed length footer to every ready single-file artifact
+      before the final i18n payload, and extract/compare it from a host executable.
+      Runtime lookup from the executable and the SQLite transaction adapter remain.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card

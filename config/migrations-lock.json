@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "migration_path": "server/migrations/001_initial.sql",
+  "migration_sha256": "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5",
+  "migration_size": 2249,
+  "schema_version": 1
+}
