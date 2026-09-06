@@ -38,6 +38,17 @@ def main() -> None:
     assert "exists but is not executable" in workflow
     assert "steps.support.outputs.enabled" not in workflow
     assert "if-no-files-found: error" in workflow
+    assert "permissions:\n  contents: read" in workflow
+    assert "https://api.github.com/repos/wekan/wena/releases/latest" in workflow
+    assert "--request GET" in workflow
+    assert "needs: resolve-release" in workflow
+    assert "release_id: ${{ steps.release.outputs.release_id }}" in workflow
+    assert "release_tag: ${{ steps.release.outputs.release_tag }}" in workflow
+    assert "latest Wena release response lacks id or tag_name" in workflow
+    assert "--request POST" not in workflow
+    assert "--request PATCH" not in workflow
+    assert "gh release" not in workflow
+    assert "action-gh-release" not in workflow
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",

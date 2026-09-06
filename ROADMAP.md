@@ -29,7 +29,7 @@
   - [_] Replace the old AROS SDK image when a maintained compatible image or
     reproducible current-source toolchain is available.
 - [_] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
-  - [_] Require an existing newest `github.com/wekan/wena` release and resolve its
+  - [x] Require an existing newest `github.com/wekan/wena` release and resolve its
     tag without creating, publishing, editing, or pushing a release.
   - [x] Build every `ready` catalog target; a missing script or artifact is a hard
     failure rather than a skipped target.

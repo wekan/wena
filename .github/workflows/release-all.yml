@@ -12,8 +12,46 @@ permissions:
 # Ready targets are cataloged in config/targets.tsv. A planned target becomes ready
 # only when its .github/release/<target>.sh script produces a verified artifact.
 jobs:
+  resolve-release:
+    name: Resolve newest existing release
+    runs-on: ubuntu-24.04
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Resolve newest github.com/wekan/wena release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          response_file="${RUNNER_TEMP}/wena-latest-release.json"
+          curl --fail-with-body --silent --show-error \
+            --request GET \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --output "$response_file" \
+            https://api.github.com/repos/wekan/wena/releases/latest
+          python3 - "$response_file" "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          response_path, output_path = sys.argv[1:]
+          with open(response_path, encoding="utf-8") as response:
+              release = json.load(response)
+          release_id = release.get("id")
+          release_tag = release.get("tag_name")
+          if not isinstance(release_id, int) or not release_tag:
+              raise SystemExit("latest Wena release response lacks id or tag_name")
+          with open(output_path, "a", encoding="utf-8") as output:
+              output.write("release_id={}\n".format(release_id))
+              output.write("release_tag={}\n".format(release_tag))
+          PY
+
   cross-compile:
     name: ${{ matrix.name }}
+    needs: resolve-release
     strategy:
       fail-fast: false
       matrix:
