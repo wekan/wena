@@ -46,7 +46,9 @@
   - [x] Android arm64
     - Cross-builds a strict C89 AArch64 native executable with stable Android NDK
       r29 for API 21+, then verifies the architecture and Android linker path.
-  - [_] iOS arm64
+  - [x] iOS arm64
+    - Cross-builds an unsigned strict C89 arm64 Mach-O executable for iOS 13+ and
+      verifies its architecture and iOS build-version platform before upload.
 - [_] Using same directory structure like Meteor 3 WeKan, save files as C89 and Nuclear GUI code
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout
