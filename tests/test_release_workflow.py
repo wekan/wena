@@ -37,6 +37,7 @@ def main() -> None:
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",
+        "Android arm64",
     }
     for display_name in (
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",

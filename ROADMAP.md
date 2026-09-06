@@ -43,7 +43,9 @@
   - [x] AROS x86
     - Cross-builds strict C89 for the AROS x86-64 ABI with a digest-pinned AROS
       SDK, verifies the compiler target triplet, and validates the x86-64 ELF output.
-  - [_] Android arm64
+  - [x] Android arm64
+    - Cross-builds a strict C89 AArch64 native executable with stable Android NDK
+      r29 for API 21+, then verifies the architecture and Android linker path.
   - [_] iOS arm64
 - [_] Using same directory structure like Meteor 3 WeKan, save files as C89 and Nuclear GUI code
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
