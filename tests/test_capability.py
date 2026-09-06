@@ -39,7 +39,20 @@ for required in (
     "response.ok", "response.arrayBuffer()", "buffer.byteLength>32768",
     "applyRegions(buffer,version,state,doc)", "controller.abort()",
     "state.inFlight=false", "state.nextRequestVersion=version+1",
+    "function signedMoveForm(doc,id)", "String(form.tagName).toUpperCase()!=='FORM'",
+    "form.className.indexOf('wena-move-baseline')<0",
+    "field(form,'legacySession')", "field(form,'csrf')",
+    "field(form,'legacyOperation')", "function bindDragDrop(doc,state,milliseconds)",
+    "getElementsByClassName('wena-drag-source')",
+    "getElementsByClassName('wena-drop-target')", "data-wena-form",
+    "setData('application/x-wena-move','1')",
+    "getData('application/x-wena-move')==='1'", "postForm(form,state,doc,milliseconds)",
+    "event.key==='Enter'||event.key===' '", "Move failed; use move buttons.",
+    "Move selected; choose a destination.",
+    "live.textContent='Move complete.'", "if(target.focus){target.focus();}",
+    "if(!activate(doc)){return false;}", "if(!bindDragDrop(doc,state,5000)){restore();return false;}",
 ):
     assert required in script, required
 assert "eval(" not in script and "innerHTML" not in script
+assert "userAgent" not in script
 assert script.count("style.display='none'") == 1

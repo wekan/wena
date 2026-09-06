@@ -135,6 +135,12 @@
       performs a real synthetic DataTransfer/DragEvent probe, never reads User-Agent,
       hides only paired move baseline controls, transfers focus and keyboard/ARIA
       semantics, and restores controls on failure or bounded-operation timeout.
+    - [x] Bind drag sources and keyboard-accessible drop targets only after that probe,
+      and only to an existing ID-addressed baseline POST form containing nonempty
+      session, operation, and CSRF fields. Drag data is a constant capability marker,
+      never an object ID or operation; the target form alone supplies semantics to the
+      bounded transport. Failure restores every baseline control and live status.
+      Server persistence remains closed, so this is client wiring only.
   - [_] Define a bounded same-origin enhancement response containing operation result
     plus versioned replacements only for named regions already visible on the page.
     Validate region names/schema/size and stale or out-of-order versions client-side;
