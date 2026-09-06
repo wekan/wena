@@ -31,7 +31,7 @@
 - [_] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
   - [_] Require an existing newest `github.com/wekan/wena` release and resolve its
     tag without creating, publishing, editing, or pushing a release.
-  - [_] Build every `ready` catalog target; a missing script or artifact is a hard
+  - [x] Build every `ready` catalog target; a missing script or artifact is a hard
     failure rather than a skipped target.
   - [_] Collect every verified executable/bundle under unique release asset names.
   - [_] Attach all collected assets to that newest release with `contents: write`,

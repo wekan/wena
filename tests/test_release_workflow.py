@@ -34,6 +34,10 @@ def main() -> None:
     assert workflow.count("name: ") >= len(expected), "every target needs a display name"
     assert ".github/release/${TARGET}.sh" in workflow
     assert "dist/${{ matrix.target }}/" in workflow
+    assert "ready target is missing" in workflow
+    assert "exists but is not executable" in workflow
+    assert "steps.support.outputs.enabled" not in workflow
+    assert "if-no-files-found: error" in workflow
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",

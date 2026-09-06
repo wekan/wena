@@ -83,28 +83,27 @@ jobs:
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
 
       - name: Check target support
-        id: support
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
         run: |
           script=".github/release/${TARGET}.sh"
-          if test -x "$script"; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::${TARGET} is planned but not implemented yet"
+          if ! test -f "$script"; then
+            echo "::error::${TARGET}: ready target is missing $script"
+            exit 1
+          fi
+          if ! test -x "$script"; then
+            echo "::error::${TARGET}: $script exists but is not executable"
+            exit 1
           fi
 
       - name: Cross-compile
-        if: steps.support.outputs.enabled == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
         run: ".github/release/${TARGET}.sh"
 
       - name: Upload release artifact
-        if: steps.support.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: wena-${{ matrix.target }}
