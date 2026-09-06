@@ -152,6 +152,10 @@
       optimistic version and exact idempotency tuple inside one transaction; conflict,
       unknown actor/board and replay leave both board and metadata unchanged. List and
       swimlane operations remain separate follow-up slices.
+    - [x] Add `edit-list-title` through the same typed dispatch and transaction
+      boundary. Bind the list to the route-owned board, require actor, bounded title,
+      optimistic version and idempotency metadata, and roll back cross-board,
+      conflict, replay and malformed requests without partial hierarchy changes.
     - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
       and domain adapters, then starts the listener; stop reverses that order and all
       partial-start failures close the database. Successful no-JS mutations use a

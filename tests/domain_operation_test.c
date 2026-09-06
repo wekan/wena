@@ -63,5 +63,8 @@ int main(void)
     strcpy(intent.operation, "edit-board-title");
     assert(wena_domain_operation_dispatch(&adapter, &intent, 2ul, &response));
     assert(fake.last.operation == WENA_DOMAIN_EDIT_BOARD_TITLE);
+    strcpy(intent.operation, "edit-list-title");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 3ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_EDIT_LIST_TITLE);
     return 0;
 }
