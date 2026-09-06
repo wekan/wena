@@ -99,6 +99,10 @@ int main(void)
     WenaCard cards[3];
     WenaBoardLayout layout;
     WenaBoardSidebar sidebar;
+    const char *activities[1];
+    const char *members[2];
+    const char *labels[1];
+    const char *archives[1];
     struct nk_context context;
 
     memset(&context, 0, sizeof(context));
@@ -146,6 +150,19 @@ int main(void)
 
     memset(&context, 0, sizeof(context));
     wena_board_sidebar_init(&sidebar);
+    activities[0] = "Card moved";
+    members[0] = "Ada";
+    members[1] = "Linus";
+    labels[0] = "Urgent";
+    archives[0] = "Old card";
+    sidebar.items.activities = activities;
+    sidebar.items.activity_count = 1;
+    sidebar.items.members = members;
+    sidebar.items.member_count = 2;
+    sidebar.items.labels = labels;
+    sidebar.items.label_count = 1;
+    sidebar.items.archives = archives;
+    sidebar.items.archive_count = 1;
     layout.sidebar = &sidebar;
     context.button_to_press = "Board menu";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
@@ -154,10 +171,33 @@ int main(void)
     context.button_to_press = "Labels";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(sidebar.section == WENA_SIDEBAR_LABELS);
+    context.button_to_press = "Add label";
+    assert((wena_board_sidebar_render(&context, &sidebar) &
+            WENA_SIDEBAR_ADD_LABEL) != 0u);
+    sidebar.section = WENA_SIDEBAR_ACTIVITIES;
+    context.button_to_press = "Refresh";
+    assert((wena_board_sidebar_render(&context, &sidebar) &
+            WENA_SIDEBAR_REFRESH_ACTIVITIES) != 0u);
+    sidebar.section = WENA_SIDEBAR_MEMBERS;
+    context.button_to_press = "Add member";
+    assert((wena_board_sidebar_render(&context, &sidebar) &
+            WENA_SIDEBAR_ADD_MEMBER) != 0u);
+    sidebar.section = WENA_SIDEBAR_ARCHIVES;
+    context.button_to_press = "Restore selected";
+    assert((wena_board_sidebar_render(&context, &sidebar) &
+            WENA_SIDEBAR_RESTORE_ARCHIVE) != 0u);
     context.button_to_press = "Close";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(!sidebar.visible);
     assert(wena_board_sidebar_render(NULL, &sidebar) ==
            WENA_SIDEBAR_NO_ACTION);
+    sidebar.visible = 1;
+    sidebar.items.labels = NULL;
+    assert(wena_board_sidebar_render(&context, &sidebar) ==
+           WENA_SIDEBAR_INVALID_STATE);
+    sidebar.items.label_count = 0;
+    sidebar.section = (WenaSidebarSection)99;
+    assert((wena_board_sidebar_render(&context, &sidebar) &
+            WENA_SIDEBAR_INVALID_STATE) != 0u);
     return 0;
 }

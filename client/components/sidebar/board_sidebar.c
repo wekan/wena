@@ -2,13 +2,71 @@
 
 #include <nuklear.h>
 #include <stddef.h>
+#include <string.h>
 
 void wena_board_sidebar_init(WenaBoardSidebar *sidebar)
 {
     if (sidebar != NULL) {
-        sidebar->visible = 0;
+        memset(sidebar, 0, sizeof(*sidebar));
         sidebar->section = WENA_SIDEBAR_ACTIVITIES;
     }
+}
+
+static int wena_sidebar_items_valid(const WenaSidebarItems *items)
+{
+    return !((items->activity_count != 0 && items->activities == NULL) ||
+             (items->member_count != 0 && items->members == NULL) ||
+             (items->label_count != 0 && items->labels == NULL) ||
+             (items->archive_count != 0 && items->archives == NULL));
+}
+
+static void wena_sidebar_item_list(struct nk_context *context,
+                                   const char *const *items, size_t count,
+                                   const char *empty_text)
+{
+    size_t index;
+
+    nk_layout_row_dynamic(context, 24.0f, 1);
+    if (count == 0) {
+        nk_label(context, empty_text, NK_TEXT_LEFT);
+        return;
+    }
+    for (index = 0; index < count; ++index) {
+        nk_label(context, items[index] != NULL ? items[index] : "", NK_TEXT_LEFT);
+    }
+}
+
+static unsigned int wena_sidebar_section_content(struct nk_context *context,
+                                                 WenaBoardSidebar *sidebar)
+{
+    const WenaSidebarItems *items;
+
+    items = &sidebar->items;
+    if (sidebar->section == WENA_SIDEBAR_ACTIVITIES) {
+        wena_sidebar_item_list(context, items->activities, items->activity_count,
+                               "No activities");
+        return nk_button_label(context, "Refresh") ?
+               WENA_SIDEBAR_REFRESH_ACTIVITIES : WENA_SIDEBAR_NO_ACTION;
+    }
+    if (sidebar->section == WENA_SIDEBAR_MEMBERS) {
+        wena_sidebar_item_list(context, items->members, items->member_count,
+                               "No members");
+        return nk_button_label(context, "Add member") ?
+               WENA_SIDEBAR_ADD_MEMBER : WENA_SIDEBAR_NO_ACTION;
+    }
+    if (sidebar->section == WENA_SIDEBAR_LABELS) {
+        wena_sidebar_item_list(context, items->labels, items->label_count,
+                               "No labels");
+        return nk_button_label(context, "Add label") ?
+               WENA_SIDEBAR_ADD_LABEL : WENA_SIDEBAR_NO_ACTION;
+    }
+    if (sidebar->section == WENA_SIDEBAR_ARCHIVES) {
+        wena_sidebar_item_list(context, items->archives, items->archive_count,
+                               "No archived items");
+        return nk_button_label(context, "Restore selected") ?
+               WENA_SIDEBAR_RESTORE_ARCHIVE : WENA_SIDEBAR_NO_ACTION;
+    }
+    return WENA_SIDEBAR_INVALID_STATE;
 }
 
 static unsigned int wena_sidebar_section_button(struct nk_context *context,
@@ -31,6 +89,9 @@ unsigned int wena_board_sidebar_render(struct nk_context *context,
 
     if (context == NULL || sidebar == NULL || !sidebar->visible) {
         return WENA_SIDEBAR_NO_ACTION;
+    }
+    if (!wena_sidebar_items_valid(&sidebar->items)) {
+        return WENA_SIDEBAR_INVALID_STATE;
     }
     action = WENA_SIDEBAR_NO_ACTION;
     if (!nk_group_begin(context, "Board menu", NK_WINDOW_BORDER)) {
@@ -57,6 +118,7 @@ unsigned int wena_board_sidebar_render(struct nk_context *context,
     }
     nk_layout_row_dynamic(context, 28.0f, 1);
     nk_label(context, section_title, NK_TEXT_LEFT);
+    action |= wena_sidebar_section_content(context, sidebar);
     if (nk_button_label(context, "Close")) {
         sidebar->visible = 0;
         action |= WENA_SIDEBAR_CLOSED;
