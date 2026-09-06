@@ -1,5 +1,6 @@
 #include "board_layout.h"
 #include "board_header.h"
+#include "../lists/list_header.h"
 
 #include <nuklear.h>
 #include <string.h>
@@ -33,6 +34,7 @@ static void wena_render_lists(struct nk_context *context,
                               const WenaSwimlane *swimlane)
 {
     size_t index;
+    unsigned int list_action;
 
     for (index = 0; index < layout->list_count; ++index) {
         const WenaList *list = &layout->lists[index];
@@ -40,8 +42,13 @@ static void wena_render_lists(struct nk_context *context,
         if (!list->archived && wena_same_id(list->board_id, layout->board->id) &&
             wena_same_id(list->swimlane_id, swimlane->id) &&
             nk_group_begin(context, list->title, NK_WINDOW_BORDER)) {
-            nk_layout_row_dynamic(context, 24.0f, 1);
-            nk_label(context, list->title, NK_TEXT_LEFT);
+            list_action = wena_list_header_render(context, list);
+            if (layout->list_interaction != NULL &&
+                list_action != WENA_LIST_HEADER_NO_ACTION) {
+                layout->list_interaction->actions = list_action;
+                (void)wena_model_set_required(layout->list_interaction->list_id,
+                    sizeof(layout->list_interaction->list_id), list->id);
+            }
             wena_render_cards(context, layout, list, swimlane);
             nk_group_end(context);
         }
@@ -60,6 +67,10 @@ int wena_board_layout_render(struct nk_context *context,
         (layout->list_count != 0 && layout->lists == NULL) ||
         (layout->card_count != 0 && layout->cards == NULL)) {
         return 0;
+    }
+    if (layout->list_interaction != NULL) {
+        layout->list_interaction->actions = WENA_LIST_HEADER_NO_ACTION;
+        layout->list_interaction->list_id[0] = '\0';
     }
     header_action = wena_board_header_render(context, layout->board);
     if (layout->sidebar != NULL &&

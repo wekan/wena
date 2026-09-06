@@ -1,5 +1,6 @@
 #include "../client/features/board.h"
 #include "../client/components/boards/board_header.h"
+#include "../client/components/lists/list_header.h"
 
 #include <assert.h>
 #include <nuklear.h>
@@ -99,6 +100,7 @@ int main(void)
     WenaCard cards[3];
     WenaBoardLayout layout;
     WenaBoardSidebar sidebar;
+    WenaListInteraction list_interaction;
     const char *activities[1];
     const char *members[2];
     const char *labels[1];
@@ -128,7 +130,7 @@ int main(void)
     assert(context.begin_count == 1);
     assert(context.end_count == 1);
     assert(context.group_depth == 0);
-    assert(context.button_count == 1);
+    assert(context.button_count == 3);
     assert(context.label_count == 5);
     assert(strcmp(context.labels[0], "Project") == 0);
     assert(strcmp(context.labels[1], "Current") == 0);
@@ -147,6 +149,27 @@ int main(void)
            WENA_BOARD_HEADER_OPEN_MENU);
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);
+
+    memset(&context, 0, sizeof(context));
+    memset(&list_interaction, 0, sizeof(list_interaction));
+    layout.list_interaction = &list_interaction;
+    context.button_to_press = "Add card";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(list_interaction.actions == WENA_LIST_HEADER_ADD_CARD);
+    assert(strcmp(list_interaction.list_id, "doing") == 0);
+    context.button_to_press = "List menu";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(list_interaction.actions == WENA_LIST_HEADER_OPEN_MENU);
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(list_interaction.actions == WENA_LIST_HEADER_NO_ACTION);
+    assert(list_interaction.list_id[0] == '\0');
+    assert(wena_list_header_render(NULL, &lists[0]) ==
+           WENA_LIST_HEADER_NO_ACTION);
+    lists[0].archived = 1;
+    assert(wena_list_header_render(&context, &lists[0]) ==
+           WENA_LIST_HEADER_NO_ACTION);
+    lists[0].archived = 0;
+    layout.list_interaction = NULL;
 
     memset(&context, 0, sizeof(context));
     wena_board_sidebar_init(&sidebar);
