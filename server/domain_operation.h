@@ -14,6 +14,7 @@ typedef enum WenaDomainOperation {
 
 typedef struct WenaDomainCommand {
     WenaDomainOperation operation;
+    unsigned long request_version;
     char user_id[65];
     char route[257];
     char form_body[WENA_DOMAIN_BODY_CAPACITY];

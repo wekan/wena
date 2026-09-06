@@ -38,6 +38,7 @@ int wena_domain_operation_dispatch(WenaDomainAdapter *adapter,
     command.operation = wena_domain_operation(verified_intent->operation);
     if ((int)command.operation == 0) return 0;
     strcpy(command.user_id, verified_intent->user_id);
+    command.request_version = request_version;
     strcpy(command.route, verified_intent->route);
     memcpy(command.form_body, verified_intent->form_body, verified_intent->form_body_length);
     command.form_body[verified_intent->form_body_length] = '\0';

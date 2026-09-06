@@ -103,6 +103,12 @@
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and
     preserve transactional parent relationships.
+    - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
+      an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
+      replay keys to actor+route+operation+request-version, require optimistic card
+      versions, validate the complete bounded region response before commit, and
+      rollback callback/validation/conflict failures without partial output. SQLite
+      remains blocked on a separately versioned schema and migration design.
   - [_] Let remote clients select either a Meteor 3 WeKan base URL or Wena Server
     base URL, with capability/version discovery and compatible error handling.
   - [_] Import/export and local-to-remote/remote-to-local round-trip tests against
