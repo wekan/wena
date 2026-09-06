@@ -147,3 +147,33 @@ jobs:
           name: wena-${{ matrix.target }}
           path: dist/${{ matrix.target }}/
           if-no-files-found: error
+
+  collect-assets:
+    name: Collect deterministic release assets
+    needs: cross-compile
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified target artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wena-*
+          path: incoming
+
+      - name: Collect release assets and provenance
+        shell: bash
+        run: |
+          python3 scripts/collect_release_assets.py \
+            --catalog config/targets.tsv \
+            --incoming incoming \
+            --output release-assets \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit "$GITHUB_SHA"
+
+      - name: Store collected release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: wena-release-assets
+          path: release-assets/
+          if-no-files-found: error

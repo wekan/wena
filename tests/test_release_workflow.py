@@ -49,6 +49,13 @@ def main() -> None:
     assert "--request PATCH" not in workflow
     assert "gh release" not in workflow
     assert "action-gh-release" not in workflow
+    assert "needs: cross-compile" in workflow
+    assert "actions/download-artifact@v4" in workflow
+    assert "pattern: wena-*" in workflow
+    assert "scripts/collect_release_assets.py" in workflow
+    assert "--repository \"$GITHUB_REPOSITORY\"" in workflow
+    assert "--commit \"$GITHUB_SHA\"" in workflow
+    assert "name: wena-release-assets" in workflow
     completed = {
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",

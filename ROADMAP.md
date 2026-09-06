@@ -33,7 +33,7 @@
     tag without creating, publishing, editing, or pushing a release.
   - [x] Build every `ready` catalog target; a missing script or artifact is a hard
     failure rather than a skipped target.
-  - [_] Collect every verified executable/bundle under unique release asset names.
+  - [x] Collect every verified executable/bundle under unique release asset names.
   - [_] Attach all collected assets to that newest release with `contents: write`,
     collision handling, post-upload verification, timeouts, and per-job summaries.
   - [_] Add static regression tests for permissions, dependencies, complete asset
