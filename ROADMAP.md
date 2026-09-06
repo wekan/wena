@@ -134,6 +134,14 @@
       partial-start failures close the database. Successful no-JS mutations use a
       server-owned version and return 303 only to ROOT_URL plus the validated current
       route; enhancement mutations keep the negotiated V1 response path.
+    - [x] Locate the migration directly from the running single-file artifact by
+      walking backward over the final i18n footer, then validate SQL footer magic,
+      bounded lengths and SHA-256 before DB open. Missing, truncated and corrupt
+      artifacts fail closed and free buffers; runtime exposes start-from-executable.
+    - [x] Connect Admin Settings submit/toggle/restart to the managed runtime: validate
+      the complete disabled-default configuration first, stop an old runtime before
+      restart, load migration from the executable, and expose only a generic startup
+      error without paths, SQL, tokens, or database details.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card
