@@ -166,6 +166,7 @@ def run_test(name):
     suites["sqlite-persistence"] = ROOT / "tests" / "test_sqlite_persistence.sh"
     suites["runtime"] = ROOT / "tests" / "test_runtime.sh"
     suites["embedded-migration"] = ROOT / "tests" / "test_embedded_migration.sh"
+    suites["executable-path"] = ROOT / "tests" / "test_executable_path.sh"
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -223,6 +224,7 @@ def main(argv):
         print("sqlite-persistence\tTransactional SQLite create/edit/archive adapter")
         print("runtime\tManaged SQLite adapter and listener lifecycle")
         print("embedded-migration\tRuntime executable migration footer loader")
+        print("executable-path\tBounded platform executable discovery")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

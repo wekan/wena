@@ -1,0 +1,6 @@
+#include "../server/executable_path.h"
+#include <assert.h>
+#include <string.h>
+typedef struct Mock{const char*value;size_t claimed;int ok;}Mock;
+static int query(void*x,char*out,size_t cap,size_t*n){Mock*m=x;size_t z=strlen(m->value);if(!m->ok||z>=cap)return 0;memcpy(out,m->value,z+1);*n=m->claimed?m->claimed:z;return 1;}
+int main(void){char out[WENA_EXECUTABLE_PATH_CAPACITY];Mock m={"/opt/Wena-ä/wena",0,1};assert(wena_executable_path_validate(WENA_EXEC_LINUX,query,&m,out,sizeof(out)));m.value="relative/wena";assert(!wena_executable_path_validate(WENA_EXEC_BSD,query,&m,out,sizeof(out)));m.value="C:\\Wena\\wena.exe";assert(wena_executable_path_validate(WENA_EXEC_WINDOWS,query,&m,out,sizeof(out)));m.value="SYS:Tools/Wena";assert(wena_executable_path_validate(WENA_EXEC_AMIGA,query,&m,out,sizeof(out)));assert(wena_executable_path_validate(WENA_EXEC_AROS,query,&m,out,sizeof(out)));m.value="/x";m.claimed=9;assert(!wena_executable_path_validate(WENA_EXEC_APPLE,query,&m,out,sizeof(out)));m.claimed=0;m.value="/\xc0\x80";assert(!wena_executable_path_validate(WENA_EXEC_LINUX,query,&m,out,sizeof(out)));m.value="/tool";assert(!wena_executable_path_validate(WENA_EXEC_LINUX,query,&m,out,3));assert(wena_executable_path_current(out,sizeof(out)));assert(out[0]=='/');return 0;}

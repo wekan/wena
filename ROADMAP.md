@@ -142,6 +142,11 @@
       the complete disabled-default configuration first, stop an old runtime before
       restart, load migration from the executable, and expose only a generic startup
       error without paths, SQL, tokens, or database details.
+    - [x] Add bounded executable discovery adapters: Windows Unicode module path,
+      Apple executable path, Linux `/proc/self/exe`, BSD procfs capability, and
+      fail-closed Amiga/AROS defaults with an explicit mockable capability boundary.
+      Require absolute, exact-length, NUL-terminated valid UTF-8 and reject relative,
+      embedded-NUL, invalid-Unicode, truncated and overflow results.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card
