@@ -68,10 +68,12 @@ int nk_button_label(struct nk_context *context, const char *title)
 {
     int result;
 
-    (void)title;
     ++context->button_count;
-    result = context->next_button_result;
-    context->next_button_result = 0;
+    result = context->button_to_press != NULL &&
+             strcmp(context->button_to_press, title) == 0;
+    if (result) {
+        context->button_to_press = NULL;
+    }
     return result;
 }
 
@@ -96,6 +98,7 @@ int main(void)
     WenaList lists[2];
     WenaCard cards[3];
     WenaBoardLayout layout;
+    WenaBoardSidebar sidebar;
     struct nk_context context;
 
     memset(&context, 0, sizeof(context));
@@ -108,6 +111,7 @@ int main(void)
     assert(wena_card_init(&cards[1], "two", "board", "lane", "doing", "Two", 2.0, 0));
     assert(wena_card_init(&cards[2], "old", "board", "lane", "doing", "Old", 3.0, 1));
 
+    memset(&layout, 0, sizeof(layout));
     layout.board = &board;
     layout.swimlanes = swimlanes;
     layout.swimlane_count = 2;
@@ -134,10 +138,26 @@ int main(void)
     layout.cards = NULL;
     assert(!wena_board_layout_render(&context, &layout));
     layout.cards = cards;
-    context.next_button_result = 1;
+    context.button_to_press = "Board menu";
     assert(wena_board_header_render(&context, &board) ==
            WENA_BOARD_HEADER_OPEN_MENU);
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);
+
+    memset(&context, 0, sizeof(context));
+    wena_board_sidebar_init(&sidebar);
+    layout.sidebar = &sidebar;
+    context.button_to_press = "Board menu";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(sidebar.visible);
+    assert(sidebar.section == WENA_SIDEBAR_ACTIVITIES);
+    context.button_to_press = "Labels";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(sidebar.section == WENA_SIDEBAR_LABELS);
+    context.button_to_press = "Close";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(!sidebar.visible);
+    assert(wena_board_sidebar_render(NULL, &sidebar) ==
+           WENA_SIDEBAR_NO_ACTION);
     return 0;
 }

@@ -52,6 +52,7 @@ int wena_board_layout_render(struct nk_context *context,
                              const WenaBoardLayout *layout)
 {
     size_t index;
+    unsigned int header_action;
 
     if (context == NULL || layout == NULL || layout->board == NULL ||
         layout->board->archived ||
@@ -60,7 +61,11 @@ int wena_board_layout_render(struct nk_context *context,
         (layout->card_count != 0 && layout->cards == NULL)) {
         return 0;
     }
-    (void)wena_board_header_render(context, layout->board);
+    header_action = wena_board_header_render(context, layout->board);
+    if (layout->sidebar != NULL &&
+        (header_action & WENA_BOARD_HEADER_OPEN_MENU) != 0u) {
+        layout->sidebar->visible = 1;
+    }
     for (index = 0; index < layout->swimlane_count; ++index) {
         const WenaSwimlane *swimlane = &layout->swimlanes[index];
 
@@ -73,5 +78,6 @@ int wena_board_layout_render(struct nk_context *context,
             nk_group_end(context);
         }
     }
+    (void)wena_board_sidebar_render(context, layout->sidebar);
     return 1;
 }

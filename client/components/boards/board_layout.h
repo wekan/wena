@@ -2,6 +2,7 @@
 #define WENA_BOARD_LAYOUT_H
 
 #include "../../../models/wekan_models.h"
+#include "../sidebar/board_sidebar.h"
 
 #include <stddef.h>
 
@@ -15,6 +16,7 @@ typedef struct WenaBoardLayout {
     size_t list_count;
     const WenaCard *cards;
     size_t card_count;
+    WenaBoardSidebar *sidebar;
 } WenaBoardLayout;
 
 int wena_board_layout_render(struct nk_context *context,

@@ -9,13 +9,13 @@ struct nk_rect {
 };
 
 struct nk_context {
-    const char *labels[16];
+    const char *labels[64];
     int label_count;
     int begin_count;
     int end_count;
     int group_depth;
     int button_count;
-    int next_button_result;
+    const char *button_to_press;
 };
 
 #define NK_TEXT_LEFT 0x01

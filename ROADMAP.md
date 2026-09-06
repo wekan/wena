@@ -63,7 +63,9 @@
     - [_] Port the remaining Jade component and feature areas.
       - [x] Port the board header title and board-menu action as a dedicated
         Nuklear component, separate from board hierarchy rendering.
-      - [_] Port the board sidebar component and its feature integration.
+      - [x] Port board sidebar visibility and Activities, Members, Labels, and
+        Archives section state, integrated with the board-header menu action.
+      - [_] Port content and actions inside each board sidebar section.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout
