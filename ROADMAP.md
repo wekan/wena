@@ -22,7 +22,9 @@
   - [x] Linux arm64
     - Builds a strict C89 ARM64 ELF executable with GCC and verifies its ELF class
       and AArch64 machine header before artifact upload.
-  - [_] Linux amd64
+  - [x] Linux amd64
+    - Builds a strict C89 x86-64 ELF executable with GCC and verifies its ELF class
+      and AMD64 machine header before artifact upload.
   - [_] Linux armhf
   - [_] Windows amd64
   - [_] macOS arm64
