@@ -34,12 +34,14 @@ def main() -> None:
     assert workflow.count("name: ") >= len(expected), "every target needs a display name"
     assert ".github/release/${TARGET}.sh" in workflow
     assert "dist/${{ matrix.target }}/" in workflow
+    completed = {"Linux arm64"}
     for display_name in (
         "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
         "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",
         "Android arm64", "iOS arm64",
     ):
-        assert f"- [_] {display_name}" in roadmap
+        marker = "x" if display_name in completed else "_"
+        assert f"- [{marker}] {display_name}" in roadmap
 
 
 if __name__ == "__main__":

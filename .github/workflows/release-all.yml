@@ -52,6 +52,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Linux arm64 cross-compiler
+        if: matrix.target == 'linux-arm64'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-aarch64-linux-gnu
+
       - name: Check target support
         id: support
         shell: bash

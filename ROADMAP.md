@@ -19,7 +19,9 @@
     artifact upload, and a structural regression test. Targets remain pending until
     their cross-compilation scripts produce verified binaries.
 - Operating systems at the beginning at release-all.yml:
-  - [_] Linux arm64
+  - [x] Linux arm64
+    - Builds a strict C89 ARM64 ELF executable with GCC and verifies its ELF class
+      and AArch64 machine header before artifact upload.
   - [_] Linux amd64
   - [_] Linux armhf
   - [_] Windows amd64
