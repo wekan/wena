@@ -26,7 +26,7 @@ docker run --rm \
   -Wextra \
   -Werror \
   -O2 \
-  src/main.c \
+  client/main.c \
   -o dist/amigaos-m68k/wena
 
 file "$binary" | grep -Fq 'AmigaOS loadseg()ble executable/binary'

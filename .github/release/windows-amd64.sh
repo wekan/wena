@@ -22,7 +22,7 @@ x86_64-w64-mingw32-gcc \
   -Wextra \
   -Werror \
   -O2 \
-  "$root_dir/src/main.c" \
+  "$root_dir/client/main.c" \
   -o "$binary"
 
 file "$binary" | grep -Eq 'PE32\+ executable.*x86-64.*Windows'

@@ -25,7 +25,7 @@ docker run --rm \
   -Wextra \
   -Werror \
   -O2 \
-  src/main.c \
+  client/main.c \
   -o dist/aros-x86/wena
 
 file "$binary" | grep -Eq 'ELF 64-bit.*x86-64'

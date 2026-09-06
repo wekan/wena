@@ -49,7 +49,12 @@
   - [x] iOS arm64
     - Cross-builds an unsigned strict C89 arm64 Mach-O executable for iOS 13+ and
       verifies its architecture and iOS build-version platform before upload.
-- [_] Using same directory structure like Meteor 3 WeKan, save files as C89 and Nuclear GUI code
+- [_] Using same directory structure like Meteor 3 WeKan, save files as C89 and Nuklear GUI code
+  - [x] Establish documented `client/components`, `client/features`, `models`,
+    `imports`, and `server` source boundaries and move the C89 entry point to client.
+  - [_] Add shared C89 model modules matching Meteor WeKan collections.
+  - [_] Add Nuklear component and feature modules matching the Jade UI areas.
+  - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout
 - [_] Import/Export from WeKan, Trello, etc via WeKan REST API, Trello API, etc

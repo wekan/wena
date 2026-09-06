@@ -22,5 +22,5 @@ mkdir -p "$output_dir"
   -Wextra \
   -Werror \
   -O2 \
-  "$root_dir/src/main.c" \
+  "$root_dir/client/main.c" \
   -o "$output_dir/wena"

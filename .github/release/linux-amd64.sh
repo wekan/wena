@@ -22,7 +22,7 @@ mkdir -p "$output_dir"
   -Wextra \
   -Werror \
   -O2 \
-  "$root_dir/src/main.c" \
+  "$root_dir/client/main.c" \
   -o "$binary"
 
 file "$binary" | grep -Eq 'ELF 64-bit.*(x86-64|x86_64)'
