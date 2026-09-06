@@ -9,6 +9,7 @@ static WenaDomainOperation wena_domain_operation(const char *value)
     if (value != NULL && strcmp(value, "archive-card") == 0) return WENA_DOMAIN_ARCHIVE_CARD;
     if (value != NULL && strcmp(value, "edit-board-title") == 0) return WENA_DOMAIN_EDIT_BOARD_TITLE;
     if (value != NULL && strcmp(value, "edit-list-title") == 0) return WENA_DOMAIN_EDIT_LIST_TITLE;
+    if (value != NULL && strcmp(value, "edit-swimlane-title") == 0) return WENA_DOMAIN_EDIT_SWIMLANE_TITLE;
     return (WenaDomainOperation)0;
 }
 
