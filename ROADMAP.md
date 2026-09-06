@@ -37,7 +37,9 @@
   - [x] macOS amd64
     - Builds a strict C89 Mach-O executable with Apple's x86-64 target and verifies
       both the Mach-O format and the single x86-64 architecture before upload.
-  - [_] AmigaOS 3.x m68k
+  - [x] AmigaOS 3.x m68k
+    - Cross-builds strict C89 for the baseline Motorola 68000 with the maintained
+      AmigaDev GCC 10 container, then verifies Amiga HUNK format and magic bytes.
   - [_] AROS x86
   - [_] Android arm64
   - [_] iOS arm64
