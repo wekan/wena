@@ -9,8 +9,8 @@ on:
 permissions:
   contents: read
 
-# Keep this list in the same order as ROADMAP.md. A target becomes active when its
-# .github/release/<target>.sh cross-compilation script is added.
+# Ready targets are cataloged in config/targets.tsv. A planned target becomes ready
+# only when its .github/release/<target>.sh script produces a verified artifact.
 jobs:
   cross-compile:
     name: ${{ matrix.name }}

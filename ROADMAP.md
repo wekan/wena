@@ -14,6 +14,65 @@
 
 # Roadmap
 
+## Expanded build, release, test, and server phases
+
+- [x] Add `config/targets.tsv` as the shared catalog of realistic GitHub Actions
+  cross-build targets, distinguishing verified bootstrap targets from planned ones.
+- [_] Expand cross-build coverage one verified target at a time:
+  - [_] Linux i686, ppc64le, s390x, and riscv64.
+  - [_] Windows i686 and arm64.
+  - [_] Android armv7, x86, and x86-64.
+  - [_] iOS Simulator arm64 and amd64.
+  - [_] FreeBSD, NetBSD, and OpenBSD on amd64 and arm64, using pinned sysroots.
+  - [_] Haiku amd64 with its maintained cross-tools.
+  - [_] WebAssembly wasm32 as a self-contained web artifact bundle.
+  - [_] Replace the old AROS SDK image when a maintained compatible image or
+    reproducible current-source toolchain is available.
+- [_] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
+  - [_] Require an existing newest `github.com/wekan/wena` release and resolve its
+    tag without creating, publishing, editing, or pushing a release.
+  - [_] Build every `ready` catalog target; a missing script or artifact is a hard
+    failure rather than a skipped target.
+  - [_] Collect every verified executable/bundle under unique release asset names.
+  - [_] Attach all collected assets to that newest release with `contents: write`,
+    collision handling, post-upload verification, timeouts, and per-job summaries.
+  - [_] Add static regression tests for permissions, dependencies, complete asset
+    coverage, and the no-release-creation/no-push boundary. Implement/test only;
+    never run this workflow or invoke a release/upload command from an assistant.
+- [_] Add WeKan-style local build entry points:
+  - [_] `build.sh` with Build, Tests, Server, and Tools submenus plus noninteractive
+    `--list` and named commands.
+  - [_] `build.bat` with the same categories, target names, and exit codes.
+  - [_] Build the current host target, one selected catalog target, or every ready
+    target; long non-menu commands return directly to the prompt without pauses.
+  - [_] Share target dispatch/validation between menus and CI to prevent drift.
+- [_] Add fast native equivalents of WeKan test categories, running against the
+  current OS/CPU executable wherever behavior crosses a process boundary:
+  - [_] Strict-C89 model/unit and negative-validation suites.
+  - [_] Nuklear component, interaction-state, accessibility, keyboard, mouse,
+    touch, responsive-layout, drag/drop, and collapse suites.
+  - [_] Headless SDL executable smoke/startup/crash and command-line suites.
+  - [_] SQLite schema, migration, transaction, corruption, concurrency, and query
+    performance suites using temporary databases.
+  - [_] REST contract/authentication/authorization/rate-limit and negative suites.
+  - [_] WeKan/Trello import-export round trips, malformed input, attachment paths,
+    and local/remote boundary suites.
+  - [_] Platform artifact-format, dependency/license, sanitizer, fuzz, leak, and
+    performance regression suites; run independent native suites in parallel.
+- [_] Add optional Wena Server in Admin Panel / Settings / Server:
+  - [_] Configuration model/UI: disabled by default; explicit IPv4 bind address and
+    validated port (for example `127.0.0.1:3000`), with restart/status/error state.
+  - [_] Server adapter with bounded HTTP parsing, connection/request limits,
+    timeouts, authentication tokens, authorization, audit logging, and safe CORS.
+  - [_] Versioned WeKan-compatible REST routes for users, boards, swimlanes, lists,
+    cards, checklists, comments, labels, members, attachments, and activities.
+  - [_] Back routes with the same SQLite model/storage layer used by local mode and
+    preserve transactional parent relationships.
+  - [_] Let remote clients select either a Meteor 3 WeKan base URL or Wena Server
+    base URL, with capability/version discovery and compatible error handling.
+  - [_] Import/export and local-to-remote/remote-to-local round-trip tests against
+    both server implementations, including auth failures and interrupted transfers.
+
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
     artifact upload, and a structural regression test. Targets remain pending until

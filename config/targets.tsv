@@ -1,0 +1,30 @@
+# target	display name	runner	status	artifact kind
+linux-arm64	Linux arm64	ubuntu-24.04	ready	ELF executable
+linux-amd64	Linux amd64	ubuntu-24.04	ready	ELF executable
+linux-armhf	Linux armhf	ubuntu-24.04	ready	ELF executable
+windows-amd64	Windows amd64	ubuntu-24.04	ready	PE executable
+macos-arm64	macOS arm64	macos-15	ready	Mach-O executable
+macos-amd64	macOS amd64	macos-15	ready	Mach-O executable
+amigaos-m68k	AmigaOS 3.x m68k	ubuntu-24.04	ready	HUNK executable
+aros-x86	AROS x86-64	ubuntu-24.04	ready	ELF executable
+android-arm64	Android arm64	ubuntu-24.04	ready	ELF executable
+ios-arm64	iOS arm64	macos-15	ready	Mach-O executable
+linux-i686	Linux i686	ubuntu-24.04	planned	ELF executable
+linux-ppc64le	Linux ppc64le	ubuntu-24.04	planned	ELF executable
+linux-s390x	Linux s390x	ubuntu-24.04	planned	ELF executable
+linux-riscv64	Linux riscv64	ubuntu-24.04	planned	ELF executable
+windows-i686	Windows i686	ubuntu-24.04	planned	PE executable
+windows-arm64	Windows arm64	ubuntu-24.04	planned	PE executable
+android-armv7	Android armv7	ubuntu-24.04	planned	ELF executable
+android-x86	Android x86	ubuntu-24.04	planned	ELF executable
+android-x86_64	Android x86-64	ubuntu-24.04	planned	ELF executable
+ios-simulator-arm64	iOS Simulator arm64	macos-15	planned	Mach-O executable
+ios-simulator-amd64	iOS Simulator amd64	macos-15	planned	Mach-O executable
+freebsd-amd64	FreeBSD amd64	ubuntu-24.04	planned	ELF executable
+freebsd-arm64	FreeBSD arm64	ubuntu-24.04	planned	ELF executable
+netbsd-amd64	NetBSD amd64	ubuntu-24.04	planned	ELF executable
+netbsd-arm64	NetBSD arm64	ubuntu-24.04	planned	ELF executable
+openbsd-amd64	OpenBSD amd64	ubuntu-24.04	planned	ELF executable
+openbsd-arm64	OpenBSD arm64	ubuntu-24.04	planned	ELF executable
+haiku-amd64	Haiku amd64	ubuntu-24.04	planned	ELF executable
+web-wasm32	WebAssembly wasm32	ubuntu-24.04	planned	web artifact bundle
