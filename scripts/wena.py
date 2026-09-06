@@ -163,6 +163,7 @@ def run_test(name):
     suites["sqlite-storage"] = ROOT / "tests" / "test_sqlite_storage.sh"
     suites["progressive"] = ROOT / "tests" / "test_progressive_integration.sh"
     suites["migration-embed"] = ROOT / "tests" / "test_migration_embedding.py"
+    suites["sqlite-persistence"] = ROOT / "tests" / "test_sqlite_persistence.sh"
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -217,6 +218,7 @@ def main(argv):
         print("sqlite-storage\tChecksummed atomic SQLite migration runner")
         print("progressive\tHTML4 fallback, DnD, POST, and multi-region integration")
         print("migration-embed\tPinned SQLite migration in every ready artifact")
+        print("sqlite-persistence\tTransactional SQLite create/edit/archive adapter")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])
