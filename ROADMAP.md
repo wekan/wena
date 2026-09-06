@@ -61,6 +61,9 @@
     - [x] Pin upstream Nuklear as a submodule at commit `e3e18dc1`, select its
       MIT license, and compile its SDL2 renderer behind the platform boundary.
     - [_] Port the remaining Jade component and feature areas.
+      - [x] Port the board header title and board-menu action as a dedicated
+        Nuklear component, separate from board hierarchy rendering.
+      - [_] Port the board sidebar component and its feature integration.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout

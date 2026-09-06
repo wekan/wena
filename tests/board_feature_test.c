@@ -1,4 +1,5 @@
 #include "../client/features/board.h"
+#include "../client/components/boards/board_header.h"
 
 #include <assert.h>
 #include <nuklear.h>
@@ -37,10 +38,41 @@ void nk_layout_row_dynamic(struct nk_context *context, float height, int columns
     (void)columns;
 }
 
+void nk_layout_row_begin(struct nk_context *context, int format,
+                         float row_height, int columns)
+{
+    (void)context;
+    (void)format;
+    (void)row_height;
+    (void)columns;
+}
+
+void nk_layout_row_push(struct nk_context *context, float value)
+{
+    (void)context;
+    (void)value;
+}
+
+void nk_layout_row_end(struct nk_context *context)
+{
+    (void)context;
+}
+
 void nk_label(struct nk_context *context, const char *text, int alignment)
 {
     (void)alignment;
     context->labels[context->label_count++] = text;
+}
+
+int nk_button_label(struct nk_context *context, const char *title)
+{
+    int result;
+
+    (void)title;
+    ++context->button_count;
+    result = context->next_button_result;
+    context->next_button_result = 0;
+    return result;
 }
 
 int nk_group_begin(struct nk_context *context, const char *title,
@@ -88,6 +120,7 @@ int main(void)
     assert(context.begin_count == 1);
     assert(context.end_count == 1);
     assert(context.group_depth == 0);
+    assert(context.button_count == 1);
     assert(context.label_count == 5);
     assert(strcmp(context.labels[0], "Project") == 0);
     assert(strcmp(context.labels[1], "Current") == 0);
@@ -100,5 +133,11 @@ int main(void)
     board.archived = 0;
     layout.cards = NULL;
     assert(!wena_board_layout_render(&context, &layout));
+    layout.cards = cards;
+    context.next_button_result = 1;
+    assert(wena_board_header_render(&context, &board) ==
+           WENA_BOARD_HEADER_OPEN_MENU);
+    assert(wena_board_header_render(NULL, &board) ==
+           WENA_BOARD_HEADER_NO_ACTION);
     return 0;
 }

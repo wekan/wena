@@ -20,6 +20,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/client/features/board.c" \
   "$root_dir/client/components/boards/board_layout.c" \
+  "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/models/model.c" \
   "$root_dir/models/board.c" \
   -o "$binary" \

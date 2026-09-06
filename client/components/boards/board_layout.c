@@ -1,4 +1,5 @@
 #include "board_layout.h"
+#include "board_header.h"
 
 #include <nuklear.h>
 #include <string.h>
@@ -59,8 +60,7 @@ int wena_board_layout_render(struct nk_context *context,
         (layout->card_count != 0 && layout->cards == NULL)) {
         return 0;
     }
-    nk_layout_row_dynamic(context, 34.0f, 1);
-    nk_label(context, layout->board->title, NK_TEXT_LEFT);
+    (void)wena_board_header_render(context, layout->board);
     for (index = 0; index < layout->swimlane_count; ++index) {
         const WenaSwimlane *swimlane = &layout->swimlanes[index];
 
