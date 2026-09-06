@@ -9,7 +9,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "server" / "migrations" / "001_initial.sql"
-EXPECTED_SHA256 = "5370d6af8e84c447431980ec08b6997f48a8784bcd3bf854ae469cbace4770c3"
+EXPECTED_SHA256 = "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"
 
 assert hashlib.sha256(MIGRATION.read_bytes()).hexdigest() == EXPECTED_SHA256
 
@@ -21,6 +21,7 @@ with tempfile.TemporaryDirectory() as temporary:
     connection.execute("PRAGMA journal_mode = WAL")
     connection.execute("PRAGMA synchronous = FULL")
     connection.executescript(MIGRATION.read_text(encoding="utf-8"))
+    connection.execute("PRAGMA user_version = 1")
     assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
     tables = {row[0] for row in connection.execute(
         "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'")}

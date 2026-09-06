@@ -109,6 +109,14 @@
       Document forward-only atomic checksum migrations, WAL/foreign-key/integrity
       startup gates, crash recovery, and verified atomic backup/restore. The SQLite
       migration runner and production adapter remain unimplemented.
+    - [x] Add the smallest strict-C89 system-SQLite migration runner with a bundled
+      MIT-compatible SHA-256 verifier: reject modified SQL before open, apply version 1 with
+      `BEGIN IMMEDIATE`, checksum metadata and `user_version` in one transaction,
+      refuse gaps/downgrades, configure busy timeout/WAL/full sync/foreign keys, and
+      gate startup on quick/FK checks with a full integrity API. Temp-db tests cover
+      idempotent reopen, uncommitted crash rollback, bad SQL rollback, modified hash,
+      newer schema, corruption, and the SHA-256 known vector. Migration embedding,
+      backup execution, and the production persistence adapter remain pending.
     - [x] Define a strict-C89 begin/apply/finish persistence transaction contract and
       an in-memory create/edit/archive fake. Stage all writes, authorize first, bind
       replay keys to actor+route+operation+request-version, require optimistic card

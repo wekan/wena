@@ -1,4 +1,3 @@
-BEGIN IMMEDIATE;
 CREATE TABLE schema_migrations (
   version INTEGER PRIMARY KEY,
   checksum TEXT NOT NULL UNIQUE,
@@ -63,5 +62,3 @@ CREATE TABLE idempotency_keys (
   committed_at INTEGER NOT NULL,
   PRIMARY KEY (actor_id, route, operation, request_version)
 );
-PRAGMA user_version = 1;
-COMMIT;
