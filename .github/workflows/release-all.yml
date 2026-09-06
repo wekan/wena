@@ -59,6 +59,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes gcc-aarch64-linux-gnu
 
+      - name: Install Linux armhf cross-compiler
+        if: matrix.target == 'linux-armhf'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-arm-linux-gnueabihf
+
       - name: Check target support
         id: support
         shell: bash

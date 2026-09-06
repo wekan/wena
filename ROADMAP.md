@@ -25,7 +25,9 @@
   - [x] Linux amd64
     - Builds a strict C89 x86-64 ELF executable with GCC and verifies its ELF class
       and AMD64 machine header before artifact upload.
-  - [_] Linux armhf
+  - [x] Linux armhf
+    - Builds a strict C89 32-bit ARM hard-float ELF executable and verifies its
+      ELF class, ARM machine header, and hard-float ABI flag before artifact upload.
   - [_] Windows amd64
   - [_] macOS arm64
   - [_] macOS amd64
