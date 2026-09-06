@@ -18,12 +18,18 @@ typedef struct WenaBoardLayout {
     size_t card_count;
     WenaBoardSidebar *sidebar;
     struct WenaListInteraction *list_interaction;
+    struct WenaCardInteraction *card_interaction;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {
     unsigned int actions;
     WenaId list_id;
 } WenaListInteraction;
+
+typedef struct WenaCardInteraction {
+    unsigned int actions;
+    WenaId card_id;
+} WenaCardInteraction;
 
 int wena_board_layout_render(struct nk_context *context,
                              const WenaBoardLayout *layout);

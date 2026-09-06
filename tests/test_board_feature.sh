@@ -17,6 +17,8 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" \
   "$root_dir/client/components/lists/list_header.c" \
+  "$root_dir/client/components/cards/card_body.c" \
+  "$root_dir/client/features/card_details.c" \
   "$root_dir/models/model.c" \
   "$root_dir/models/board.c" \
   "$root_dir/models/swimlane.c" \

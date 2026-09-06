@@ -69,7 +69,9 @@
         Archives, with refresh, add, and restore action intents and state checks.
       - [x] Port the list header title, Add card, and List menu controls, reporting
         the selected list and action to the board feature without mutating data.
-      - [_] Port card body controls and card-details feature state.
+      - [x] Port card body Open card and Card menu controls with exact card action
+        reporting, plus persistent open/close card-details feature state.
+      - [_] Render the card-details canvas and editing actions.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout
