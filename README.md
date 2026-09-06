@@ -1,5 +1,5 @@
-# WeNa - WeKan Native
+# WeNa - WeKan Native Kanban
 
+- Drag drop GUI kanban for desktop and mobile.
 - Made with C89, SDL2, Nuklear GUI, SQLite.
-- Drag drop, looks same like Meteor 3 WeKan.
-- For all desktop and mobile operating systems.
+- Admin Panel/Settings/Server: Enable Web UI and REST API.
