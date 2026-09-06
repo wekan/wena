@@ -151,7 +151,8 @@ def run_test(name):
               "platform-security": ROOT / "tests" / "test_platform_security.sh",
               "http-serving": ROOT / "tests" / "test_http_serving.sh",
               "capability": ROOT / "tests" / "test_capability.sh",
-              "regions": ROOT / "tests" / "test_region_response.sh"}
+              "regions": ROOT / "tests" / "test_region_response.sh",
+              "domain-operation": ROOT / "tests" / "test_domain_operation.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -200,6 +201,7 @@ def main(argv):
         print("http-serving\tTimed read-only HTML4 serving loop")
         print("capability\tProgressive drag/drop capability and baseline restore")
         print("regions\tBounded versioned visible-region response protocol")
+        print("domain-operation\tVerified intent to allowlisted domain callback")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

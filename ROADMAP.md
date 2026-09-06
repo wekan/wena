@@ -127,6 +127,12 @@
       route/operation/single-use-CSRF verifier with an injected monotonic clock.
       Valid no-JS forms reach a non-mutating 503 intent boundary; invalid auth,
       scope, media type, operation, and replay fail closed as 403 over real sockets.
+    - [x] Add a strict-C89 domain-operation adapter that maps only allowlisted typed
+      operations from a verified mutation intent into an owned bounded command for
+      an explicitly registered callback. Require monotonic request versions and a
+      valid bounded `WENA-REGIONS/1` result; invalid/auth/replay/callback failures
+      have no adapter-side version advance. Only a fake callback is tested: no
+      SQLite, listener dispatch, or production persistence is connected yet.
   - [_] Add Meteor HTML4 route-parity and golden/contract tests, cookieless/no-JS
     HTTP E2E, forged-scope/CSRF/replay/open-redirect/escaping negative tests, and
     configured startup/restart/listener tests.
