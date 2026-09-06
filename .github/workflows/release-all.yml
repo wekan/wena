@@ -51,6 +51,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install Linux arm64 cross-compiler
         if: matrix.target == 'linux-arm64'

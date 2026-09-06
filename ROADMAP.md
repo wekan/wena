@@ -58,7 +58,8 @@
   - [_] Add Nuklear component and feature modules matching the Jade UI areas.
     - [x] Add the first board feature and component slice, rendering active
       board/swimlane/list/card hierarchy through a strict C89 Nuklear interface.
-    - [_] Vendor a pinned Nuklear release and connect an SDL platform backend.
+    - [x] Pin upstream Nuklear as a submodule at commit `e3e18dc1`, select its
+      MIT license, and compile its SDL2 renderer behind the platform boundary.
     - [_] Port the remaining Jade component and feature areas.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
