@@ -66,6 +66,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes gcc-arm-linux-gnueabihf
 
+      - name: Install Windows amd64 cross-compiler
+        if: matrix.target == 'windows-amd64'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64
+
       - name: Check target support
         id: support
         shell: bash

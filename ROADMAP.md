@@ -28,7 +28,9 @@
   - [x] Linux armhf
     - Builds a strict C89 32-bit ARM hard-float ELF executable and verifies its
       ELF class, ARM machine header, and hard-float ABI flag before artifact upload.
-  - [_] Windows amd64
+  - [x] Windows amd64
+    - Cross-builds a strict C89 PE32+ executable with MinGW-w64 and verifies its
+      x86-64 COFF architecture before artifact upload.
   - [_] macOS arm64
   - [_] macOS amd64
   - [_] AmigaOS 3.x m68k
