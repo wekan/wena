@@ -80,7 +80,7 @@
   - [_] Platform artifact-format, dependency/license, sanitizer, fuzz, leak, and
     performance regression suites; run independent native suites in parallel.
 - [_] Add optional Wena Server in Admin Panel / Settings / Server:
-  - [_] Configuration model/UI: disabled by default; explicit IPv4 bind address and
+  - [x] Configuration model/UI: disabled by default; explicit IPv4 bind address and
     validated port (for example `127.0.0.1:3000`), with restart/status/error state.
   - [_] Server adapter with bounded HTTP parsing, connection/request limits,
     timeouts, authentication tokens, authorization, audit logging, and safe CORS.

@@ -46,6 +46,7 @@ def main():
     assert "models\tStrict-C89" in tests.stdout
     assert "locale\tOS locale" in tests.stdout
     assert "language\tPersistent override" in tests.stdout
+    assert "server-settings\tAdmin server" in tests.stdout
     model_tests = command("tests", "models")
     assert model_tests.returncode == 0, model_tests.stderr
     locale_tests = command("tests", "locale")
