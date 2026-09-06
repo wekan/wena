@@ -11,6 +11,7 @@ assert "userAgent" not in script and "navigator" not in script
 for required in (
     "'draggable' in s", "window.DragEvent", "window.DataTransfer",
     "window.AbortController", "window.fetch", "window.TextDecoder",
+    "window.FormData", "window.URLSearchParams",
     "new window.DragEvent",
     "dispatchEvent(e)", "getElementsByClassName('wena-move-baseline')",
     "'-baseline'", "+'-drag'", "if(!drag){continue;}",
@@ -28,6 +29,16 @@ for required in (
     "doc.getElementById(current.elementId)", "changes.push",
     "node.textContent", "state.lastRequestVersion=parsed.requestVersion",
     "catch(error){restore();throw error;}",
+    "function postForm(form,state,doc,milliseconds)",
+    "method!=='POST'", "!sameOrigin(action)", "state.inFlight",
+    "new window.AbortController()", "new window.FormData(form)",
+    "new window.URLSearchParams", "credentials:'same-origin'",
+    "redirect:'error'", "application/vnd.wena.regions-v1",
+    "application/x-www-form-urlencoded;charset=UTF-8",
+    "X-Wena-Request-Version", "signal:controller.signal",
+    "response.ok", "response.arrayBuffer()", "buffer.byteLength>32768",
+    "applyRegions(buffer,version,state,doc)", "controller.abort()",
+    "state.inFlight=false", "state.nextRequestVersion=version+1",
 ):
     assert required in script, required
 assert "eval(" not in script and "innerHTML" not in script

@@ -149,6 +149,11 @@
       identical schema/name/count/size/version checks, current-visible-ID lookup,
       validate-all-before-write, `textContent` only, and baseline restoration on
       unknown/malformed/stale/out-of-order data. Fetch/drop remain disconnected.
+    - [x] Add a disconnected baseline-form POST transport primitive: exact same-origin
+      action and POST checks, existing form fields, same-origin credentials, strict
+      media type/response limit, monotonic request IDs, one in-flight request, and
+      AbortController timeout/failure restoration. No handler invokes it yet, so
+      mutation dispatch and drag/drop remain closed.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
