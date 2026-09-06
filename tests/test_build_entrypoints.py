@@ -64,6 +64,7 @@ def main():
     assert "\npause" not in batch_entry.lower()
     assert "ready target is missing" in dispatcher
     assert "exists but is not executable" in dispatcher
+    assert "verify_i18n_catalog.py" in dispatcher
     for category in ("Build", "Tests", "Server", "Tools"):
         assert category in dispatcher
 

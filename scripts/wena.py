@@ -59,6 +59,11 @@ def build_one(target):
         raise SystemExit(f"{target}: ready target is missing {script.relative_to(ROOT)}")
     if sys.platform != "win32" and not script.stat().st_mode & 0o111:
         raise SystemExit(f"{target}: {script.relative_to(ROOT)} exists but is not executable")
+    verification = subprocess.call(
+        [sys.executable, str(ROOT / "scripts" / "verify_i18n_catalog.py")], cwd=ROOT
+    )
+    if verification:
+        return verification
     print(f"Building {record['name']} ({target})", flush=True)
     return subprocess.call(shell_command(script), cwd=ROOT)
 

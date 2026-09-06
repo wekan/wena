@@ -52,7 +52,7 @@
   - [x] Generate one deterministic, compact offline catalog from the canonical
     UTF-8 JSON files, rejecting missing/reordered English keys and changed
     underscore/printf placeholder inventories; record source revision and hashes.
-  - [_] Pin the canonical WeKan revision, commit its generated catalog, document
+  - [x] Pin the canonical WeKan revision, commit its generated catalog, document
     MIT provenance/size budget, and make local/release builds fail when regeneration
     differs, a language is absent, or the embedded catalog marker/hash is missing.
   - [_] Add a strict-C89 runtime reader and link the same catalog into every ready
