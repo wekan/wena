@@ -146,7 +146,8 @@ def run_test(name):
               "server-settings": ROOT / "tests" / "test_server_settings.sh",
               "html4-render": ROOT / "tests" / "test_legacy_html4_render.sh",
               "http-server": ROOT / "tests" / "test_http_server.sh",
-              "security": ROOT / "tests" / "test_security.sh"}
+              "security": ROOT / "tests" / "test_security.sh",
+              "router": ROOT / "tests" / "test_router.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -190,6 +191,7 @@ def main(argv):
         print("html4-render\tROOT_URL-scoped escaped Legacy HTML4 baseline")
         print("http-server\tBounded parser and Admin-controlled IPv4 listener")
         print("security\tOpaque sessions and scoped single-use CSRF audit")
+        print("router\tRead-only GET and protected mutation-intent gate")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

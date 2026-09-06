@@ -107,6 +107,10 @@
     - [x] Add fail-closed ROOT_URL path joining plus an escaped strict HTML 4.01
       one-content-table baseline and token-required POST form rendering from the
       shared contract; listener/route dispatch remains a later server slice.
+    - [x] Dispatch shared-contract GET routes as read-only page intents and gate
+      known board POST operations behind authenticated, exact-route/operation
+      single-use CSRF before returning mutation intents; no storage mutation or
+      domain callback is connected yet.
   - [x] Share one page/component contract with Meteor HTML4: canonical WeKan i18n
     keys/values, colors, one content-table baseline, ASCII controls, natural tab
     order, and REST-domain operations; do not create another visual/text catalog.
