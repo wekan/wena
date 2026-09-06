@@ -71,7 +71,9 @@
         the selected list and action to the board feature without mutating data.
       - [x] Port card body Open card and Card menu controls with exact card action
         reporting, plus persistent open/close card-details feature state.
-      - [_] Render the card-details canvas and editing actions.
+      - [x] Render a feature-owned card-details canvas with exact-card Edit title,
+        Archive, and Close intents, idle reset, and stale-selection handling.
+      - [_] Port editable title input and persist card mutations through adapters.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
 - [_] Using Nuclear GUI components, create same UI layout

@@ -185,6 +185,20 @@ int main(void)
     assert(strcmp(card_interaction.card_id, "one") == 0);
     assert(card_details.visible);
     assert(strcmp(card_details.card_id, "one") == 0);
+    context.button_to_press = "Edit title";
+    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
+                                                600.0f, &card_details));
+    assert(card_details.interaction.actions == WENA_CARD_DETAILS_EDIT_TITLE);
+    assert(strcmp(card_details.interaction.card_id, "one") == 0);
+    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
+                                                600.0f, &card_details));
+    assert(card_details.interaction.actions == WENA_CARD_DETAILS_NO_ACTION);
+    assert(card_details.visible);
+    context.button_to_press = "Archive card";
+    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
+                                                600.0f, &card_details));
+    assert(card_details.interaction.actions == WENA_CARD_DETAILS_ARCHIVE);
+    assert(strcmp(card_details.interaction.card_id, "one") == 0);
     context.button_to_press = "Card menu";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(card_interaction.actions == WENA_CARD_BODY_OPEN_MENU);
@@ -193,14 +207,30 @@ int main(void)
     assert(card_interaction.actions == WENA_CARD_BODY_NO_ACTION);
     assert(card_interaction.card_id[0] == '\0');
     assert(card_details.visible);
-    wena_card_details_close(&card_details);
+    context.button_to_press = "Close details";
+    assert(wena_card_details_render(&context, &card_details, cards, 3,
+                                    800.0f, 600.0f));
     assert(!card_details.visible && card_details.card_id[0] == '\0');
+    assert(card_details.interaction.actions == WENA_CARD_DETAILS_CLOSE);
+    assert(strcmp(card_details.interaction.card_id, "one") == 0);
     assert(!wena_card_details_open(NULL, &cards[0]));
+    assert(wena_card_details_canvas_render(NULL, &cards[0]) ==
+           WENA_CARD_DETAILS_NO_ACTION);
     cards[0].archived = 1;
     assert(wena_card_body_render(&context, &cards[0]) ==
            WENA_CARD_BODY_NO_ACTION);
     assert(!wena_card_details_open(&card_details, &cards[0]));
     cards[0].archived = 0;
+    assert(wena_card_details_open(&card_details, &cards[0]));
+    cards[0].archived = 1;
+    assert(!wena_card_details_render(&context, &card_details, cards, 3,
+                                     800.0f, 600.0f));
+    assert(!card_details.visible);
+    cards[0].archived = 0;
+    assert(wena_card_details_open(&card_details, &cards[0]));
+    assert(!wena_card_details_render(&context, &card_details, NULL, 1,
+                                     800.0f, 600.0f));
+    wena_card_details_close(&card_details);
     layout.card_interaction = NULL;
 
     memset(&context, 0, sizeof(context));

@@ -48,6 +48,8 @@ int wena_board_feature_render_with_state(struct nk_context *context,
     nk_end(context);
     if (rendered) {
         wena_board_open_card_details(layout, card_details);
+        (void)wena_card_details_render(context, card_details, layout->cards,
+                                       layout->card_count, width, height);
     }
     return rendered;
 }

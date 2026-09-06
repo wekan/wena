@@ -9,7 +9,7 @@ struct nk_rect {
 };
 
 struct nk_context {
-    const char *labels[64];
+    const char *labels[256];
     int label_count;
     int begin_count;
     int end_count;
