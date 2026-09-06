@@ -96,6 +96,9 @@
       `arc4random_buf`, Linux/Android `getrandom`, fail-closed `/dev/urandom`
       fallback) and strict same-origin CORS plus no-store/nosniff/frame/referrer/
       CSP response headers; unsupported platforms cannot enable authenticated mode.
+    - [x] Add a one-request-per-connection serving loop with bounded accept/read/write
+      timeouts and parser buffers: shared-contract GET renders HTML4, while every
+      POST remains closed with no security-token consumption or mutation intent.
   - [_] Versioned WeKan-compatible REST routes for users, boards, swimlanes, lists,
     cards, checklists, comments, labels, members, attachments, and activities.
   - [_] Back routes with the same SQLite model/storage layer used by local mode and

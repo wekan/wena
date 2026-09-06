@@ -148,7 +148,8 @@ def run_test(name):
               "http-server": ROOT / "tests" / "test_http_server.sh",
               "security": ROOT / "tests" / "test_security.sh",
               "router": ROOT / "tests" / "test_router.sh",
-              "platform-security": ROOT / "tests" / "test_platform_security.sh"}
+              "platform-security": ROOT / "tests" / "test_platform_security.sh",
+              "http-serving": ROOT / "tests" / "test_http_serving.sh"}
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -194,6 +195,7 @@ def main(argv):
         print("security\tOpaque sessions and scoped single-use CSRF audit")
         print("router\tRead-only GET and protected mutation-intent gate")
         print("platform-security\tOS entropy and strict same-origin headers")
+        print("http-serving\tTimed read-only HTML4 serving loop")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])
