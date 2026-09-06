@@ -129,6 +129,12 @@
       listener registration and broader board/list/swimlane mutations remain pending.
       Idempotency metadata stores the actual SHA-256 of the fully encoded region
       response, and commit requires exactly one pending-to-checksummed transition.
+    - [x] Create verified SQLite online backups without stopping the listener: preflight
+      source integrity/FKs and bounded free space, snapshot through SQLite's backup API,
+      recheck schema/integrity/FKs, stream SHA-256 into a sidecar, then publish data and
+      checksum from deterministic temporary names. Refuse overwrite, stale temp files,
+      relative paths, insufficient space, and partial publication. Restore validation,
+      listener stop/swap/reopen/restart, and rollback to the original remain pending.
     - [x] Add a managed server runtime that opens/checks SQLite, registers persistence
       and domain adapters, then starts the listener; stop reverses that order and all
       partial-start failures close the database. Successful no-JS mutations use a
