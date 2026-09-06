@@ -39,13 +39,13 @@
   - [x] Add static regression tests for permissions, dependencies, complete asset
     coverage, and the no-release-creation/no-push boundary. Implement/test only;
     never run this workflow or invoke a release/upload command from an assistant.
-- [_] Add WeKan-style local build entry points:
-  - [_] `build.sh` with Build, Tests, Server, and Tools submenus plus noninteractive
+- [x] Add WeKan-style local build entry points:
+  - [x] `build.sh` with Build, Tests, Server, and Tools submenus plus noninteractive
     `--list` and named commands.
-  - [_] `build.bat` with the same categories, target names, and exit codes.
-  - [_] Build the current host target, one selected catalog target, or every ready
+  - [x] `build.bat` with the same categories, target names, and exit codes.
+  - [x] Build the current host target, one selected catalog target, or every ready
     target; long non-menu commands return directly to the prompt without pauses.
-  - [_] Share target dispatch/validation between menus and CI to prevent drift.
+  - [x] Share target dispatch/validation between menus and CI to prevent drift.
 - [_] Add fast native equivalents of WeKan test categories, running against the
   current OS/CPU executable wherever behavior crosses a process boundary:
   - [_] Strict-C89 model/unit and negative-validation suites.

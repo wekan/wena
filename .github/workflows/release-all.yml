@@ -120,26 +120,11 @@ jobs:
           sdkmanager "ndk;29.0.14206865"
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
 
-      - name: Check target support
-        shell: bash
-        env:
-          TARGET: ${{ matrix.target }}
-        run: |
-          script=".github/release/${TARGET}.sh"
-          if ! test -f "$script"; then
-            echo "::error::${TARGET}: ready target is missing $script"
-            exit 1
-          fi
-          if ! test -x "$script"; then
-            echo "::error::${TARGET}: $script exists but is not executable"
-            exit 1
-          fi
-
       - name: Cross-compile
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
-        run: ".github/release/${TARGET}.sh"
+        run: python3 scripts/wena.py build "$TARGET"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4

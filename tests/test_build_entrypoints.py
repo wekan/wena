@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Regression checks for shared interactive and noninteractive build dispatch."""
+
+import importlib.util
+from pathlib import Path
+import subprocess
+
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("wena_commands", ROOT / "scripts" / "wena.py")
+wena = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wena)
+
+
+def command(*arguments):
+    return subprocess.run([str(ROOT / "build.sh"), *arguments], text=True, capture_output=True)
+
+
+def main():
+    assert wena.host_target("Linux", "x86_64") == "linux-amd64"
+    assert wena.host_target("Darwin", "arm64") == "macos-arm64"
+    assert wena.host_target("Windows", "AMD64") == "windows-amd64"
+
+    listed = command("--list")
+    assert listed.returncode == 0, listed.stderr
+    ready = [item for item in wena.targets() if item["status"] == "ready"]
+    for item in ready:
+        assert f"{item['target']}\tready\t{item['name']}" in listed.stdout
+
+    planned = command("build", "linux-i686")
+    assert planned.returncode != 0
+    assert "cataloged but not ready" in planned.stderr
+    unknown = command("build", "not-a-target")
+    assert unknown.returncode != 0
+    assert "unknown target" in unknown.stderr
+    usage = command("unexpected")
+    assert usage.returncode == 2
+    assert "Usage:" in usage.stderr
+
+    no_terminal = command()
+    assert no_terminal.returncode == 2
+    assert "Interactive menu requires a terminal" in no_terminal.stderr
+
+    tests = command("tests", "--list")
+    assert tests.returncode == 0
+    server = command("server", "status")
+    assert server.returncode == 3
+    tools = command("tools", "targets")
+    assert tools.returncode == 0
+    assert tools.stdout == listed.stdout
+
+    shell_entry = (ROOT / "build.sh").read_text(encoding="utf-8")
+    batch_entry = (ROOT / "build.bat").read_text(encoding="utf-8")
+    dispatcher = (ROOT / "scripts" / "wena.py").read_text(encoding="utf-8")
+    assert "scripts/wena.py" in shell_entry
+    assert "scripts\\wena.py" in batch_entry
+    assert "\npause" not in shell_entry.lower()
+    assert "\npause" not in batch_entry.lower()
+    assert "ready target is missing" in dispatcher
+    assert "exists but is not executable" in dispatcher
+    for category in ("Build", "Tests", "Server", "Tools"):
+        assert category in dispatcher
+
+
+if __name__ == "__main__":
+    main()
