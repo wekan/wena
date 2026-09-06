@@ -27,7 +27,9 @@ docker run --rm \
   -Werror \
   -O2 \
   client/main.c \
+  imports/i18n/catalog.c \
   -o dist/amigaos-m68k/wena
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Fq 'AmigaOS loadseg()ble executable/binary'
 test "$(od -An -tx1 -N4 "$binary" | tr -d ' \n')" = 000003f3

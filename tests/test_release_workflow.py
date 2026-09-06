@@ -33,6 +33,10 @@ def main() -> None:
     assert listed_targets(workflow) == expected, "release targets changed or reordered"
     assert workflow.count("name: ") >= len(expected), "every target needs a display name"
     assert "python3 scripts/wena.py build \"$TARGET\"" in workflow
+    assert all(
+        "embed_i18n_catalog.py" in (ROOT / ".github" / "release" / f"{target}.sh").read_text(encoding="utf-8")
+        for target in expected
+    )
     assert "dist/${{ matrix.target }}/" in workflow
     assert "steps.support.outputs.enabled" not in workflow
     assert "if-no-files-found: error" in workflow

@@ -55,7 +55,7 @@
   - [x] Pin the canonical WeKan revision, commit its generated catalog, document
     MIT provenance/size budget, and make local/release builds fail when regeneration
     differs, a language is absent, or the embedded catalog marker/hash is missing.
-  - [_] Add a strict-C89 runtime reader and link the same catalog into every ready
+  - [x] Add a strict-C89 runtime reader and link the same catalog into every ready
     target (and every future target before it becomes `ready`) without network use.
   - [_] Normalize OS locale identifiers deterministically (`language_REGION`,
     `language-Region`, encodings, and modifiers) and resolve exact variant, then
@@ -92,6 +92,18 @@
     base URL, with capability/version discovery and compatible error handling.
   - [_] Import/export and local-to-remote/remote-to-local round-trip tests against
     both server implementations, including auth failures and interrupted transfers.
+  - [_] At configured `ROOT_URL` (scheme, host, port, and optional base path), render
+    the same semantic accessible Legacy HTML4 Kanban pages and POST-button actions
+    on the same WeKan URL families; generate every link/form action below ROOT_URL
+    while listening only on the Admin-configured IPv4 address and port.
+  - [_] Share one page/component contract with Meteor HTML4: canonical WeKan i18n
+    keys/values, colors, one content-table baseline, ASCII controls, natural tab
+    order, and REST-domain operations; do not create another visual/text catalog.
+  - [_] Protect HTML4 sessions and mutations with scoped CSRF tokens, replay
+    prevention, authorization, safe redirects, output escaping, and GET immutability.
+  - [_] Add Meteor HTML4 route-parity and golden/contract tests, cookieless/no-JS
+    HTTP E2E, forged-scope/CSRF/replay/open-redirect/escaping negative tests, and
+    configured startup/restart/listener tests.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,

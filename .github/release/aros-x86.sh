@@ -26,7 +26,9 @@ docker run --rm \
   -Werror \
   -O2 \
   client/main.c \
+  imports/i18n/catalog.c \
   -o dist/aros-x86/wena
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'ELF 64-bit.*x86-64'
 readelf -h "$binary" | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'

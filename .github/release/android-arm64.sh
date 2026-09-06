@@ -28,7 +28,9 @@ mkdir -p "$output_dir"
   -Werror \
   -O2 \
   "$root_dir/client/main.c" \
+  "$root_dir/imports/i18n/catalog.c" \
   -o "$binary"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'ELF 64-bit.*ARM aarch64'
 "$readelf" -h "$binary" | grep -Eq 'Machine:[[:space:]]+AArch64'

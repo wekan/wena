@@ -23,7 +23,9 @@ mkdir -p "$output_dir"
   -Werror \
   -O2 \
   "$root_dir/client/main.c" \
+  "$root_dir/imports/i18n/catalog.c" \
   -o "$binary"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'ELF 64-bit.*(x86-64|x86_64)'
 readelf -h "$binary" | grep -Eq 'Machine:[[:space:]]+(Advanced Micro Devices X86-64|X86-64)'

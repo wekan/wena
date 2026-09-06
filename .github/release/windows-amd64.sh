@@ -23,7 +23,9 @@ x86_64-w64-mingw32-gcc \
   -Werror \
   -O2 \
   "$root_dir/client/main.c" \
+  "$root_dir/imports/i18n/catalog.c" \
   -o "$binary"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'PE32\+ executable.*x86-64.*Windows'
 x86_64-w64-mingw32-objdump -f "$binary" |

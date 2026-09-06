@@ -24,7 +24,9 @@ mkdir -p "$output_dir"
   -Werror \
   -O2 \
   "$root_dir/client/main.c" \
+  "$root_dir/imports/i18n/catalog.c" \
   -o "$binary"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
 
 file "$binary" | grep -Eq 'ELF 32-bit.*ARM'
 readelf -h "$binary" | grep -Eq 'Class:[[:space:]]+ELF32'

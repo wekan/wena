@@ -3,6 +3,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 output_dir="$root_dir/dist/linux-arm64"
+binary="$output_dir/wena"
 
 if command -v aarch64-linux-gnu-gcc >/dev/null 2>&1; then
   compiler=aarch64-linux-gnu-gcc
@@ -23,4 +24,6 @@ mkdir -p "$output_dir"
   -Werror \
   -O2 \
   "$root_dir/client/main.c" \
-  -o "$output_dir/wena"
+  "$root_dir/imports/i18n/catalog.c" \
+  -o "$binary"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$binary"
