@@ -4,6 +4,7 @@
 #include "../imports/ui/page_contract.h"
 
 #include <string.h>
+#include <stdio.h>
 
 typedef struct WenaWriter {
     char *output;
@@ -169,4 +170,21 @@ int wena_html4_render_move_control(const WenaRootUrl *root, const char *route_pa
     wena_write(&writer, "</button>");
     if (!writer.valid) { if (output != NULL && capacity > 0) output[0] = '\0'; return 0; }
     return 1;
+}
+
+static int wena_field_name_valid(const char *name)
+{return name!=NULL&&(strcmp(name,"cardId")==0||strcmp(name,"listId")==0||strcmp(name,"swimlaneId")==0||strcmp(name,"targetListId")==0);}
+
+int wena_html4_render_move_control_fields(const WenaRootUrl *root,const char *route_path,const char *control_id,const char *operation,const char *session_token,const char *csrf_token,const WenaHtml4MoveFields *fields,const char *label,const char *ascii_control,char *output,size_t capacity)
+{
+    char base[4096],marker[128],extra[1024],version[32],position[32];const char *at;size_t prefix,suffix;
+    if(!fields||!wena_field_name_valid(fields->object_name)||!wena_control_id_valid(fields->object_id)||fields->expected_version==0ul)return 0;
+    if(strcmp(operation,"move-card")==0){if(strcmp(fields->object_name,"cardId")!=0||fields->target_name==NULL||strcmp(fields->target_name,"targetListId")!=0||!wena_control_id_valid(fields->target_id)||!wena_control_id_valid(fields->target_swimlane_id))return 0;}
+    else if(strcmp(operation,"move-list")==0){if(strcmp(fields->object_name,"listId")!=0||fields->target_position>99999ul)return 0;}
+    else if(strcmp(operation,"move-swimlane")==0){if(strcmp(fields->object_name,"swimlaneId")!=0||fields->target_position>99999ul)return 0;}else return 0;
+    if(!wena_html4_render_move_control(root,route_path,control_id,operation,session_token,csrf_token,label,ascii_control,base,sizeof(base)))return 0;
+    sprintf(marker,"<button type=\"submit\">");at=strstr(base,marker);if(!at)return 0;prefix=(size_t)(at-base);suffix=strlen(at);sprintf(version,"%lu",fields->expected_version);sprintf(position,"%lu",fields->target_position);
+    extra[0]='\0';strcat(extra,"<input type=\"hidden\" name=\"");strcat(extra,fields->object_name);strcat(extra,"\" value=\"");strcat(extra,fields->object_id);strcat(extra,"\"><input type=\"hidden\" name=\"expectedVersion\" value=\"");strcat(extra,version);strcat(extra,"\">");
+    if(strcmp(operation,"move-card")==0){strcat(extra,"<input type=\"hidden\" name=\"targetListId\" value=\"");strcat(extra,fields->target_id);strcat(extra,"\"><input type=\"hidden\" name=\"targetSwimlaneId\" value=\"");strcat(extra,fields->target_swimlane_id);strcat(extra,"\">");}else{strcat(extra,"<input type=\"hidden\" name=\"targetPosition\" value=\"");strcat(extra,position);strcat(extra,"\">");}
+    if(prefix+strlen(extra)+suffix+1u>capacity){if(output&&capacity)output[0]='\0';return 0;}memcpy(output,base,prefix);strcpy(output+prefix,extra);strcpy(output+prefix+strlen(extra),at);return 1;
 }

@@ -23,6 +23,7 @@ int main(void)
     WenaRootUrl root;
     WenaHtml4Row rows[2];
     WenaHtml4Page page;
+    WenaHtml4MoveFields move;
     char output[4096];
     char url[256];
     const WenaUiControlContract *add_card;
@@ -81,6 +82,14 @@ int main(void)
     assert(strstr(output, "name=\"csrf\" value=\"csrf-token\"") != NULL);
     assert(strstr(output, "class=\"wena-drag-control wena-drag-source wena-drop-target\"") != NULL);
     assert(strstr(output, "data-wena-form=\"card-1-to-list-2-baseline\"") != NULL);
+    memset(&move, 0, sizeof(move));move.object_name="cardId";move.object_id="card-1";
+    move.target_name="targetListId";move.target_id="list-2";move.target_swimlane_id="lane-1";move.expected_version=3ul;
+    assert(wena_html4_render_move_control_fields(&root,"/b/board-1/demo","card-1-to-list-2","move-card","session-token","csrf-token",&move,"Move card","[>]",output,sizeof(output)));
+    assert(strstr(output,"name=\"cardId\" value=\"card-1\"")!=NULL);
+    assert(strstr(output,"name=\"targetListId\" value=\"list-2\"")!=NULL);
+    assert(strstr(output,"name=\"targetSwimlaneId\" value=\"lane-1\"")!=NULL);
+    assert(strstr(output,"name=\"expectedVersion\" value=\"3\"")!=NULL);
+    move.object_id="bad/id";assert(!wena_html4_render_move_control_fields(&root,"/b/board-1/demo","x","move-card","s","c",&move,"Move","[>]",output,sizeof(output)));
     assert(wena_html4_render_move_control(&root, "/b/board-1/demo", "list-1-after-list-2",
                                          wena_ui_control(WENA_UI_MOVE_LIST)->domain_operation,
                                          "session", "csrf", "Move list", "[>]", output, sizeof(output)));

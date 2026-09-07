@@ -303,6 +303,11 @@
       safe text-only DOM application, CSRF/authz/idempotency boundaries, focus and
       keyboard behavior, failure restoration, and current test/E2E limits in
       `docs/progressive-enhancement.md`.
+    - [x] Make the renderer's visible baseline form the complete movement payload
+      authority: emit allowlisted object/destination IDs, optimistic version, and
+      bounded target position as hidden fields alongside session/CSRF/operation.
+      Reject mismatched operation schemas and unsafe IDs before rendering, so no-JS
+      submit and enhanced DnD post identical validated fields.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
