@@ -241,7 +241,7 @@
       session, operation, and CSRF fields. Drag data is a constant capability marker,
       never an object ID or operation; the target form alone supplies semantics to the
       bounded transport. Failure restores every baseline control and live status.
-      Server persistence remains closed, so this is client wiring only.
+      Persistence is now connected only through the later verified hierarchy moves.
     - [x] Render stable-ID move controls as a visible, ordinary HTML4 POST form with
       session, scoped one-use CSRF, and operation fields plus an initially hidden
       drag control bound back to that exact form. A same-origin external stylesheet
@@ -250,8 +250,8 @@
     - [x] Close the shared-contract gap for card/list/swimlane movement: define the
       three canonical POST operation and i18n keys in the common UI control table so
       the router can authorize exactly the operations rendered by HTML4 and enhanced
-      DnD. Exercise visible signed baseline rendering for all hierarchy types. The
-      SQLite position transaction for these newly admitted intents remains pending.
+      DnD. Exercise visible signed baseline rendering for all hierarchy types; the
+      later card/list/swimlane slices provide their SQLite position transactions.
     - [x] Persist the first admitted movement intent, `move-card`, atomically: accept
       object and destination IDs only from the verified baseline form, require the
       card plus target list/swimlane to share the route board, reject archived cards,
@@ -293,6 +293,11 @@
       failure contracts, and strict-C behavioral malformed/oversized/stale/replay plus
       atomic multi-region/partial-update tests. A real browser-runtime E2E remains
       pending because the build environment provides no browser or JavaScript engine.
+    - [x] Complete the server-side progressive movement audit: card, list and
+      swimlane baseline/enhanced intents now reach typed, board-scoped, optimistic,
+      idempotent SQLite transactions, while the same V1 response can update every
+      allowlisted currently visible region atomically. The no-JS form/303 path and
+      capability/POST/parse/apply failure restoration remain covered together.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
