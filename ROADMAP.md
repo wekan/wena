@@ -285,8 +285,8 @@
     - [x] Add a disconnected baseline-form POST transport primitive: exact same-origin
       action and POST checks, existing form fields, same-origin credentials, strict
       media type/response limit, monotonic request IDs, one in-flight request, and
-      AbortController timeout/failure restoration. No handler invokes it yet, so
-      mutation dispatch and drag/drop remain closed.
+      AbortController timeout/failure restoration. The later guarded DnD binding and
+      hierarchy persistence slices now invoke it through signed baseline forms.
     - [x] Discover every currently visible allowlisted region from renderer-owned
       stable IDs and versions instead of hard-coding the board. The integration suite
       combines no-JS HTML/socket fallback, capability-supported/unsupported and POST
