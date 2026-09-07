@@ -101,7 +101,7 @@ int wena_html4_render_page(const WenaRootUrl *root, const WenaHtml4Page *page,
     }
     wena_write(&writer, "</tbody></table></div><p><a href=\""); wena_escape(&writer, canonical);
     wena_write(&writer, "\">[R] "); wena_escape(&writer, page->heading);
-    wena_write(&writer, "</a></p></body></html>");
+    wena_write(&writer, "</a></p><p id=\"wena-drag-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"></p></body></html>");
     if (!writer.valid) { if (output != NULL && capacity > 0) output[0] = '\0'; return 0; }
     return 1;
 }

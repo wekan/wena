@@ -59,6 +59,7 @@ int main(void)
     assert(strstr(output, "<script>") == NULL);
     assert(strstr(output, "&lt;script&gt;alert(1)&lt;/script&gt;") != NULL);
     assert(strstr(output, "href=\"https://kanban.example:8443/team/b/board-1/demo\"") != NULL);
+    assert(strstr(output, "id=\"wena-drag-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\"") != NULL);
 
     add_card = wena_ui_control(WENA_UI_ADD_CARD);
     assert(add_card != NULL && strcmp(add_card->http_method, "POST") == 0);

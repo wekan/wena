@@ -308,6 +308,10 @@
       bounded target position as hidden fields alongside session/CSRF/operation.
       Reject mismatched operation schemas and unsafe IDs before rendering, so no-JS
       submit and enhanced DnD post identical validated fields.
+    - [x] Render the enhancement's single stable status target as an empty polite,
+      atomic ARIA live region in the original HTML4 page. DnD selection, success and
+      failure messages are therefore announced without stealing focus; no-JS pages
+      retain an inert empty paragraph and their natural button/tab order.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
