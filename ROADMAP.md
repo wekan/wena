@@ -14,6 +14,19 @@
 
 # Roadmap
 
+## Paused checkpoint (resume here)
+
+Work is intentionally paused after commit `e2e5804`, which hardened SQLite
+migration execution and added its tamper/rollback regression coverage. Do not
+repeat that security batch. The next implementation slice is the unchecked
+"Port editable title input and persist card mutations through adapters" item
+below: connect the existing card-details Edit title intent to bounded Nuklear
+input, then to the already guarded optimistic/idempotent SQLite card mutation
+adapter. Verify valid editing, cancel, empty/oversized/control-character input,
+stale version, wrong card/board scope, replay, rollback and persistence after
+reopen before marking the item complete. After that, continue the remaining
+Jade component/feature areas one checked slice at a time.
+
 ## Expanded build, release, test, and server phases
 
 - [x] Add `config/targets.tsv` as the shared catalog of realistic GitHub Actions
