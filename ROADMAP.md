@@ -388,6 +388,17 @@
       fail closed; all write, locking, codec, backup and migration work remains blocked.
 - [_] Using Nuclear GUI components, create same UI layout
 - [_] Import/Export from WeKan, Trello, etc via WeKan REST API, Trello API, etc
+- [_] Match current Meteor 3 WeKan environment variables, REST API contracts, and
+  password/LDAP/OAuth2/OIDC/CAS/SAML login behavior without copying JavaScript or
+  exposing credentials. Derive compatibility from source rather than a manual list;
+  preserve defaults/coercion, proxy URLs, validation, status bodies, auth, timeout,
+  retry/rate-limit and restart behavior, then implement one provider/API group at a time.
+  - [x] Add a deterministic machine-readable inventory generator pinned to the current
+    WeKan revision. Scan executable JavaScript plus start/build/deployment files for
+    environment names and provenance, literal WebApp HTTP method/path registrations,
+    and authentication-provider implementation sources. A regeneration parity test
+    rejects stale inventory and requires core ROOT_URL, LDAP, OAuth2, CAS and login/
+    logout surfaces. Semantic defaults and runtime implementations remain pending.
 - [_] Nuclear GUI adapts to all screen sizes from smallest to biggest, with mobile and desktop mode, like Meteor 3 WeKan
 - [_] GUI works with touch displays, mouse, keyboard
 - [_] Possible to drag drop same way like Meteor 3 WeKan

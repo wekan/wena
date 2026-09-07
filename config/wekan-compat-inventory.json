@@ -1,0 +1,4066 @@
+{
+  "schema": 1,
+  "wekan_revision": "689a393841f08c3a020a4ef435b869b7641b21df",
+  "environment": [
+    {
+      "name": "ACCEPTED_VALUES_HELP",
+      "sources": [
+        "packages/wekan-ldap/server/encryptionSetting.js:82"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_COMMON_LOGIN_EXPIRATION_IN_DAYS",
+      "sources": [
+        "server/accounts-common.js:6"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_KNOWN_USERS_FAILURES_BEFORE",
+      "sources": [
+        "server/models/collectionBootstrap.js:58",
+        "server/models/collectionBootstrap.js:59"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_KNOWN_USERS_FAILURE_WINDOW",
+      "sources": [
+        "server/models/collectionBootstrap.js:80",
+        "server/models/collectionBootstrap.js:81"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_KNOWN_USERS_PERIOD",
+      "sources": [
+        "server/models/collectionBootstrap.js:69",
+        "server/models/collectionBootstrap.js:70"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_UNKNOWN_USERS_FAILURES_BEFORE",
+      "sources": [
+        "server/models/collectionBootstrap.js:88"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_UNKNOWN_USERS_FAILURES_BERORE",
+      "sources": [
+        "server/models/collectionBootstrap.js:87"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_UNKNOWN_USERS_FAILURE_WINDOW",
+      "sources": [
+        "server/models/collectionBootstrap.js:114",
+        "server/models/collectionBootstrap.js:115"
+      ]
+    },
+    {
+      "name": "ACCOUNTS_LOCKOUT_UNKNOWN_USERS_LOCKOUT_PERIOD",
+      "sources": [
+        "server/models/collectionBootstrap.js:103",
+        "server/models/collectionBootstrap.js:104"
+      ]
+    },
+    {
+      "name": "ALL_BOARDS_BASE",
+      "sources": [
+        "models/lib/allBoardsUrls.js:196",
+        "models/lib/allBoardsUrls.js:198"
+      ]
+    },
+    {
+      "name": "APT_ATTEMPTS",
+      "sources": [
+        "releases/apt-install.sh:34"
+      ]
+    },
+    {
+      "name": "APT_SLEEPS",
+      "sources": [
+        "releases/apt-install.sh:35"
+      ]
+    },
+    {
+      "name": "APT_SOURCES_DIR",
+      "sources": [
+        "releases/apt-install.sh:59"
+      ]
+    },
+    {
+      "name": "ARCH",
+      "sources": [
+        "releases/install-node-for-arch.sh:161",
+        "releases/install-node-for-arch.sh:162",
+        "releases/install-node-for-arch.sh:211",
+        "releases/repack-bundle-for-arch.sh:148",
+        "releases/repack-bundle-for-arch.sh:182",
+        "releases/repack-bundle-for-arch.sh:31",
+        "releases/repack-bundle-for-arch.sh:69"
+      ]
+    },
+    {
+      "name": "ARCHIVE",
+      "sources": [
+        "releases/changelog-archive.mjs:230",
+        "releases/changelog-archive.mjs:232",
+        "releases/changelog-archive.mjs:266"
+      ]
+    },
+    {
+      "name": "ARG_FILE",
+      "sources": [
+        "releases/fix-changelog-hashes.sh:62"
+      ]
+    },
+    {
+      "name": "ATTACHMENTS_STORE_PATH",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:1448"
+      ]
+    },
+    {
+      "name": "ATTACHMENTS_UPLOAD_EXTERNAL_PROGRAM",
+      "sources": [
+        "models/attachments.server.js:76",
+        "models/attachments.server.js:77"
+      ]
+    },
+    {
+      "name": "ATTACHMENTS_UPLOAD_MAX_SIZE",
+      "sources": [
+        "models/attachments.server.js:72",
+        "models/attachments.server.js:73",
+        "server/max-size.js:3",
+        "server/models/attachmentStorageSettings.js:255",
+        "server/models/attachmentStorageSettings.js:256",
+        "server/models/attachmentStorageSettings.js:261",
+        "server/models/attachmentStorageSettings.js:262"
+      ]
+    },
+    {
+      "name": "ATTACHMENTS_UPLOAD_MIME_TYPES",
+      "sources": [
+        "models/attachments.server.js:67",
+        "models/attachments.server.js:68",
+        "server/max-size.js:4",
+        "server/models/attachmentStorageSettings.js:257",
+        "server/models/attachmentStorageSettings.js:258"
+      ]
+    },
+    {
+      "name": "ATTACHMENT_API_MAX_DOWNLOAD_BYTES",
+      "sources": [
+        "server/attachmentApi.js:66",
+        "server/lib/legacyHtml4AttachmentResponse.js:27",
+        "server/models/attachmentStorageSettings.js:271",
+        "server/models/attachmentStorageSettings.js:272",
+        "server/routes/attachmentApi.js:55",
+        "server/routes/universalFileServer.js:73"
+      ]
+    },
+    {
+      "name": "ATTACHMENT_API_MAX_UPLOAD_BYTES",
+      "sources": [
+        "server/attachmentApi.js:65",
+        "server/models/attachmentStorageSettings.js:267",
+        "server/models/attachmentStorageSettings.js:268",
+        "server/routes/attachmentApi.js:54"
+      ]
+    },
+    {
+      "name": "AVATARS_STORE_PATH",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:1448"
+      ]
+    },
+    {
+      "name": "AVATARS_UPLOAD_EXTERNAL_PROGRAM",
+      "sources": [
+        "models/avatars.server.js:34",
+        "models/avatars.server.js:35"
+      ]
+    },
+    {
+      "name": "AVATARS_UPLOAD_MAX_SIZE",
+      "sources": [
+        "models/avatars.server.js:24",
+        "models/avatars.server.js:25",
+        "server/lib/memberAvatar.js:31",
+        "server/max-size.js:5"
+      ]
+    },
+    {
+      "name": "AVATARS_UPLOAD_MIME_TYPES",
+      "sources": [
+        "models/avatars.server.js:19",
+        "models/avatars.server.js:20",
+        "server/max-size.js:6"
+      ]
+    },
+    {
+      "name": "BASELINE",
+      "sources": [
+        "releases/translations/restore-pre-machine-humans.mjs:43"
+      ]
+    },
+    {
+      "name": "BATCH_SIZE",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:96"
+      ]
+    },
+    {
+      "name": "BIGEVENTS_PATTERN",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:365",
+        "docker-compose-ferretdb-v1-mysql.yml:367",
+        "docker-compose-ferretdb-v1-postgresql.yml:354",
+        "docker-compose-ferretdb-v1-sap-hana.yml:371",
+        "docker-compose-ferretdb-v2-postgresql.yml:279",
+        "docker-compose-mongodb-v7.yml:513",
+        "docker-compose.yml:331",
+        "server/models/activities.js:361"
+      ]
+    },
+    {
+      "name": "BROWSER_POLICY_ENABLED",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:412",
+        "docker-compose-ferretdb-v1-mysql.yml:414",
+        "docker-compose-ferretdb-v1-postgresql.yml:401",
+        "docker-compose-ferretdb-v1-sap-hana.yml:418",
+        "docker-compose-ferretdb-v2-postgresql.yml:326",
+        "docker-compose-mongodb-v7.yml:560",
+        "docker-compose.yml:378",
+        "server/policy.js:15"
+      ]
+    },
+    {
+      "name": "BUILD_N",
+      "sources": [
+        "releases/backfill-charts.sh:240"
+      ]
+    },
+    {
+      "name": "BULK_CARDS_MAX",
+      "sources": [
+        "server/models/cards.js:1283",
+        "server/models/cards.js:1859",
+        "server/models/cards.js:1911"
+      ]
+    },
+    {
+      "name": "BUNDLE_ROOT",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:46"
+      ]
+    },
+    {
+      "name": "CADDY_ARCH",
+      "sources": [
+        "snapcraft-core26.yaml:375",
+        "snapcraft-core26.yaml:377",
+        "snapcraft.yaml:843",
+        "snapcraft.yaml:848",
+        "snapcraft.yaml:856",
+        "snapcraft.yaml:859"
+      ]
+    },
+    {
+      "name": "CADDY_LATEST_URL",
+      "sources": [
+        "snapcraft.yaml:802",
+        "snapcraft.yaml:807"
+      ]
+    },
+    {
+      "name": "CADDY_PINNED_VERSION",
+      "sources": [
+        "snapcraft.yaml:806",
+        "snapcraft.yaml:855",
+        "snapcraft.yaml:859",
+        "snapcraft.yaml:860"
+      ]
+    },
+    {
+      "name": "CADDY_VERSION",
+      "sources": [
+        "snapcraft-core26.yaml:348",
+        "snapcraft-core26.yaml:375",
+        "snapcraft-core26.yaml:377",
+        "snapcraft.yaml:795",
+        "snapcraft.yaml:796",
+        "snapcraft.yaml:803",
+        "snapcraft.yaml:804",
+        "snapcraft.yaml:807",
+        "snapcraft.yaml:843",
+        "snapcraft.yaml:854",
+        "snapcraft.yaml:855",
+        "snapcraft.yaml:856",
+        "snapcraft.yaml:859",
+        "snapcraft.yaml:861"
+      ]
+    },
+    {
+      "name": "CAPABILITY_SCRIPT_PATH",
+      "sources": [
+        "imports/lib/legacyHtml4.js:494"
+      ]
+    },
+    {
+      "name": "CARDS_LOADING",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:325",
+        "docker-compose-ferretdb-v1-mysql.yml:327",
+        "docker-compose-ferretdb-v1-postgresql.yml:314",
+        "docker-compose-ferretdb-v1-sap-hana.yml:331",
+        "docker-compose-ferretdb-v2-postgresql.yml:239",
+        "docker-compose-mongodb-v7.yml:473",
+        "docker-compose.yml:291",
+        "releases/ferretdb/start-wekan.sh:91",
+        "server/cards-loading.js:27",
+        "server/models/settings.js:251"
+      ]
+    },
+    {
+      "name": "CARDS_LOADING_LAZY_THRESHOLD",
+      "sources": [
+        "server/cards-loading.js:31",
+        "server/models/settings.js:319"
+      ]
+    },
+    {
+      "name": "CARD_OPENED_WEBHOOK_ENABLED",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:329",
+        "docker-compose-ferretdb-v1-mysql.yml:331",
+        "docker-compose-ferretdb-v1-postgresql.yml:318",
+        "docker-compose-ferretdb-v1-sap-hana.yml:335",
+        "docker-compose-ferretdb-v2-postgresql.yml:243",
+        "docker-compose-mongodb-v7.yml:477",
+        "docker-compose.yml:295",
+        "server/card-opened-webhook.js:2"
+      ]
+    },
+    {
+      "name": "CASE_VALIDATE_URL",
+      "sources": [
+        "server/authentication.js:212"
+      ]
+    },
+    {
+      "name": "CAS_BASE_URL",
+      "sources": [
+        "server/authentication.js:205"
+      ]
+    },
+    {
+      "name": "CAS_ENABLED",
+      "sources": [
+        "server/authentication.js:197",
+        "server/authentication.js:198",
+        "server/lib/adminLoginSettings.js:16",
+        "server/models/settings.js:231"
+      ]
+    },
+    {
+      "name": "CAS_LOGIN_URL",
+      "sources": [
+        "server/authentication.js:206"
+      ]
+    },
+    {
+      "name": "CAS_MERGE_EXISTING_USERS",
+      "sources": [
+        "packages/wekan-accounts-cas/cas_server.js:262"
+      ]
+    },
+    {
+      "name": "CHANGELOG_FILE",
+      "sources": [
+        "releases/fix-changelog-hashes.sh:62"
+      ]
+    },
+    {
+      "name": "CHARTS_DIR",
+      "sources": [
+        "releases/backfill-charts.sh:247",
+        "releases/backfill-charts.sh:73",
+        "releases/backfill-charts.sh:81",
+        "releases/release-charts.sh:61",
+        "releases/release-charts.sh:69"
+      ]
+    },
+    {
+      "name": "CHART_VERSION",
+      "sources": [
+        "releases/backfill-charts.sh:273",
+        "releases/backfill-charts.sh:279",
+        "releases/backfill-charts.sh:284",
+        "releases/release-charts.sh:139",
+        "releases/release-charts.sh:227",
+        "releases/release-charts.sh:244",
+        "releases/release-charts.sh:263"
+      ]
+    },
+    {
+      "name": "CHECK_IMAGE",
+      "sources": [
+        "releases/docker-build.sh:113",
+        "releases/docker-build.sh:45",
+        "releases/docker-build.sh:48",
+        "releases/docker-build.sh:52",
+        "releases/docker-build.sh:63"
+      ]
+    },
+    {
+      "name": "CONFIG",
+      "sources": [
+        "releases/translations/sync-transifex-languages.mjs:53"
+      ]
+    },
+    {
+      "name": "CORS",
+      "sources": [
+        "server/cors.js:10",
+        "server/cors.js:13"
+      ]
+    },
+    {
+      "name": "CORS_ALLOW_HEADERS",
+      "sources": [
+        "server/cors.js:17",
+        "server/cors.js:21"
+      ]
+    },
+    {
+      "name": "CORS_EXPOSE_HEADERS",
+      "sources": [
+        "server/cors.js:26",
+        "server/cors.js:30"
+      ]
+    },
+    {
+      "name": "COVERAGE",
+      "sources": [
+        "test-wekan.sh:57",
+        "test-wekan.sh:71"
+      ]
+    },
+    {
+      "name": "CPU_EXEC",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:218",
+        "releases/ferretdb/start-wekan.sh:248"
+      ]
+    },
+    {
+      "name": "CPU_TARGET_PCT",
+      "sources": [
+        "server/lib/cpuMonitor.js:216",
+        "server/lib/cpuMonitor.js:227"
+      ]
+    },
+    {
+      "name": "CRAFT_ARCH_BUILD_FOR",
+      "sources": [
+        "snapcraft-core26.yaml:200",
+        "snapcraft-core26.yaml:206",
+        "snapcraft-core26.yaml:249",
+        "snapcraft-core26.yaml:257",
+        "snapcraft-core26.yaml:276",
+        "snapcraft-core26.yaml:282",
+        "snapcraft-core26.yaml:349",
+        "snapcraft-core26.yaml:368",
+        "snapcraft.yaml:249",
+        "snapcraft.yaml:255",
+        "snapcraft.yaml:341",
+        "snapcraft.yaml:349",
+        "snapcraft.yaml:456",
+        "snapcraft.yaml:460",
+        "snapcraft.yaml:539",
+        "snapcraft.yaml:582",
+        "snapcraft.yaml:586",
+        "snapcraft.yaml:665",
+        "snapcraft.yaml:686",
+        "snapcraft.yaml:694",
+        "snapcraft.yaml:810",
+        "snapcraft.yaml:836"
+      ]
+    },
+    {
+      "name": "CRAFT_PART_INSTALL",
+      "sources": [
+        "snapcraft.yaml:297",
+        "snapcraft.yaml:298",
+        "snapcraft.yaml:300",
+        "snapcraft.yaml:301",
+        "snapcraft.yaml:303"
+      ]
+    },
+    {
+      "name": "CRAFT_PROJECT_DIR",
+      "sources": [
+        "snapcraft.yaml:258",
+        "snapcraft.yaml:471",
+        "snapcraft.yaml:475",
+        "snapcraft.yaml:504",
+        "snapcraft.yaml:597",
+        "snapcraft.yaml:601",
+        "snapcraft.yaml:630",
+        "snapcraft.yaml:854",
+        "snapcraft.yaml:861"
+      ]
+    },
+    {
+      "name": "DASHBOARD_URL",
+      "sources": [
+        "server/models/settings.js:476"
+      ]
+    },
+    {
+      "name": "DATABASE_PRODUCT",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:30"
+      ]
+    },
+    {
+      "name": "DATA_DIR",
+      "sources": [
+        "releases/translations/sync-transifex-languages.mjs:142"
+      ]
+    },
+    {
+      "name": "DDP_TRANSPORT",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:208",
+        "docker-compose-ferretdb-v1-mysql.yml:210",
+        "docker-compose-ferretdb-v1-postgresql.yml:197",
+        "docker-compose-ferretdb-v1-sap-hana.yml:214",
+        "docker-compose-ferretdb-v2-postgresql.yml:107",
+        "docker-compose-mongodb-v7.yml:341",
+        "docker-compose-multitenancy.yml:119",
+        "docker-compose-multitenancy.yml:94",
+        "docker-compose.yml:174",
+        "releases/ferretdb/start-wekan.sh:31",
+        "releases/ferretdb/start-wekan.sh:35",
+        "releases/ferretdb/wekan-entrypoint.sh:30",
+        "releases/ferretdb/wekan-entrypoint.sh:34",
+        "server/statistics.js:228"
+      ]
+    },
+    {
+      "name": "DEBARCH",
+      "sources": [
+        "snapcraft.yaml:502",
+        "snapcraft.yaml:519",
+        "snapcraft.yaml:628",
+        "snapcraft.yaml:645"
+      ]
+    },
+    {
+      "name": "DEBUG",
+      "sources": [
+        "client/components/boards/boardBody.js:1191",
+        "client/components/boards/boardBody.js:1195",
+        "client/components/boards/boardBody.js:727",
+        "client/components/boards/boardBody.js:736",
+        "client/components/boards/boardBody.js:773",
+        "client/components/boards/boardBody.js:98",
+        "client/components/boards/boardHeader.js:527",
+        "client/components/cards/attachments.js:510",
+        "client/components/cards/attachments.js:518",
+        "client/components/cards/attachments.js:529",
+        "client/components/cards/attachments.js:559",
+        "client/components/cards/attachments.js:564",
+        "client/components/cards/attachments.js:571",
+        "client/components/cards/attachments.js:579",
+        "client/components/main/dueCards.js:126",
+        "client/components/main/dueCards.js:133",
+        "client/components/main/dueCards.js:181",
+        "client/components/main/dueCards.js:40",
+        "client/components/main/dueCards.js:48",
+        "client/components/main/dueCards.js:61",
+        "client/components/main/dueCards.js:78",
+        "client/components/main/dueCards.js:90",
+        "client/components/main/header.js:413",
+        "client/components/main/themeColorPicker.js:176",
+        "client/components/main/themeColorPicker.js:181",
+        "client/components/main/themeColorPicker.js:185",
+        "client/components/main/themeColorPicker.js:225",
+        "client/components/settings/attachments.js:132",
+        "client/components/settings/peopleBody.js:2364",
+        "client/components/settings/peopleBody.js:2378",
+        "client/components/settings/settingBody.js:120",
+        "client/components/swimlanes/swimlanes.js:617",
+        "client/components/swimlanes/swimlanes.js:627",
+        "client/components/swimlanes/swimlanes.js:644",
+        "client/components/users/userHeader.js:209",
+        "client/components/users/userHeader.js:218",
+        "client/components/users/userHeader.js:223",
+        "client/components/users/userHeader.js:313",
+        "client/components/users/userHeader.js:519",
+        "client/components/users/userHeader.js:530",
+        "client/components/users/userHeader.js:539",
+        "client/lib/attachmentMigrationManager.js:108",
+        "client/lib/attachmentMigrationManager.js:117",
+        "client/lib/attachmentMigrationManager.js:137",
+        "client/lib/attachmentMigrationManager.js:151",
+        "client/lib/attachmentMigrationManager.js:190",
+        "client/lib/secureDOMPurify.js:106",
+        "client/lib/secureDOMPurify.js:118",
+        "client/lib/secureDOMPurify.js:34",
+        "client/lib/secureDOMPurify.js:46",
+        "client/lib/secureDOMPurify.js:58",
+        "client/lib/secureDOMPurify.js:65",
+        "client/lib/secureDOMPurify.js:78",
+        "client/lib/secureDOMPurify.js:90",
+        "client/lib/secureDOMPurify.js:98",
+        "client/lib/uploadProgressManager.js:120",
+        "client/lib/uploadProgressManager.js:61",
+        "client/lib/uploadProgressManager.js:76",
+        "client/lib/uploadProgressManager.js:86",
+        "imports/i18n/tap.js:66",
+        "imports/lib/secureDOMPurify.js:107",
+        "imports/lib/secureDOMPurify.js:119",
+        "imports/lib/secureDOMPurify.js:35",
+        "imports/lib/secureDOMPurify.js:47",
+        "imports/lib/secureDOMPurify.js:59",
+        "imports/lib/secureDOMPurify.js:66",
+        "imports/lib/secureDOMPurify.js:79",
+        "imports/lib/secureDOMPurify.js:91",
+        "imports/lib/secureDOMPurify.js:99",
+        "models/attachments.js:118",
+        "models/attachments.js:125",
+        "models/attachments.server.js:284",
+        "models/attachments.server.js:292",
+        "models/attachments.server.js:48",
+        "models/avatars.js:72",
+        "models/avatars.js:79",
+        "models/boards.js:1905",
+        "models/cards.js:2403",
+        "models/export.js:137",
+        "models/export.js:39",
+        "models/export.js:449",
+        "models/export.js:567",
+        "models/exportExcel.js:93",
+        "models/exportPDF.js:126",
+        "models/exporter.js:198",
+        "models/recoveryEvents.js:113",
+        "models/recoveryStatus.js:24",
+        "models/swimlanes.js:156",
+        "models/swimlanes.js:225",
+        "models/trelloCreator.js:1102",
+        "models/trelloCreator.js:358",
+        "models/trelloCreator.js:649",
+        "models/trelloCreator.js:673",
+        "models/wekanCreator.js:1232",
+        "models/wekanCreator.js:1355",
+        "models/wekanCreator.js:1370",
+        "models/wekanCreator.js:649",
+        "models/wekanCreator.js:673",
+        "packages/markdown/src/secureDOMPurify.js:105",
+        "packages/markdown/src/secureDOMPurify.js:117",
+        "packages/markdown/src/secureDOMPurify.js:125",
+        "packages/markdown/src/secureDOMPurify.js:133",
+        "packages/markdown/src/secureDOMPurify.js:145",
+        "packages/markdown/src/secureDOMPurify.js:54",
+        "packages/markdown/src/secureDOMPurify.js:66",
+        "packages/markdown/src/secureDOMPurify.js:78",
+        "packages/markdown/src/secureDOMPurify.js:85",
+        "packages/markdown/src/template-integration.js:173",
+        "packages/markdown/src/template-integration.js:239",
+        "packages/markdown/src/template-integration.js:250",
+        "packages/wekan-oidc/oidc_server.js:222",
+        "packages/wekan-oidc/oidc_server.js:24",
+        "packages/wekan-oidc/oidc_server.js:275",
+        "packages/wekan-oidc/oidc_server.js:336",
+        "server/authentication.js:215",
+        "server/avatarLocalizationOnLogin.js:16",
+        "server/eventLogSummaryStartup.js:11",
+        "server/header-login.js:83",
+        "server/initializeDirs.js:46",
+        "server/initializeDirs.js:53",
+        "server/lib/apiUsageLog.js:106",
+        "server/lib/canary.js:178",
+        "server/lib/cpuLog.js:29",
+        "server/lib/cpuMonitor.js:519",
+        "server/lib/databaseProblems.js:103",
+        "server/lib/databaseProblems.js:156",
+        "server/lib/ddpSessionSendGuard.js:83",
+        "server/lib/eventLogFold.js:135",
+        "server/lib/eventLogFold.js:139",
+        "server/lib/ferretdbGovernor.js:98",
+        "server/lib/fileIntegrityScan.js:155",
+        "server/lib/fileIntegrityScan.js:377",
+        "server/lib/inputSanitizer.js:46",
+        "server/lib/inputSanitizer.js:76",
+        "server/lib/localizeAvatar.js:127",
+        "server/lib/localizeAvatar.js:174",
+        "server/lib/localizeAvatar.js:78",
+        "server/lib/loginTally.js:101",
+        "server/lib/loginTally.js:105",
+        "server/lib/requestUser.js:120",
+        "server/lib/securityLog.js:115",
+        "server/lib/speedLog.js:39",
+        "server/lib/testLog.js:34",
+        "server/lib/uptimeWatch.js:129",
+        "server/lib/uptimeWatch.js:49",
+        "server/methods/fixDuplicateLists.js:116",
+        "server/methods/fixDuplicateLists.js:140",
+        "server/methods/fixDuplicateLists.js:146",
+        "server/methods/fixDuplicateLists.js:185",
+        "server/methods/fixDuplicateLists.js:200",
+        "server/methods/fixDuplicateLists.js:23",
+        "server/methods/fixDuplicateLists.js:37",
+        "server/methods/fixDuplicateLists.js:45",
+        "server/methods/fixDuplicateLists.js:74",
+        "server/migrations/deleteDuplicateEmptyLists.js:168",
+        "server/migrations/deleteDuplicateEmptyLists.js:182",
+        "server/migrations/deleteDuplicateEmptyLists.js:193",
+        "server/migrations/deleteDuplicateEmptyLists.js:217",
+        "server/migrations/deleteDuplicateEmptyLists.js:226",
+        "server/migrations/deleteDuplicateEmptyLists.js:249",
+        "server/migrations/deleteDuplicateEmptyLists.js:259",
+        "server/migrations/fixAllFileUrls.js:174",
+        "server/migrations/fixAllFileUrls.js:215",
+        "server/migrations/fixAllFileUrls.js:254",
+        "server/migrations/fixAvatarUrls.js:112",
+        "server/models/cards.js:1401",
+        "server/models/swimlanes.js:70",
+        "server/models/users.js:2424",
+        "server/permissions/attachments.js:33",
+        "server/permissions/attachments.js:46",
+        "server/permissions/attachments.js:61",
+        "server/permissions/attachments.js:70",
+        "server/permissions/attachments.js:82",
+        "server/permissions/attachments.js:90",
+        "server/permissions/avatars.js:28",
+        "server/permissions/avatars.js:41",
+        "server/permissions/avatars.js:64",
+        "server/permissions/avatars.js:71",
+        "server/publications/attachments.js:43",
+        "server/publications/attachments.js:60",
+        "server/publications/recoveryReport.js:32",
+        "server/publications/users.js:214",
+        "server/routes/legacyAttachments.js:11",
+        "server/routes/universalFileServer.js:100",
+        "server/routes/universalFileServer.js:327",
+        "server/routes/universalFileServer.js:436",
+        "server/routes/universalFileServer.js:457",
+        "server/routes/universalFileServer.js:618",
+        "server/routes/universalFileServer.js:660",
+        "server/trelloApiImport.js:161",
+        "server/trelloApiImport.js:205",
+        "server/trelloApiImport.js:228",
+        "server/trelloApiImport.js:236",
+        "server/trelloApiImport.js:322",
+        "server/trelloApiImport.js:356",
+        "server/trelloApiImport.js:392",
+        "server/trelloApiImport.js:427",
+        "server/trelloApiImport.js:452",
+        "server/trelloApiImport.js:681"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED",
+      "sources": [
+        "server/lib/debugSpeed.js:12"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_CLIENTS",
+      "sources": [
+        "releases/debug-speed-test.sh:13",
+        "releases/debug-speed-traffic.mjs:4"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_FERRETDB_LOG_LEVEL",
+      "sources": [
+        "releases/debug-speed-ferretdb.sh:75",
+        "releases/debug-speed-server.sh:184"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_FERRETDB_PORT",
+      "sources": [
+        "releases/debug-speed-ferretdb.sh:11",
+        "releases/debug-speed-server.sh:176"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_FERRETDB_READY_TIMEOUT",
+      "sources": [
+        "releases/debug-speed-server.sh:130"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_FERRETDB_STATE",
+      "sources": [
+        "releases/debug-speed-ferretdb.sh:12",
+        "releases/debug-speed-server.sh:177"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_LOG_DIR",
+      "sources": [
+        "releases/debug-speed-ferretdb.sh:10",
+        "releases/debug-speed-server.sh:45"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_LOG_FILE",
+      "sources": [
+        "server/lib/debugSpeed.js:13"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_PASSWORD",
+      "sources": [
+        "releases/debug-speed-traffic.mjs:7"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_SAMPLE_MS",
+      "sources": [
+        "server/lib/debugSpeed.js:15"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_SECONDS",
+      "sources": [
+        "releases/debug-speed-test.sh:14",
+        "releases/debug-speed-traffic.mjs:5"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_SLOW_MS",
+      "sources": [
+        "server/lib/debugSpeed.js:14"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_URL",
+      "sources": [
+        "releases/debug-speed-traffic.mjs:3"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_USERNAME",
+      "sources": [
+        "releases/debug-speed-test.sh:66",
+        "releases/debug-speed-traffic.mjs:6"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_WATCH_INTERVAL",
+      "sources": [
+        "releases/debug-speed-watch.sh:8"
+      ]
+    },
+    {
+      "name": "DEBUGSPEED_WATCH_PATH",
+      "sources": [
+        "releases/debug-speed-watch.sh:11"
+      ]
+    },
+    {
+      "name": "DEFAULT_AUTHENTICATION_METHOD",
+      "sources": [
+        "server/models/settings.js:246",
+        "server/models/settings.js:500"
+      ]
+    },
+    {
+      "name": "DEFAULT_BOARD_ID",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:467"
+      ]
+    },
+    {
+      "name": "DEFAULT_METEOR_REACTIVITY_ORDER",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:203",
+        "docker-compose-ferretdb-v1-mysql.yml:205",
+        "docker-compose-ferretdb-v1-postgresql.yml:192",
+        "docker-compose-ferretdb-v1-sap-hana.yml:209",
+        "docker-compose.yml:169",
+        "server/statistics.js:226"
+      ]
+    },
+    {
+      "name": "DETAIL_HTML",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:142"
+      ]
+    },
+    {
+      "name": "DIR",
+      "sources": [
+        "releases/translations/wrong-script.mjs:151",
+        "releases/translations/wrong-script.mjs:183",
+        "releases/translations/wrong-script.mjs:201",
+        "releases/translations/wrong-script.mjs:95"
+      ]
+    },
+    {
+      "name": "DIST",
+      "sources": [
+        "releases/resolve-node-source.sh:153",
+        "releases/resolve-node-source.sh:228"
+      ]
+    },
+    {
+      "name": "DOCKER",
+      "sources": [
+        "releases/docker-build.sh:100",
+        "releases/docker-build.sh:113",
+        "releases/docker-build.sh:42",
+        "releases/docker-build.sh:52",
+        "releases/docker-build.sh:63"
+      ]
+    },
+    {
+      "name": "DOWNLOAD_ATTEMPTS",
+      "sources": [
+        "releases/install-node-for-arch.sh:106",
+        "releases/install-node-for-arch.sh:65",
+        "releases/install-node-for-arch.sh:77",
+        "releases/install-node-for-arch.sh:82",
+        "releases/install-node-for-arch.sh:97"
+      ]
+    },
+    {
+      "name": "DOWNLOAD_DIR",
+      "sources": [
+        "releases/build-bundle-arm64.sh:12",
+        "releases/release-bundle.sh:8",
+        "releases/release.sh:20",
+        "releases/release.sh:41",
+        "releases/version.sh:15"
+      ]
+    },
+    {
+      "name": "DOWNLOAD_RELEASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:116",
+        "docker-compose-ferretdb-v1-mariadb.yml:117",
+        "docker-compose-ferretdb-v1-mysql.yml:118",
+        "docker-compose-ferretdb-v1-mysql.yml:119",
+        "docker-compose-ferretdb-v1-postgresql.yml:105",
+        "docker-compose-ferretdb-v1-postgresql.yml:106",
+        "docker-compose-ferretdb-v1-sap-hana.yml:123",
+        "docker-compose-ferretdb-v1-sap-hana.yml:124",
+        "docker-compose.yml:82",
+        "docker-compose.yml:84"
+      ]
+    },
+    {
+      "name": "DRY_RUN",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:1837",
+        "releases/migrate-mongodb-to-ferretdb.mjs:97"
+      ]
+    },
+    {
+      "name": "EMAIL_NOTIFICATION_TIMEOUT",
+      "sources": [
+        "server/notifications/email.js:90"
+      ]
+    },
+    {
+      "name": "EN_FILE",
+      "sources": [
+        "releases/translations/fill-translations.mjs:51"
+      ]
+    },
+    {
+      "name": "EVERYTHING_LOCK_OWNED",
+      "sources": [
+        "build.sh:1724"
+      ]
+    },
+    {
+      "name": "EXE",
+      "sources": [
+        "releases/build-release-bundle.sh:248"
+      ]
+    },
+    {
+      "name": "FERRETDB_ARCH",
+      "sources": [
+        "releases/repack-bundle-for-arch.sh:107",
+        "releases/repack-bundle-for-arch.sh:119",
+        "releases/repack-bundle-for-arch.sh:124",
+        "releases/repack-bundle-for-arch.sh:138",
+        "releases/repack-bundle-for-arch.sh:141",
+        "releases/repack-bundle-for-arch.sh:33"
+      ]
+    },
+    {
+      "name": "FERRETDB_DIR",
+      "sources": [
+        "server/lib/fileIntegrityScan.js:231"
+      ]
+    },
+    {
+      "name": "FERRETDB_LISTEN_ADDR",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:67",
+        "releases/ferretdb/wekan-entrypoint.sh:61"
+      ]
+    },
+    {
+      "name": "FERRETDB_POSTGRES_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v2-postgresql.yml:123",
+        "docker-compose-ferretdb-v2-postgresql.yml:29",
+        "docker-compose-ferretdb-v2-postgresql.yml:42"
+      ]
+    },
+    {
+      "name": "FERRETDB_RELEASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:81",
+        "docker-compose-ferretdb-v1-mysql.yml:83",
+        "docker-compose-ferretdb-v1-postgresql.yml:76",
+        "docker-compose-ferretdb-v1-sap-hana.yml:94",
+        "docker-compose.yml:53"
+      ]
+    },
+    {
+      "name": "FERRETDB_SQLITE_DIR",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:66",
+        "releases/ferretdb/wekan-entrypoint.sh:66",
+        "server/lib/fileIntegrityScan.js:232"
+      ]
+    },
+    {
+      "name": "FERRETDB_TAG_CACHE",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:29"
+      ]
+    },
+    {
+      "name": "FERRETDB_VERSION",
+      "sources": [
+        "releases/update-website-version-info.sh:20"
+      ]
+    },
+    {
+      "name": "FERRET_GO_MEMORY_MB",
+      "sources": [
+        "build.sh:1561"
+      ]
+    },
+    {
+      "name": "FERRET_PID",
+      "sources": [
+        "releases/db-conformance.sh:256",
+        "releases/debug-speed-server.sh:230"
+      ]
+    },
+    {
+      "name": "FERRET_STATE",
+      "sources": [
+        "releases/debug-speed-server.sh:219"
+      ]
+    },
+    {
+      "name": "FERRET_TAG",
+      "sources": [
+        "releases/repack-bundle-for-arch.sh:129"
+      ]
+    },
+    {
+      "name": "FERRET_URL",
+      "sources": [
+        "releases/repack-bundle-for-arch.sh:115"
+      ]
+    },
+    {
+      "name": "FETCH_ATTEMPTS",
+      "sources": [
+        "releases/fetch.sh:42"
+      ]
+    },
+    {
+      "name": "FETCH_CONNECT_TIMEOUT",
+      "sources": [
+        "releases/fetch.sh:44"
+      ]
+    },
+    {
+      "name": "FETCH_SLEEPS",
+      "sources": [
+        "releases/fetch.sh:43"
+      ]
+    },
+    {
+      "name": "FILES_ONLY",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:111"
+      ]
+    },
+    {
+      "name": "FILES_VERSION",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:1818",
+        "releases/migrate-mongodb-to-ferretdb.mjs:944"
+      ]
+    },
+    {
+      "name": "FONT_SIZE",
+      "sources": [
+        "models/lib/pdfDocument.js:658",
+        "models/lib/pdfDocument.js:665"
+      ]
+    },
+    {
+      "name": "FORCE_MIGRATE",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:1036",
+        "releases/migrate-mongodb-to-ferretdb.mjs:928"
+      ]
+    },
+    {
+      "name": "GH_REPO",
+      "sources": [
+        "releases/create-github-secrets.sh:114",
+        "releases/create-github-secrets.sh:136",
+        "releases/create-github-secrets.sh:252",
+        "releases/create-github-secrets.sh:287"
+      ]
+    },
+    {
+      "name": "GH_TOKEN",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:43",
+        "releases/ferretdb-latest-tag.sh:44"
+      ]
+    },
+    {
+      "name": "GITHUB_ENV",
+      "sources": [
+        "releases/embed-verified-node.sh:168"
+      ]
+    },
+    {
+      "name": "GITHUB_OUTPUT",
+      "sources": [
+        "releases/embed-verified-node.sh:160"
+      ]
+    },
+    {
+      "name": "GITHUB_TOKEN",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:43"
+      ]
+    },
+    {
+      "name": "GOMEMLIMIT",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:58",
+        "releases/ferretdb/wekan-entrypoint.sh:43",
+        "releases/ferretdb/wekan-entrypoint.sh:53"
+      ]
+    },
+    {
+      "name": "GRIDFS_ENABLED",
+      "sources": [
+        "client/components/settings/attachments.js:696",
+        "client/components/settings/settingBody.js:445"
+      ]
+    },
+    {
+      "name": "HANA_DATABASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-sap-hana.yml:136",
+        "docker-compose-ferretdb-v1-sap-hana.yml:97"
+      ]
+    },
+    {
+      "name": "HANA_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-sap-hana.yml:136",
+        "docker-compose-ferretdb-v1-sap-hana.yml:96"
+      ]
+    },
+    {
+      "name": "HANA_USER",
+      "sources": [
+        "docker-compose-ferretdb-v1-sap-hana.yml:136",
+        "docker-compose-ferretdb-v1-sap-hana.yml:95"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_EMAIL",
+      "sources": [
+        "server/header-login.js:49",
+        "server/lib/headerLoginAuth.js:161",
+        "server/lib/tests/attachmentApi.authContext.tests.js:15",
+        "server/lib/tests/attachmentApi.authContext.tests.js:50",
+        "server/lib/tests/attachmentApi.authContext.tests.js:99",
+        "server/lib/tests/headerLoginAuth.tests.js:161",
+        "server/lib/tests/headerLoginAuth.tests.js:17",
+        "server/lib/tests/headerLoginAuth.tests.js:183"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_FIRSTNAME",
+      "sources": [
+        "server/header-login.js:50",
+        "server/lib/headerLoginAuth.js:158",
+        "server/lib/tests/headerLoginAuth.tests.js:18",
+        "server/lib/tests/headerLoginAuth.tests.js:184"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_ID",
+      "sources": [
+        "server/header-login.js:47",
+        "server/header-login.js:48",
+        "server/lib/headerLoginAuth.js:143",
+        "server/lib/tests/attachmentApi.authContext.tests.js:14",
+        "server/lib/tests/attachmentApi.authContext.tests.js:49",
+        "server/lib/tests/attachmentApi.authContext.tests.js:75",
+        "server/lib/tests/attachmentApi.authContext.tests.js:98",
+        "server/lib/tests/headerLoginAuth.tests.js:16",
+        "server/lib/tests/headerLoginAuth.tests.js:160",
+        "server/lib/tests/headerLoginAuth.tests.js:182",
+        "server/lib/tests/headerLoginAuth.tests.js:213",
+        "server/lib/tests/proxybleed.security.tests.js:98",
+        "server/max-size.js:2"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_LASTNAME",
+      "sources": [
+        "server/header-login.js:51",
+        "server/lib/headerLoginAuth.js:159",
+        "server/lib/tests/headerLoginAuth.tests.js:185",
+        "server/lib/tests/headerLoginAuth.tests.js:19"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_TRUSTED_IP",
+      "sources": [
+        "server/header-login.js:55",
+        "server/lib/headerLoginAuth.js:93",
+        "server/lib/tests/attachmentApi.authContext.tests.js:101",
+        "server/lib/tests/attachmentApi.authContext.tests.js:17",
+        "server/lib/tests/headerLoginAuth.tests.js:133",
+        "server/lib/tests/headerLoginAuth.tests.js:20"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_TRUSTED_IPS",
+      "sources": [
+        "server/header-login.js:55",
+        "server/lib/headerLoginAuth.js:93",
+        "server/lib/tests/attachmentApi.authContext.tests.js:100",
+        "server/lib/tests/attachmentApi.authContext.tests.js:16",
+        "server/lib/tests/attachmentApi.authContext.tests.js:51",
+        "server/lib/tests/attachmentApi.authContext.tests.js:76",
+        "server/lib/tests/headerLoginAuth.tests.js:113",
+        "server/lib/tests/headerLoginAuth.tests.js:134",
+        "server/lib/tests/headerLoginAuth.tests.js:162",
+        "server/lib/tests/headerLoginAuth.tests.js:186",
+        "server/lib/tests/headerLoginAuth.tests.js:21",
+        "server/lib/tests/headerLoginAuth.tests.js:214",
+        "server/lib/tests/headerLoginAuth.tests.js:97",
+        "server/lib/tests/proxybleed.security.tests.js:124",
+        "server/lib/tests/proxybleed.security.tests.js:135",
+        "server/lib/tests/proxybleed.security.tests.js:53",
+        "server/lib/tests/proxybleed.security.tests.js:99"
+      ]
+    },
+    {
+      "name": "HEADER_LOGIN_TRUSTED_PROXIES",
+      "sources": [
+        "server/lib/headerLoginAuth.js:70",
+        "server/lib/tests/attachmentApi.authContext.tests.js:18",
+        "server/lib/tests/attachmentApi.authContext.tests.js:55",
+        "server/lib/tests/headerLoginAuth.tests.js:22",
+        "server/lib/tests/headerLoginAuth.tests.js:74",
+        "server/lib/tests/headerLoginAuth.tests.js:86",
+        "server/lib/tests/headerLoginAuth.tests.js:96",
+        "server/lib/tests/proxybleed.security.tests.js:123",
+        "server/lib/tests/proxybleed.security.tests.js:134"
+      ]
+    },
+    {
+      "name": "HIGH_PCT",
+      "sources": [
+        "server/lib/cpuMonitor.js:472"
+      ]
+    },
+    {
+      "name": "HTTP_FORWARDED_COUNT",
+      "sources": [
+        "packages/wekan-accounts-lockout/src/knownUser.js:152",
+        "server/apiAuthRoutes.js:89",
+        "server/lib/apiUsageLog.js:40",
+        "server/lib/canary.js:110",
+        "server/lib/eventLogFold.js:57",
+        "server/lib/eventLogFold.js:76",
+        "server/lib/legacyHtml4Session.js:21",
+        "server/lib/loginTally.js:32",
+        "server/lib/memberPassword.js:19",
+        "server/lib/recoveryAudit.js:23",
+        "server/lib/securityLog.js:66",
+        "server/lib/securityLog.js:80"
+      ]
+    },
+    {
+      "name": "ID",
+      "sources": [
+        "releases/ensure-tools.sh:27",
+        "releases/ensure-tools.sh:88"
+      ]
+    },
+    {
+      "name": "ID_LIKE",
+      "sources": [
+        "releases/ensure-tools.sh:27"
+      ]
+    },
+    {
+      "name": "IMAGE",
+      "sources": [
+        "releases/docker-publish-variant.sh:56",
+        "releases/docker-publish-variant.sh:78",
+        "releases/docker-publish-variant.sh:95",
+        "releases/docker-publish-variant.sh:96",
+        "releases/repack-bundle-for-arch.sh:34"
+      ]
+    },
+    {
+      "name": "IMAGE_COMPRESS_RATIO",
+      "sources": [
+        "server/max-image-pixel.js:5"
+      ]
+    },
+    {
+      "name": "LDAP_BACKGROUND_SYNC_INTERVAL",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:665",
+        "docker-compose-ferretdb-v1-mysql.yml:667",
+        "docker-compose-ferretdb-v1-postgresql.yml:654",
+        "docker-compose-ferretdb-v1-sap-hana.yml:671",
+        "docker-compose-ferretdb-v2-postgresql.yml:579",
+        "docker-compose-mongodb-v7.yml:813",
+        "docker-compose.yml:631"
+      ]
+    },
+    {
+      "name": "LDAP_ENABLE",
+      "sources": [
+        "server/apiAuthRoutes.js:329",
+        "server/lib/adminLoginSettings.js:14",
+        "server/lib/systemStatus.js:114",
+        "server/models/settings.js:220"
+      ]
+    },
+    {
+      "name": "LDAP_LOG_ENABLED",
+      "sources": [
+        "packages/wekan-ldap/server/logger.js:1"
+      ]
+    },
+    {
+      "name": "LINE_HEIGHT",
+      "sources": [
+        "models/lib/pdfDocument.js:640",
+        "models/lib/pdfDocument.js:658"
+      ]
+    },
+    {
+      "name": "LIST_SEGMENT",
+      "sources": [
+        "models/lib/boardItemUrl.js:32"
+      ]
+    },
+    {
+      "name": "LOCKOUT",
+      "sources": [
+        "models/lib/accountLockout.js:67"
+      ]
+    },
+    {
+      "name": "LOW_PCT",
+      "sources": [
+        "server/lib/cpuMonitor.js:485"
+      ]
+    },
+    {
+      "name": "MAIL_FROM",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:249",
+        "docker-compose-ferretdb-v1-mysql.yml:251",
+        "docker-compose-ferretdb-v1-postgresql.yml:238",
+        "docker-compose-ferretdb-v1-sap-hana.yml:255",
+        "docker-compose-ferretdb-v2-postgresql.yml:148",
+        "docker-compose-mongodb-v7.yml:382",
+        "docker-compose.yml:215",
+        "server/lib/adminEmailSettings.js:83",
+        "server/models/settings.js:326",
+        "server/models/settings.js:327",
+        "server/models/settings.js:330"
+      ]
+    },
+    {
+      "name": "MAIL_URL",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:248",
+        "docker-compose-ferretdb-v1-mysql.yml:250",
+        "docker-compose-ferretdb-v1-postgresql.yml:237",
+        "docker-compose-ferretdb-v1-sap-hana.yml:254",
+        "docker-compose-ferretdb-v2-postgresql.yml:147",
+        "docker-compose-mongodb-v7.yml:381",
+        "docker-compose.yml:214",
+        "server/models/settings.js:323",
+        "server/models/settings.js:324",
+        "server/models/settings.js:361",
+        "server/models/settings.js:363"
+      ]
+    },
+    {
+      "name": "MARCH",
+      "sources": [
+        "snapcraft.yaml:469",
+        "snapcraft.yaml:487",
+        "snapcraft.yaml:595",
+        "snapcraft.yaml:613"
+      ]
+    },
+    {
+      "name": "MARIADB_DATABASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:129",
+        "docker-compose-ferretdb-v1-mariadb.yml:51",
+        "docker-compose-ferretdb-v1-mariadb.yml:82"
+      ]
+    },
+    {
+      "name": "MARIADB_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:53",
+        "docker-compose-ferretdb-v1-mariadb.yml:90"
+      ]
+    },
+    {
+      "name": "MARIADB_ROOT_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:129",
+        "docker-compose-ferretdb-v1-mariadb.yml:54",
+        "docker-compose-ferretdb-v1-mariadb.yml:88"
+      ]
+    },
+    {
+      "name": "MARIADB_USER",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:52",
+        "docker-compose-ferretdb-v1-mariadb.yml:89"
+      ]
+    },
+    {
+      "name": "MATOMO_ADDRESS",
+      "sources": [
+        "server/policy.js:34"
+      ]
+    },
+    {
+      "name": "MATOMO_DO_NOT_TRACK",
+      "sources": [
+        "server/models/settings.js:444"
+      ]
+    },
+    {
+      "name": "MATOMO_WITH_USERNAME",
+      "sources": [
+        "server/models/settings.js:445"
+      ]
+    },
+    {
+      "name": "MAX_IMAGE_PIXEL",
+      "sources": [
+        "server/max-image-pixel.js:2",
+        "server/max-image-pixel.js:3"
+      ]
+    },
+    {
+      "name": "MAX_RETRIES",
+      "sources": [
+        "server/trelloApiImport.js:162",
+        "server/trelloApiImport.js:174"
+      ]
+    },
+    {
+      "name": "MAX_VERSIONS_BACK",
+      "sources": [
+        "releases/resolve-node-source.sh:79"
+      ]
+    },
+    {
+      "name": "MCB",
+      "sources": [
+        "client/components/sidebar/sidebar.js:1285",
+        "client/components/sidebar/sidebar.js:1301",
+        "client/components/sidebar/sidebar.js:1314",
+        "client/components/sidebar/sidebar.js:1331"
+      ]
+    },
+    {
+      "name": "METEOR_BIN",
+      "sources": [
+        "releases/debug-speed-server.sh:9"
+      ]
+    },
+    {
+      "name": "METEOR_POLLING_INTERVAL_MS",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:125"
+      ]
+    },
+    {
+      "name": "METEOR_POLLING_THROTTLE_MS",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:124"
+      ]
+    },
+    {
+      "name": "METEOR_REACTIVITY_ORDER",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:204",
+        "docker-compose-ferretdb-v1-mysql.yml:206",
+        "docker-compose-ferretdb-v1-postgresql.yml:193",
+        "docker-compose-ferretdb-v1-sap-hana.yml:210",
+        "docker-compose-ferretdb-v2-postgresql.yml:104",
+        "docker-compose-mongodb-v7.yml:338",
+        "docker-compose-multitenancy.yml:120",
+        "docker-compose-multitenancy.yml:95",
+        "docker-compose.yml:170",
+        "server/statistics.js:225"
+      ]
+    },
+    {
+      "name": "METEOR_RELEASE",
+      "sources": [
+        "releases/version.sh:418",
+        "releases/version.sh:419"
+      ]
+    },
+    {
+      "name": "METEOR_SETTINGS",
+      "sources": [
+        "docker-compose-multitenancy.yml:121",
+        "docker-compose-multitenancy.yml:97",
+        "releases/migrate-mongodb-to-ferretdb.mjs:364"
+      ]
+    },
+    {
+      "name": "METEOR_VERSION",
+      "sources": [
+        "releases/release-website.sh:75"
+      ]
+    },
+    {
+      "name": "METRICS_ACCEPTED_IP_ADDRESS",
+      "sources": [
+        "models/server/metrics.js:5"
+      ]
+    },
+    {
+      "name": "METRICS_ACCESS_TOKEN",
+      "sources": [
+        "models/server/metrics.js:41"
+      ]
+    },
+    {
+      "name": "METRICS_TRUST_PROXY",
+      "sources": [
+        "models/server/metrics.js:26",
+        "models/server/metrics.js:288"
+      ]
+    },
+    {
+      "name": "MIGRATION_MIN_FREE_BYTES",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:367"
+      ]
+    },
+    {
+      "name": "MIGRATION_NAME",
+      "sources": [
+        "server/migrations/ensureValidSwimlaneIds.js:287",
+        "server/migrations/ensureValidSwimlaneIds.js:291",
+        "server/migrations/ensureValidSwimlaneIds.js:321",
+        "server/migrations/ensureValidSwimlaneIds.js:330",
+        "server/migrations/ensureValidSwimlaneIds.js:37",
+        "server/migrations/ensureValidSwimlaneIds.js:377",
+        "server/migrations/ensureValidSwimlaneIds.js:379"
+      ]
+    },
+    {
+      "name": "MIGRATION_PORT",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:95"
+      ]
+    },
+    {
+      "name": "MIGRATION_STATUS_FILE",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:18"
+      ]
+    },
+    {
+      "name": "MIGRATION_VERSION",
+      "sources": [
+        "server/migrations/ensureValidSwimlaneIds.js:291",
+        "server/migrations/ensureValidSwimlaneIds.js:37"
+      ]
+    },
+    {
+      "name": "MONGODB_DRIVER_MAJOR",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:858"
+      ]
+    },
+    {
+      "name": "MONGO_ARCH",
+      "sources": [
+        "releases/version.sh:326",
+        "snapcraft-core26.yaml:208",
+        "snapcraft.yaml:257"
+      ]
+    },
+    {
+      "name": "MONGO_OPLOG_URL",
+      "sources": [
+        "docker-compose-mongodb-v7.yml:408",
+        "docker-compose-multitenancy.yml:118",
+        "docker-compose-multitenancy.yml:93"
+      ]
+    },
+    {
+      "name": "MONGO_URL",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:224",
+        "docker-compose-ferretdb-v1-mysql.yml:226",
+        "docker-compose-ferretdb-v1-postgresql.yml:213",
+        "docker-compose-ferretdb-v1-sap-hana.yml:230",
+        "docker-compose-ferretdb-v2-postgresql.yml:123",
+        "docker-compose-mongodb-v7.yml:357",
+        "docker-compose-multitenancy.yml:117",
+        "docker-compose-multitenancy.yml:92",
+        "docker-compose.yml:190",
+        "releases/ferretdb/db-ready.mjs:18",
+        "releases/ferretdb/start-wekan.sh:70",
+        "releases/ferretdb/wekan-entrypoint.sh:227",
+        "releases/ferretdb/wekan-entrypoint.sh:73",
+        "releases/ferretdb/wekan-entrypoint.sh:85",
+        "releases/migrate-mongodb-to-ferretdb.mjs:92",
+        "server/lib/debugSpeed.js:87",
+        "server/models/attachmentStorageSettings.js:501",
+        "server/models/attachmentStorageSettings.js:504"
+      ]
+    },
+    {
+      "name": "MONGO_VER",
+      "sources": [
+        "releases/version.sh:265",
+        "releases/version.sh:300",
+        "releases/version.sh:326",
+        "releases/version.sh:448",
+        "releases/version.sh:449"
+      ]
+    },
+    {
+      "name": "MYSQL_DATABASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-mysql.yml:131",
+        "docker-compose-ferretdb-v1-mysql.yml:53",
+        "docker-compose-ferretdb-v1-mysql.yml:84"
+      ]
+    },
+    {
+      "name": "MYSQL_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-mysql.yml:55",
+        "docker-compose-ferretdb-v1-mysql.yml:92"
+      ]
+    },
+    {
+      "name": "MYSQL_ROOT_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-mysql.yml:131",
+        "docker-compose-ferretdb-v1-mysql.yml:56",
+        "docker-compose-ferretdb-v1-mysql.yml:60",
+        "docker-compose-ferretdb-v1-mysql.yml:90"
+      ]
+    },
+    {
+      "name": "MYSQL_USER",
+      "sources": [
+        "docker-compose-ferretdb-v1-mysql.yml:54",
+        "docker-compose-ferretdb-v1-mysql.yml:91"
+      ]
+    },
+    {
+      "name": "N",
+      "sources": [
+        "client/components/cards/cardDetails.js:139",
+        "client/components/cards/cardDetails.js:141",
+        "client/components/cards/cardDetails.js:142",
+        "client/components/cards/cardDetails.js:146",
+        "client/components/cards/cardDetails.js:148",
+        "client/components/cards/cardDetails.js:153",
+        "client/components/cards/cardDetails.js:158",
+        "client/components/cards/cardDetails.js:160",
+        "client/components/cards/cardDetails.js:162",
+        "client/components/cards/cardDetails.js:164",
+        "client/components/cards/cardDetails.js:165",
+        "client/components/cards/cardDetails.js:169",
+        "client/components/cards/cardDetails.js:171",
+        "client/components/cards/cardDetails.js:173",
+        "client/components/cards/cardDetails.js:175",
+        "client/components/cards/cardDetails.js:177",
+        "client/components/cards/cardDetails.js:181"
+      ]
+    },
+    {
+      "name": "NEW",
+      "sources": [
+        "releases/release-website.sh:68",
+        "releases/release-website.sh:69",
+        "releases/release-website.sh:70"
+      ]
+    },
+    {
+      "name": "NEW_NODE",
+      "sources": [
+        "releases/version.sh:265",
+        "releases/version.sh:284",
+        "releases/version.sh:285",
+        "releases/version.sh:320",
+        "releases/version.sh:321",
+        "releases/version.sh:322",
+        "releases/version.sh:323",
+        "releases/version.sh:445",
+        "releases/version.sh:446"
+      ]
+    },
+    {
+      "name": "NEW_NO_DOTS",
+      "sources": [
+        "releases/version.sh:390",
+        "releases/version.sh:392",
+        "releases/version.sh:393"
+      ]
+    },
+    {
+      "name": "NEW_VERSION",
+      "sources": [
+        "releases/version.sh:335",
+        "releases/version.sh:337",
+        "releases/version.sh:360",
+        "releases/version.sh:361",
+        "releases/version.sh:362",
+        "releases/version.sh:372",
+        "releases/version.sh:373",
+        "releases/version.sh:375",
+        "releases/version.sh:376",
+        "releases/version.sh:380",
+        "releases/version.sh:381",
+        "releases/version.sh:391",
+        "releases/version.sh:428",
+        "releases/version.sh:429",
+        "releases/version.sh:431",
+        "releases/version.sh:432",
+        "releases/version.sh:477",
+        "releases/version.sh:497",
+        "releases/version.sh:516"
+      ]
+    },
+    {
+      "name": "NODE_ARCH",
+      "sources": [
+        "releases/install-node-for-arch.sh:14",
+        "releases/repack-bundle-for-arch.sh:32",
+        "releases/repack-bundle-for-arch.sh:69",
+        "releases/repack-bundle-for-arch.sh:79",
+        "releases/version.sh:227",
+        "releases/version.sh:228",
+        "releases/version.sh:322",
+        "releases/version.sh:323"
+      ]
+    },
+    {
+      "name": "NODE_ENV",
+      "sources": [
+        "packages/wekan-fontawesome/fontawesome-free/js/conflict-detection.js:1009",
+        "packages/wekan-fontawesome/fontawesome-free/js/conflict-detection.min.js:390",
+        "packages/wekan-fontawesome/fontawesome-free/js/v4-shims.js:82",
+        "packages/wekan-fontawesome/fontawesome-free/js/v4-shims.min.js:32",
+        "server/apiMiddleware.js:117"
+      ]
+    },
+    {
+      "name": "NODE_EXECUTABLE",
+      "sources": [
+        "releases/debug-speed-test.sh:16"
+      ]
+    },
+    {
+      "name": "NODE_FROM",
+      "sources": [
+        "releases/install-node-for-arch.sh:131",
+        "releases/install-node-for-arch.sh:162",
+        "releases/install-node-for-arch.sh:87",
+        "releases/install-node-for-arch.sh:93",
+        "releases/repack-bundle-for-arch.sh:69"
+      ]
+    },
+    {
+      "name": "NODE_FULL",
+      "sources": [
+        "releases/install-node-for-arch.sh:149",
+        "releases/repack-bundle-for-arch.sh:69"
+      ]
+    },
+    {
+      "name": "NODE_KIND",
+      "sources": [
+        "releases/install-node-for-arch.sh:121",
+        "releases/install-node-for-arch.sh:137"
+      ]
+    },
+    {
+      "name": "NODE_MEMBER",
+      "sources": [
+        "releases/install-node-for-arch.sh:129",
+        "releases/install-node-for-arch.sh:130",
+        "releases/install-node-for-arch.sh:134"
+      ]
+    },
+    {
+      "name": "NODE_OPTIONS",
+      "sources": [
+        "build.sh:614",
+        "build.sh:68",
+        "build.sh:73",
+        "releases/ferretdb/start-wekan.sh:57",
+        "releases/ferretdb/wekan-entrypoint.sh:43",
+        "releases/ferretdb/wekan-entrypoint.sh:48",
+        "start-wekan.sh:770"
+      ]
+    },
+    {
+      "name": "NODE_PATH",
+      "sources": [
+        "releases/ferretdb/db-ready.mjs:33",
+        "releases/ferretdb/db-ready.mjs:34",
+        "releases/migrate-mongodb-to-ferretdb.mjs:47"
+      ]
+    },
+    {
+      "name": "NODE_SHA256",
+      "sources": [
+        "releases/install-node-for-arch.sh:70",
+        "releases/repack-bundle-for-arch.sh:58"
+      ]
+    },
+    {
+      "name": "NODE_URL",
+      "sources": [
+        "releases/install-node-for-arch.sh:131"
+      ]
+    },
+    {
+      "name": "NODE_VER",
+      "sources": [
+        "releases/version.sh:472",
+        "releases/version.sh:473",
+        "releases/version.sh:474"
+      ]
+    },
+    {
+      "name": "NODE_VERSION",
+      "sources": [
+        "releases/build-release-bundle.sh:55",
+        "releases/release-website.sh:76",
+        "releases/release-website.sh:86",
+        "releases/release-website.sh:87",
+        "releases/release-website.sh:88",
+        "releases/repack-bundle-for-arch.sh:37",
+        "releases/repack-bundle-for-arch.sh:71"
+      ]
+    },
+    {
+      "name": "NOTIFICATION_TRAY_AFTER_READ_DAYS_BEFORE_REMOVE",
+      "sources": [
+        "server/models/users.js:1738"
+      ]
+    },
+    {
+      "name": "NOTIFY_DUE_AT_HOUR_OF_DAY",
+      "sources": [
+        "models/cards.js:3706"
+      ]
+    },
+    {
+      "name": "NOTIFY_DUE_DAYS_BEFORE_AND_AFTER",
+      "sources": [
+        "models/cards.js:3696"
+      ]
+    },
+    {
+      "name": "NOTIFY_ON_ASSIGN",
+      "sources": [
+        "server/models/activities.js:387",
+        "server/models/activities.js:388"
+      ]
+    },
+    {
+      "name": "NPM_RETRY_ATTEMPTS",
+      "sources": [
+        "releases/npm-retry.sh:37"
+      ]
+    },
+    {
+      "name": "NPM_RETRY_SLEEPS",
+      "sources": [
+        "releases/npm-retry.sh:38"
+      ]
+    },
+    {
+      "name": "NVM_DIR",
+      "sources": [
+        "build.sh:2729"
+      ]
+    },
+    {
+      "name": "OAUTH2_ADFS_ENABLED",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:68",
+        "packages/wekan-oidc/oidc_server.js:69"
+      ]
+    },
+    {
+      "name": "OAUTH2_ADMIN_GROUPS",
+      "sources": [
+        "packages/wekan-oidc/loginHandler.js:55",
+        "server/models/users.js:1579"
+      ]
+    },
+    {
+      "name": "OAUTH2_AUTH_ENDPOINT",
+      "sources": [
+        "server/authentication.js:151",
+        "server/authentication.js:182"
+      ]
+    },
+    {
+      "name": "OAUTH2_AUTO_REGISTRATION",
+      "sources": [
+        "server/models/users.js:1628",
+        "server/models/users.js:1629"
+      ]
+    },
+    {
+      "name": "OAUTH2_AVATAR_MAP",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:115"
+      ]
+    },
+    {
+      "name": "OAUTH2_B2C_ENABLED",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:133",
+        "packages/wekan-oidc/oidc_server.js:170",
+        "packages/wekan-oidc/oidc_server.js:70",
+        "packages/wekan-oidc/oidc_server.js:71"
+      ]
+    },
+    {
+      "name": "OAUTH2_CA_CERT",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:13",
+        "packages/wekan-oidc/oidc_server.js:15",
+        "packages/wekan-oidc/oidc_server.js:16",
+        "packages/wekan-oidc/oidc_server.js:19"
+      ]
+    },
+    {
+      "name": "OAUTH2_CLIENT_ID",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:283",
+        "server/authentication.js:148",
+        "server/authentication.js:179",
+        "server/models/settings.js:493",
+        "server/models/settings.js:494"
+      ]
+    },
+    {
+      "name": "OAUTH2_EMAIL_MAP",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:122",
+        "packages/wekan-oidc/oidc_server.js:123",
+        "packages/wekan-oidc/oidc_server.js:130",
+        "packages/wekan-oidc/oidc_server.js:167"
+      ]
+    },
+    {
+      "name": "OAUTH2_ENABLED",
+      "sources": [
+        "server/authentication.js:164",
+        "server/authentication.js:165",
+        "server/lib/adminLoginSettings.js:15",
+        "server/models/settings.js:225",
+        "server/models/settings.js:226"
+      ]
+    },
+    {
+      "name": "OAUTH2_FULLNAME_MAP",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:111",
+        "packages/wekan-oidc/oidc_server.js:166"
+      ]
+    },
+    {
+      "name": "OAUTH2_ID_MAP",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:109"
+      ]
+    },
+    {
+      "name": "OAUTH2_ID_TOKEN_WHITELIST_FIELDS",
+      "sources": [
+        "server/authentication.js:155",
+        "server/authentication.js:186"
+      ]
+    },
+    {
+      "name": "OAUTH2_LOGIN_STYLE",
+      "sources": [
+        "server/authentication.js:145",
+        "server/authentication.js:176"
+      ]
+    },
+    {
+      "name": "OAUTH2_LOGOUT_ENDPOINT",
+      "sources": [
+        "server/models/settings.js:486"
+      ]
+    },
+    {
+      "name": "OAUTH2_MERGE_EXISTING_USERS",
+      "sources": [
+        "server/models/users.js:1645",
+        "server/models/users.js:1646"
+      ]
+    },
+    {
+      "name": "OAUTH2_REQUEST_PERMISSIONS",
+      "sources": [
+        "server/authentication.js:159",
+        "server/authentication.js:190"
+      ]
+    },
+    {
+      "name": "OAUTH2_SECRET",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:283",
+        "server/authentication.js:149",
+        "server/authentication.js:180"
+      ]
+    },
+    {
+      "name": "OAUTH2_SERVER_URL",
+      "sources": [
+        "server/authentication.js:150",
+        "server/authentication.js:181",
+        "server/models/settings.js:472",
+        "server/models/settings.js:488"
+      ]
+    },
+    {
+      "name": "OAUTH2_TOKEN_ENDPOINT",
+      "sources": [
+        "server/authentication.js:153",
+        "server/authentication.js:184"
+      ]
+    },
+    {
+      "name": "OAUTH2_USERINFO_ENDPOINT",
+      "sources": [
+        "server/authentication.js:152",
+        "server/authentication.js:183"
+      ]
+    },
+    {
+      "name": "OAUTH2_USERNAME_MAP",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:110",
+        "packages/wekan-oidc/oidc_server.js:125"
+      ]
+    },
+    {
+      "name": "OIDC_REDIRECTION_ENABLED",
+      "sources": [
+        "server/models/settings.js:513"
+      ]
+    },
+    {
+      "name": "OLDPWD",
+      "sources": [
+        "server/lib/tests/boardTriggersClass.tests.js:26"
+      ]
+    },
+    {
+      "name": "OLD_VERSION",
+      "sources": [
+        "releases/version.sh:516"
+      ]
+    },
+    {
+      "name": "ORACLE_OIM_ENABLED",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:121",
+        "packages/wekan-oidc/oidc_server.js:129",
+        "packages/wekan-oidc/oidc_server.js:220",
+        "packages/wekan-oidc/oidc_server.js:272",
+        "server/authentication.js:133",
+        "server/authentication.js:134"
+      ]
+    },
+    {
+      "name": "OSTYPE",
+      "sources": [
+        "build.sh:2785"
+      ]
+    },
+    {
+      "name": "OUT_FILE",
+      "sources": [
+        "releases/create-github-secrets.sh:132"
+      ]
+    },
+    {
+      "name": "PAGE_HEIGHT",
+      "sources": [
+        "models/lib/pdfDocument.js:691"
+      ]
+    },
+    {
+      "name": "PAGE_MARGIN",
+      "sources": [
+        "models/lib/pdfDocument.js:659"
+      ]
+    },
+    {
+      "name": "PAGE_WIDTH",
+      "sources": [
+        "models/lib/pdfDocument.js:691"
+      ]
+    },
+    {
+      "name": "PASSWORD_LOGIN_ENABLED",
+      "sources": [
+        "server/models/settings.js:504"
+      ]
+    },
+    {
+      "name": "PATCHES",
+      "sources": [
+        "releases/resolve-node-source.sh:249"
+      ]
+    },
+    {
+      "name": "PAUSE_MS",
+      "sources": [
+        "server/lib/cpuMonitor.js:502"
+      ]
+    },
+    {
+      "name": "PERMISSIONS_POLICY",
+      "sources": [
+        "server/cors.js:3",
+        "server/cors.js:5"
+      ]
+    },
+    {
+      "name": "PKG_VER",
+      "sources": [
+        "releases/version.sh:351",
+        "releases/version.sh:352",
+        "releases/version.sh:353"
+      ]
+    },
+    {
+      "name": "PLATFORM",
+      "sources": [
+        "releases/build-release-bundle.sh:109",
+        "releases/build-release-bundle.sh:113",
+        "releases/build-release-bundle.sh:248",
+        "releases/repack-bundle-for-arch.sh:35"
+      ]
+    },
+    {
+      "name": "PLAYWRIGHT_BROWSERS_PATH",
+      "sources": [
+        "build.sh:697",
+        "releases/debug-speed-test.sh:38"
+      ]
+    },
+    {
+      "name": "PLAYWRIGHT_JSON_OUTPUT_NAME",
+      "sources": [
+        "build.sh:583"
+      ]
+    },
+    {
+      "name": "PLAYWRIGHT_WORKERS",
+      "sources": [
+        "build.sh:944"
+      ]
+    },
+    {
+      "name": "PM",
+      "sources": [
+        "build.sh:1800"
+      ]
+    },
+    {
+      "name": "PORT",
+      "sources": [
+        "docker-compose-multitenancy.yml:115",
+        "docker-compose-multitenancy.yml:90",
+        "releases/db-conformance.sh:434",
+        "releases/ferretdb/recovery-bridge.mjs:14",
+        "releases/ferretdb/recovery-bridge.mjs:153",
+        "releases/ferretdb/start-wekan.sh:68",
+        "releases/ferretdb/wekan-entrypoint.sh:200",
+        "releases/ferretdb/wekan-entrypoint.sh:248",
+        "releases/ferretdb/wekan-entrypoint.sh:253",
+        "releases/migrate-mongodb-to-ferretdb.mjs:95",
+        "test-wekan.sh:55",
+        "test-wekan.sh:82",
+        "test-wekan.sh:97"
+      ]
+    },
+    {
+      "name": "POSTGRES_DB",
+      "sources": [
+        "docker-compose-ferretdb-v1-postgresql.yml:118",
+        "docker-compose-ferretdb-v1-postgresql.yml:49",
+        "docker-compose-ferretdb-v1-postgresql.yml:53",
+        "docker-compose-ferretdb-v1-postgresql.yml:79"
+      ]
+    },
+    {
+      "name": "POSTGRES_PASSWORD",
+      "sources": [
+        "docker-compose-ferretdb-v1-postgresql.yml:118",
+        "docker-compose-ferretdb-v1-postgresql.yml:48",
+        "docker-compose-ferretdb-v1-postgresql.yml:78"
+      ]
+    },
+    {
+      "name": "POSTGRES_USER",
+      "sources": [
+        "docker-compose-ferretdb-v1-postgresql.yml:118",
+        "docker-compose-ferretdb-v1-postgresql.yml:47",
+        "docker-compose-ferretdb-v1-postgresql.yml:53",
+        "docker-compose-ferretdb-v1-postgresql.yml:77"
+      ]
+    },
+    {
+      "name": "PROBE_SIZE",
+      "sources": [
+        "client/lib/fontDetector.js:26",
+        "client/lib/fontDetector.js:32"
+      ]
+    },
+    {
+      "name": "PRODUCT",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:29",
+        "releases/ferretdb/recovery-bridge.mjs:37",
+        "releases/ferretdb/recovery-bridge.mjs:38",
+        "releases/ferretdb/recovery-bridge.mjs:46"
+      ]
+    },
+    {
+      "name": "PRODUCT_NAME",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:15",
+        "releases/ferretdb/start-wekan.sh:238",
+        "releases/ferretdb/wekan-entrypoint.sh:200",
+        "releases/ferretdb/wekan-entrypoint.sh:253"
+      ]
+    },
+    {
+      "name": "PROJECT_ROOT",
+      "sources": [
+        "test-wekan.sh:54"
+      ]
+    },
+    {
+      "name": "PROPAGATE_OIDC_DATA",
+      "sources": [
+        "packages/wekan-oidc/oidc_server.js:431"
+      ]
+    },
+    {
+      "name": "PROVENANCE_FILE",
+      "sources": [
+        "releases/record-provenance.sh:30"
+      ]
+    },
+    {
+      "name": "PWD",
+      "sources": [
+        "server/lib/tests/boardTriggersClass.tests.js:26",
+        "server/lib/tests/dependencies.openapi.tests.js:28"
+      ]
+    },
+    {
+      "name": "PW_FAILURES",
+      "sources": [
+        "build.sh:1441",
+        "build.sh:843"
+      ]
+    },
+    {
+      "name": "REASON",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:153"
+      ]
+    },
+    {
+      "name": "RELEASE_PUSH_WEBSITE",
+      "sources": [
+        "releases/release-website.sh:112"
+      ]
+    },
+    {
+      "name": "RELEASE_SKIP_DEP_DOWNLOAD",
+      "sources": [
+        "releases/version.sh:440"
+      ]
+    },
+    {
+      "name": "REQUIRED_RELEASE",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:112",
+        "docker-compose-ferretdb-v1-mysql.yml:114",
+        "docker-compose-ferretdb-v1-postgresql.yml:101",
+        "docker-compose-ferretdb-v1-sap-hana.yml:119",
+        "docker-compose.yml:76"
+      ]
+    },
+    {
+      "name": "REST_LOGIN_FAILURE_WINDOW_SECONDS",
+      "sources": [
+        "server/apiAuthRoutes.js:47"
+      ]
+    },
+    {
+      "name": "REST_LOGIN_LOCKOUT_SECONDS",
+      "sources": [
+        "server/apiAuthRoutes.js:50"
+      ]
+    },
+    {
+      "name": "REST_LOGIN_MAX_FAILURES",
+      "sources": [
+        "server/apiAuthRoutes.js:45"
+      ]
+    },
+    {
+      "name": "RESULTS_PER_PAGE",
+      "sources": [
+        "server/publications/cards.js:1002"
+      ]
+    },
+    {
+      "name": "RICHER_CARD_COMMENT_EDITOR",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:317",
+        "docker-compose-ferretdb-v1-mysql.yml:319",
+        "docker-compose-ferretdb-v1-postgresql.yml:306",
+        "docker-compose-ferretdb-v1-sap-hana.yml:323",
+        "docker-compose-ferretdb-v2-postgresql.yml:231",
+        "docker-compose-mongodb-v7.yml:465",
+        "docker-compose.yml:283",
+        "server/richer-editor-setting-helper.js:2"
+      ]
+    },
+    {
+      "name": "ROOT_URL",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:238",
+        "docker-compose-ferretdb-v1-mysql.yml:240",
+        "docker-compose-ferretdb-v1-postgresql.yml:227",
+        "docker-compose-ferretdb-v1-sap-hana.yml:244",
+        "docker-compose-ferretdb-v2-postgresql.yml:137",
+        "docker-compose-mongodb-v7.yml:371",
+        "docker-compose-multitenancy.yml:116",
+        "docker-compose-multitenancy.yml:91",
+        "docker-compose.yml:204",
+        "models/lib/universalUrlGenerator.js:100",
+        "models/lib/universalUrlGenerator.js:98",
+        "releases/ferretdb/start-wekan.sh:69",
+        "server/00checkStartup.js:40",
+        "server/lib/systemStatus.js:113",
+        "server/lib/tenantResolver.js:139",
+        "server/lib/tenantResolver.js:97",
+        "server/migrations/fixAllFileUrls.js:76",
+        "server/migrations/fixAllFileUrls.js:78",
+        "server/models/settings.js:254",
+        "start-wekan.sh:127"
+      ]
+    },
+    {
+      "name": "RSPACK_DEV_PORT",
+      "sources": [
+        "build.sh:182"
+      ]
+    },
+    {
+      "name": "RUNNER_TEMP",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:29"
+      ]
+    },
+    {
+      "name": "RUN_ONCE",
+      "sources": [
+        "test-wekan.sh:56"
+      ]
+    },
+    {
+      "name": "S3_ACCESS_KEY",
+      "sources": [
+        "server/models/attachmentStorageSettings.js:231"
+      ]
+    },
+    {
+      "name": "S3_BUCKET",
+      "sources": [
+        "client/components/settings/attachments.js:796",
+        "client/components/settings/settingBody.js:457",
+        "server/models/attachmentStorageSettings.js:230"
+      ]
+    },
+    {
+      "name": "S3_ENABLED",
+      "sources": [
+        "client/components/settings/attachments.js:703",
+        "client/components/settings/attachments.js:790",
+        "client/components/settings/settingBody.js:449"
+      ]
+    },
+    {
+      "name": "S3_ENDPOINT",
+      "sources": [
+        "client/components/settings/attachments.js:793",
+        "client/components/settings/settingBody.js:453",
+        "server/models/attachmentStorageSettings.js:228"
+      ]
+    },
+    {
+      "name": "S3_PORT",
+      "sources": [
+        "client/components/settings/attachments.js:805",
+        "client/components/settings/settingBody.js:469"
+      ]
+    },
+    {
+      "name": "S3_REGION",
+      "sources": [
+        "client/components/settings/attachments.js:799",
+        "client/components/settings/settingBody.js:461",
+        "server/models/attachmentStorageSettings.js:229"
+      ]
+    },
+    {
+      "name": "S3_SECRET_KEY",
+      "sources": [
+        "server/models/attachmentStorageSettings.js:232"
+      ]
+    },
+    {
+      "name": "S3_SSL_ENABLED",
+      "sources": [
+        "client/components/settings/attachments.js:802",
+        "client/components/settings/settingBody.js:465"
+      ]
+    },
+    {
+      "name": "SAME_ARCH_CONTAINER",
+      "sources": [
+        "releases/install-node-for-arch.sh:210"
+      ]
+    },
+    {
+      "name": "SAML_ATTRIBUTES",
+      "sources": [
+        "server/authentication.js:239"
+      ]
+    },
+    {
+      "name": "SAML_CERT",
+      "sources": [
+        "server/authentication.js:232"
+      ]
+    },
+    {
+      "name": "SAML_ENABLED",
+      "sources": [
+        "server/authentication.js:221",
+        "server/authentication.js:222"
+      ]
+    },
+    {
+      "name": "SAML_ENTRYPOINT",
+      "sources": [
+        "server/authentication.js:230"
+      ]
+    },
+    {
+      "name": "SAML_IDENTIFIER_FORMAT",
+      "sources": [
+        "server/authentication.js:236"
+      ]
+    },
+    {
+      "name": "SAML_IDPSLO_REDIRECTURL",
+      "sources": [
+        "server/authentication.js:233"
+      ]
+    },
+    {
+      "name": "SAML_ISSUER",
+      "sources": [
+        "server/authentication.js:231"
+      ]
+    },
+    {
+      "name": "SAML_LOCAL_PROFILE_MATCH_ATTRIBUTE",
+      "sources": [
+        "server/authentication.js:238"
+      ]
+    },
+    {
+      "name": "SAML_PRIVATE_KEYFILE",
+      "sources": [
+        "server/authentication.js:234"
+      ]
+    },
+    {
+      "name": "SAML_PROVIDER",
+      "sources": [
+        "server/authentication.js:229",
+        "server/saml.js:2",
+        "server/saml.js:3"
+      ]
+    },
+    {
+      "name": "SAML_PUBLIC_CERTFILE",
+      "sources": [
+        "server/authentication.js:235"
+      ]
+    },
+    {
+      "name": "SAMPLE_MS",
+      "sources": [
+        "server/lib/debugSpeed.js:87"
+      ]
+    },
+    {
+      "name": "SANDSTORM",
+      "sources": [
+        "packages/wekan-accounts-sandstorm/server.js:22",
+        "releases/migrate-mongodb-to-ferretdb.mjs:363",
+        "server/lib/systemStatus.js:115"
+      ]
+    },
+    {
+      "name": "SANDSTORM_MIGRATION_MARKER",
+      "sources": [
+        "server/methods/sandstormMigration.js:40"
+      ]
+    },
+    {
+      "name": "SANDSTORM_RAW_MONGO_PATH",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:363",
+        "server/methods/sandstormMigration.js:34"
+      ]
+    },
+    {
+      "name": "SANDSTORM_SMTP_SEND",
+      "sources": [
+        "server/lib/systemStatus.js:115"
+      ]
+    },
+    {
+      "name": "SCOPE_ROOT",
+      "sources": [
+        "packages/wekan-accounts-lockout/src/lockoutScope.js:62"
+      ]
+    },
+    {
+      "name": "SCROLLBAR_SIZE_PX",
+      "sources": [
+        "models/lib/scrollbarCss.js:31",
+        "models/lib/scrollbarCss.js:32"
+      ]
+    },
+    {
+      "name": "SCROLLBAR_THUMB",
+      "sources": [
+        "models/lib/scrollbarCss.js:27",
+        "models/lib/scrollbarCss.js:39"
+      ]
+    },
+    {
+      "name": "SCROLLBAR_TRACK",
+      "sources": [
+        "models/lib/scrollbarCss.js:27",
+        "models/lib/scrollbarCss.js:36"
+      ]
+    },
+    {
+      "name": "SECTION_WORKSPACES",
+      "sources": [
+        "models/lib/allBoardsUrls.js:198"
+      ]
+    },
+    {
+      "name": "SLOW_MS",
+      "sources": [
+        "server/lib/debugSpeed.js:87"
+      ]
+    },
+    {
+      "name": "SNAP",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:366",
+        "releases/migrate-mongodb-to-ferretdb.mjs:45"
+      ]
+    },
+    {
+      "name": "SNAPCRAFT_PROJECT_DIR",
+      "sources": [
+        "snapcraft.yaml:258",
+        "snapcraft.yaml:471",
+        "snapcraft.yaml:475",
+        "snapcraft.yaml:504",
+        "snapcraft.yaml:597",
+        "snapcraft.yaml:601",
+        "snapcraft.yaml:630",
+        "snapcraft.yaml:854",
+        "snapcraft.yaml:861"
+      ]
+    },
+    {
+      "name": "SNAP_COMMON",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:913",
+        "server/productNameCache.js:27"
+      ]
+    },
+    {
+      "name": "SNAP_NAME",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:366"
+      ]
+    },
+    {
+      "name": "SOURCE_MONGO_URL",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:92"
+      ]
+    },
+    {
+      "name": "SOURCE_URL",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:863"
+      ]
+    },
+    {
+      "name": "SRC",
+      "sources": [
+        "build.sh:1841"
+      ]
+    },
+    {
+      "name": "STORAGE_PREFIX",
+      "sources": [
+        "models/lib/tableViewGrouping.js:6",
+        "models/lib/tableViewTitleMode.js:6"
+      ]
+    },
+    {
+      "name": "SWIMLANE_SEGMENT",
+      "sources": [
+        "models/lib/boardItemUrl.js:31"
+      ]
+    },
+    {
+      "name": "TAG",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:21",
+        "releases/ferretdb-latest-tag.sh:70"
+      ]
+    },
+    {
+      "name": "TARGET_MONGO_URL",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:93"
+      ]
+    },
+    {
+      "name": "TARGET_URL",
+      "sources": [
+        "releases/migrate-mongodb-to-ferretdb.mjs:863"
+      ]
+    },
+    {
+      "name": "TENANT_BACKUP_SEGMENT",
+      "sources": [
+        "models/lib/tenantBackup.js:181"
+      ]
+    },
+    {
+      "name": "TEST_DB_PORT",
+      "sources": [
+        "build.sh:1092"
+      ]
+    },
+    {
+      "name": "TEST_HEAP_MB",
+      "sources": [
+        "build.sh:955"
+      ]
+    },
+    {
+      "name": "TGT",
+      "sources": [
+        "build.sh:1841"
+      ]
+    },
+    {
+      "name": "TIMEOUT",
+      "sources": [
+        "releases/bundle-smoke-boot.sh:107"
+      ]
+    },
+    {
+      "name": "TIMESTAMP",
+      "sources": [
+        "releases/create-github-secrets.sh:95"
+      ]
+    },
+    {
+      "name": "TMPDIR",
+      "sources": [
+        "releases/ferretdb-latest-tag.sh:29",
+        "releases/translations/pull-translations.sh:12"
+      ]
+    },
+    {
+      "name": "TODAY",
+      "sources": [
+        "releases/version.sh:391"
+      ]
+    },
+    {
+      "name": "TOOL_NODE_FLAGS",
+      "sources": [
+        "build.sh:68",
+        "build.sh:72"
+      ]
+    },
+    {
+      "name": "TRAILER_VERSION_SIZE",
+      "sources": [
+        "releases/append-windows-payload.mjs:55"
+      ]
+    },
+    {
+      "name": "TRAVIS_DOCKER_COMPOSE_VERSION",
+      "sources": [
+        ".travis.yml:14"
+      ]
+    },
+    {
+      "name": "TRAVIS_NODE_VERSION",
+      "sources": [
+        ".travis.yml:26"
+      ]
+    },
+    {
+      "name": "TRAVIS_NPM_VERSION",
+      "sources": [
+        ".travis.yml:11"
+      ]
+    },
+    {
+      "name": "TRELLO_API",
+      "sources": [
+        "server/trelloApiImport.js:180"
+      ]
+    },
+    {
+      "name": "TRUSTED_URL",
+      "sources": [
+        "server/policy.js:17"
+      ]
+    },
+    {
+      "name": "TX_TOKEN",
+      "sources": [
+        "releases/translations/sync-transifex-languages.mjs:72"
+      ]
+    },
+    {
+      "name": "UNMATCHED",
+      "sources": [
+        "models/lib/apiUsage.js:123"
+      ]
+    },
+    {
+      "name": "UNOFFICIAL",
+      "sources": [
+        "releases/resolve-node-source.sh:238"
+      ]
+    },
+    {
+      "name": "UPLOAD_DANGEROUS_MIME_SCAN_LIMIT",
+      "sources": [
+        "models/fileValidation.js:125"
+      ]
+    },
+    {
+      "name": "USE_LOCAL_DEP_VERSIONS",
+      "sources": [
+        "releases/version.sh:149",
+        "releases/version.sh:259"
+      ]
+    },
+    {
+      "name": "V",
+      "sources": [
+        "releases/resolve-node-source.sh:225",
+        "releases/resolve-node-source.sh:228",
+        "releases/resolve-node-source.sh:229",
+        "releases/resolve-node-source.sh:238",
+        "releases/resolve-node-source.sh:239",
+        "releases/resolve-node-source.sh:249",
+        "releases/resolve-node-source.sh:255",
+        "snapcraft.yaml:469",
+        "snapcraft.yaml:487",
+        "snapcraft.yaml:595",
+        "snapcraft.yaml:613"
+      ]
+    },
+    {
+      "name": "VERBOSE_MODE",
+      "sources": [
+        "test-wekan.sh:77"
+      ]
+    },
+    {
+      "name": "VERSION",
+      "sources": [
+        "releases/backfill-charts.sh:272",
+        "releases/backfill-charts.sh:278",
+        "releases/backfill-charts.sh:280",
+        "releases/backfill-charts.sh:286",
+        "releases/build-bundle-armhf.sh:30",
+        "releases/build-bundle-armhf.sh:34",
+        "releases/build-bundle-armhf.sh:37",
+        "releases/build-bundle-armhf.sh:53",
+        "releases/build-bundle-armhf.sh:55",
+        "releases/build-bundle-ppc64le.sh:27",
+        "releases/build-bundle-ppc64le.sh:31",
+        "releases/build-bundle-ppc64le.sh:34",
+        "releases/build-bundle-ppc64le.sh:50",
+        "releases/build-bundle-ppc64le.sh:52",
+        "releases/build-bundle-s390x.sh:27",
+        "releases/build-bundle-s390x.sh:31",
+        "releases/build-bundle-s390x.sh:34",
+        "releases/build-bundle-s390x.sh:50",
+        "releases/build-bundle-s390x.sh:52",
+        "releases/docker-build.sh:103",
+        "releases/docker-build.sh:105",
+        "releases/docker-build.sh:107",
+        "releases/docker-build.sh:115",
+        "releases/docker-build.sh:38",
+        "releases/docker-publish-variant.sh:55",
+        "releases/docker-publish-variant.sh:56",
+        "releases/release-charts.sh:123",
+        "releases/release-charts.sh:138",
+        "releases/release-charts.sh:145",
+        "releases/release-charts.sh:227",
+        "releases/release-charts.sh:50",
+        "releases/repack-bundle-for-arch.sh:148",
+        "releases/repack-bundle-for-arch.sh:36"
+      ]
+    },
+    {
+      "name": "VOLTA_HOME",
+      "sources": [
+        "releases/node-update-local.sh:29"
+      ]
+    },
+    {
+      "name": "WAIT_SPINNER",
+      "sources": [
+        "server/spinner.js:2"
+      ]
+    },
+    {
+      "name": "WATCH_MODE",
+      "sources": [
+        "test-wekan.sh:56"
+      ]
+    },
+    {
+      "name": "WEBDIR",
+      "sources": [
+        "releases/release-website.sh:28"
+      ]
+    },
+    {
+      "name": "WEBHOOKS_ATTRIBUTES",
+      "sources": [
+        "server/notifications/outgoing.js:50",
+        "server/notifications/outgoing.js:51"
+      ]
+    },
+    {
+      "name": "WEKANREPODIR",
+      "sources": [
+        "releases/release-website.sh:28"
+      ]
+    },
+    {
+      "name": "WEKAN_API_USAGE_FLUSH_MS",
+      "sources": [
+        "server/lib/apiUsageLog.js:26"
+      ]
+    },
+    {
+      "name": "WEKAN_ARCH",
+      "sources": [
+        "snapcraft-core26.yaml:284",
+        "snapcraft.yaml:696"
+      ]
+    },
+    {
+      "name": "WEKAN_BASE_URL",
+      "sources": [
+        "build.sh:564",
+        "build.sh:575",
+        "build.sh:615"
+      ]
+    },
+    {
+      "name": "WEKAN_BRIDGE_DETAIL",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:58"
+      ]
+    },
+    {
+      "name": "WEKAN_BRIDGE_REASON",
+      "sources": [
+        "releases/ferretdb/recovery-bridge.mjs:25"
+      ]
+    },
+    {
+      "name": "WEKAN_BUILD_HEAP_SNAPSHOT",
+      "sources": [
+        "build.sh:362",
+        "build.sh:423"
+      ]
+    },
+    {
+      "name": "WEKAN_BUILD_HEAP_SNAPSHOT_MB",
+      "sources": [
+        "build.sh:376"
+      ]
+    },
+    {
+      "name": "WEKAN_BUILD_RELEASE_BUNDLE",
+      "sources": [
+        "build.sh:456"
+      ]
+    },
+    {
+      "name": "WEKAN_BUNDLE_CACHE",
+      "sources": [
+        "releases/build-release-bundle.sh:56"
+      ]
+    },
+    {
+      "name": "WEKAN_BUNDLE_PLATFORM",
+      "sources": [
+        "releases/build-release-bundle.sh:101"
+      ]
+    },
+    {
+      "name": "WEKAN_BUNDLE_REFRESH",
+      "sources": [
+        "releases/build-release-bundle.sh:184"
+      ]
+    },
+    {
+      "name": "WEKAN_BUNDLE_SKIP_SMOKE",
+      "sources": [
+        "releases/build-release-bundle.sh:160"
+      ]
+    },
+    {
+      "name": "WEKAN_CONFORMANCE_DB_PORT",
+      "sources": [
+        "releases/db-conformance.sh:232"
+      ]
+    },
+    {
+      "name": "WEKAN_CONFORMANCE_HANA",
+      "sources": [
+        "releases/db-conformance.sh:277"
+      ]
+    },
+    {
+      "name": "WEKAN_CONFORMANCE_PORT",
+      "sources": [
+        "releases/db-conformance.sh:231"
+      ]
+    },
+    {
+      "name": "WEKAN_CPU_MONITOR",
+      "sources": [
+        "server/lib/cpuMonitor.js:48"
+      ]
+    },
+    {
+      "name": "WEKAN_DB",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:102",
+        "releases/ferretdb/start-wekan.sh:99",
+        "releases/ferretdb/wekan-entrypoint.sh:69",
+        "releases/ferretdb/wekan-entrypoint.sh:77"
+      ]
+    },
+    {
+      "name": "WEKAN_DB_WAIT_MAX_SECONDS",
+      "sources": [
+        "releases/ferretdb/wekan-entrypoint.sh:247"
+      ]
+    },
+    {
+      "name": "WEKAN_DB_WAIT_PAGE",
+      "sources": [
+        "releases/ferretdb/wekan-entrypoint.sh:226"
+      ]
+    },
+    {
+      "name": "WEKAN_DB_WAIT_TIMEOUT",
+      "sources": [
+        "server/lib/mongoStartup.js:27",
+        "start-wekan.sh:46"
+      ]
+    },
+    {
+      "name": "WEKAN_DEV_HOST",
+      "sources": [
+        "build.sh:2114"
+      ]
+    },
+    {
+      "name": "WEKAN_DEV_PORT",
+      "sources": [
+        "build.sh:2102"
+      ]
+    },
+    {
+      "name": "WEKAN_DEV_ROOT_URL",
+      "sources": [
+        "build.sh:2114"
+      ]
+    },
+    {
+      "name": "WEKAN_EVERYTHING_MODE",
+      "sources": [
+        "releases/run-everything.sh:29"
+      ]
+    },
+    {
+      "name": "WEKAN_FERRETDB_GOFLAGS",
+      "sources": [
+        "build.sh:1560"
+      ]
+    },
+    {
+      "name": "WEKAN_FERRETDB_GOMEMLIMIT",
+      "sources": [
+        "build.sh:1561"
+      ]
+    },
+    {
+      "name": "WEKAN_FERRETDB_URL",
+      "sources": [
+        "server/methods/migrateTextDatabase.js:54"
+      ]
+    },
+    {
+      "name": "WEKAN_FILES_PATH_HOST",
+      "sources": [
+        "build.sh:548"
+      ]
+    },
+    {
+      "name": "WEKAN_FORCE_RESTORE",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:159",
+        "releases/ferretdb/wekan-entrypoint.sh:109"
+      ]
+    },
+    {
+      "name": "WEKAN_FORCE_SCHEMA_UPGRADE",
+      "sources": [
+        "server/lib/denormalizeBoardId.js:67",
+        "server/lib/schemaUpgradeSteps.js:879"
+      ]
+    },
+    {
+      "name": "WEKAN_HISTORY_INTEGRITY_SCAN",
+      "sources": [
+        "server/lib/historyIntegrityScan.js:35"
+      ]
+    },
+    {
+      "name": "WEKAN_IMPORT_TIMEOUT_MS",
+      "sources": [
+        "models/import.js:18",
+        "server/lib/legacyHtml4Imports.js:163",
+        "server/lib/legacyHtml4Imports.js:98"
+      ]
+    },
+    {
+      "name": "WEKAN_IMPORT_ZIP_MAX_BYTES",
+      "sources": [
+        "models/importZip.js:47"
+      ]
+    },
+    {
+      "name": "WEKAN_INOTIFY_WATCHES",
+      "sources": [
+        "build.sh:2008"
+      ]
+    },
+    {
+      "name": "WEKAN_INTEGRITY_PRIVATE_KEY",
+      "sources": [
+        "server/lib/fileIntegrityScan.js:61"
+      ]
+    },
+    {
+      "name": "WEKAN_INTEGRITY_SCAN",
+      "sources": [
+        "server/lib/fileIntegrityScan.js:364"
+      ]
+    },
+    {
+      "name": "WEKAN_LOGDIR",
+      "sources": [
+        "build.sh:877",
+        "build.sh:967",
+        "releases/db-conformance.sh:55"
+      ]
+    },
+    {
+      "name": "WEKAN_LOG_ROOT",
+      "sources": [
+        "build.sh:82",
+        "releases/db-conformance.sh:52"
+      ]
+    },
+    {
+      "name": "WEKAN_METRICS_ACCEPTED_IP_ADDRESS",
+      "sources": [
+        "server/publications/users.js:175"
+      ]
+    },
+    {
+      "name": "WEKAN_MIN_FREE_DISK_MB",
+      "sources": [
+        "server/lib/selfChecks.js:51"
+      ]
+    },
+    {
+      "name": "WEKAN_MONGODB_URL",
+      "sources": [
+        "server/methods/migrateTextDatabase.js:57"
+      ]
+    },
+    {
+      "name": "WEKAN_MONGO_URL",
+      "sources": [
+        "build.sh:576",
+        "build.sh:616"
+      ]
+    },
+    {
+      "name": "WEKAN_OPEN_FILES",
+      "sources": [
+        "build.sh:1966"
+      ]
+    },
+    {
+      "name": "WEKAN_OS_RELEASE_FILE",
+      "sources": [
+        "releases/ensure-tools.sh:22",
+        "releases/ensure-tools.sh:87"
+      ]
+    },
+    {
+      "name": "WEKAN_PLAYWRIGHT_DOCKER",
+      "sources": [
+        "build.sh:497"
+      ]
+    },
+    {
+      "name": "WEKAN_PLAYWRIGHT_WORKERS",
+      "sources": [
+        "build.sh:579"
+      ]
+    },
+    {
+      "name": "WEKAN_PORT",
+      "sources": [
+        "releases/debug-speed-server.sh:32",
+        "releases/debug-speed-test.sh:9"
+      ]
+    },
+    {
+      "name": "WEKAN_RECOVERY_BRIDGE_SECONDS",
+      "sources": [
+        "releases/ferretdb/start-wekan.sh:236",
+        "releases/ferretdb/wekan-entrypoint.sh:198"
+      ]
+    },
+    {
+      "name": "WEKAN_RECOVERY_MAX_LOAD_PER_CORE",
+      "sources": [
+        "releases/ferretdb/sqlite-recovery.mjs:14"
+      ]
+    },
+    {
+      "name": "WEKAN_RECOVERY_RESERVE_BYTES",
+      "sources": [
+        "releases/ferretdb/sqlite-recovery.mjs:13"
+      ]
+    },
+    {
+      "name": "WEKAN_RECOVERY_SNAPSHOT_HOURS",
+      "sources": [
+        "releases/ferretdb/sqlite-recovery.mjs:15"
+      ]
+    },
+    {
+      "name": "WEKAN_SKIP_SCHEMA_UPGRADE",
+      "sources": [
+        "server/startupSchemaUpgrade.js:70"
+      ]
+    },
+    {
+      "name": "WEKAN_SKIP_STARTUP_REPAIR",
+      "sources": [
+        "server/startup/repairBoardsOnStartup.js:28"
+      ]
+    },
+    {
+      "name": "WEKAN_SLOW_REQUEST_MS",
+      "sources": [
+        "server/lib/speedMiddleware.js:16"
+      ]
+    },
+    {
+      "name": "WEKAN_SMOKE_PORT",
+      "sources": [
+        "releases/bundle-smoke-boot.sh:37"
+      ]
+    },
+    {
+      "name": "WEKAN_SMOKE_TIMEOUT",
+      "sources": [
+        "releases/bundle-smoke-boot.sh:33"
+      ]
+    },
+    {
+      "name": "WEKAN_SQLITE_BACKUP",
+      "sources": [
+        "releases/ferretdb/sqlite-recovery.mjs:159",
+        "releases/ferretdb/sqlite-recovery.mjs:161",
+        "releases/ferretdb/start-wekan.sh:200",
+        "releases/ferretdb/wekan-entrypoint.sh:150"
+      ]
+    },
+    {
+      "name": "WEKAN_TEST_DB_PORT",
+      "sources": [
+        "build.sh:1252"
+      ]
+    },
+    {
+      "name": "WEKAN_TEST_NODE_OPTIONS",
+      "sources": [
+        "build.sh:954"
+      ]
+    },
+    {
+      "name": "WEKAN_UNAME_S",
+      "sources": [
+        "releases/ensure-tools.sh:15"
+      ]
+    },
+    {
+      "name": "WEKAN_VERSION_ROOT",
+      "sources": [
+        "releases/verify-release-versions.mjs:12",
+        "releases/verify-release-versions.mjs:13"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_ARCHIVE",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:63"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_CACHE_BYTES",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:78"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_LENGTH",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:87",
+        "releases/single-exe/wekan-vfs.cjs:88"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_OFFSET",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:74"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_ROOT",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:64"
+      ]
+    },
+    {
+      "name": "WEKAN_VFS_STRIP",
+      "sources": [
+        "releases/single-exe/wekan-vfs.cjs:76",
+        "releases/single-exe/wekan-vfs.cjs:77"
+      ]
+    },
+    {
+      "name": "WEKAN_ZIP",
+      "sources": [
+        "snapcraft-core26.yaml:290",
+        "snapcraft-core26.yaml:291",
+        "snapcraft-core26.yaml:292",
+        "snapcraft.yaml:707",
+        "snapcraft.yaml:708",
+        "snapcraft.yaml:709"
+      ]
+    },
+    {
+      "name": "WITH_API",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:298",
+        "docker-compose-ferretdb-v1-mysql.yml:300",
+        "docker-compose-ferretdb-v1-postgresql.yml:287",
+        "docker-compose-ferretdb-v1-sap-hana.yml:304",
+        "docker-compose-ferretdb-v2-postgresql.yml:212",
+        "docker-compose-mongodb-v7.yml:446",
+        "docker-compose-multitenancy.yml:123",
+        "docker-compose-multitenancy.yml:99",
+        "docker-compose.yml:264",
+        "releases/ferretdb/start-wekan.sh:86",
+        "server/apiMiddleware.js:22",
+        "server/models/settings.js:235"
+      ]
+    },
+    {
+      "name": "WRITABLE_PATH",
+      "sources": [
+        "docker-compose-ferretdb-v1-mariadb.yml:211",
+        "docker-compose-ferretdb-v1-mysql.yml:213",
+        "docker-compose-ferretdb-v1-postgresql.yml:200",
+        "docker-compose-ferretdb-v1-sap-hana.yml:217",
+        "docker-compose-ferretdb-v2-postgresql.yml:110",
+        "docker-compose-mongodb-v7.yml:344",
+        "docker-compose-multitenancy.yml:122",
+        "docker-compose-multitenancy.yml:98",
+        "docker-compose.yml:177",
+        "models/attachments.js:34",
+        "models/attachments.server.js:61",
+        "models/avatars.js:15",
+        "models/avatars.server.js:47",
+        "models/exporter.js:78",
+        "models/lib/attachmentStoragePath.js:7",
+        "models/lib/fileStoreStrategy.js:496",
+        "releases/debug-speed-server.sh:163",
+        "releases/ferretdb/start-wekan.sh:61",
+        "releases/ferretdb/wekan-entrypoint.sh:64",
+        "releases/migrate-mongodb-to-ferretdb.mjs:94",
+        "server/00checkStartup.js:10",
+        "server/00checkStartup.js:13",
+        "server/00checkStartup.js:14",
+        "server/00checkStartup.js:6",
+        "server/initializeDirs.js:17",
+        "server/lib/fileIntegrityScan.js:223",
+        "server/lib/fileIntegrityScan.js:224",
+        "server/lib/schemaUpgradeSteps.js:882",
+        "server/lib/selfChecks.js:23",
+        "server/lib/tests/fileStoreStrategy.security.tests.js:31",
+        "server/lib/tests/fileStoreStrategy.security.tests.js:35",
+        "server/lib/tests/fileStoreStrategy.security.tests.js:40",
+        "server/lib/tests/fileStoreStrategy.security.tests.js:42",
+        "server/methods/backup.js:72",
+        "server/methods/sandstormMigration.js:36",
+        "server/models/attachmentStorageSettings.js:180",
+        "server/models/attachmentStorageSettings.js:191",
+        "server/models/attachmentStorageSettings.js:214",
+        "server/models/attachmentStorageSettings.js:217",
+        "server/productNameCache.js:27"
+      ]
+    },
+    {
+      "name": "X",
+      "sources": [
+        "server/lib/tests/attachmentApi.authContext.tests.js:31",
+        "server/lib/tests/headerLoginAuth.tests.js:38"
+      ]
+    },
+    {
+      "name": "ZSH_VERSION",
+      "sources": [
+        "build.sh:2",
+        "releases/build-bundle-armhf.sh:2",
+        "releases/build-bundle-ppc64el.sh:2",
+        "releases/build-bundle-ppc64le.sh:2",
+        "releases/build-bundle-s390x.sh:2",
+        "releases/clone-release-repos.sh:2",
+        "releases/count-lines-of-code-per-committer.sh:2",
+        "releases/create-github-secrets.sh:2",
+        "releases/install-sandstorm.sh:2",
+        "releases/node-update-local.sh:2",
+        "releases/rebuild-docs.sh:2",
+        "releases/rebuild-release.sh:2",
+        "releases/release-all.sh:2",
+        "releases/snap-build.sh:2",
+        "releases/up.sh:2"
+      ]
+    }
+  ],
+  "http_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "source": "sandstorm.js:302"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/attachment-settings",
+      "source": "server/models/attachmentStorageSettings.js:722"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/attachment-settings",
+      "source": "server/models/attachmentStorageSettings.js:750"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/domains",
+      "source": "server/models/users.js:2641"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/orgs",
+      "source": "server/models/org.js:256"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/orgs/:orgId/features",
+      "source": "server/models/org.js:300"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/orgs/features",
+      "source": "server/models/org.js:337"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/teams",
+      "source": "server/models/team.js:219"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/teams/:teamId/features",
+      "source": "server/models/team.js:263"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/teams/features",
+      "source": "server/models/team.js:300"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards",
+      "source": "server/models/boards.js:716"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards",
+      "source": "server/models/boards.js:771"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId",
+      "source": "server/models/boards.js:892"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId",
+      "source": "server/models/boards.js:756"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/attachments",
+      "source": "server/models/boards.js:1339"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/cardSettings",
+      "source": "server/models/boards.js:1046"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/cardSettings",
+      "source": "server/models/boards.js:1064"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/cards/:cardId/comments",
+      "source": "server/models/cardComments.js:122"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/cards/:cardId/comments",
+      "source": "server/models/cardComments.js:183"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/cards/:cardId/dependencies",
+      "source": "server/models/dependencies.js:157"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/cards/:cardId/dependencies",
+      "source": "server/models/dependencies.js:191"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/cards/:cardId/dependencies/:targetId",
+      "source": "server/models/dependencies.js:303"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/cards/:cardId/dependencies/:targetId",
+      "source": "server/models/dependencies.js:260"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/cards/bulk",
+      "source": "server/models/cards.js:1847"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/cards/labels",
+      "source": "server/models/cards.js:1899"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/cards_count",
+      "source": "server/models/cards.js:1347"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/copy",
+      "source": "server/models/boards.js:1101"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/custom-fields",
+      "source": "server/models/customFields.js:104"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/custom-fields",
+      "source": "server/models/customFields.js:130"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/custom-fields/:customFieldId",
+      "source": "server/models/customFields.js:305"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/custom-fields/:customFieldId",
+      "source": "server/models/customFields.js:117"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/custom-fields/:customFieldId",
+      "source": "server/models/customFields.js:173"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/custom-fields/:customFieldId/dropdown-items",
+      "source": "server/models/customFields.js:214"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/dependencies",
+      "source": "server/models/dependencies.js:126"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/domains",
+      "source": "server/models/boards.js:1214"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/domains",
+      "source": "server/models/boards.js:1244"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/domains/:domain",
+      "source": "server/models/boards.js:1308"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/export",
+      "source": "models/export.js:98"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/export/csv",
+      "source": "models/export.js:523"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/export/kanboard",
+      "source": "models/export.js:276"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/exportExcel",
+      "source": "models/exportExcel.js:67"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/exportPDF",
+      "source": "models/exportPDF.js:193"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/exportZip",
+      "source": "models/export.js:207"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/integrations",
+      "source": "server/models/integrations.js:15"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/integrations",
+      "source": "server/models/integrations.js:57"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/integrations/:intId",
+      "source": "server/models/integrations.js:216"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/integrations/:intId",
+      "source": "server/models/integrations.js:36"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/integrations/:intId",
+      "source": "server/models/integrations.js:94"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/labels",
+      "source": "server/models/boards.js:928"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/lists",
+      "source": "server/models/lists.js:817"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/lists",
+      "source": "server/models/lists.js:873"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/lists/:listId",
+      "source": "server/models/lists.js:943"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/lists/:listId",
+      "source": "server/models/lists.js:855"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/lists/:listId",
+      "source": "server/models/lists.js:893"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/lists/:listId/cards",
+      "source": "server/models/cards.js:1069"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/lists/:listId/cards",
+      "source": "server/models/cards.js:1134"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/lists/:listId/cards/:cardId/exportPDF",
+      "source": "models/exportPDF.js:89"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/lists/:listId/cards_count",
+      "source": "server/models/cards.js:1364"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/members/:memberId",
+      "source": "server/models/boards.js:1125"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/members/:userId/add",
+      "source": "server/models/users.js:2113"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/members/:userId/remove",
+      "source": "server/models/users.js:2206"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/rules",
+      "source": "server/models/rules.js:80"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/rules",
+      "source": "server/models/rules.js:139"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/rules/:ruleId",
+      "source": "server/models/rules.js:225"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/rules/:ruleId",
+      "source": "server/models/rules.js:105"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/rules/:ruleId",
+      "source": "server/models/rules.js:187"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/swimlanes",
+      "source": "server/models/swimlanes.js:136"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/:boardId/swimlanes",
+      "source": "server/models/swimlanes.js:181"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/boards/:boardId/swimlanes/:swimlaneId",
+      "source": "server/models/swimlanes.js:245"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards/:boardId/swimlanes/:swimlaneId",
+      "source": "server/models/swimlanes.js:159"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/swimlanes/:swimlaneId",
+      "source": "server/models/swimlanes.js:214"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/boards/:boardId/title",
+      "source": "server/models/boards.js:908"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/import",
+      "source": "server/models/boards.js:831"
+    },
+    {
+      "method": "POST",
+      "path": "/api/boards/import/:source",
+      "source": "server/models/boards.js:872"
+    },
+    {
+      "method": "GET",
+      "path": "/api/boards_count",
+      "source": "server/models/boards.js:739"
+    },
+    {
+      "method": "GET",
+      "path": "/api/cards/:cardId",
+      "source": "server/models/cards.js:1101"
+    },
+    {
+      "method": "POST",
+      "path": "/api/createtoken/:userId",
+      "source": "server/models/users.js:2302"
+    },
+    {
+      "method": "POST",
+      "path": "/api/deletetoken",
+      "source": "server/models/users.js:2341"
+    },
+    {
+      "method": "POST",
+      "path": "/api/import/zip",
+      "source": "models/importZip.js:99"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "source": "server/models/settings.js:592"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "source": "server/models/settings.js:615"
+    },
+    {
+      "method": "GET",
+      "path": "/api/user",
+      "source": "server/models/users.js:1991"
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/cards",
+      "source": "server/models/cards.js:2251"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "source": "server/models/users.js:2015"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/",
+      "source": "server/models/users.js:2258"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/:userId",
+      "source": "server/models/users.js:2284"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:userId",
+      "source": "server/models/users.js:2050"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/:userId",
+      "source": "server/models/users.js:2078"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:userId/boards",
+      "source": "server/models/boards.js:656"
+    },
+    {
+      "method": "GET",
+      "path": "/branding/images/:fileId.gif",
+      "source": "server/brandingImages.js:274"
+    },
+    {
+      "method": "GET",
+      "path": "/document-preview/:fileId/:page.gif",
+      "source": "server/routes/universalFileServer.js:699"
+    },
+    {
+      "method": "GET",
+      "path": "/document-preview/:fileId/:page.html",
+      "source": "server/routes/universalFileServer.js:719"
+    },
+    {
+      "method": "GET",
+      "path": "/document-preview/:fileId/manifest.json",
+      "source": "server/routes/universalFileServer.js:687"
+    },
+    {
+      "method": "GET",
+      "path": "/legacy-html4/attachments/:fileId.gif",
+      "source": "server/routes/universalFileServer.js:626"
+    },
+    {
+      "method": "GET",
+      "path": "/legacy-html4/login-logo.gif",
+      "source": "server/routes/universalFileServer.js:565"
+    },
+    {
+      "method": "GET",
+      "path": "/schema-upgrade-status",
+      "source": "server/startupSchemaUpgrade.js:32"
+    },
+    {
+      "method": "POST",
+      "path": "/users/forgot-password",
+      "source": "server/apiAuthRoutes.js:138"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/users/login",
+      "source": "server/apiAuthRoutes.js:131"
+    },
+    {
+      "method": "POST",
+      "path": "/users/login",
+      "source": "server/apiAuthRoutes.js:255"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/users/logout",
+      "source": "server/apiAuthRoutes.js:460"
+    },
+    {
+      "method": "POST",
+      "path": "/users/logout",
+      "source": "server/apiAuthRoutes.js:464"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/users/register",
+      "source": "server/apiAuthRoutes.js:509"
+    },
+    {
+      "method": "POST",
+      "path": "/users/register",
+      "source": "server/apiAuthRoutes.js:513"
+    },
+    {
+      "method": "POST",
+      "path": "/users/reset-password",
+      "source": "server/apiAuthRoutes.js:173"
+    },
+    {
+      "method": "POST",
+      "path": "/users/send-verification",
+      "source": "server/apiAuthRoutes.js:229"
+    },
+    {
+      "method": "POST",
+      "path": "/users/verify-email",
+      "source": "server/apiAuthRoutes.js:205"
+    }
+  ],
+  "login_provider_sources": {
+    "ldap": [
+      "packages/wekan-ldap/client/loginHelper.js",
+      "packages/wekan-ldap/package.js",
+      "packages/wekan-ldap/server/adminGroups.js",
+      "packages/wekan-ldap/server/connectionGuard.js",
+      "packages/wekan-ldap/server/encryptionSetting.js",
+      "packages/wekan-ldap/server/entryKind.js",
+      "packages/wekan-ldap/server/groupAllowlist.js",
+      "packages/wekan-ldap/server/groupFilterConfig.js",
+      "packages/wekan-ldap/server/index.js",
+      "packages/wekan-ldap/server/ldap.js",
+      "packages/wekan-ldap/server/ldapPhoto.js",
+      "packages/wekan-ldap/server/ldapTextValues.js",
+      "packages/wekan-ldap/server/logger.js",
+      "packages/wekan-ldap/server/loginHandler.js",
+      "packages/wekan-ldap/server/presenceSync.js",
+      "packages/wekan-ldap/server/sync.js",
+      "packages/wekan-ldap/server/syncUser.js",
+      "packages/wekan-ldap/server/testConnection.js",
+      "packages/wekan-ldap/server/userIdFilter.js",
+      "packages/wekan-ldap/server/usernameSlug.js",
+      "server/ldapGroupSync.js",
+      "server/lib/ldapPasswordLoginGuard.js"
+    ],
+    "oauth2_oidc": [
+      "models/lib/oauth2Scopes.js",
+      "packages/wekan-accounts-oidc/oidc.js",
+      "packages/wekan-accounts-oidc/package.js",
+      "packages/wekan-oidc/endpoint.js",
+      "packages/wekan-oidc/loginHandler.js",
+      "packages/wekan-oidc/oidc_client.js",
+      "packages/wekan-oidc/oidc_configure.js",
+      "packages/wekan-oidc/oidc_server.js",
+      "packages/wekan-oidc/package.js",
+      "packages/wekan-oidc/serviceDataClaims.js"
+    ],
+    "cas": [
+      "packages/wekan-accounts-cas/cas_client.js",
+      "packages/wekan-accounts-cas/cas_client_cordova.js",
+      "packages/wekan-accounts-cas/cas_server.js",
+      "packages/wekan-accounts-cas/package.js"
+    ],
+    "saml": [
+      "server/saml.js"
+    ],
+    "password": [
+      "server/apiAuthRoutes.js",
+      "server/lib/ldapPasswordLoginGuard.js"
+    ]
+  }
+}

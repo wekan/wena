@@ -171,6 +171,7 @@ def run_test(name):
     suites["sqlite-restore"] = ROOT / "tests" / "test_sqlite_restore.sh"
     suites["admin-storage"] = ROOT / "tests" / "test_admin_storage.sh"
     suites["ferretdb-compat"] = ROOT / "tests" / "test_ferretdb_compat.sh"
+    suites["wekan-compat-inventory"] = ROOT / "tests" / "test_wekan_compat_inventory.py"
     script = suites.get(name)
     if script is None:
         raise SystemExit(f"unknown test suite: {name}")
