@@ -387,6 +387,18 @@
       physical column shape and zero header versions. Unknown/corrupt/missing layouts
       fail closed; all write, locking, codec, backup and migration work remains blocked.
 - [_] Using Nuclear GUI components, create same UI layout
+  - [_] Theme the Native Nuklear GUI and Legacy HTML4 from one semantic token catalog
+    to match current Meteor 3 WeKan for identical data, route, viewport and state.
+    Capture ground-truth screenshots for every current theme and meaningful responsive,
+    focus, hover, disabled, error and RTL state; derive colors, fonts, dimensions,
+    spacing, borders, state colors and icons instead of using screenshots as artwork.
+    Preserve HTML4/IBrowse/NetSurf/Dillo structure and ASCII fallbacks, and compare
+    deterministic goldens with tolerance only for documented font rasterization.
+    - [x] Pin the first shared-token gate to WeKan revision `689a3938`: require Wena's
+      common C UI contract to contain exactly all 25 board themes and 25 item colors
+      from Meteor's Legacy HTML4 source with byte-identical RGB values. Native and
+      HTML4 already consume the common contract; non-color tokens, reference captures,
+      viewport/state goldens, contrast and focus parity remain pending.
 - [_] Import/Export from WeKan, Trello, etc via WeKan REST API, Trello API, etc
 - [_] Match current Meteor 3 WeKan environment variables, REST API contracts, and
   password/LDAP/OAuth2/OIDC/CAS/SAML login behavior without copying JavaScript or
