@@ -74,6 +74,11 @@
   - [_] Headless SDL executable smoke/startup/crash and command-line suites.
   - [_] SQLite schema, migration, transaction, corruption, concurrency, and query
     performance suites using temporary databases.
+    - [x] Close code-scanning alert #1 (`cpp/sql-injection`): accept only the exact
+      compiled schema-v1 migration bytes, execute only the compiled SQL literal,
+      bind migration metadata, and reject altered payload/hash combinations before
+      opening a transaction; cover valid, tampered, substituted-hash, and restart
+      paths with strict-C89 tests.
   - [_] REST contract/authentication/authorization/rate-limit and negative suites.
   - [_] WeKan/Trello import-export round trips, malformed input, attachment paths,
     and local/remote boundary suites.
