@@ -375,6 +375,17 @@
       - [_] Port editable title input and persist card mutations through adapters.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
+  - [_] Replace WeKan+FerretDB directly by using its existing SQLite directory and
+    document layout without export/import. Pin the upstream layout, detect versions,
+    lock out concurrent owners, back up before writes, migrate atomically with rollback,
+    and reject corruption or unknown formats before any mutation.
+    - [x] Pin and document FerretDB v1 commit `9ab2ca69` plus the observed real WeKan
+      layout: database-per-`<name>.sqlite`, `_ferretdb_collections` metadata, opaque
+      physical STRICT tables, and one `_ferretdb_sjson` SJSON document column with
+      `indexFormat:2` (not Wena's relational schema). Add a strict-C89 read-only probe
+      for absolute paths, quick integrity, metadata JSON, required collection mappings,
+      physical column shape and zero header versions. Unknown/corrupt/missing layouts
+      fail closed; all write, locking, codec, backup and migration work remains blocked.
 - [_] Using Nuclear GUI components, create same UI layout
 - [_] Import/Export from WeKan, Trello, etc via WeKan REST API, Trello API, etc
 - [_] Nuclear GUI adapts to all screen sizes from smallest to biggest, with mobile and desktop mode, like Meteor 3 WeKan
