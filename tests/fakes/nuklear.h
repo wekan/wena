@@ -16,12 +16,22 @@ struct nk_context {
     int group_depth;
     int button_count;
     const char *button_to_press;
+    const char *edit_text;
+    int edit_count;
 };
 
 #define NK_TEXT_LEFT 0x01
 #define NK_WINDOW_BORDER 0x02
 #define NK_WINDOW_NO_SCROLLBAR 0x04
 #define NK_DYNAMIC 0
+#define NK_STATIC 1
+#define NK_EDIT_FIELD 1
+typedef unsigned int nk_rune;
+struct nk_text_edit;
+typedef int (*nk_plugin_filter)(const struct nk_text_edit *, nk_rune);
+int nk_filter_default(const struct nk_text_edit *edit, nk_rune rune);
+unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
+    char *buffer, int *length, int max, nk_plugin_filter filter);
 
 struct nk_rect nk_rect(float x, float y, float w, float h);
 int nk_begin(struct nk_context *context, const char *title,

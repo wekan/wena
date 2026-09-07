@@ -6,6 +6,8 @@
 typedef struct WenaList {
     WenaId id;
     WenaId board_id;
+    /* Empty means a board-wide WeKan list, shown in every active swimlane.
+       Nonempty retains support for explicitly swimlane-scoped native lists. */
     WenaId swimlane_id;
     WenaTitle title;
     double sort;

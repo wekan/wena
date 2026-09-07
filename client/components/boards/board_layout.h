@@ -8,6 +8,22 @@
 
 struct nk_context;
 
+/* Caller-owned presentation state; never persisted as board/card mutations. */
+#define WENA_BOARD_COLLAPSE_CAPACITY 64
+
+typedef enum WenaBoardCollapseKind {
+    WENA_COLLAPSE_SWIMLANE,
+    WENA_COLLAPSE_LIST
+} WenaBoardCollapseKind;
+
+typedef struct WenaBoardCollapseState {
+    WenaId board_id;
+    WenaId swimlane_ids[WENA_BOARD_COLLAPSE_CAPACITY];
+    size_t swimlane_count;
+    WenaId list_ids[WENA_BOARD_COLLAPSE_CAPACITY];
+    size_t list_count;
+} WenaBoardCollapseState;
+
 typedef struct WenaBoardLayout {
     const WenaBoard *board;
     const WenaSwimlane *swimlanes;
@@ -19,6 +35,7 @@ typedef struct WenaBoardLayout {
     WenaBoardSidebar *sidebar;
     struct WenaListInteraction *list_interaction;
     struct WenaCardInteraction *card_interaction;
+    WenaBoardCollapseState *collapse;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {
@@ -30,6 +47,19 @@ typedef struct WenaCardInteraction {
     unsigned int actions;
     WenaId card_id;
 } WenaCardInteraction;
+
+void wena_board_collapse_init(WenaBoardCollapseState *state);
+/* Bind to the active board and prune absent/archived/out-of-scope IDs. */
+int wena_board_collapse_sync(WenaBoardCollapseState *state,
+                              const WenaBoardLayout *layout);
+/* Failure leaves state unchanged; IDs must name active scoped model objects. */
+int wena_board_collapse_set(WenaBoardCollapseState *state,
+                             const WenaBoardLayout *layout,
+                             WenaBoardCollapseKind kind, const char *id,
+                             int collapsed);
+int wena_board_is_collapsed(const WenaBoardCollapseState *state,
+                             const char *board_id, WenaBoardCollapseKind kind,
+                             const char *id);
 
 int wena_board_layout_render(struct nk_context *context,
                              const WenaBoardLayout *layout);

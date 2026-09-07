@@ -42,7 +42,7 @@ int wena_board_feature_render_with_state(struct nk_context *context,
     }
     rendered = 0;
     if (nk_begin(context, "WeKan", nk_rect(0.0f, 0.0f, width, height),
-                 NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
+                 NK_WINDOW_BORDER)) {
         rendered = wena_board_layout_render(context, layout);
     }
     nk_end(context);

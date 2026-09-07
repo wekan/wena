@@ -16,16 +16,38 @@
 
 ## Paused checkpoint (resume here)
 
-Work is intentionally paused after commit `e2e5804`, which hardened SQLite
-migration execution and added its tamper/rollback regression coverage. Do not
-repeat that security batch. The next implementation slice is the unchecked
-"Port editable title input and persist card mutations through adapters" item
-below: connect the existing card-details Edit title intent to bounded Nuklear
-input, then to the already guarded optimistic/idempotent SQLite card mutation
-adapter. Verify valid editing, cancel, empty/oversized/control-character input,
-stale version, wrong card/board scope, replay, rollback and persistence after
-reopen before marking the item complete. After that, continue the remaining
-Jade component/feature areas one checked slice at a time.
+The original `e2e5804` migration-hardening checkpoint has been resumed from
+upstream `51f8ad1`. Do not repeat migration hardening, title editing, native card
+archiving, bounded board loading, or swimlane/list collapse: their implementations
+and positive/negative/regression tests are now present.
+
+The next native feature slice is **Add card**: connect the existing list-header
+intent to a bounded create-card editor and the shared SQLite transaction adapter.
+Carry the exact selected board, list and rendered swimlane through the intent;
+do not silently create in the first list/swimlane (the existing server create
+callback still chooses that default). Verify save/cancel, invalid title/IDs,
+wrong parents, replay, transactional failure, commit-only cache refresh and reopen
+persistence before checking that slice. Then continue remaining list-menu/sidebar
+features and native movement. Keep the local desktop executable and full native
+suite running as features are integrated.
+
+Current executable boundary: `build desktop` is a separate, tested POSIX host
+SDL2/SQLite application for an **existing Wena schema-v1 database**. It composes
+board loading, card details/title/archive adapters and collapse state. It is not
+a first-run workspace creator, remote client, or WeKan/FerretDB drop-in reader.
+Cataloged cross-release targets still build the older startup executable, not the
+desktop app. The embedded translation payload is present; runtime label lookup,
+Unicode font coverage and complete language/RTL rendering remain incomplete.
+Local actor selection trusts the OS user and must not be described as login or
+board-membership authorization. See `docs/native-desktop.md`.
+
+Latest validation (2026-09-07): **49 native/static/runtime suites passed, zero
+failed or skipped**, including real Nuklear editor/board geometry, SDL desktop
+smoke, SQLite/UI integration, concurrent snapshot checks and pinned WeKan parity.
+Seven changed C suites also passed UBSan. The local desktop and Linux amd64
+bootstrap builds passed. Cross-platform compilers and a real-browser E2E were not
+run. Reproduction details and remaining limits are in `docs/work-session.md` and
+the captured runner output in `docs/test-results-2026-09-07.txt`.
 
 ## Expanded build, release, test, and server phases
 
@@ -59,6 +81,13 @@ Jade component/feature areas one checked slice at a time.
   - [x] Build the current host target, one selected catalog target, or every ready
     target; long non-menu commands return directly to the prompt without pauses.
   - [x] Share target dispatch/validation between menus and CI to prevent drift.
+  - [x] Add one deterministic native test catalog and `tests all`: bounded parallel
+    independent suites, serialized shared builds, Python interpreter dispatch,
+    per-suite timeout/error reporting and failure exit status. Missing optional
+    prerequisites are explicit skips; target-specific release tests stay explicit.
+    Source parity accepts a separately located pinned checkout via `WEKAN_ROOT`.
+  - [x] Add a separate `build desktop` host command without relabeling bootstrap
+    cross-platform catalog targets as complete GUI releases.
 - [_] Embed every canonical `wekan/imports/i18n/data/*.i18n.json` translation in
   every one-file Wena executable/artifact; semantic equivalents of Meteor WeKan
   pages and actions use the same WeKan keys and values, never a parallel catalog:
@@ -84,7 +113,16 @@ Jade component/feature areas one checked slice at a time.
   - [x] Strict-C89 model/unit and negative-validation suites.
   - [_] Nuklear component, interaction-state, accessibility, keyboard, mouse,
     touch, responsive-layout, drag/drop, and collapse suites.
+    - [x] Add real Nuklear mouse/text-input Save/Cancel/bounds regression coverage
+      alongside fake component/state and SQLite integration suites.
+    - [x] Verify actual board draw-command/scissor visibility, readable list-column
+      geometry, real mouse collapse/expand, shared lists and duplicate-title lanes.
+      Fix clipped inherited group heights with explicit scrollable lane/list rows;
+      complete responsive/theme/accessibility parity remains pending.
   - [_] Headless SDL executable smoke/startup/crash and command-line suites.
+    - [x] Build and execute the optional desktop using the SDL dummy video driver;
+      verify bounded successful startup, malformed/duplicate arguments, missing or
+      corrupt files, unknown actor/board, and logical database immutability.
   - [_] SQLite schema, migration, transaction, corruption, concurrency, and query
     performance suites using temporary databases.
     - [x] Close code-scanning alert #1 (`cpp/sql-injection`): accept only the exact
@@ -126,7 +164,7 @@ Jade component/feature areas one checked slice at a time.
       optimistic row versions, and actor+route+operation+request-version idempotency.
       Document forward-only atomic checksum migrations, WAL/foreign-key/integrity
       startup gates, crash recovery, and verified atomic backup/restore. The SQLite
-      migration runner and production adapter remain unimplemented.
+      migration runner and production adapter are implemented in subsequent slices below.
     - [x] Add the smallest strict-C89 system-SQLite migration runner with a bundled
       MIT-compatible SHA-256 verifier: reject modified SQL before open, apply version 1 with
       `BEGIN IMMEDIATE`, checksum metadata and `user_version` in one transaction,
@@ -134,7 +172,7 @@ Jade component/feature areas one checked slice at a time.
       gate startup on quick/FK checks with a full integrity API. Temp-db tests cover
       idempotent reopen, uncommitted crash rollback, bad SQL rollback, modified hash,
       newer schema, corruption, and the SHA-256 known vector. Migration embedding,
-      backup execution, and the production persistence adapter remain pending.
+      backup execution, and production persistence are covered by later slices below.
     - [x] Pin migration bytes, size, schema version, and SHA-256 in a reviewed lock;
       fail every local/CI target before compile when it is stale. Append the exact
       migration plus a checksummed length footer to every ready single-file artifact
@@ -144,9 +182,15 @@ Jade component/feature areas one checked slice at a time.
       actor/board/FK authorization, exact idempotency tuple, optimistic card versions,
       complete region validation, and mutation+idempotency commit in one transaction.
       Temp-db tests cover success, replay, conflict rollback and restart persistence;
-      listener registration and broader board/list/swimlane mutations remain pending.
+      subsequent slices below add listener registration and hierarchy mutations.
       Idempotency metadata stores the actual SHA-256 of the fully encoded region
       response, and commit requires exactly one pending-to-checksummed transition.
+    - [x] Decode native/form titles with bounded percent/plus decoding and reject
+      duplicate fields, malformed escapes, NUL and ASCII controls. Parse every
+      optimistic version/position with exact overflow-checked decimal rules;
+      validate request-version range and bounded command strings before beginning
+      a transaction. All nine existing operations have malformed-numeric, rollback,
+      response-clearing and idempotency-key isolation regression coverage.
     - [x] Create verified SQLite online backups without stopping the listener: preflight
       source integrity/FKs and bounded free space, snapshot through SQLite's backup API,
       recheck schema/integrity/FKs, stream SHA-256 into a sidecar, then publish data and
@@ -201,7 +245,7 @@ Jade component/feature areas one checked slice at a time.
       replay keys to actor+route+operation+request-version, require optimistic card
       versions, validate the complete bounded region response before commit, and
       rollback callback/validation/conflict failures without partial output. SQLite
-      remains blocked on a separately versioned schema and migration design.
+      now uses the separately versioned schema and adapter described above.
   - [_] Let remote clients select either a Meteor 3 WeKan base URL or Wena Server
     base URL, with capability/version discovery and compatible error handling.
   - [_] Import/export and local-to-remote/remote-to-local round-trip tests against
@@ -316,6 +360,12 @@ Jade component/feature areas one checked slice at a time.
       idempotent SQLite transactions, while the same V1 response can update every
       allowlisted currently visible region atomically. The no-JS form/303 path and
       capability/POST/parse/apply failure restoration remain covered together.
+    - [x] Execute the actual C-emitted enhancement script in a dependency-free
+      Node VM/DOM harness. Cover parsing/UTF-8/bounds/stale/atomic text updates,
+      capability restoration, focus, signed POST, abort/error/replay/retry and
+      keyboard/pointer movement. Fix late timed-out responses updating UI and
+      synchronous transport failures leaving in-flight state locked. This is
+      JavaScript runtime integration; a real-browser E2E remains pending.
     - [x] Document the canonical dependency-free progressive protocol, including
       signed HTML4 authority, capability activation, exact V1 framing and limits,
       safe text-only DOM application, CSRF/authz/idempotency boundaries, focus and
@@ -390,7 +440,29 @@ Jade component/feature areas one checked slice at a time.
         reporting, plus persistent open/close card-details feature state.
       - [x] Render a feature-owned card-details canvas with exact-card Edit title,
         Archive, and Close intents, idle reset, and stale-selection handling.
-      - [_] Port editable title input and persist card mutations through adapters.
+      - [x] Port editable title input and persist card mutations through adapters.
+        A bounded Nuklear field loads the authoritative scoped title/version,
+        accepts 1–128 UTF-8 bytes, detects a 129-byte overflow, and offers Save,
+        Cancel and Close. SQLite callbacks enforce actor/board/card scope,
+        optimistic versions and durable request identities; models change only
+        after commit. Fake UI, actual Nuklear input and integrated SQLite tests
+        cover success/cancel, empty/oversized/control/invalid UTF-8 input, stale
+        versions, wrong scope, replay, injected rollback and reopen persistence.
+      - [x] Connect the explicit native Archive card action through the same
+        adapter, using an authoritative version snapshot and closing details only
+        after commit. Test stale/scope/replay rejection, rollback, cache visibility
+        and persistence after reopening the database.
+      - [x] Add a bounded, all-or-nothing SQLite board snapshot adapter with
+        deterministic hierarchy order, strict row/type/UTF-8/parent validation,
+        archived-card flags, and explicit capacity failure. A concurrent WAL writer
+        regression verifies the reader never combines different snapshots.
+      - [x] Compose the current modules in an optional POSIX desktop executable:
+        verified embedded migration/catalog, existing local actor/board preflight,
+        SQLite startup checks, SDL input/resize/quit loop, details adapters and
+        session-local collapse state. Headless real-executable tests cover startup,
+        invalid arguments/scope/files and unchanged logical data in smoke mode.
+      - [_] Implement scoped Add card editing/persistence and cache insertion.
+      - [_] Persist remaining list-menu and sidebar actions through adapters.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
   - [_] Replace WeKan+FerretDB directly by using its existing SQLite directory and
@@ -433,3 +505,9 @@ Jade component/feature areas one checked slice at a time.
 - [_] GUI works with touch displays, mouse, keyboard
 - [_] Possible to drag drop same way like Meteor 3 WeKan
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
+  - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
+    Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and
+    archived-object pruning, capacity handling, and board-switch isolation. Shared
+    board-wide lists render in each active swimlane with distinct widget IDs and
+    exact card-parent filtering; explicitly scoped lists retain their behavior.
+  - [_] Add card collapse and complete responsive/accessibility/persistence parity.

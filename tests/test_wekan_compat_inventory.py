@@ -1,6 +1,7 @@
 import json,subprocess,tempfile
+import os
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];WEKAN=ROOT.parents[1];LOCK=ROOT/'config/wekan-compat-inventory.json'
+ROOT=Path(__file__).resolve().parents[1];WEKAN=Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])));LOCK=ROOT/'config/wekan-compat-inventory.json'
 with tempfile.TemporaryDirectory() as d:
  out=Path(d)/'inventory.json';subprocess.run(['python3',str(ROOT/'scripts/generate_wekan_compat_inventory.py'),'--wekan-root',str(WEKAN),'--output',str(out)],check=True)
  assert out.read_bytes()==LOCK.read_bytes(),'WeKan compatibility inventory is stale'

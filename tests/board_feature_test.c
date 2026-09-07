@@ -7,90 +7,127 @@
 #include <nuklear.h>
 #include <string.h>
 
-struct nk_rect nk_rect(float x, float y, float w, float h)
-{
-    struct nk_rect rectangle;
+typedef struct TitleStore {
+    WenaCard *card;
+    unsigned long version;
+    int saves;
+    int fail;
+} TitleStore;
 
-    rectangle.x = x;
-    rectangle.y = y;
-    rectangle.w = w;
-    rectangle.h = h;
-    return rectangle;
+static int load_title(void *data, const char *board, const char *id,
+    char *title, size_t capacity, unsigned long *version)
+{
+    TitleStore *store;
+    store = (TitleStore *)data;
+    if (strcmp(board, store->card->board_id) != 0 ||
+        strcmp(id, store->card->id) != 0 || store->fail) return 0;
+    *version = store->version;
+    return wena_model_set_required(title, capacity, store->card->title);
 }
 
-int nk_begin(struct nk_context *context, const char *title,
-             struct nk_rect bounds, unsigned int flags)
+static int save_title(void *data, const char *board, const char *id,
+    unsigned long version, const char *title)
 {
-    (void)title;
-    (void)bounds;
-    (void)flags;
-    ++context->begin_count;
+    TitleStore *store;
+    store = (TitleStore *)data;
+    ++store->saves;
+    if (strcmp(board, store->card->board_id) != 0 ||
+        strcmp(id, store->card->id) != 0 || store->fail ||
+        version != store->version) return 0;
+    assert(wena_model_set_required(store->card->title,
+                                  sizeof(store->card->title), title));
+    ++store->version;
     return 1;
 }
 
-void nk_end(struct nk_context *context)
+static void editor_frame(WenaCardDetailsState *state, WenaCard *card,
+    const char *button, const char *input)
 {
-    ++context->end_count;
+    struct nk_context context;
+    memset(&context, 0, sizeof(context));
+    context.button_to_press = button;
+    context.edit_text = input;
+    assert(wena_card_details_render(&context, state, card, 1, 800, 600));
 }
 
-void nk_layout_row_dynamic(struct nk_context *context, float height, int columns)
+static void test_title_editor(void)
 {
-    (void)context;
-    (void)height;
-    (void)columns;
-}
-
-void nk_layout_row_begin(struct nk_context *context, int format,
-                         float row_height, int columns)
-{
-    (void)context;
-    (void)format;
-    (void)row_height;
-    (void)columns;
-}
-
-void nk_layout_row_push(struct nk_context *context, float value)
-{
-    (void)context;
-    (void)value;
-}
-
-void nk_layout_row_end(struct nk_context *context)
-{
-    (void)context;
-}
-
-void nk_label(struct nk_context *context, const char *text, int alignment)
-{
-    (void)alignment;
-    context->labels[context->label_count++] = text;
-}
-
-int nk_button_label(struct nk_context *context, const char *title)
-{
-    int result;
-
-    ++context->button_count;
-    result = context->button_to_press != NULL &&
-             strcmp(context->button_to_press, title) == 0;
-    if (result) {
-        context->button_to_press = NULL;
-    }
-    return result;
-}
-
-int nk_group_begin(struct nk_context *context, const char *title,
-                   unsigned int flags)
-{
-    (void)title;
-    (void)flags;
-    ++context->group_depth;
-    return 1;
-}
-
-void nk_group_end(struct nk_context *context)
-{
-    --context->group_depth;
+    WenaCard card;
+    WenaCardDetailsState state;
+    TitleStore store;
+    char too_long[400];
+    char exact[WENA_CARD_DETAILS_TITLE_CAPACITY];
+    struct nk_context context;
+    assert(wena_card_init(&card, "one", "board", "lane", "doing",
+                          "Initial", 1, 0));
+    memset(&store, 0, sizeof(store));
+    store.card = &card;
+    store.version = 1ul;
+    wena_card_details_init(&state);
+    wena_card_details_set_title_adapter(&state, load_title, save_title, &store);
+    assert(wena_card_details_open(&state, &card));
+    editor_frame(&state, &card, "Edit title", NULL);
+    assert(state.editing_title && state.title_version == 1ul);
+    editor_frame(&state, &card, "Save", "Updated & + title");
+    assert(!state.editing_title && store.saves == 1);
+    assert(strcmp(card.title, "Updated & + title") == 0);
+    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, "Cancel", "Cancelled");
+    assert(!state.editing_title && store.saves == 1);
+    assert(strcmp(card.title, "Updated & + title") == 0);
+    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, "Save", "");
+    assert(state.title_error && state.editing_title && store.saves == 1);
+    memset(too_long, 'x', sizeof(too_long));
+    too_long[sizeof(too_long) - 1] = '\0';
+    editor_frame(&state, &card, "Save", too_long);
+    assert(state.title_error && state.title_length == 129 && store.saves == 1);
+    editor_frame(&state, &card, "Save", "Bad\nTitle");
+    assert(state.title_error && store.saves == 1);
+    editor_frame(&state, &card, "Save", "Bad\177Title");
+    assert(state.title_error && store.saves == 1);
+    editor_frame(&state, &card, "Save", "Bad\302\205Title");
+    assert(state.title_error && store.saves == 1);
+    editor_frame(&state, &card, "Save", "Bad\300\200");
+    assert(state.title_error && store.saves == 1);
+    editor_frame(&state, &card, "Save", "Bad\355\240\200");
+    assert(state.title_error && store.saves == 1);
+    assert(!wena_card_details_title_valid("a\0b", 3));
+    assert(!wena_card_details_title_valid(NULL, 1));
+    ++store.version;
+    editor_frame(&state, &card, "Save", "Stale");
+    assert(state.title_error && state.editing_title && store.saves == 2);
+    assert(strcmp(card.title, "Updated & + title") == 0);
+    editor_frame(&state, &card, "Cancel", NULL);
+    editor_frame(&state, &card, "Edit title", NULL);
+    memset(exact, 'x', sizeof(exact));
+    exact[sizeof(exact) - 1] = '\0';
+    editor_frame(&state, &card, "Save", exact);
+    assert(!state.editing_title && strlen(card.title) == 128);
+    editor_frame(&state, &card, "Edit title", NULL);
+    store.fail = 1;
+    editor_frame(&state, &card, "Save", "Failed");
+    assert(state.title_error && strlen(card.title) == 128);
+    store.fail = 0;
+    editor_frame(&state, &card, "Close details", "Unsaved");
+    assert(!state.visible && !state.editing_title && state.title_input[0] == '\0');
+    assert(wena_card_details_open(&state, &card));
+    store.fail = 1;
+    editor_frame(&state, &card, "Edit title", NULL);
+    assert(!state.editing_title && state.title_error);
+    store.fail = 0;
+    editor_frame(&state, &card, "Edit title", NULL);
+    assert(state.editing_title);
+    strcpy(card.board_id, "wrong");
+    memset(&context, 0, sizeof(context));
+    assert(!wena_card_details_render(&context, &state, &card, 1, 800, 600));
+    assert(!state.visible && !state.editing_title);
+    strcpy(card.board_id, "board");
+    assert(wena_card_details_open(&state, &card));
+    editor_frame(&state, &card, "Edit title", NULL);
+    strcpy(card.id, "wrong");
+    assert(!wena_card_details_render(&context, &state, &card, 1, 800, 600));
+    assert(!state.visible);
 }
 
 int main(void)
@@ -110,6 +147,7 @@ int main(void)
     const char *archives[1];
     struct nk_context context;
 
+    test_title_editor();
     memset(&context, 0, sizeof(context));
     assert(wena_board_init(&board, "board", "Project", 0));
     assert(wena_swimlane_init(&swimlanes[0], "lane", "board", "Current", 1.0, 0));

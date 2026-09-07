@@ -26,12 +26,21 @@ int main(void)
     assert(wena_list_init(&list, "shared-list", board.id, "",
                           "Shared", 4.0, 0));
     assert(list.swimlane_id[0] == '\0');
+    assert(!wena_list_init(&list, "list", board.id, NULL, "List", 1.0, 0));
+    assert(list.id[0] == '\0');
     assert(!wena_board_init(&board, "", "Missing ID", 0));
     assert(!wena_card_init(&card, "card-2", "", "", "list-1",
                            "Missing board", 1.0, 0));
 
     memset(oversized_id, 'x', sizeof(oversized_id) - 1);
     oversized_id[sizeof(oversized_id) - 1] = '\0';
+    assert(!wena_list_init(&list, "list", "board", oversized_id,
+                            "List", 1.0, 0));
+    assert(list.id[0] == '\0' && list.swimlane_id[0] == '\0');
+    assert(wena_list_init(&list, "list", "board", "lane", "List", 1.0, 0));
+    assert(strcmp(list.swimlane_id, "lane") == 0);
+    assert(!wena_list_init(&list, "list", "", "", "List", 1.0, 0));
+    assert(!wena_list_init(&list, "list", "board", "", "", 1.0, 0));
     assert(!wena_board_init(&board, oversized_id, "Too long", 0));
     assert(board.id[0] == '\0');
     return 0;

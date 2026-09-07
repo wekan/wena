@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Shared local and CI command dispatcher for Wena."""
 
+from concurrent.futures import ThreadPoolExecutor
+import os
 import platform
 from pathlib import Path
 import shutil
@@ -74,6 +76,11 @@ def build_one(target):
 
 
 def build(selection):
+    if selection == "desktop":
+        print("Building local SDL2/SQLite desktop app (existing database)", flush=True)
+        output = ROOT / "dist" / "desktop" / ("wena-desktop.exe" if sys.platform == "win32" else "wena-desktop")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        return subprocess.call(test_command(ROOT / "scripts" / "build_desktop.sh") + [str(output)], cwd=ROOT)
     selected = host_target() if selection == "host" else selection
     records = [item for item in targets() if item["status"] == "ready"]
     names = [item["target"] for item in records] if selected == "all" else [selected]
@@ -103,14 +110,15 @@ def choose(title, choices):
 
 def build_menu():
     ready = [item for item in targets() if item["status"] == "ready"]
-    choices = [("h", "Current host"), ("a", "All ready targets")]
+    choices = [("h", "Current host"), ("a", "All ready targets"),
+               ("d", "Local SDL2/SQLite desktop app (existing database)")]
     choices += [(str(index), f"{item['name']} ({item['target']})")
                 for index, item in enumerate(ready, 1)]
     choices.append(("b", "Back"))
     answer = choose("Build", choices)
     if answer == "b":
         return
-    selection = "host" if answer == "h" else "all" if answer == "a" else ready[int(answer) - 1]["target"]
+    selection = "host" if answer == "h" else "all" if answer == "a" else "desktop" if answer == "d" else ready[int(answer) - 1]["target"]
     result = build(selection)
     if result:
         print(f"Build failed with exit code {result}.")
@@ -119,13 +127,16 @@ def build_menu():
 def tests_menu():
     answer = choose("Tests", [("1", "Strict-C89 models"),
                               ("2", "Locale normalization and fallback"),
-                              ("3", "Language override and runtime switch"), ("b", "Back")])
+                              ("3", "Language override and runtime switch"),
+                              ("a", "All native/static suites"), ("b", "Back")])
     if answer == "1":
         result = run_test("models")
     elif answer == "2":
         result = run_test("locale")
     elif answer == "3":
         result = run_test("language")
+    elif answer == "a":
+        result = run_test("all")
     else:
         return
     if result:
@@ -144,40 +155,143 @@ def tools_menu():
         list_targets()
 
 
+# One catalog drives listing, named execution and the complete native run.
+# Shell wrappers for capability/schema already include their Python helpers.
+TEST_SUITES = (
+    ('desktop', 'test_desktop.sh', 'Local SDL2/SQLite desktop existing-database smoke and argument failures'),
+    ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
+    ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
+    ('language', 'test_language.sh', 'Persistent override and immediate runtime switching'),
+    ('server-settings', 'test_server_settings.sh', 'Admin server address, ROOT_URL, and lifecycle state'),
+    ('html4-render', 'test_legacy_html4_render.sh', 'ROOT_URL-scoped escaped Legacy HTML4 baseline'),
+    ('capability-runtime', 'test_capability_runtime.sh', 'Node DOM harness for actual emitted drag/drop asset'),
+    ('http-server', 'test_http_server.sh', 'Bounded parser and Admin-controlled IPv4 listener'),
+    ('security', 'test_security.sh', 'Opaque sessions and scoped single-use CSRF audit'),
+    ('router', 'test_router.sh', 'Read-only GET and protected mutation-intent gate'),
+    ('platform-security', 'test_platform_security.sh', 'OS entropy and strict same-origin headers'),
+    ('http-serving', 'test_http_serving.sh', 'Timed read-only HTML4 serving loop'),
+    ('capability', 'test_capability.sh', 'Progressive drag/drop capability and baseline restore'),
+    ('regions', 'test_region_response.sh', 'Bounded versioned visible-region response protocol'),
+    ('domain-operation', 'test_domain_operation.sh', 'Verified intent to allowlisted domain callback'),
+    ('persistence', 'test_persistence.sh', 'Atomic in-memory transaction and rollback contract'),
+    ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
+    ('sqlite-form-validation', 'test_sqlite_form_validation.sh', 'Strict SQLite mutation input parsing and numeric limits'),
+    ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
+    ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
+    ('progressive', 'test_progressive_integration.sh', 'HTML4 fallback, DnD, POST, and multi-region integration'),
+    ('migration-embed', 'test_migration_embedding.py', 'Pinned SQLite migration in every ready artifact'),
+    ('sqlite-persistence', 'test_sqlite_persistence.sh', 'Transactional SQLite create/edit/archive adapter'),
+    ('runtime', 'test_runtime.sh', 'Managed SQLite adapter and listener lifecycle'),
+    ('embedded-migration', 'test_embedded_migration.sh', 'Runtime executable migration footer loader'),
+    ('executable-path', 'test_executable_path.sh', 'Bounded platform executable discovery'),
+    ('sqlite-backup', 'test_sqlite_backup.sh', 'Sqlite backup regression checks'),
+    ('sqlite-restore', 'test_sqlite_restore.sh', 'Sqlite restore regression checks'),
+    ('admin-storage', 'test_admin_storage.sh', 'Admin storage regression checks'),
+    ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
+    ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),
+    ('theme-parity', 'test_theme_color_parity.py', 'Theme parity regression checks'),
+    ('collapse', 'test_collapse.sh', 'List collapse state, scope and responsive layout'),
+    ('board-feature', 'test_board_feature.sh', 'Board feature regression checks'),
+    ('nuklear-board', 'test_nuklear_board.sh', 'Real Nuklear board visibility, clipping and mouse collapse geometry'),
+    ('nuklear-editor', 'test_nuklear_editor.sh', 'Real Nuklear bounded editor interaction'),
+    ('nuklear', 'test_nuklear_integration.sh', 'Nuklear regression checks'),
+    ('card-editor-sqlite', 'test_card_editor_sqlite.sh', 'Guarded card title editor SQLite integration'),
+    ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
+    ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
+    ('collect-release-assets', 'test_collect_release_assets.py', 'Collect release assets regression checks'),
+    ('generate-i18n-catalog', 'test_generate_i18n_catalog.py', 'Generate i18n catalog regression checks'),
+    ('i18n-embedding', 'test_i18n_embedding.py', 'I18n embedding regression checks'),
+    ('release-workflow', 'test_release_workflow.py', 'Release workflow regression checks'),
+    ('source-structure', 'test_source_structure.py', 'Source structure regression checks'),
+    ('target-catalog', 'test_target_catalog.py', 'Target catalog regression checks'),
+    ('ui-contract', 'test_ui_contract.py', 'Ui contract regression checks'),
+    ('verify-i18n-catalog', 'test_verify_i18n_catalog.py', 'Verify i18n catalog regression checks'),
+    ('verify-release-assets', 'test_verify_release_assets.py', 'Verify release assets regression checks'),
+)
+SERIAL_SUITES = {"migration-embed", "i18n-embedding", "runtime", "embedded-migration", "desktop"}
+SOURCE_SUITES = {"theme-parity", "wekan-compat-inventory"}
+
+
+def test_command(script):
+    # Python scripts need neither executable mode nor an sh-compatible body.
+    if script.suffix == ".py":
+        return [sys.executable, str(script)]
+    shell = shutil.which("sh")
+    if not shell:
+        raise OSError("native shell tests require sh")
+    return [shell, str(script)]
+
+
+def test_prerequisite(name):
+    if name in {"nuklear", "desktop"} and not shutil.which("sdl2-config"):
+        return "requires SDL2 development files (sdl2-config)"
+    if name in {"desktop", "nuklear-board", "nuklear-editor", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+        return "requires initialized third_party/nuklear submodule"
+    if name in SOURCE_SUITES:
+        source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))
+        if not (source / "imports" / "lib" / "legacyHtml4.js").is_file():
+            return "requires pinned WeKan source checkout at " + str(source)
+    return None
+
+
+def execute_test(record):
+    name, filename, _description = record
+    missing = test_prerequisite(name)
+    if missing:
+        return name, "SKIP", missing
+    try:
+        result = subprocess.run(test_command(ROOT / "tests" / filename),
+                                cwd=ROOT, text=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, timeout=300)
+        return name, "PASS" if result.returncode == 0 else "FAIL", result.stdout
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return name, "FAIL", str(error)
+
+
+def run_all_tests(jobs=4, suites=None, executor=None):
+    if jobs < 1 or jobs > 32:
+        raise ValueError("test jobs must be between 1 and 32")
+    records = list(TEST_SUITES if suites is None else suites)
+    execute = execute_test if executor is None else executor
+    independent = [item for item in records if item[0] not in SERIAL_SUITES]
+    serial = [item for item in records if item[0] in SERIAL_SUITES]
+    # map preserves catalog order even if subprocesses finish out of order.
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        results = list(pool.map(execute, independent))
+    results += [execute(item) for item in serial]
+    by_name = {result[0]: result for result in results}
+    counts = {"PASS": 0, "FAIL": 0, "SKIP": 0}
+    for name, _filename, _description in records:
+        _, status, output = by_name[name]
+        counts[status] += 1
+        print(f"{status} {name}")
+        if status != "PASS" and output:
+            print(output.rstrip())
+    print("Native suite summary: " + ", ".join(
+        f"{counts[status]} {status.lower()}" for status in ("PASS", "FAIL", "SKIP")))
+    print("Cross-target artifact tests are excluded: they require target-specific "
+          "compilers/SDKs; select target-release-TARGET explicitly.")
+    return 1 if counts["FAIL"] else 0
+
+
 def run_test(name):
-    suites = {"models": ROOT / "tests" / "test_models.sh",
-              "locale": ROOT / "tests" / "test_locale.sh",
-              "language": ROOT / "tests" / "test_language.sh",
-              "server-settings": ROOT / "tests" / "test_server_settings.sh",
-              "html4-render": ROOT / "tests" / "test_legacy_html4_render.sh",
-              "http-server": ROOT / "tests" / "test_http_server.sh",
-              "security": ROOT / "tests" / "test_security.sh",
-              "router": ROOT / "tests" / "test_router.sh",
-              "platform-security": ROOT / "tests" / "test_platform_security.sh",
-              "http-serving": ROOT / "tests" / "test_http_serving.sh",
-              "capability": ROOT / "tests" / "test_capability.sh",
-              "regions": ROOT / "tests" / "test_region_response.sh",
-              "domain-operation": ROOT / "tests" / "test_domain_operation.sh",
-              "persistence": ROOT / "tests" / "test_persistence.sh",
-              "sqlite-schema": ROOT / "tests" / "test_sqlite_schema.sh"}
-    suites["sqlite-storage"] = ROOT / "tests" / "test_sqlite_storage.sh"
-    suites["progressive"] = ROOT / "tests" / "test_progressive_integration.sh"
-    suites["migration-embed"] = ROOT / "tests" / "test_migration_embedding.py"
-    suites["sqlite-persistence"] = ROOT / "tests" / "test_sqlite_persistence.sh"
-    suites["runtime"] = ROOT / "tests" / "test_runtime.sh"
-    suites["embedded-migration"] = ROOT / "tests" / "test_embedded_migration.sh"
-    suites["executable-path"] = ROOT / "tests" / "test_executable_path.sh"
-    suites["sqlite-backup"] = ROOT / "tests" / "test_sqlite_backup.sh"
-    suites["sqlite-restore"] = ROOT / "tests" / "test_sqlite_restore.sh"
-    suites["admin-storage"] = ROOT / "tests" / "test_admin_storage.sh"
-    suites["ferretdb-compat"] = ROOT / "tests" / "test_ferretdb_compat.sh"
-    suites["wekan-compat-inventory"] = ROOT / "tests" / "test_wekan_compat_inventory.py"
-    suites["theme-parity"] = ROOT / "tests" / "test_theme_color_parity.py"
-    script = suites.get(name)
-    if script is None:
+    if name == "all":
+        return run_all_tests()
+    if name.startswith("target-release-"):
+        target = name[len("target-release-"):]
+        if not any(item["target"] == target and item["status"] == "ready"
+                   for item in targets()):
+            raise SystemExit(f"unknown ready release-test target: {target}")
+        script = ROOT / "tests" / ("test_" + target.replace("-", "_") + "_release.sh")
+        return subprocess.call(test_command(script), cwd=ROOT)
+    record = next((item for item in TEST_SUITES if item[0] == name), None)
+    if record is None:
         raise SystemExit(f"unknown test suite: {name}")
-    print(f"Running {name} tests", flush=True)
-    return subprocess.call(shell_command(script), cwd=ROOT)
+    name, status, output = execute_test(record)
+    print(f"{status} {name}")
+    if output:
+        print(output.rstrip())
+    return 0 if status == "PASS" else 1
 
 
 def menu():
@@ -197,7 +311,7 @@ def menu():
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|TARGET | tests --list | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|TARGET | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 
@@ -209,28 +323,13 @@ def main(argv):
     if len(argv) == 2 and argv[0] == "build":
         return build(argv[1])
     if argv == ["tests", "--list"]:
-        print("models\tStrict-C89 model/unit and negative validation")
-        print("locale\tOS locale normalization, fallback, and RTL direction")
-        print("language\tPersistent override and immediate runtime switching")
-        print("server-settings\tAdmin server address, ROOT_URL, and lifecycle state")
-        print("html4-render\tROOT_URL-scoped escaped Legacy HTML4 baseline")
-        print("http-server\tBounded parser and Admin-controlled IPv4 listener")
-        print("security\tOpaque sessions and scoped single-use CSRF audit")
-        print("router\tRead-only GET and protected mutation-intent gate")
-        print("platform-security\tOS entropy and strict same-origin headers")
-        print("http-serving\tTimed read-only HTML4 serving loop")
-        print("capability\tProgressive drag/drop capability and baseline restore")
-        print("regions\tBounded versioned visible-region response protocol")
-        print("domain-operation\tVerified intent to allowlisted domain callback")
-        print("persistence\tAtomic in-memory transaction and rollback contract")
-        print("sqlite-schema\tVersioned SQLite schema and migration golden")
-        print("sqlite-storage\tChecksummed atomic SQLite migration runner")
-        print("progressive\tHTML4 fallback, DnD, POST, and multi-region integration")
-        print("migration-embed\tPinned SQLite migration in every ready artifact")
-        print("sqlite-persistence\tTransactional SQLite create/edit/archive adapter")
-        print("runtime\tManaged SQLite adapter and listener lifecycle")
-        print("embedded-migration\tRuntime executable migration footer loader")
-        print("executable-path\tBounded platform executable discovery")
+        print("all\tAll native/static suites (four parallel workers; shared builds serial)")
+        for name, _filename, description in TEST_SUITES:
+            print(f"{name}\t{description}")
+        for item in targets():
+            if item["status"] == "ready":
+                print("target-release-" + item["target"] +
+                      "\tExplicit artifact test; requires target compiler/SDK")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])
