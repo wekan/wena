@@ -298,6 +298,11 @@
       idempotent SQLite transactions, while the same V1 response can update every
       allowlisted currently visible region atomically. The no-JS form/303 path and
       capability/POST/parse/apply failure restoration remain covered together.
+    - [x] Document the canonical dependency-free progressive protocol, including
+      signed HTML4 authority, capability activation, exact V1 framing and limits,
+      safe text-only DOM application, CSRF/authz/idempotency boundaries, focus and
+      keyboard behavior, failure restoration, and current test/E2E limits in
+      `docs/progressive-enhancement.md`.
 
 - [x] Add GitHub Actions release-all.yml that crosscompiles for many operating systems
   - Added the target matrix, runner selection, per-target build-script contract,
