@@ -38,7 +38,7 @@ static void option_label(void *data, int index, const char **label)
     const WenaCard *card;
     options = (ArchiveOptions *)data;
     card = option_card(options->layout, index);
-    if (card == NULL) strcpy(options->label, "[?]");
+    if (card == NULL) { *label = wena_ui_text(WENA_UI_TEXT_UNKNOWN); return; }
     else sprintf(options->label, "%s [%s]", card->title, card->id);
     *label = options->label;
 }
@@ -107,8 +107,15 @@ int wena_card_archives_render(struct nk_context *context,
         selected = count != 0 ? 0 : -1;
     }
     close_requested = 0;
-    if (nk_begin(context, "Archives", nk_rect(width * 0.5f, 0,
+    if (nk_begin_titled(context, "Archives", wena_ui_text(WENA_UI_TEXT_ARCHIVES), nk_rect(width * 0.5f, 0,
         width * 0.5f, height), NK_WINDOW_BORDER)) {
+        /* Escape cancels the entire focused panel, including an open selector.
+         * Check before widgets so it cannot share a frame with a mutation. */
+        if ((wena_title_input_keys(context, 0u) & WENA_TITLE_INPUT_CANCEL) != 0u) {
+            nk_end(context);
+            wena_card_archives_close(state);
+            return 1;
+        }
         nk_layout_row_dynamic(context, 28, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_ARCHIVES), NK_TEXT_LEFT);
         if (count != 0) {
@@ -133,7 +140,10 @@ int wena_card_archives_render(struct nk_context *context,
         nk_layout_row_dynamic(context, 28, 2);
         if (nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL))) close_requested = 1;
         if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE))) close_requested = 1;
-        if (state->error) nk_label(context, "[!]", NK_TEXT_LEFT);
+        if (state->error) {
+                nk_layout_row_dynamic(context, 48.0f, 1);
+                nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+            }
     }
     nk_end(context);
     if (close_requested) wena_card_archives_close(state);

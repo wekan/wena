@@ -34,6 +34,8 @@ typedef enum WenaHttpParseResult {
     WENA_HTTP_PARSE_TOO_LARGE = 3
 } WenaHttpParseResult;
 
+/* Non-OK results clear the complete output, including incomplete requests.
+ * On success body borrows input; consumed can precede pipelined request bytes. */
 WenaHttpParseResult wena_http_parse(const char *input, size_t length,
                                     WenaHttpRequest *request);
 const char *wena_http_header(const WenaHttpRequest *request, const char *name);

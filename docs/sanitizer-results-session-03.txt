@@ -1,0 +1,122 @@
+Sanitizers: sqlite_schema_v4
+Query-work regression uses C SQLite 3.51.3 (2026-03-13 10:38:09 737ae4a34738ffa0c3ff7f9bb18df914dd1cad163f28fd6b6e114a344fe6d618)
+8 selected items: v3 48121 VM steps/12007 fullscan; three-column 305 steps/8 sorts; v4 114 steps, after doubling unrelated rows 114 steps
+schema-v4 bounded indexed query, upgrade and restore tests passed
+Sanitizers: sqlite_schema_v3
+schema-v3 checklist constraints, upgrades, interruption and staged restore tests passed
+Sanitizers: sqlite_schema_v2
+schema-v2 description migration, artifact and staged restore tests passed
+Sanitizers: checklists
+Sanitizers: nuklear_checklists
+Real checklist creation, progress, bounded editing, readonly and Escape passed
+Sanitizers: checklists_sqlite
+Checklist UI SQLite create, rename, item, completion, rollback, stale, replay and reopen passed
+Sanitizers: collapse_preferences
+collapse preferences: scoped atomic save/load/reset, strict input and symlink/collision failures passed
+Sanitizers: board_filter
+board filter model, scope, rendering and real key tests passed
+Sanitizers: checklist_models
+checklist and checklist-item model tests passed
+Sanitizers: checklist_item_titles
+checklist item titles: canonical trim/split/reverse and atomic bounded UTF-8 validation passed
+Sanitizers: checklist_mutation
+checklist mutation tests passed
+Sanitizers: checklist_delete
+permanent scoped checklist deletion tests passed
+Sanitizers: models
+Sanitizers: board_feature
+Sanitizers: collapse
+collapse tests passed
+Sanitizers: parser_mutations
+bounded parser mutation tests passed: 12344 cases, 1449 HTTP and 236 region accepts
+Sanitizers: sqlite_storage
+Sanitizers: sqlite_hardening
+SQLite hardened connection, schema isolation, backup and restore passed
+Sanitizers: sqlite_backup
+Sanitizers: sqlite_restore
+Sanitizers: sqlite_board
+SQLite board snapshot tests passed
+Sanitizers: card_description
+Sanitizers: nuklear_card_description
+Real multiline description Enter, readonly, bounds and Escape passed
+Sanitizers: card_description_sqlite
+Description editor SQLite save, clear, stale, rollback, replay, scope and reopen passed
+Sanitizers: card_description_mutation
+card description mutation tests passed (isolated v2 fixture)
+Sanitizers: card_mutation
+native card mutation tests passed
+Sanitizers: card_editor_sqlite
+card editor SQLite integration passed
+Sanitizers: card_create
+Sanitizers: card_create_persistence
+native card creation persistence tests passed
+Sanitizers: card_move_persistence
+native card movement persistence tests passed
+Sanitizers: card_move_reorder_ui
+Sanitizers: nuklear_card_reorder
+Real Nuklear indexed card order, archived slot and popup cancel passed
+Sanitizers: card_move_reorder_sqlite
+Indexed card movement UI gap, archive, no-op, conflict, rollback and reopen passed
+Sanitizers: card_reorder
+indexed card reorder tests passed
+Sanitizers: card_move
+Sanitizers: card_move_sqlite
+Card movement UI and SQLite integration passed
+Sanitizers: card_create_sqlite
+Card creation UI and SQLite integration passed
+Sanitizers: sqlite_workspace
+atomic local SQLite workspace tests passed
+Sanitizers: ui_catalog
+verified canonical runtime UI translations
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.728s
+
+OK
+verified 19188 canonical runtime translations across 246 languages
+Sanitizers: nuklear_card_create
+Real Nuklear Add card input, save, bounds and cancel passed
+Sanitizers: panel_escape
+Focused panel Escape, popup, held key, Enter and stale scope passed
+Sanitizers: nuklear_title_keys
+real Nuklear focused Enter/Escape title keyboard tests passed
+Sanitizers: nuklear_card_move
+Real Nuklear move selectors, save and cancel passed
+Sanitizers: language_picker
+real Nuklear language picker checks passed
+Sanitizers: language_storage
+language settings exclusive staging and failure tests passed
+Sanitizers: sqlite_hierarchy_create
+SQLite hierarchy creation tests passed
+Sanitizers: hierarchy_title
+hierarchy SQLite title and real Nuklear editor tests passed
+Sanitizers: hierarchy_move_sqlite
+Hierarchy reorder UI SQLite no-op, conflict, rollback and reopen passed
+Sanitizers: hierarchy_move_mutation
+native hierarchy movement tests passed
+Sanitizers: hierarchy_move
+Sanitizers: nuklear_hierarchy_move
+Real Nuklear hierarchy reorder selector, save and cancel passed
+Sanitizers: card_restore_persistence
+native archived card restoration tests passed
+Sanitizers: card_archives
+Sanitizers: card_archives_sqlite
+Card Archives UI and SQLite restore integration passed
+Sanitizers: nuklear_card_archives
+Real Nuklear Archives selector, restore and cancel passed
+Sanitizers: native_font
+native font: pinned bytes, table checksums and generated ranges verified
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.005s
+
+OK
+native font: real atlas bake, Latin/Greek/Cyrillic glyphs, bounds and fallback passed
+Sanitizers: native_theme
+native canonical theme and contrast checks passed
+Sanitizers: native_feature_i18n
+native feature canonical messages and stable locale-switch state passed
+Sanitizers: dependency_report
+process dependency report and upstream fix boundaries passed
+Sanitizers: sdl_text_input
+complete bounded SDL UTF-8 text event tests passed

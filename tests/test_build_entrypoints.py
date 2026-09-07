@@ -33,6 +33,11 @@ def test_runner():
     with patch.object(wena.subprocess, "call", return_value=7) as call:
         assert wena.run_test("sanitizers") == 7
         assert call.call_args.args[0][-1] == str(ROOT / "tests" / "test_native_sanitizers.sh")
+        assert call.call_args.args[0][1] == "-c"
+        assert "for suite in" in call.call_args.args[0][2]
+    with patch.object(wena.subprocess, "call", return_value=0) as call:
+        assert wena.build("desktop-package") == 0
+        assert call.call_args.args[0] == [sys.executable, str(ROOT / "scripts/package_desktop.py")]
     names = [item[0] for item in wena.TEST_SUITES]
     assert len(names) == len(set(names))
     # Every suite which writes the shared host artifact must be serialized.

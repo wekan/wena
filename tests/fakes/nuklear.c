@@ -23,6 +23,13 @@ int nk_begin(struct nk_context *context, const char *title,
     return 1;
 }
 
+int nk_begin_titled(struct nk_context *context, const char *name,
+    const char *title, struct nk_rect bounds, unsigned int flags)
+{
+    (void)title;
+    return nk_begin(context, name, bounds, flags);
+}
+
 void nk_end(struct nk_context *context)
 {
     ++context->end_count;
@@ -99,7 +106,7 @@ unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
     size_t size;
     (void)flags; (void)filter;
     ++context->edit_count;
-    if (context->edit_text != NULL) {
+    if (context->edit_text != NULL && (flags & NK_EDIT_READ_ONLY) == 0u) {
         size = strlen(context->edit_text);
         if (size >= (size_t)max) size = (size_t)max - 1u;
         memcpy(buffer, context->edit_text, size);
@@ -143,3 +150,16 @@ int nk_combo_callback(struct nk_context *context,
     }
     return selected;
 }
+
+int nk_window_has_focus(const struct nk_context *context)
+{
+    return context != NULL;
+}
+
+int nk_input_is_key_pressed(const struct nk_input *input, enum nk_keys key)
+{
+    return input != NULL && (input->pressed_keys & (1u << key)) != 0u;
+}
+
+int nk_checkbox_label(struct nk_context *context,const char *title,int *active)
+{ if(nk_button_label(context,title)){*active=!*active;return 1;}return 0;}

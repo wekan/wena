@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "nuklear": {
+    "repository": "https://github.com/Immediate-Mode-UI/Nuklear",
+    "revision": "e3e18dc1e4d3de935095d372aaa211f12183befb",
+    "header_version": "4.13.3",
+    "license": "MIT alternative A",
+    "files": {
+      "third_party/nuklear/nuklear.h": "e4c80dcdf1b568dd31624fa552ae339fe2abb710f9ba5166b41e55372ae02ff5",
+      "third_party/nuklear/demo/sdl_renderer/nuklear_sdl_renderer.h": "af7bd45818ab4d9033b86ad4a9653c3ec57c092966d2c21d254f083fc16124bd",
+      "third_party/nuklear/LICENSE": "b7c67c24445f3d5c16b6cd7aea2924d23209a416742a619d61bd38b05cbf64f9"
+    }
+  },
+  "system_dependencies": {
+    "SDL2": {
+      "license": "zlib",
+      "minimum_backend_version": "2.0.22",
+      "delivery": "system dynamic library"
+    },
+    "SQLite": {
+      "license": "public domain",
+      "delivery": "system dynamic library",
+      "wal_reset_fixed_upstream_branches": [
+        "3.44.6 through 3.44.x",
+        "3.50.7 through 3.50.x",
+        "3.51.3 and later"
+      ],
+      "distribution_backports": "must be verified against distributor advisories; version alone is insufficient"
+    }
+  }
+}

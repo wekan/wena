@@ -1,0 +1,4 @@
+verified pinned offline i18n catalog: 246 languages
+verified canonical runtime UI translations
+native font: pinned bytes, table checksums and generated ranges verified
+Verified desktop package: /workspace/scratch/c75bfeefc6b7/wena/dist/desktop/wena-desktop-linux-amd64.tar.gz (glibc >= 2.38)

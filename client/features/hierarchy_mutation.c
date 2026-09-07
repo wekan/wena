@@ -4,27 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 
-static int identifier(const char *text)
-{
-    size_t index;
-    unsigned char c;
-    if (!text || !text[0]) return 0;
-    for (index = 0; index < WENA_ID_CAPACITY; ++index) {
-        c = (unsigned char)text[index];
-        if (!c) return 1;
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-              (c >= '0' && c <= '9') || c == '-' || c == '_')) return 0;
-    }
-    return 0;
-}
-
 static char *selected(WenaHierarchyMutation *adapter, const char *board,
                         WenaHierarchyKind kind, const char *target)
 {
     WenaSqliteBoardSnapshot *snapshot;
     size_t index;
-    if (!adapter || !adapter->persistence.database || !identifier(board) ||
-        !identifier(target) || strcmp(adapter->board_id, board) != 0 ||
+    if (!adapter || !adapter->persistence.database || !wena_model_identifier_valid(board) ||
+        !wena_model_identifier_valid(target) || strcmp(adapter->board_id, board) != 0 ||
         !adapter->snapshot) return NULL;
     snapshot = adapter->snapshot;
     if (snapshot->board.archived || strcmp(snapshot->board.id, board) != 0 ||
@@ -55,7 +41,8 @@ int wena_hierarchy_mutation_init(WenaHierarchyMutation *adapter, sqlite3 *databa
 {
     if (!adapter) return 0;
     memset(adapter, 0, sizeof(*adapter));
-    if (!database || !identifier(actor) || !identifier(board) || !snapshot ||
+    if (!database || !wena_model_identifier_valid(actor) ||
+        !wena_model_identifier_valid(board) || !snapshot ||
         strcmp(snapshot->board.id, board) != 0 || snapshot->board.archived ||
         snapshot->list_count > WENA_SQLITE_BOARD_MAX_LISTS ||
         snapshot->swimlane_count > WENA_SQLITE_BOARD_MAX_SWIMLANES) return 0;
@@ -99,7 +86,8 @@ int wena_hierarchy_mutation_load(void *context, const char *board,
         ok = sqlite3_column_type(statement, 0) == SQLITE_TEXT &&
             sqlite3_column_type(statement, 1) == SQLITE_INTEGER && stored &&
             bytes > 0 && (size_t)bytes < capacity &&
-            wena_card_details_title_valid((const char *)stored, (size_t)bytes) &&
+            wena_model_title_valid((const char *)stored, (size_t)bytes,
+                                    WENA_CARD_DETAILS_TITLE_CAPACITY) &&
             value > 0 && value < LONG_MAX;
         if (ok) {
             memcpy(title, stored, (size_t)bytes);
@@ -142,7 +130,7 @@ int wena_hierarchy_mutation_save_request(WenaHierarchyMutation *adapter,
         !request || request >= (unsigned long)LONG_MAX) return 0;
     for (length = 0; length < WENA_CARD_DETAILS_TITLE_CAPACITY && title[length];
          ++length) {}
-    if (!wena_card_details_title_valid(title, length)) return 0;
+    if (!wena_model_title_valid(title, length, WENA_CARD_DETAILS_TITLE_CAPACITY)) return 0;
     for (index = 0; index < length; ++index) {
         c = (unsigned char)title[index];
         encoded[index * 3] = '%';
@@ -216,7 +204,7 @@ int wena_hierarchy_mutation_create_request(WenaHierarchyMutation *adapter,
         !request || request >= (unsigned long)LONG_MAX) return 0;
     for (length = 0; length < WENA_CARD_DETAILS_TITLE_CAPACITY && title[length];
          ++length) {}
-    if (!wena_card_details_title_valid(title, length)) return 0;
+    if (!wena_model_title_valid(title, length, WENA_CARD_DETAILS_TITLE_CAPACITY)) return 0;
     if (kind == WENA_HIERARCHY_LIST) {
         if (adapter->snapshot->list_count >= WENA_SQLITE_BOARD_MAX_LISTS ||
             !wena_list_init(&list, "pending", board, "", title, 0.0, 0)) return 0;

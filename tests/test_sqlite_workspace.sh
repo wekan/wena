@@ -7,5 +7,6 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/sqlite_workspace_test.c" \
   "$root_dir/server/sqlite_workspace.c" "$root_dir/server/sqlite_storage.c" \
+  "$root_dir/models/model.c" \
   "$root_dir/server/sha256.c" -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$root_dir/server/migrations/001_initial.sql" "$test_dir"

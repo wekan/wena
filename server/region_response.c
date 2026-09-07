@@ -18,7 +18,11 @@ int wena_region_name_valid(const char *name)
 {
     static const char *const prefixes[] = {"card-", "list-", "swimlane-"};
     size_t index;
-    if (name == NULL || strlen(name) >= WENA_REGION_NAME_CAPACITY) return 0;
+    size_t name_length;
+    if (name == NULL) return 0;
+    for (name_length = 0; name_length < WENA_REGION_NAME_CAPACITY &&
+         name[name_length] != '\0'; ++name_length) {}
+    if (name_length == WENA_REGION_NAME_CAPACITY) return 0;
     if (strcmp(name, "board") == 0 || strcmp(name, "sidebar") == 0 ||
         strcmp(name, "card-details") == 0) return 1;
     for (index = 0; index < sizeof(prefixes) / sizeof(prefixes[0]); ++index) {
@@ -73,35 +77,48 @@ static int wena_region_valid(const WenaRegion *region)
 int wena_region_response_encode(const WenaRegionResponse *response,
                                 char *output, size_t capacity, size_t *length)
 {
+    char prefix[80];
+    char header[160];
+    size_t total;
     size_t used;
     size_t index;
+    size_t header_length;
+    size_t prefix_length;
     int written;
+
+    if (length != NULL) *length = 0;
     if (response == NULL || output == NULL || length == NULL || capacity == 0 ||
         response->request_version == 0 || response->region_count > WENA_REGION_MAX_COUNT)
         return 0;
-    written = sprintf(output, "WENA-REGIONS/1\nrequest-version %lu\n",
+    written = sprintf(prefix, "WENA-REGIONS/1\nrequest-version %lu\n",
                       response->request_version);
     if (written < 0) return 0;
-    used = (size_t)written;
+    prefix_length = (size_t)written;
+    total = prefix_length + 4;
+    /* Validate every region and the entire wire size before touching output.
+     * In particular, even capacity=1 cannot receive an unchecked sprintf. */
     for (index = 0; index < response->region_count; ++index) {
-        char header[160];
-        size_t header_length;
         if (!wena_region_valid(&response->regions[index])) return 0;
         written = sprintf(header, "region %s %lu %lu\n", response->regions[index].name,
                           response->regions[index].version,
                           (unsigned long)response->regions[index].content_length);
         if (written < 0) return 0;
+        total += (size_t)written + response->regions[index].content_length + 1;
+    }
+    if (total > capacity || total > WENA_REGION_RESPONSE_MAX_BYTES) return 0;
+    memcpy(output, prefix, prefix_length);
+    used = prefix_length;
+    for (index = 0; index < response->region_count; ++index) {
+        written = sprintf(header, "region %s %lu %lu\n", response->regions[index].name,
+                          response->regions[index].version,
+                          (unsigned long)response->regions[index].content_length);
         header_length = (size_t)written;
-        if (used + header_length + response->regions[index].content_length + 1 + 4 >= capacity ||
-            used + header_length + response->regions[index].content_length + 1 + 4 >
-            WENA_REGION_RESPONSE_MAX_BYTES) return 0;
         memcpy(output + used, header, header_length); used += header_length;
         memcpy(output + used, response->regions[index].content,
                response->regions[index].content_length);
         used += response->regions[index].content_length;
         output[used++] = '\n';
     }
-    if (used + 4 > capacity || used + 4 > WENA_REGION_RESPONSE_MAX_BYTES) return 0;
     memcpy(output + used, "end\n", 4); used += 4;
     *length = used;
     return 1;
@@ -129,7 +146,7 @@ static const char *wena_line(const char *cursor, const char *end)
     return (const char *)memchr(cursor, '\n', (size_t)(end - cursor));
 }
 
-int wena_region_response_parse(const char *input, size_t length,
+static int wena_region_response_parse_into(const char *input, size_t length,
                                WenaRegionResponse *response)
 {
     const char *cursor;
@@ -137,7 +154,6 @@ int wena_region_response_parse(const char *input, size_t length,
     const char *line_end;
     if (input == NULL || response == NULL || length > WENA_REGION_RESPONSE_MAX_BYTES ||
         memchr(input, '\0', length) != NULL) return 0;
-    memset(response, 0, sizeof(*response));
     if (length < 15 || memcmp(input, "WENA-REGIONS/1\n", 15) != 0) return 0;
     cursor = input + 15;
     end = input + length;
@@ -179,6 +195,17 @@ int wena_region_response_parse(const char *input, size_t length,
         cursor += content_length + 1ul;
     }
     return cursor < end && end - cursor == 4 && memcmp(cursor, "end\n", 4) == 0;
+}
+
+int wena_region_response_parse(const char *input, size_t length,
+                               WenaRegionResponse *response)
+{
+    int result;
+    if (response == NULL) return 0;
+    memset(response, 0, sizeof(*response));
+    result = wena_region_response_parse_into(input, length, response);
+    if (!result) memset(response, 0, sizeof(*response));
+    return result;
 }
 
 int wena_region_response_accept(const WenaRegionResponse *response,

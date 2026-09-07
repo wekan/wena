@@ -56,12 +56,13 @@ int wena_sqlite_backup_create(sqlite3 *source,const char *path,
     char temporary[WENA_BACKUP_PATH_MAX],sidecar[WENA_BACKUP_PATH_MAX];
     char side_temp[WENA_BACKUP_PATH_MAX],hash[65];
     unsigned long pages,page_size,available,needed;sqlite3 *copy=NULL;
-    sqlite3_backup *backup=NULL;FILE *sum=NULL;int step,ok=0;
+    sqlite3_backup *backup=NULL;FILE *sum=NULL;int step,finish,ok=0;
     if(!source||!path||!free_space||path[0]!='/'||strlen(path)>WENA_BACKUP_PATH_MAX-16u)return 0;
     sprintf(temporary,"%s.tmp",path);sprintf(sidecar,"%s.sha256",path);
     sprintf(side_temp,"%s.sha256.tmp",path);
     if(exists(path)||exists(sidecar)||exists(temporary)||exists(side_temp))return 0;
-    if(!wena_sqlite_integrity(source)||!scalar(source,"PRAGMA page_count",&pages)||
+    if(!wena_sqlite_integrity(source)||!wena_sqlite_schema_validate(source,NULL)||
+       !scalar(source,"PRAGMA page_count",&pages)||
        !scalar(source,"PRAGMA page_size",&page_size))return 0;
     if(pages&&page_size>((unsigned long)-1)/pages)return 0;
     needed=pages*page_size;
@@ -69,9 +70,11 @@ int wena_sqlite_backup_create(sqlite3 *source,const char *path,
     needed+=WENA_BACKUP_MARGIN;
     if(!free_space(context,path,&available)||available<needed)return 0;
     if(sqlite3_open_v2(temporary,&copy,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_FULLMUTEX,NULL)!=SQLITE_OK)goto done;
+    if (!wena_sqlite_connection_harden(copy)) goto done;
     backup=sqlite3_backup_init(copy,"main",source,"main");if(!backup)goto done;
-    step=sqlite3_backup_step(backup,-1);if(sqlite3_backup_finish(backup)!=SQLITE_OK||step!=SQLITE_DONE)goto done;backup=NULL;
-    if(!wena_sqlite_integrity(copy)||!scalar(copy,"PRAGMA user_version",&pages)||pages!=1ul)goto done;
+    step=sqlite3_backup_step(backup,-1);finish=sqlite3_backup_finish(backup);
+    backup=NULL;if(finish!=SQLITE_OK||step!=SQLITE_DONE)goto done;
+    if(!wena_sqlite_integrity(copy)||!wena_sqlite_schema_validate(copy,NULL))goto done;
     if(sqlite3_close(copy)!=SQLITE_OK){copy=NULL;goto done;}copy=NULL;
     if(!file_hash(temporary,hash))goto done;
     sum=fopen(side_temp,"wb");if(!sum)goto done;

@@ -33,8 +33,12 @@ typedef struct WenaRegionState {
 } WenaRegionState;
 
 int wena_region_name_valid(const char *name);
+/* Encoding failure sets length=0 and leaves output untouched; no trailing NUL
+ * is required, so an exactly-sized byte buffer is sufficient. */
 int wena_region_response_encode(const WenaRegionResponse *response,
                                 char *output, size_t capacity, size_t *length);
+/* Parsing failure clears the complete response; accept is a separate atomic
+ * version/scope gate and never changes state on failure. */
 int wena_region_response_parse(const char *input, size_t length,
                                WenaRegionResponse *response);
 int wena_region_response_accept(const WenaRegionResponse *response,

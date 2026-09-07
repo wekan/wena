@@ -1,6 +1,7 @@
 #ifndef WENA_SERVER_SQLITE_PERSISTENCE_H
 #define WENA_SERVER_SQLITE_PERSISTENCE_H
 #include "domain_operation.h"
+#include "sha256.h"
 #include <sqlite3.h>
 typedef struct WenaSqlitePersistence {
     sqlite3 *database;
@@ -17,4 +18,10 @@ typedef struct WenaSqlitePersistence {
 void wena_sqlite_persistence_init(WenaSqlitePersistence *store, sqlite3 *database);
 int wena_sqlite_persistence_apply(void *context, const WenaDomainCommand *command,
                                   WenaRegionResponse *response);
+/* Shared ordered-ID fingerprint serialization for native hierarchy snapshots.
+ * Initialize/finalize with SHA-256; invalid IDs leave the state untouched. */
+int wena_sqlite_hierarchy_order_add(WenaSha256 *state, const char *id, size_t length);
+/* Card-column fingerprint additionally includes each exact persisted position. */
+int wena_sqlite_card_order_add(WenaSha256 *state, const char *id,
+    size_t length, unsigned long position);
 #endif

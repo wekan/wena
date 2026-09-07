@@ -58,4 +58,16 @@ int wena_card_mutation_restore(void *context, const char *board_id,
 int wena_card_mutation_restore_request(WenaCardMutation *adapter,
     const char *board_id, const char *card_id, unsigned long expected_version,
     unsigned long request_version);
+/* target_position is an ordinal over the complete current column, including
+ * archived cards. A real reorder compacts that column's gaps in the same
+ * transaction. Same-ordinal requests validate scope/version/order but preserve
+ * positions, versions and idempotency metadata. Other columns stay unchanged.
+ * Requires at most 2048 cached cards and exact nonnegative integer positions
+ * below LONG_MAX-2048 and at most 2^53-1; malformed/overflow data fails closed. */
+int wena_card_mutation_reorder(void *context, const char *board_id,
+    const char *card_id, unsigned long expected_version,
+    unsigned long target_position);
+int wena_card_mutation_reorder_request(WenaCardMutation *adapter,
+    const char *board_id, const char *card_id, unsigned long expected_version,
+    unsigned long request_version, unsigned long target_position);
 #endif

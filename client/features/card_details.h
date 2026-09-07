@@ -47,6 +47,12 @@ void wena_card_details_set_title_adapter(WenaCardDetailsState *state,
 /* Shares the authenticated title adapter context and loaded row version. */
 void wena_card_details_set_archive_adapter(WenaCardDetailsState *state,
     WenaCardDetailsArchive archive);
+#define WENA_TITLE_INPUT_COMMIT 1u
+#define WENA_TITLE_INPUT_CANCEL 2u
+/* Call while the title panel is the current Nuklear window. Only its focused
+ * edit commit or focused-window Escape becomes an action; cancellation wins. */
+unsigned int wena_title_input_keys(struct nk_context *context,
+                                    unsigned int edit_result);
 int wena_card_details_title_valid(const char *title, size_t length);
 void wena_card_details_init(WenaCardDetailsState *state);
 int wena_card_details_open(WenaCardDetailsState *state, const WenaCard *card);

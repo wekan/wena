@@ -4,7 +4,7 @@
 #include <nuklear.h>
 #include <string.h>
 
-static void wena_board_open_card_details(const WenaBoardLayout *layout,
+static int wena_board_open_card_details(const WenaBoardLayout *layout,
                                          WenaCardDetailsState *card_details)
 {
     size_t index;
@@ -12,15 +12,15 @@ static void wena_board_open_card_details(const WenaBoardLayout *layout,
     if (card_details == NULL || layout->card_interaction == NULL ||
         (layout->card_interaction->actions & (WENA_CARD_BODY_OPEN_DETAILS |
                                               WENA_CARD_BODY_OPEN_MENU)) == 0u) {
-        return;
+        return 0;
     }
     for (index = 0; index < layout->card_count; ++index) {
         if (strcmp(layout->cards[index].id,
                    layout->card_interaction->card_id) == 0) {
-            (void)wena_card_details_open(card_details, &layout->cards[index]);
-            return;
+            return wena_card_details_open(card_details, &layout->cards[index]);
         }
     }
+    return 0;
 }
 
 static void wena_board_sidebar_window(struct nk_context *context,
@@ -74,9 +74,19 @@ int wena_board_feature_render_with_state(struct nk_context *context,
     }
     nk_end(context);
     if (rendered) {
-        wena_board_open_card_details(layout, card_details);
-        (void)wena_card_details_render(context, card_details, layout->cards,
-                                       layout->card_count, width, height);
+        if (card_details != NULL && card_details->visible && layout->card_visible != NULL) {
+            size_t index;
+            for (index = 0; index < layout->card_count; ++index)
+                if (!strcmp(layout->cards[index].id, card_details->card_id) &&
+                    !layout->card_visible(layout->card_visible_context, &layout->cards[index])) {
+                    wena_card_details_close(card_details); break;
+                }
+        }
+
+        /* The opening click belongs to the board, never a new dialog action. */
+        if (!wena_board_open_card_details(layout, card_details))
+            (void)wena_card_details_render(context, card_details, layout->cards,
+                                           layout->card_count, width, height);
         wena_board_sidebar_window(context, layout, width, height);
     }
     return rendered;

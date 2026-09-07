@@ -41,6 +41,9 @@ typedef struct WenaBoardLayout {
     struct WenaSwimlaneInteraction *swimlane_interaction;
     /* Optional viewport overlay; default zero preserves embedded composition. */
     int sidebar_as_window;
+    /* Optional presentation predicate; arrays and mutation scopes stay intact. */
+    int (*card_visible)(void *context, const WenaCard *card);
+    void *card_visible_context;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {

@@ -6,36 +6,19 @@
 #include <stddef.h>
 #include <string.h>
 
+unsigned int wena_title_input_keys(struct nk_context *context,
+                                    unsigned int edit_result)
+{
+    if (context == NULL || !nk_window_has_focus(context)) return 0u;
+    /* The pinned SDL adapter maps Escape to Nuklear's text-reset key. */
+    if (nk_input_is_key_pressed(&context->input, NK_KEY_TEXT_RESET_MODE))
+        return WENA_TITLE_INPUT_CANCEL;
+    return (edit_result & NK_EDIT_COMMITED) != 0u ? WENA_TITLE_INPUT_COMMIT : 0u;
+}
+
 int wena_card_details_title_valid(const char *title, size_t length)
 {
-    size_t i;
-    unsigned int c, code, need, minimum;
-    if (title == NULL || length == 0 ||
-        length >= WENA_CARD_DETAILS_TITLE_CAPACITY) return 0;
-    i = 0;
-    while (i < length) {
-        c = (unsigned char)title[i++];
-        if (c < 32u || c == 127u) return 0;
-        if (c < 128u) continue;
-        if (c >= 194u && c <= 223u) {
-            code = c & 31u; need = 1; minimum = 128u;
-        } else if (c >= 224u && c <= 239u) {
-            code = c & 15u; need = 2; minimum = 2048u;
-        } else if (c >= 240u && c <= 244u) {
-            code = c & 7u; need = 3; minimum = 65536u;
-        } else return 0;
-        while (need != 0u) {
-            if (i >= length) return 0;
-            c = (unsigned char)title[i++];
-            if ((c & 192u) != 128u) return 0;
-            code = (code << 6) | (c & 63u);
-            --need;
-        }
-        if (code < minimum || code > 1114111u ||
-            (code >= 55296u && code <= 57343u) ||
-            (code >= 128u && code <= 159u)) return 0;
-    }
-    return 1;
+    return wena_model_title_valid(title, length, WENA_CARD_DETAILS_TITLE_CAPACITY);
 }
 
 void wena_card_details_set_title_adapter(WenaCardDetailsState *state,
@@ -115,6 +98,9 @@ int wena_card_details_render(struct nk_context *context,
     size_t index;
     const WenaCard *selected;
     unsigned int action;
+    unsigned int edit_keys;
+    int save_clicked;
+    int cancel_clicked;
 
     if (state == NULL) {
         return 0;
@@ -141,16 +127,24 @@ int wena_card_details_render(struct nk_context *context,
         return 0;
     }
     action = WENA_CARD_DETAILS_NO_ACTION;
-    if (nk_begin(context, "Card details",
+    if (nk_begin_titled(context, "Card details", wena_ui_text(WENA_UI_TEXT_CARD_DETAILS),
                  nk_rect(width * 0.5f, 0.0f, width * 0.5f, height),
                  NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
         if (state->editing_title) {
             nk_layout_row_dynamic(context, 32.0f, 1);
-            (void)nk_edit_string(context, NK_EDIT_FIELD, state->title_input,
-                &state->title_length, (int)sizeof(state->title_input),
-                nk_filter_default);
+            edit_keys = wena_title_input_keys(context,
+                nk_edit_string(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
+                    state->title_input, &state->title_length,
+                    (int)sizeof(state->title_input), nk_filter_default));
             nk_layout_row_dynamic(context, 28.0f, 2);
-            if (nk_button_label(context, wena_ui_control_text(WENA_UI_SAVE))) {
+            save_clicked = nk_button_label(context, wena_ui_control_text(WENA_UI_SAVE));
+            cancel_clicked = nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL));
+            if (cancel_clicked || (edit_keys & WENA_TITLE_INPUT_CANCEL) != 0u) {
+                state->editing_title = 0;
+                state->title_error = 0;
+                state->title_length = 0;
+                state->title_input[0] = '\0';
+            } else if (save_clicked || (edit_keys & WENA_TITLE_INPUT_COMMIT) != 0u) {
                 if (state->title_length >= 0 &&
                     wena_card_details_title_valid(state->title_input,
                         (size_t)state->title_length)) {
@@ -165,19 +159,18 @@ int wena_card_details_render(struct nk_context *context,
                     } else state->title_error = 1;
                 } else state->title_error = 1;
             }
-            if (nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL))) {
-                state->editing_title = 0;
-                state->title_error = 0;
-                state->title_length = 0;
-                state->title_input[0] = '\0';
+            /* A canonical generic failure avoids exposing storage internals. */
+            if (state->title_error) {
+                nk_layout_row_dynamic(context, 48.0f, 1);
+                nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
             }
-            /* ASCII validation status; detailed storage errors stay private. */
-            if (state->title_error) nk_label(context, "[!]", NK_TEXT_LEFT);
             nk_layout_row_dynamic(context, 28.0f, 1);
             if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE)))
                 action = WENA_CARD_DETAILS_CLOSE;
         } else {
             action = wena_card_details_canvas_render(context, selected);
+            if ((wena_title_input_keys(context, 0u) & WENA_TITLE_INPUT_CANCEL) != 0u)
+                action = WENA_CARD_DETAILS_CLOSE;
             if ((action & WENA_CARD_DETAILS_EDIT_TITLE) != 0u &&
                 state->load_title != NULL && state->save_title != NULL) {
                 memset(state->title_input, 0, sizeof(state->title_input));
@@ -195,7 +188,10 @@ int wena_card_details_render(struct nk_context *context,
                     state->title_error = 0;
                 } else state->title_error = 1;
             }
-            if (state->title_error) nk_label(context, "[!]", NK_TEXT_LEFT);
+            if (state->title_error) {
+                nk_layout_row_dynamic(context, 48.0f, 1);
+                nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+            }
         }
     }
     nk_end(context);

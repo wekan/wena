@@ -38,6 +38,7 @@ void wena_hierarchy_title_close(WenaHierarchyTitleState *state)
 {
     if (!state) return;
     state->visible = 0;
+    state->requested_action = 0u;
     state->creating = 0;
     state->error = 0;
     state->title_length = 0;
@@ -115,6 +116,8 @@ int wena_hierarchy_title_render(struct nk_context *context,
 {
     int cancel;
     int save;
+    unsigned int edit_keys;
+    if (state) state->requested_action = 0u;
     if (!state || !state->visible || !context || width <= 0.0f || height <= 0.0f)
         return 0;
     if (!selected(layout, state->creating ? WENA_HIERARCHY_BOARD : state->kind,
@@ -125,22 +128,36 @@ int wena_hierarchy_title_render(struct nk_context *context,
         return 0;
     }
     save = cancel = 0;
-    if (nk_begin(context, "Edit hierarchy title",
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 170.0f),
+    if (nk_begin_titled(context, "Edit hierarchy title",
+        wena_ui_control_text(state->creating ?
+            (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
+             WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 32.0f, 1);
-        (void)nk_edit_string(context, NK_EDIT_FIELD, state->title_input,
-            &state->title_length, (int)sizeof(state->title_input), nk_filter_default);
+        edit_keys = wena_title_input_keys(context,
+            nk_edit_string(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
+                state->title_input, &state->title_length,
+                (int)sizeof(state->title_input), nk_filter_default));
         nk_layout_row_dynamic(context, 28.0f, 2);
         save = nk_button_label(context, wena_ui_control_text(WENA_UI_SAVE));
         cancel = nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL));
+        save = save || (edit_keys & WENA_TITLE_INPUT_COMMIT) != 0u;
+        cancel = cancel || (edit_keys & WENA_TITLE_INPUT_CANCEL) != 0u;
+        if (!state->creating && (state->kind == WENA_HIERARCHY_LIST ||
+            state->kind == WENA_HIERARCHY_SWIMLANE)) {
+            nk_layout_row_dynamic(context, 28.0f, 1);
+            if (nk_button_label(context, wena_ui_control_text(
+                state->kind == WENA_HIERARCHY_LIST ? WENA_UI_MOVE_LIST_TO :
+                WENA_UI_MOVE_SWIMLANE_TO))) state->requested_action = WENA_HIERARCHY_TITLE_MOVE;
+        }
         if (state->error) {
             nk_layout_row_dynamic(context, 24.0f, 1);
-            nk_label(context, "[!]", NK_TEXT_LEFT);
+            nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
         }
     }
     nk_end(context);

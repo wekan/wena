@@ -8,7 +8,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 target=$(python3 -c "import sys;sys.path.insert(0,'$root_dir/scripts');import wena;print(wena.host_target())")
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/runtime_test.c" "$root_dir/server/runtime.c" \
-  "$root_dir/server/embedded_migration.c" "$root_dir/server/sqlite_persistence.c" \
+  "$root_dir/server/embedded_migration.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" \
   "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" \
   "$root_dir/server/sqlite_backup.c" "$root_dir/server/sqlite_restore.c" \
   "$root_dir/server/http_listener.c" "$root_dir/server/http.c" \

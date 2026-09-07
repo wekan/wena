@@ -1,13 +1,39 @@
+#define _POSIX_C_SOURCE 200809L
 #include "language.h"
 
 #include "locale.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
 #if defined(_WIN32)
 #include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
+
+/* Existing settings must be ordinary files. Missing paths are valid only for
+ * creation/clear. In particular, never follow a settings symlink. */
+static int wena_language_path_valid(const char *path, int allow_missing)
+{
+#if defined(_WIN32)
+    DWORD attributes, error;
+    attributes = GetFileAttributesA(path);
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        error = GetLastError();
+        return allow_missing && (error == ERROR_FILE_NOT_FOUND ||
+                                  error == ERROR_PATH_NOT_FOUND);
+    }
+    return !(attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT));
+#else
+    struct stat info;
+    if (lstat(path, &info) != 0) return allow_missing && errno == ENOENT;
+    return S_ISREG(info.st_mode);
+#endif
+}
 
 static int wena_language_apply(WenaLanguageState *state, const char *requested,
                                const char *const *available, size_t count,
@@ -29,7 +55,8 @@ static int wena_language_load(const char *path, char *value, size_t capacity)
     FILE *file;
     size_t length;
     int extra;
-    if (path == NULL || value == NULL || capacity < 2) {
+    if (path == NULL || value == NULL || capacity < 2 ||
+        !wena_language_path_valid(path, 0)) {
         return 0;
     }
     file = fopen(path, "rb");
@@ -52,23 +79,42 @@ static int wena_language_load(const char *path, char *value, size_t capacity)
 static int wena_language_save(const char *path, const char *value)
 {
     char temporary[512];
-    FILE *file;
     int failed;
+#if defined(_WIN32)
+    HANDLE file;
+    DWORD written;
+    size_t length;
+#else
+    FILE *file;
+    int descriptor;
+#endif
     if (path == NULL || value == NULL ||
-        strlen(path) + 5 >= sizeof(temporary)) {
-        return 0;
-    }
+        strlen(path) + 5 >= sizeof(temporary) ||
+        !wena_language_path_valid(path, 1)) return 0;
     strcpy(temporary, path);
     strcat(temporary, ".tmp");
-    file = fopen(temporary, "wb");
-    if (file == NULL) {
-        return 0;
-    }
+    /* A collision is not ours to truncate or remove, including dangling links. */
+#if defined(_WIN32)
+    file = CreateFileA(temporary, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return 0;
+    length = strlen(value);
+    failed = !WriteFile(file, value, (DWORD)length, &written, NULL) ||
+        written != (DWORD)length;
+    if (!failed) failed = !WriteFile(file, "\n", 1, &written, NULL) || written != 1;
+    if (!failed && !FlushFileBuffers(file)) failed = 1;
+    if (!CloseHandle(file)) failed = 1;
+#else
+    descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (descriptor < 0) return 0;
+    file = fdopen(descriptor, "wb");
+    if (file == NULL) { close(descriptor); remove(temporary); return 0; }
     failed = fprintf(file, "%s\n", value) < 0;
-    if (fclose(file) != 0) {
-        failed = 1;
-    }
-    if (failed) {
+    if (fflush(file) != 0) failed = 1;
+    if (!failed && fsync(descriptor) != 0) failed = 1;
+    if (fclose(file) != 0) failed = 1;
+#endif
+    if (failed || !wena_language_path_valid(path, 1)) {
         remove(temporary);
         return 0;
     }
@@ -125,13 +171,9 @@ int wena_language_clear(WenaLanguageState *state, const char *settings_path,
                              available_count, 0)) {
         return 0;
     }
-    if (settings_path != NULL && remove(settings_path) != 0) {
-        FILE *file;
-        file = fopen(settings_path, "rb");
-        if (file != NULL) {
-            fclose(file);
-            return 0;
-        }
+    if (settings_path != NULL) {
+        if (!wena_language_path_valid(settings_path, 1)) return 0;
+        if (remove(settings_path) != 0 && errno != ENOENT) return 0;
     }
     *state = changed;
     return 1;

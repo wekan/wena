@@ -8,7 +8,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
  "$root_dir/tests/admin_storage_test.c" "$root_dir/client/features/server_runtime_settings.c" \
  "$root_dir/client/features/server_settings.c" "$root_dir/server/runtime.c" \
  "$root_dir/server/sqlite_backup.c" "$root_dir/server/sqlite_restore.c" \
- "$root_dir/server/embedded_migration.c" "$root_dir/server/sqlite_persistence.c" \
+ "$root_dir/server/embedded_migration.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" \
  "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" \
  "$root_dir/server/http_listener.c" "$root_dir/server/http.c" "$root_dir/server/capability.c" \
  "$root_dir/server/settings.c" "$root_dir/server/response_policy.c" "$root_dir/server/router.c" \

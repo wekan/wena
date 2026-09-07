@@ -93,6 +93,6 @@ void wena_language_picker_render(struct nk_context *context, void *opaque)
     nk_layout_row_end(context);
     if (state->error) {
         nk_layout_row_dynamic(context, 24.0f, 1);
-        nk_label(context, wena_ui_text(WENA_UI_TEXT_ERROR), NK_TEXT_LEFT);
+        nk_label(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED), NK_TEXT_LEFT);
     }
 }

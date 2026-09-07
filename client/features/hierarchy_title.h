@@ -20,7 +20,10 @@ typedef int (*WenaHierarchySaveTitle)(void *context, const char *board_id,
 typedef int (*WenaHierarchyCreateTitle)(void *context, const char *board_id,
     WenaHierarchyKind kind, const char *title);
 
+#define WENA_HIERARCHY_TITLE_MOVE 1u
+
 typedef struct WenaHierarchyTitleState {
+    unsigned int requested_action;
     int visible;
     int creating;
     int error;

@@ -3,6 +3,8 @@
 
 #include "board.h"
 #include "card.h"
+#include "checklist.h"
+#include "checklist_item.h"
 #include "list.h"
 #include "swimlane.h"
 

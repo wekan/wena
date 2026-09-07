@@ -7,15 +7,25 @@ if [ "$#" -ne 1 ]; then
   exit 2
 fi
 command -v sdl2-config >/dev/null 2>&1 || { echo "SDL2 development files required" >&2; exit 1; }
+python3 "$root_dir/scripts/check_dependencies.py" > /dev/null
 python3 "$root_dir/scripts/verify_migrations.py"
 python3 "$root_dir/scripts/verify_i18n_catalog.py"
 python3 "$root_dir/scripts/generate_ui_i18n.py" --check
+python3 "$root_dir/scripts/generate_native_font.py" --check
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   -I"$root_dir/third_party/nuklear" $(sdl2-config --cflags) \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
-  "$root_dir/client/platform/theme.c" \
+  "$root_dir/imports/preferences/collapse.c" \
+  "$root_dir/client/platform/font.c" \
+  "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
+  "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" \
   "$root_dir/client/features/board.c" "$root_dir/client/features/card_details.c" \
+  "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklist_store.c" \
+  "$root_dir/client/features/checklist_mutation.c" \
+  "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/client/features/card_archives.c" \
+  "$root_dir/client/features/card_description.c" "$root_dir/client/features/card_description_mutation.c" \
+  "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/hierarchy_mutation.c" \
   "$root_dir/client/features/language_picker.c" "$root_dir/client/features/card_move.c" \
   "$root_dir/client/features/card_mutation.c" "$root_dir/client/features/card_create.c" \

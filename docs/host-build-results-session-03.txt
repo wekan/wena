@@ -1,0 +1,2 @@
+verified pinned offline i18n catalog: 246 languages
+Building Linux amd64 (linux-amd64)

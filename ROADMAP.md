@@ -3,14 +3,15 @@
 - Made with C89, SDL2, Nuklear GUI, SQLite.
 - One executeable GUI binary, that saves files to wekan-files directory structure like Meteor 3 WeKan FerretDB SQLite
 - All code compatible with MIT license. No GPL code.
-- Newest dependencies, that does not have vulnerabilities.
+- Use maintained dependencies with pinned provenance, relevant security updates and
+  recorded runtime versions; do not equate a recent version with absence of vulnerabilities.
 - Drag drop, looks same like Meteor 3 WeKan.
 - For all desktop and mobile operating systems.
 - Based on Meteor 3 WeKan https://github.com/wekan/wekan/models
 - Local mode: Uses local SQLite database for read and write
 - Remote mode: Uses WeKan REST API with any Meteor 3 WeKan URL for read and write
 - Import Export between local and remote
-- Uses WeKan Jade UI layout, with Nuclear UI components
+- Uses WeKan Jade UI layout, with Nuklear UI components
 
 # Roadmap
 
@@ -23,31 +24,100 @@ adapters, bounded board loading, hierarchy creation/renaming, workspace seeding,
 runtime label lookup/language selection, or swimlane/list collapse. Their tested
 implementations are present below.
 
-The next native feature slice is **list/swimlane reordering**: connect explicit
-native controls to the existing guarded `move-list` and `move-swimlane` SQLite
-operations. Capture the authoritative version and exact board/object scope;
-validate bounded positions and update the ordered snapshot only after commit.
-Cover first/last positions, no-op moves, stale versions, wrong scope, replay,
-rollback, rendered order and database reopen. Then continue remaining sidebar
-mutations and card fields/collections, with versioned migration work where needed.
-Keep `build desktop`, real Nuklear input and the full native suite running.
+List/swimlane reordering, indexed card movement, descriptions, checklist
+create/edit/complete/delete, literal filtering and persisted collapse preferences
+are implemented and integrated; do not restart them. The current artifact embeds
+the verified schema-v4 chain and the measured checklist query index.
+
+The next native feature slice is **board labels and card-label assignment**,
+turning the existing Labels sidebar intent into a complete stored feature. First
+read pinned WeKan label/card models and the shared color contract; define exact
+board ownership, empty/default/color semantics, title and collection bounds,
+optimistic versions and deletion behavior. Use an additive migration and the
+existing guarded transaction/snapshot adapters. Test selected-card scope,
+foreign-board labels, duplicate assignment, stale versions, replay, rollback,
+capacity, real Nuklear controls and reopen before marking it complete. Checklist
+reordering, cross-card movement, atomic batch entry and native minicard presentation
+remain additional open slices. Keep `build desktop`, real input and the full suite
+running while progressing through the component inventory.
 
 Current executable boundary: `build desktop` is a tested POSIX SDL2/SQLite
-application that can explicitly create and reopen a local Wena schema-v1
-workspace. It supports card creation/title/movement/archive/restoration, hierarchy
-creation/renaming, collapse and persisted canonical language selection. Cataloged
-cross-release targets still build the earlier bootstrap executable. Remote REST,
-WeKan/FerretDB conversion, complete collections, Unicode fonts/RTL geometry and
-full UI/platform parity remain open. Local actor selection trusts the OS user;
+application that creates/reopens a local Wena schema-v4 workspace and upgrades
+older Wena schemas atomically. It supports card creation/title/description,
+movement/archive/restoration, hierarchy creation/renaming/reordering, checklist
+create/edit/complete/confirmed deletion, persisted collapse, literal filtering and
+canonical language choice.
+Cataloged cross-release targets still build the earlier bootstrap executable.
+Remote REST, WeKan/FerretDB conversion, complete collections, full fonts/RTL and
+UI/platform parity remain open. Local actor selection trusts the OS user;
 it is not login or board-membership authorization. See `docs/native-desktop.md`.
 
-Latest validation (2026-09-07): **68 native suites passed, zero failed or skipped**;
-**25 ASan/UBSan groups passed** (LeakSanitizer disabled on this host).
-Validation is recorded in `docs/work-session-02.md` and its captured runner logs;
-the earlier session's 49-suite report is retained as historical evidence. Do not
-interpret host SDL/SQLite or JavaScript VM coverage as cross-platform GUI release
-validation or real-browser E2E. No GitHub writes, push, PR, release or tag were
-performed during either local session.
+Latest validation (2026-09-07): **102 native suites passed, zero failed or
+skipped**, and all **60 ASan/UBSan groups passed**. Explicit host bootstrap build,
+real SDL workflows and verified Linux desktop packaging passed. LeakSanitizer is
+disabled on this host. Results and captured logs are in `docs/work-session-03.md`;
+earlier reports remain historical. Do not interpret host SDL/SQLite or JavaScript
+VM coverage as cross-platform GUI release validation or real-browser E2E.
+No GitHub write, push, PR, release or tag was performed.
+
+## Coordinated continuation after `0a61868`
+
+Work is split into independently owned implementation streams. A completed
+subtask receives the next useful slice; shared-file changes are coordinated and
+the primary agent owns desktop integration and this roadmap. A slice is checked
+only after its implementation, targeted regressions and integration support it.
+
+| Stream | Current slice | State |
+| --- | --- | --- |
+| Native UI | Description/checklist editors, flags and confirmed deletion | Integrated; fake, real Nuklear and SQLite gates passed |
+| Persistence | Checklist mutations and shared complete snapshot | Integrated; scope/version/replay/no-op/rollback/reopen gates passed |
+| Shared models/review | Models, literal filter and component inventory | Integrated; further narrow-viewport work remains open |
+| i18n/dependencies/preferences | Trusted font, canonical parser/messages, collapse settings | Integrated; 19,188 translations and actual SDL preference flows verified |
+| Build/tests | Host build, Linux desktop package and real SDL integration | 102-suite/60-sanitizer final gate passed |
+| Storage evolution | Immutable schema-v1–v4 and selected-card query index | Integrated; upgrades/restore/query-work regressions passed |
+
+Each stream received subsequent tasks after completed slices. The broad checkpoint
+uses verified SQLite 3.51.3. The Labels slice above is the next open implementation
+assignment; no broad WeKan/platform goal is inferred complete from these gates.
+
+Architecture decisions for this cycle:
+
+- Reuse the existing model module for strict ID/title validation. Keep its
+  permissive string-copy API and different multiline-region/path contracts
+  distinct; consolidation must not silently change accepted data or limits.
+- Guard native hierarchy movement against concurrent sibling reordering as well
+  as the selected object's version. A selected-row version alone does not detect
+  every change to the order displayed by the client.
+- Keep desktop packaging separate from the bootstrap release catalog. Declare
+  actual dynamic host requirements and verify the extracted executable; a native
+  Linux build does not prove GUI support on other platforms.
+- Establish one compiled migration registry and shared schema-history checks
+  before adding fields/collections. Retain the reviewed v1 migration bytes and
+  compiled-SQL-only execution gate; descriptions use the tested atomic schema-v2
+  transition, and checklists use the separately tested additive schema-v3.
+- The dependency audit found SQLite's documented WAL-reset race, relevant to
+  Wena's concurrent WAL connections. Test and build validation now use official
+  SQLite 3.51.3 source verified against its published hash, outside this repo.
+  Deployment must use the fix or a confirmed distribution backport; version
+  strings alone cannot establish whether an older distribution build is patched.
+  See `docs/dependency-audit.md` and the SQLite
+  [WAL-reset advisory](https://sqlite.org/wal.html#walresetbug).
+- Centralize native editor focus and defer newly opened panels until the next
+  input frame. A mouse release that opens a panel must never also activate a
+  control inside that panel; the actual SDL transition regression caught this.
+- Treat a card and its checklist collection as one optimistic boundary: every
+  checklist mutation checks/increments the card version. Changed checklist/item
+  rows also advance their own versions; counts remain derived, avoiding a second
+  stored source of truth. Explicit capacities and failure-before-publication
+  apply to complete snapshots. Confirmed permanent deletion is now implemented;
+  cross-card movement, activities/undo retention and REST remain separate.
+- Add only the measured four-column selected-card item index, using a new
+  schema-v4 migration. Keep the query unchanged so malformed selected-card rows
+  are still returned for validation. A narrower index left temporary sorting;
+  the complete order index eliminates scans/sorts in the documented C fixture.
+- Embed a trusted, commit/hash-pinned Apache-2.0 Roboto font instead of adding a
+  runtime font-file parser path or conversion dependency. Selected Latin, Greek
+  and Cyrillic coverage is tested; CJK, Arabic shaping and RTL layout remain open.
 
 ## Expanded build, release, test, and server phases
 
@@ -115,7 +185,8 @@ performed during either local session.
     - [x] Connect runtime labels, an SDL toolbar language chooser and an atomic
       per-workspace preference. Test immediate switching, every canonical tag,
       invalid/read-only paths, write failure/recovery and bounded long CLI paths.
-      Complete feature messages, font coverage and RTL layout remain open.
+      Current feature messages use canonical keys. Selected embedded Latin/Greek/
+      Cyrillic glyphs are tested; full font coverage and RTL layout remain open.
 - [_] Add fast native equivalents of WeKan test categories, running against the
   current OS/CPU executable wherever behavior crosses a process boundary:
   - [x] Strict-C89 model/unit and negative-validation suites.
@@ -507,6 +578,59 @@ performed during either local session.
         Use full-width wrapped card/list titles and separate action rows. Real
         Nuklear tests verify text/scissor visibility at the desktop's 14px font.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
+      - [x] Add explicit native list/swimlane reordering through the existing
+        transaction adapter. Check the complete sibling-order fingerprint inside
+        the transaction as well as selected-row scope/version, and publish the
+        ordered cache only after commit. Cover first/last, no-op, stale sibling
+        order, forged scope, replay, rollback, actual Nuklear input and reopen.
+      - [x] Add indexed native card movement including archived rows and columns
+        with position gaps. Preserve append compatibility; use a complete ordered
+        snapshot fingerprint and atomic collision-safe compaction only for actual
+        moves. No-op preserves positions and metadata. UI, SQLite and real SDL
+        regressions cover target ordinals, concurrent order changes and reopen.
+      - [x] Share strict model identifier/title/UTF-8 validation across native and
+        SQLite adapters. Add focused Escape cancellation and single-line Enter
+        submission without duplicate held-key commits; multiline Enter stays text.
+      - [x] Add exact additive schema-v2 card descriptions through one compiled
+        migration registry. Preserve v1 bytes, verify all contiguous typed history,
+        upgrade old restore copies before stopping the listener, and test rollback,
+        process interruption, concurrent upgraders, downgrade and malformed schema.
+      - [x] Complete desktop card-description integration. Bounded multiline UI
+        and SQLite suites cover empty/clear, 1024-byte limit, UTF-8, controls,
+        cancellation, stale shared-card versions, scope, replay, rollback and reopen.
+        Actual SDL events save multiline Finnish/Greek text; reopening and Cancel
+        preserve exact database text and versions.
+      - [x] Add pure C89 checklist/item models, exact parent validation, bounded
+        UTF-8 titles, deterministic ordering and derived WeKan completion/visibility
+        semantics. Preserve minicard inherit/false/true and empty-list behavior.
+      - [x] Persist and edit checklist collections through additive schema-v3,
+        existing guarded transactions and a complete bounded native panel. Support
+        checklist create/rename, item add/rename/completion, and hide-checked/hide-all.
+        Validate card and changed-row versions; no-op writes no metadata. Reload
+        after commit; failed reload disables edits and retries only the read.
+        Fake/real Nuklear, SQLite and actual SDL tests cover bounds, counts,
+        visibility, scope, stale/replay/no-op, rollback, concurrent changes and reopen.
+      - [x] Add a bounded session-local literal card-title filter that preserves
+        the complete snapshot and parent mutation scope. Apply/Clear/Enter/Escape
+        handle drafts and close hidden selections; exact UTF-8 plus ASCII case
+        folding is an explicit subset of upstream regex search, not full parity.
+      - [x] Add confirmed permanent checklist/item deletion through the same
+        scoped transaction. Show exact stored targets and every affected child;
+        Cancel/Escape write nothing and Enter never confirms. Test stale scope,
+        replay, late rollback, ignored-child survivor rejection, preserved position
+        gaps, reopen and post-commit refresh failure without a second deletion.
+      - [_] Finish native minicard checklist presentation, reordering,
+        cross-card movement and atomic batch item creation. Stored
+        minicard inherit/false/true semantics and the canonical bounded item-entry
+        parser are tested prerequisites; these complete UI/mutation slices are open.
+      - [x] Persist scoped collapse preferences with validated atomic files and
+        explicit failed-save recovery. Test input/path/scope/capacity failures,
+        write rollback, pruning, actual SDL restart/actor isolation and smoke
+        immutability; do not retry a failed write every unchanged input frame.
+      - [x] Add a measured card-scoped checklist index without rewriting history.
+        The unchanged query uses 114 instead of 48,121 SQLite VM steps in the
+        documented fixture and stays constant after doubling unrelated items.
+        Verify old-bundle upgrades, restored backups and altered-index rejection.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
   - [_] Replace WeKan+FerretDB directly by using its existing SQLite directory and
@@ -520,7 +644,7 @@ performed during either local session.
       for absolute paths, quick integrity, metadata JSON, required collection mappings,
       physical column shape and zero header versions. Unknown/corrupt/missing layouts
       fail closed; all write, locking, codec, backup and migration work remains blocked.
-- [_] Using Nuclear GUI components, create same UI layout
+- [_] Using Nuklear GUI components, create same UI layout
   - [_] Theme the Native Nuklear GUI and Legacy HTML4 from one semantic token catalog
     to match current Meteor 3 WeKan for identical data, route, viewport and state.
     Capture ground-truth screenshots for every current theme and meaningful responsive,

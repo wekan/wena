@@ -76,6 +76,8 @@ def build_one(target):
 
 
 def build(selection):
+    if selection == "desktop-package":
+        return subprocess.call([sys.executable, str(ROOT / "scripts/package_desktop.py")], cwd=ROOT)
     if selection == "desktop":
         print("Building local SDL2/SQLite desktop app (create or open workspace)", flush=True)
         output = ROOT / "dist" / "desktop" / ("wena-desktop.exe" if sys.platform == "win32" else "wena-desktop")
@@ -111,14 +113,15 @@ def choose(title, choices):
 def build_menu():
     ready = [item for item in targets() if item["status"] == "ready"]
     choices = [("h", "Current host"), ("a", "All ready targets"),
-               ("d", "Local SDL2/SQLite desktop app (create or open workspace)")]
+               ("d", "Local SDL2/SQLite desktop app (create or open workspace)"),
+               ("p", "Verified Linux amd64 desktop package")]
     choices += [(str(index), f"{item['name']} ({item['target']})")
                 for index, item in enumerate(ready, 1)]
     choices.append(("b", "Back"))
     answer = choose("Build", choices)
     if answer == "b":
         return
-    selection = "host" if answer == "h" else "all" if answer == "a" else "desktop" if answer == "d" else ready[int(answer) - 1]["target"]
+    selection = "host" if answer == "h" else "all" if answer == "a" else "desktop" if answer == "d" else "desktop-package" if answer == "p" else ready[int(answer) - 1]["target"]
     result = build(selection)
     if result:
         print(f"Build failed with exit code {result}.")
@@ -158,14 +161,26 @@ def tools_menu():
 # One catalog drives listing, named execution and the complete native run.
 # Shell wrappers for capability/schema already include their Python helpers.
 TEST_SUITES = (
+    ('desktop-package', 'test_desktop_package.py', 'Linux amd64 desktop package extraction, integrity and deterministic metadata'),
     ('desktop', 'test_desktop.sh', 'Local SDL2/SQLite workspace creation, startup and event regressions'),
+    ('checklist-item-titles', 'test_checklist_item_titles.sh', 'Bounded canonical multiline checklist title parsing'),
+    ('checklist-delete', 'test_checklist_delete.sh', 'Guarded confirmed checklist deletion, rollback and concurrent child changes'),
+    ('checklist-mutation', 'test_checklist_mutation.sh', 'Guarded native checklist SQLite persistence and rollback'),
+    ('board-filter', 'test_board_filter.sh', 'Real Nuklear local card filter scope, validation and visibility'),
+    ('checklists', 'test_checklists.sh', 'Native checklist draft editing and bounded callbacks'),
+    ('nuklear-checklists', 'test_nuklear_checklists.sh', 'Real Nuklear checklist input and controls'),
+    ('checklists-sqlite', 'test_checklists_sqlite.sh', 'Native checklist UI and SQLite guarded integration'),
+    ('collapse-preferences', 'test_collapse_preferences.sh', 'Scoped atomic native collapse preferences and failed writes'),
+    ('checklist-models', 'test_checklist_models.sh', 'Pure checklist and item scope, defaults and validation models'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),
+    ('language-storage', 'test_language_storage.sh', 'Exclusive POSIX locale settings publication and failure rollback'),
     ('language', 'test_language.sh', 'Persistent override and immediate runtime switching'),
     ('server-settings', 'test_server_settings.sh', 'Admin server address, ROOT_URL, and lifecycle state'),
     ('html4-render', 'test_legacy_html4_render.sh', 'ROOT_URL-scoped escaped Legacy HTML4 baseline'),
     ('capability-runtime', 'test_capability_runtime.sh', 'Node DOM harness for actual emitted drag/drop asset'),
+    ('parser-mutations', 'test_parser_mutations.sh', 'Deterministic HTTP and region-parser mutations with exact-size buffers'),
     ('http-server', 'test_http_server.sh', 'Bounded parser and Admin-controlled IPv4 listener'),
     ('security', 'test_security.sh', 'Opaque sessions and scoped single-use CSRF audit'),
     ('router', 'test_router.sh', 'Read-only GET and protected mutation-intent gate'),
@@ -176,11 +191,19 @@ TEST_SUITES = (
     ('domain-operation', 'test_domain_operation.sh', 'Verified intent to allowlisted domain callback'),
     ('persistence', 'test_persistence.sh', 'Atomic in-memory transaction and rollback contract'),
     ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
+    ('sqlite-schema-v2', 'test_sqlite_schema_v2.sh', 'Atomic description schema and staged backup upgrade'),
+    ('sqlite-schema-v3', 'test_sqlite_schema_v3.sh', 'Scoped checklist schema and atomic legacy upgrade'),
+    ('sqlite-schema-v4', 'test_sqlite_schema_v4.sh', 'Bounded selected-card item queries and indexed schema upgrade'),
     ('sqlite-form-validation', 'test_sqlite_form_validation.sh', 'Strict SQLite mutation input parsing and numeric limits'),
+    ('hierarchy-move-sqlite', 'test_hierarchy_move_sqlite.sh', 'Hierarchy reorder UI and SQLite rollback, cache and reopen'),
+    ('hierarchy-move-mutation', 'test_hierarchy_move_mutation.sh', 'Guarded hierarchy reorder adapter scope, version and replay'),
+    ('hierarchy-move', 'test_hierarchy_move.sh', 'Bounded hierarchy reorder and card transfer interactions'),
+    ('nuklear-hierarchy-move', 'test_nuklear_hierarchy_move.sh', 'Real Nuklear hierarchy destination selection and cancellation'),
     ('hierarchy-title', 'test_hierarchy_title.sh', 'Hierarchy create and rename SQLite adapters and real Nuklear input'),
     ('sqlite-hierarchy-create', 'test_sqlite_hierarchy_create.sh', 'Scoped SQLite list and swimlane creation persistence'),
     ('sqlite-workspace', 'test_sqlite_workspace.sh', 'Atomic no-clobber local SQLite workspace initialization'),
     ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
+    ('sqlite-hardening', 'test_sqlite_hardening.sh', 'Defensive SQLite connection settings and untrusted schema refusal'),
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
     ('progressive', 'test_progressive_integration.sh', 'HTML4 fallback, DnD, POST, and multi-region integration'),
     ('migration-embed', 'test_migration_embedding.py', 'Pinned SQLite migration in every ready artifact'),
@@ -196,9 +219,15 @@ TEST_SUITES = (
     ('theme-parity', 'test_theme_color_parity.py', 'Theme parity regression checks'),
     ('collapse', 'test_collapse.sh', 'List collapse state, scope and responsive layout'),
     ('board-feature', 'test_board_feature.sh', 'Board feature regression checks'),
+    ('panel-escape', 'test_panel_escape.sh', 'Focused move/archive Escape cancellation and held-key safety'),
+    ('nuklear-title-keys', 'test_nuklear_title_keys.sh', 'Focused title editor Enter/Escape, held keys and error states'),
     ('nuklear-card-move', 'test_nuklear_card_move.sh', 'Real Nuklear list and swimlane selection, save and cancel'),
     ('nuklear-card-create', 'test_nuklear_card_create.sh', 'Real Nuklear create input typing, bounded rejection and cancel'),
     ('sdl-text-input', 'test_sdl_text_input.sh', 'Complete bounded SDL UTF-8 text events and malformed input rejection'),
+    ('dependency-report', 'test_dependency_report.sh', 'Actual-process dependency diagnostics without SDL initialization'),
+    ('dependency-check', 'test_dependencies.py', 'Pinned dependency provenance, inventory and runtime version classification'),
+    ('native-feature-i18n', 'test_native_feature_i18n.sh', 'Localized native failures and empty states with preserved edit drafts'),
+    ('native-font', 'test_native_font.sh', 'Pinned embedded font validation and real Unicode atlas bake'),
     ('native-theme', 'test_native_theme.sh', 'Canonical native theme colors, contrast and draw commands'),
     ('nuklear-board', 'test_nuklear_board.sh', 'Real Nuklear board visibility, clipping and mouse collapse geometry'),
     ('nuklear-editor', 'test_nuklear_editor.sh', 'Real Nuklear bounded editor interaction'),
@@ -209,11 +238,19 @@ TEST_SUITES = (
     ('card-archives', 'test_card_archives.sh', 'Archived card selection and restore feature interactions'),
     ('card-archives-sqlite', 'test_card_archives_sqlite.sh', 'Archived card UI integration with SQLite restore adapter'),
     ('nuklear-card-archives', 'test_nuklear_card_archives.sh', 'Real Nuklear archived card selection and restore interaction'),
+    ('card-move-reorder-ui', 'test_card_move_reorder_ui.sh', 'Indexed card move editor snapshot lifetime and cancellation'),
+    ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
+    ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
+    ('card-reorder', 'test_card_reorder.sh', 'Indexed card moves with gap compaction, replay and transactional rollback'),
     ('card-move', 'test_card_move.sh', 'Bounded card movement form destinations and cancellation'),
     ('card-move-sqlite', 'test_card_move_sqlite.sh', 'Card move UI integration with guarded SQLite adapter'),
     ('card-move-persistence', 'test_card_move_persistence.sh', 'Guarded card move scope, optimistic conflict and replay'),
     ('card-create-persistence', 'test_card_create_persistence.sh', 'Guarded native create adapter scope, replay, rollback and reopen'),
     ('card-create', 'test_card_create.sh', 'Bounded scoped card creation editor interactions'),
+    ('card-description', 'test_card_description.sh', 'Bounded multiline card description editor state and validation'),
+    ('nuklear-card-description', 'test_nuklear_card_description.sh', 'Real Nuklear multiline description typing, save and cancel'),
+    ('card-description-sqlite', 'test_card_description_sqlite.sh', 'Description editor SQLite callbacks, rollback and reopen'),
+    ('card-description-mutation', 'test_card_description_mutation.sh', 'Description persistence using isolated pinned schema-v2 fixture'),
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
     ('collect-release-assets', 'test_collect_release_assets.py', 'Collect release assets regression checks'),
@@ -227,7 +264,7 @@ TEST_SUITES = (
     ('verify-i18n-catalog', 'test_verify_i18n_catalog.py', 'Verify i18n catalog regression checks'),
     ('verify-release-assets', 'test_verify_release_assets.py', 'Verify release assets regression checks'),
 )
-SERIAL_SUITES = {"migration-embed", "i18n-embedding", "runtime", "embedded-migration", "desktop"}
+SERIAL_SUITES = {"migration-embed", "i18n-embedding", "runtime", "embedded-migration", "desktop", "desktop-package"}
 SOURCE_SUITES = {"theme-parity", "wekan-compat-inventory"}
 
 
@@ -242,9 +279,15 @@ def test_command(script):
 
 
 def test_prerequisite(name):
-    if name in {"nuklear", "desktop", "sdl-text-input"} and not shutil.which("sdl2-config"):
+    if name in {"language-storage", "collapse-preferences"} and os.name == "nt":
+        return "requires POSIX symlink and file-mode semantics"
+    if name == "desktop-package" and (platform.system() != "Linux" or platform.machine().lower() not in {"x86_64", "amd64"}):
+        return "desktop packaging is currently verified only on Linux amd64"
+    if name == "desktop-package" and not shutil.which("readelf"):
+        return "requires readelf (binutils) for actual ELF runtime requirements"
+    if name in {"nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
-    if name in {"desktop", "nuklear-board", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-archives", "language-picker", "hierarchy-title", "native-theme", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+    if name in {"desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
         source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))
@@ -295,7 +338,10 @@ def run_all_tests(jobs=4, suites=None, executor=None):
 
 def run_test(name):
     if name == "sanitizers":
-        return subprocess.call(test_command(ROOT / "tests" / "test_native_sanitizers.sh"), cwd=ROOT)
+        script = ROOT / "tests" / "test_native_sanitizers.sh"
+        # Freeze this long-running dispatcher before parallel agents add suites.
+        command = test_command(script)
+        return subprocess.call([command[0], "-c", script.read_text(encoding="utf-8"), str(script)], cwd=ROOT)
     if name == "all":
         return run_all_tests()
     if name.startswith("target-release-"):
@@ -332,7 +378,7 @@ def menu():
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|desktop|TARGET | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 

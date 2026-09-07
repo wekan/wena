@@ -228,7 +228,9 @@ static void wena_render_cards(struct nk_context *context,
 
         if (!card->archived && wena_same_id(card->board_id, layout->board->id) &&
             wena_same_id(card->list_id, list->id) &&
-            wena_same_id(card->swimlane_id, swimlane->id)) {
+            wena_same_id(card->swimlane_id, swimlane->id) &&
+            (layout->card_visible == NULL ||
+             layout->card_visible(layout->card_visible_context, card))) {
             card_action = wena_card_body_render(context, card);
             if (layout->card_interaction != NULL &&
                 card_action != WENA_CARD_BODY_NO_ACTION) {
@@ -333,6 +335,20 @@ int wena_board_layout_render(struct nk_context *context,
     if (layout->sidebar != NULL &&
         (header_action & WENA_BOARD_HEADER_OPEN_MENU) != 0u) {
         layout->sidebar->visible = 1;
+    }
+    if (layout->card_visible != NULL) {
+        int matched;
+        matched = 0;
+        for (index = 0; index < layout->card_count; ++index)
+            if (!layout->cards[index].archived &&
+                wena_same_id(layout->cards[index].board_id, layout->board->id) &&
+                layout->card_visible(layout->card_visible_context, &layout->cards[index])) {
+                matched = 1; break;
+            }
+        if (!matched) {
+            nk_layout_row_dynamic(context, 28, 1);
+            nk_label(context, wena_ui_text(WENA_UI_TEXT_NO_CARDS_FOUND), NK_TEXT_LEFT);
+        }
     }
     for (index = 0; index < layout->swimlane_count; ++index) {
         const WenaSwimlane *swimlane = &layout->swimlanes[index];

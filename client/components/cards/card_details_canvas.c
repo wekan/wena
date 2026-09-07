@@ -25,6 +25,11 @@ unsigned int wena_card_details_canvas_render(struct nk_context *context,
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_MOVE_CARD_TO))) {
         action |= WENA_CARD_DETAILS_MOVE;
     }
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_EDIT_DESCRIPTION))) {
+        action |= WENA_CARD_DETAILS_DESCRIPTION;
+    }
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_OPEN_CHECKLISTS)))
+        action |= WENA_CARD_DETAILS_CHECKLISTS;
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE))) {
         action |= WENA_CARD_DETAILS_CLOSE;
     }

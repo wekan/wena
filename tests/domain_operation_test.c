@@ -27,6 +27,13 @@ int main(void)
     WenaRouteIntent intent;
     WenaRegionResponse response;
     FakeDomain fake;
+    const char *native_checklist_operations[] = {
+        "create-checklist", "rename-checklist", "add-checklist-item",
+        "rename-checklist-item", "set-checklist-item-finished",
+        "set-checklist-flags", "delete-checklist", "delete-checklist-item"
+    };
+    size_t index;
+    int previous_calls;
     const char body[] = "legacyOperation=archive-card&title=Card";
     memset(&fake, 0, sizeof(fake));
     memset(&intent, 0, sizeof(intent));
@@ -87,5 +94,18 @@ int main(void)
     strcpy(intent.operation, "restore-card");
     assert(wena_domain_operation_dispatch(&adapter, &intent, 10ul, &response));
     assert(fake.last.operation == WENA_DOMAIN_RESTORE_CARD);
+    strcpy(intent.operation, "edit-card-description");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 11ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_EDIT_CARD_DESCRIPTION);
+    /* Native enum values must not become HTTP operation-name capabilities. Even
+     * a previously verified route intent cannot dispatch these names. */
+    previous_calls = fake.calls;
+    for (index = 0; index < sizeof(native_checklist_operations) /
+                            sizeof(native_checklist_operations[0]); ++index) {
+        strcpy(intent.operation, native_checklist_operations[index]);
+        assert(!wena_domain_operation_dispatch(&adapter, &intent, 12ul, &response));
+        assert(fake.calls == previous_calls);
+        assert(adapter.last_request_version == 11ul);
+    }
     return 0;
 }

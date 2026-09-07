@@ -1,7 +1,38 @@
 {
-  "format": 1,
-  "migration_path": "server/migrations/001_initial.sql",
-  "migration_sha256": "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5",
-  "migration_size": 2249,
-  "schema_version": 1
+  "format": 2,
+  "schema_version": 4,
+  "migrations": [
+    {
+      "version": 1,
+      "path": "server/migrations/001_initial.sql",
+      "sha256": "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5",
+      "size": 2249,
+      "bundle_sha256": "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5",
+      "bundle_size": 2249
+    },
+    {
+      "version": 2,
+      "path": "server/migrations/002_card_descriptions.sql",
+      "sha256": "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83",
+      "size": 424,
+      "bundle_sha256": "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919",
+      "bundle_size": 2673
+    },
+    {
+      "version": 3,
+      "path": "server/migrations/003_checklists.sql",
+      "sha256": "944b67e3548c07694a86f630fa3acd0d61bd298e8df5c648d9bb2d7da6fc886c",
+      "size": 2313,
+      "bundle_sha256": "80a19517e0633f8f1445e136c6560c2e2f88b6349b0d2d99f1146433f9a9d704",
+      "bundle_size": 4986
+    },
+    {
+      "version": 4,
+      "path": "server/migrations/004_checklist_item_card_order.sql",
+      "sha256": "0d3dd3c932a4c710fdba04b3d7eda22efaa2693a411369d2cdc6368b8898606c",
+      "size": 101,
+      "bundle_sha256": "5f315dcf32ce637ebbc147d1cc2522e6ec214fa6a2c32f00b797fec9183c4427",
+      "bundle_size": 5087
+    }
+  ]
 }

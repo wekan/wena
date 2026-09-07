@@ -6,7 +6,7 @@
 static const char *wena_find_crlf(const char *start, const char *end)
 {
     const char *cursor;
-    for (cursor = start; cursor + 1 < end; ++cursor)
+    for (cursor = start; end - cursor >= 2; ++cursor)
         if (cursor[0] == '\r' && cursor[1] == '\n') return cursor;
     return NULL;
 }
@@ -46,7 +46,7 @@ const char *wena_http_header(const WenaHttpRequest *request, const char *name)
     return NULL;
 }
 
-WenaHttpParseResult wena_http_parse(const char *input, size_t length,
+static WenaHttpParseResult wena_http_parse_into(const char *input, size_t length,
                                     WenaHttpRequest *request)
 {
     const char *cursor;
@@ -60,7 +60,6 @@ WenaHttpParseResult wena_http_parse(const char *input, size_t length,
     if (input == NULL || request == NULL) return WENA_HTTP_PARSE_INVALID;
     if (length > WENA_HTTP_MAX_REQUEST_BYTES) return WENA_HTTP_PARSE_TOO_LARGE;
     if (memchr(input, '\0', length) != NULL) return WENA_HTTP_PARSE_INVALID;
-    memset(request, 0, sizeof(*request));
     end = input + length;
     line_end = wena_find_crlf(input, end);
     if (line_end == NULL) return WENA_HTTP_PARSE_INCOMPLETE;
@@ -103,6 +102,15 @@ WenaHttpParseResult wena_http_parse(const char *input, size_t length,
         while (value_length > 0 && (value[value_length - 1] == ' ' || value[value_length - 1] == '\t'))
             --value_length;
         if (value_length >= sizeof(request->headers[0].value)) return WENA_HTTP_PARSE_INVALID;
+        {
+            size_t index;
+            for (index = 0; index < value_length; ++index) {
+                unsigned char c;
+                c = (unsigned char)value[index];
+                if ((c < 32 && c != '\t') || c == 127)
+                    return WENA_HTTP_PARSE_INVALID;
+            }
+        }
         memcpy(request->headers[request->header_count].value, value, value_length);
         request->headers[request->header_count].value[value_length] = '\0';
         if (strcmp(request->headers[request->header_count].name, "transfer-encoding") == 0)
@@ -131,6 +139,17 @@ WenaHttpParseResult wena_http_parse(const char *input, size_t length,
     request->body_length = content_length;
     request->consumed = (size_t)(headers_end - input) + content_length;
     return WENA_HTTP_PARSE_OK;
+}
+
+WenaHttpParseResult wena_http_parse(const char *input, size_t length,
+                                    WenaHttpRequest *request)
+{
+    WenaHttpParseResult result;
+    if (request == NULL) return WENA_HTTP_PARSE_INVALID;
+    memset(request, 0, sizeof(*request));
+    result = wena_http_parse_into(input, length, request);
+    if (result != WENA_HTTP_PARSE_OK) memset(request, 0, sizeof(*request));
+    return result;
 }
 
 int wena_http_allow_connection(size_t active_connections)

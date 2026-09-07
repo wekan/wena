@@ -22,7 +22,35 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_SWIMLANE, "swimlane", "Swimlane"},
     {WENA_UI_TEXT_LIST, "list", "List"},
     {WENA_UI_TEXT_NO_ARCHIVED_CARDS, "no-archived-cards", "No archived cards"},
-    {WENA_UI_TEXT_ERROR, "error", "Error"}
+    {WENA_UI_TEXT_ERROR, "error", "Error"},
+    {WENA_UI_TEXT_OPERATION_FAILED, "error-undefined", "Something went wrong"},
+    {WENA_UI_TEXT_NO_ITEMS, "no-items-message", "No items."},
+    {WENA_UI_TEXT_UNKNOWN, "no-name", "(Unknown)"},
+    {WENA_UI_TEXT_CARD_DETAILS, "cardDetailsPopup-title", "Card Details"},
+    {WENA_UI_TEXT_MANUAL_ORDER, "list-label-sort", "Your Manual Order"},
+    {WENA_UI_TEXT_MOVE_TO_BOTTOM, "moveCardToBottom-title", "Move to Bottom"},
+    {WENA_UI_TEXT_ARCHIVED, "archived", "Archived"},
+    {WENA_UI_TEXT_DESCRIPTION, "description", "Description"},
+    {WENA_UI_TEXT_CHECKLISTS, "checklists", "Checklists"},
+    {WENA_UI_TEXT_CHECKLIST, "checklist", "Checklist"},
+    {WENA_UI_TEXT_CHECKLIST_COUNT, "checklist-count", "Checklist item count (0/0)"},
+    {WENA_UI_TEXT_COMPLETE, "complete", "Complete"},
+    {WENA_UI_TEXT_FILTER, "filter", "Filter"},
+    {WENA_UI_TEXT_FILTER_CARD_TITLE, "filter-card-title-label", "Filter by card title"},
+    {WENA_UI_TEXT_FILTER_CLEAR, "filter-clear", "Clear filter"},
+    {WENA_UI_TEXT_NO_CARDS_FOUND, "no-cards-found", "No Cards Found"},
+    {WENA_UI_TEXT_HIDE_CHECKED_ITEMS, "hideCheckedChecklistItems", "Hide checked checklist items"},
+    {WENA_UI_TEXT_HIDE_ALL_ITEMS, "hideAllChecklistItems", "Hide all checklist items"},
+    {WENA_UI_TEXT_SHOW_ON_MINICARD, "show-on-minicard", "Show on Minicard"},
+    {WENA_UI_TEXT_DEFAULT, "default", "Default"},
+    {WENA_UI_TEXT_YES, "yes", "Yes"},
+    {WENA_UI_TEXT_NO, "no", "No"},
+    {WENA_UI_TEXT_SETTINGS, "settings", "Settings"},
+    {WENA_UI_TEXT_DELETE_CHECKLIST, "checklistDeletePopup-title", "Delete Checklist?"},
+    {WENA_UI_TEXT_DELETE_CHECKLIST_ITEM, "checklistItemDeletePopup-title", "Delete Checklist Item?"},
+    {WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST, "confirm-checklist-delete-popup", "Are you sure you want to delete the checklist?"},
+    {WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST_ITEM, "confirm-checklist-item-delete-popup", "Are you sure you want to delete the checklist item?"},
+    {WENA_UI_TEXT_CHECKLIST_WITH_ITEMS, "r-with-items", "with items"}
 };
 
 void wena_ui_set_translator(WenaUiTranslator translator, void *context)
@@ -73,7 +101,19 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_ADD_SWIMLANE, "add-swimlane", "Add swimlane", "[+]", "GET", "open-create-swimlane", 20u},
     {WENA_UI_RENAME_BOARD, "rename", "Rename board", "[E]", "GET", "open-rename-board", 21u},
     {WENA_UI_RENAME_SWIMLANE, "rename", "Rename swimlane", "[E]", "GET", "open-rename-swimlane", 22u},
-    {WENA_UI_RESTORE_CARD, "restore", "Restore", "[R]", "GET", "restore-card-editor", 23u}
+    {WENA_UI_RESTORE_CARD, "restore", "Restore", "[R]", "GET", "restore-card-editor", 23u},
+    {WENA_UI_MOVE_LIST_TO, "moveListPopup-title", "Move List", "[>]", "GET", "open-move-list", 24u},
+    {WENA_UI_MOVE_SWIMLANE_TO, "moveSwimlanePopup-title", "Move Swimlane", "[>]", "GET", "open-move-swimlane", 25u},
+    {WENA_UI_EDIT_DESCRIPTION, "description", "Description", "[E]", "GET", "open-card-description", 26u},
+    {WENA_UI_OPEN_CHECKLISTS, "checklists", "Checklists", "[>]", "GET", "open-checklists", 27u},
+    {WENA_UI_ADD_CHECKLIST, "add-checklist", "Add Checklist", "[+]", "GET", "open-create-checklist", 28u},
+    {WENA_UI_ADD_CHECKLIST_ITEM, "add-checklist-item", "Add an item to checklist", "[+]", "GET", "open-create-checklist-item", 29u},
+    {WENA_UI_RENAME_CHECKLIST, "rename", "Rename", "[E]", "GET", "open-rename-checklist", 30u},
+    {WENA_UI_RENAME_CHECKLIST_ITEM, "edit", "Edit", "[E]", "GET", "open-rename-checklist-item", 31u},
+    {WENA_UI_CHECKLIST_SETTINGS, "checklistActionsPopup-title", "Checklist Actions", "[>]", "GET", "open-checklist-settings", 32u},
+    {WENA_UI_OPEN_DELETE_CHECKLIST, "delete", "Delete", "[X]", "GET", "open-delete-checklist", 33u},
+    {WENA_UI_OPEN_DELETE_CHECKLIST_ITEM, "delete", "Delete", "[X]", "GET", "open-delete-checklist-item", 34u},
+    {WENA_UI_CONFIRM_DELETE, "delete", "Delete", "[X]", "GET", "confirm-local-delete", 35u}
 };
 
 static const WenaUiPageContract pages[] = {

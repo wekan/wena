@@ -3,51 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int identifier(const char *text)
-{
-    size_t n;
-    unsigned char c;
-    if (!text || !text[0]) return 0;
-    for (n = 0; n < WENA_ID_CAPACITY; ++n) {
-        c = (unsigned char)text[n];
-        if (!c) return 1;
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-            (c >= '0' && c <= '9') || c == '-' || c == '_')) return 0;
-    }
-    return 0;
-}
-
-static int title_valid(const unsigned char *text, size_t length)
-{
-    size_t i;
-    unsigned long c, code, need, minimum;
-    if (!text || !length || length >= WENA_TITLE_CAPACITY) return 0;
-    i = 0;
-    while (i < length) {
-        c = text[i++];
-        if (c < 32 || c == 127) return 0;
-        if (c < 128) continue;
-        if (c >= 194 && c <= 223) {
-            code = c & 31; need = 1; minimum = 128;
-        } else if (c >= 224 && c <= 239) {
-            code = c & 15; need = 2; minimum = 2048;
-        } else if (c >= 240 && c <= 244) {
-            code = c & 7; need = 3; minimum = 65536;
-        } else return 0;
-        while (need) {
-            if (i >= length) return 0;
-            c = text[i++];
-            if ((c & 192) != 128) return 0;
-            code = (code << 6) | (c & 63);
-            --need;
-        }
-        if (code < minimum || code > 1114111 ||
-            (code >= 55296 && code <= 57343) ||
-            (code >= 128 && code <= 159)) return 0;
-    }
-    return 1;
-}
-
 static const char *text_column(sqlite3_stmt *statement, int column, int is_id)
 {
     const unsigned char *text;
@@ -57,8 +12,9 @@ static const char *text_column(sqlite3_stmt *statement, int column, int is_id)
     length = sqlite3_column_bytes(statement, column);
     if (!text || length <= 0 || strlen((const char *)text) != (size_t)length)
         return NULL;
-    if (is_id ? !identifier((const char *)text) :
-        !title_valid(text, (size_t)length)) return NULL;
+    if (is_id ? !wena_model_identifier_valid((const char *)text) :
+        !wena_model_title_valid((const char *)text, (size_t)length,
+                                WENA_TITLE_CAPACITY)) return NULL;
     return (const char *)text;
 }
 
@@ -196,7 +152,7 @@ int wena_sqlite_board_load(sqlite3 *db, const char *board,
 {
     WenaSqliteBoardSnapshot *staged;
     int ok;
-    if (!db || !identifier(board) || !output || !sqlite3_get_autocommit(db))
+    if (!db || !wena_model_identifier_valid(board) || !output || !sqlite3_get_autocommit(db))
         return 0;
     staged = (WenaSqliteBoardSnapshot *)calloc(1, sizeof(*staged));
     if (!staged) return 0;

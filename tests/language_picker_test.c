@@ -139,13 +139,13 @@ int main(int argc, char **argv)
      * retaining both the current choice and the last durable preference. */
     assert(!wena_language_picker_select(&failed, language_index(&failed, "en")));
     nk_clear(&ctx); render(&ctx, &failed);
-    assert(has_label(&ctx, wena_ui_text(WENA_UI_TEXT_ERROR)));
+    assert(has_label(&ctx, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED)));
     label_center(&ctx, "fi");
     assert(wena_language_init(&loaded, path, "en", available, count));
     assert(strcmp(loaded.current, "fi") == 0);
     assert(wena_language_picker_select(&failed, language_index(&failed, "fi")));
     nk_clear(&ctx); render(&ctx, &failed);
-    assert(!has_label(&ctx, wena_ui_text(WENA_UI_TEXT_ERROR)));
+    assert(!has_label(&ctx, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED)));
     assert(wena_language_picker_select(&picker, language_index(&picker, "ace")));
     nk_clear(&ctx); render(&ctx, &picker);
     click(&ctx, &picker, label_center(&ctx, "ace"));

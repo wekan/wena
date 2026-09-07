@@ -7,84 +7,44 @@
 
 static int foreign_keys_clean(sqlite3 *db);
 
-/* This reviewed literal is the only schema program the migration runner executes.
- * The artifact footer remains useful for integrity and version discovery, but its
- * bytes are untrusted input until they exactly match this compiled program. */
-#if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Woverlength-strings"
-#endif
-static const char migration_v1[] =
-"CREATE TABLE schema_migrations (\n"
-"  version INTEGER PRIMARY KEY,\n"
-"  checksum TEXT NOT NULL UNIQUE,\n"
-"  applied_at INTEGER NOT NULL\n"
-");\n"
-"CREATE TABLE actors (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  display_name TEXT NOT NULL,\n"
-"  version INTEGER NOT NULL CHECK (version > 0)\n"
-");\n"
-"CREATE TABLE sessions (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  actor_id TEXT NOT NULL REFERENCES actors(id) ON DELETE RESTRICT,\n"
-"  expires_at INTEGER NOT NULL,\n"
-"  revoked INTEGER NOT NULL DEFAULT 0 CHECK (revoked IN (0, 1))\n"
-");\n"
-"CREATE INDEX sessions_actor_idx ON sessions(actor_id);\n"
-"CREATE TABLE boards (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  title TEXT NOT NULL,\n"
-"  version INTEGER NOT NULL CHECK (version > 0)\n"
-");\n"
-"CREATE TABLE swimlanes (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE RESTRICT,\n"
-"  title TEXT NOT NULL,\n"
-"  position INTEGER NOT NULL CHECK (position >= 0),\n"
-"  version INTEGER NOT NULL CHECK (version > 0),\n"
-"  UNIQUE (board_id, id),\n"
-"  UNIQUE (board_id, position)\n"
-");\n"
-"CREATE TABLE lists (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE RESTRICT,\n"
-"  title TEXT NOT NULL,\n"
-"  position INTEGER NOT NULL CHECK (position >= 0),\n"
-"  version INTEGER NOT NULL CHECK (version > 0),\n"
-"  UNIQUE (board_id, id),\n"
-"  UNIQUE (board_id, position)\n"
-");\n"
-"CREATE TABLE cards (\n"
-"  id TEXT PRIMARY KEY,\n"
-"  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE RESTRICT,\n"
-"  swimlane_id TEXT NOT NULL,\n"
-"  list_id TEXT NOT NULL,\n"
-"  title TEXT NOT NULL,\n"
-"  position INTEGER NOT NULL CHECK (position >= 0),\n"
-"  archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),\n"
-"  version INTEGER NOT NULL CHECK (version > 0),\n"
-"  UNIQUE (list_id, swimlane_id, position),\n"
-"  FOREIGN KEY (board_id, swimlane_id) REFERENCES swimlanes(board_id, id) ON DELETE RESTRICT,\n"
-"  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n"
-");\n"
-"CREATE INDEX cards_board_idx ON cards(board_id);\n"
-"CREATE INDEX cards_swimlane_idx ON cards(swimlane_id);\n"
-"CREATE TABLE idempotency_keys (\n"
-"  actor_id TEXT NOT NULL REFERENCES actors(id) ON DELETE RESTRICT,\n"
-"  route TEXT NOT NULL,\n"
-"  operation TEXT NOT NULL,\n"
-"  request_version INTEGER NOT NULL CHECK (request_version > 0),\n"
-"  response_checksum TEXT NOT NULL,\n"
-"  committed_at INTEGER NOT NULL,\n"
-"  PRIMARY KEY (actor_id, route, operation, request_version)\n"
-");\n";
-#if defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+typedef struct WenaCompiledMigration {
+    int version;
+    const char *sql;
+    size_t length;
+    const char *sha256;
+    size_t bundle_length;
+    const char *bundle_sha256;
+} WenaCompiledMigration;
 
-static const char migration_v1_sha256[] =
-"e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
+typedef struct WenaSchemaObject {
+    int version;
+    const char *name;
+    const char *type;
+    const char *sql;
+} WenaSchemaObject;
+
+/* Generated, checked-in reviewed SQL is the only program executed by the
+ * migration runner. Untrusted artifact bytes must exactly identify its prefix. */
+#include "migrations/compiled_registry.h"
+
+#define MIGRATION_COUNT (sizeof(migrations) / sizeof(migrations[0]))
+
+static const WenaCompiledMigration *target_for_hash(const char *sha256)
+{
+    size_t index;
+    if (sha256 == NULL) return NULL;
+    for (index = 0; index < MIGRATION_COUNT; ++index)
+        if (strcmp(sha256, migrations[index].bundle_sha256) == 0)
+            return &migrations[index];
+    return NULL;
+}
+
+int wena_sqlite_migration_target(const char *sha256)
+{
+    const WenaCompiledMigration *target;
+    target = target_for_hash(sha256);
+    return target != NULL ? target->version : 0;
+}
 
 static int scalar_text(sqlite3 *db, const char *sql, const char *expected)
 {
@@ -108,28 +68,225 @@ static int foreign_keys_clean(sqlite3 *db)
     clean=sqlite3_step(s)==SQLITE_DONE;sqlite3_finalize(s);return clean;
 }
 
+static int database_version(sqlite3 *db, int *version)
+{
+    sqlite3_stmt *statement;
+    sqlite3_int64 value;
+    int ok;
+    if (sqlite3_prepare_v2(db, "PRAGMA user_version", -1, &statement,
+        NULL) != SQLITE_OK) return 0;
+    ok = sqlite3_step(statement) == SQLITE_ROW &&
+        sqlite3_column_type(statement, 0) == SQLITE_INTEGER;
+    if (ok) {
+        value = sqlite3_column_int64(statement, 0);
+        ok = value >= 0 && value <= (sqlite3_int64)MIGRATION_COUNT;
+        if (ok) *version = (int)value;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+static int required_objects_valid(sqlite3 *db, int version)
+{
+    sqlite3_stmt *statement;
+    const unsigned char *sql;
+    size_t index, length;
+    int ok;
+    for (index = 0; index < sizeof(schema_objects) / sizeof(schema_objects[0]); ++index) {
+        if (schema_objects[index].version > version) continue;
+        if (sqlite3_prepare_v2(db, "SELECT sql FROM sqlite_master WHERE name=?1 "
+            "AND type=?2", -1, &statement, NULL) != SQLITE_OK) return 0;
+        sqlite3_bind_text(statement, 1, schema_objects[index].name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(statement, 2, schema_objects[index].type, -1, SQLITE_STATIC);
+        length = strlen(schema_objects[index].sql);
+        ok = sqlite3_step(statement) == SQLITE_ROW &&
+            sqlite3_column_type(statement, 0) == SQLITE_TEXT &&
+            (size_t)sqlite3_column_bytes(statement, 0) == length;
+        if (ok) {
+            sql = sqlite3_column_text(statement, 0);
+            ok = sql != NULL && memcmp(sql, schema_objects[index].sql, length) == 0;
+        }
+        if (ok) ok = sqlite3_step(statement) == SQLITE_DONE;
+        sqlite3_finalize(statement);
+        if (!ok) return 0;
+    }
+    return 1;
+}
+
+static int history_valid(sqlite3 *db, const char *expected_sha256)
+{
+    sqlite3_stmt *statement;
+    const unsigned char *checksum;
+    int version, step, ok;
+    size_t index;
+    if (!database_version(db, &version) || version == 0) return 0;
+    if (expected_sha256 != NULL &&
+        strcmp(expected_sha256, migrations[version - 1].bundle_sha256) != 0) return 0;
+    if (!scalar_text(db, "SELECT type FROM sqlite_master WHERE "
+        "name='schema_migrations'", "table")) return 0;
+    if (sqlite3_prepare_v2(db, "SELECT version,checksum,applied_at FROM "
+        "schema_migrations ORDER BY version", -1, &statement,
+        NULL) != SQLITE_OK) return 0;
+    index = 0;
+    ok = 1;
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+        if (index >= (size_t)version ||
+            sqlite3_column_type(statement, 0) != SQLITE_INTEGER ||
+            sqlite3_column_int64(statement, 0) != migrations[index].version ||
+            sqlite3_column_type(statement, 1) != SQLITE_TEXT ||
+            sqlite3_column_bytes(statement, 1) != 64 ||
+            sqlite3_column_type(statement, 2) != SQLITE_INTEGER ||
+            sqlite3_column_int64(statement, 2) < 0) {
+            ok = 0;
+            break;
+        }
+        checksum = sqlite3_column_text(statement, 1);
+        if (checksum == NULL || memcmp(checksum,
+            migrations[index].sha256, 64u) != 0) {
+            ok = 0;
+            break;
+        }
+        ++index;
+    }
+    if (step != SQLITE_DONE || index != (size_t)version) ok = 0;
+    sqlite3_finalize(statement);
+    return ok && required_objects_valid(db, version);
+}
+
+static int checked_schema_version(sqlite3 *database,
+                                    const char *expected_sha256)
+{
+    int owns_transaction, ok, version;
+    if (database == NULL) return 0;
+    owns_transaction = sqlite3_get_autocommit(database) != 0;
+    if (owns_transaction && sqlite3_exec(database, "BEGIN", NULL, NULL,
+        NULL) != SQLITE_OK) return 0;
+    ok = history_valid(database, expected_sha256) &&
+        database_version(database, &version);
+    if (owns_transaction) {
+        if (ok && sqlite3_exec(database, "COMMIT", NULL, NULL,
+            NULL) != SQLITE_OK) ok = 0;
+        if (!ok) sqlite3_exec(database, "ROLLBACK", NULL, NULL, NULL);
+    }
+    return ok ? version : 0;
+}
+
+int wena_sqlite_schema_validate(sqlite3 *database,
+                                const char *expected_sha256)
+{
+    return checked_schema_version(database, expected_sha256) != 0;
+}
+
+int wena_sqlite_schema_version(sqlite3 *database)
+{
+    return checked_schema_version(database, NULL);
+}
+
+static int empty_schema(sqlite3 *db)
+{
+    return scalar_text(db, "SELECT count(*) FROM sqlite_master WHERE "
+        "name NOT LIKE 'sqlite_%'", "0");
+}
+
+static int apply_migration(sqlite3 *db, const WenaCompiledMigration *migration)
+{
+    sqlite3_stmt *statement;
+    char pragma[48];
+    int ok;
+    if (sqlite3_exec(db, migration->sql, NULL, NULL, NULL) != SQLITE_OK)
+        return 0;
+    if (sqlite3_prepare_v2(db, "INSERT INTO schema_migrations"
+        "(version,checksum,applied_at) VALUES(?1,?2,strftime('%s','now'))",
+        -1, &statement, NULL) != SQLITE_OK) return 0;
+    ok = sqlite3_bind_int(statement, 1, migration->version) == SQLITE_OK &&
+        sqlite3_bind_text(statement, 2, migration->sha256, -1,
+            SQLITE_STATIC) == SQLITE_OK &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    if (!ok) return 0;
+    sprintf(pragma, "PRAGMA user_version=%d", migration->version);
+    return sqlite3_exec(db, pragma, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+int wena_sqlite_connection_harden(sqlite3 *database)
+{
+#if defined(SQLITE_DBCONFIG_DEFENSIVE) && defined(SQLITE_DBCONFIG_TRUSTED_SCHEMA)
+    int enabled;
+    if (database == NULL) return 0;
+    enabled = 0;
+    if (sqlite3_db_config(database, SQLITE_DBCONFIG_DEFENSIVE, 1,
+                          &enabled) != SQLITE_OK || enabled != 1) return 0;
+    enabled = 1;
+    if (sqlite3_db_config(database, SQLITE_DBCONFIG_TRUSTED_SCHEMA, 0,
+                          &enabled) != SQLITE_OK || enabled != 0) return 0;
+    return 1;
+#else
+    /* Do not silently open an unhardened application connection when a
+       platform's SQLite headers cannot express the required protections. */
+    (void)database;
+    return 0;
+#endif
+}
+
+static int migrate(sqlite3 *db, const WenaCompiledMigration *target,
+                    int allow_empty)
+{
+    int version;
+    size_t index;
+    if (!db || !target || !sqlite3_get_autocommit(db)) return 0;
+    if (sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK)
+        return 0;
+    if (!database_version(db, &version) || version > target->version) goto fail;
+    if (version == 0) {
+        if (!allow_empty || !empty_schema(db)) goto fail;
+    } else if (!history_valid(db, NULL)) goto fail;
+    for (index = (size_t)version; index < (size_t)target->version; ++index)
+        if (!apply_migration(db, &migrations[index])) goto fail;
+    if (!history_valid(db, target->bundle_sha256) || !foreign_keys_clean(db)) goto fail;
+    if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) goto fail;
+    return 1;
+fail:
+    sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
+    return 0;
+}
+
+int wena_sqlite_upgrade(sqlite3 *database, const char *target_sha256)
+{
+    const WenaCompiledMigration *target;
+    target = target_for_hash(target_sha256);
+    if (!database || !target || !sqlite3_get_autocommit(database)) return 0;
+    if (sqlite3_exec(database, "PRAGMA foreign_keys=ON", NULL, NULL,
+        NULL) != SQLITE_OK || !wena_sqlite_integrity(database)) return 0;
+    return migrate(database, target, 0);
+}
+
 int wena_sqlite_open(const char *path, const unsigned char *migration, size_t length,
                      const char *expected_sha256, sqlite3 **database)
 {
-    sqlite3 *db; sqlite3_stmt *s; int version; char actual[65];
+    sqlite3 *db; char actual[65];
+    const WenaCompiledMigration *target;
+    size_t index, offset;
     if(database!=NULL)*database=NULL;
     if(path==NULL||migration==NULL||length==0||expected_sha256==NULL||database==NULL)return 0;
+    target = target_for_hash(expected_sha256);
+    if (target == NULL || length != target->bundle_length) return 0;
     wena_sha256_hex(migration,length,actual);
-    if(strcmp(expected_sha256,migration_v1_sha256)!=0||
-       strcmp(actual,migration_v1_sha256)!=0||length!=sizeof(migration_v1)-1u||
-       memcmp(migration,migration_v1,length)!=0)return 0;
+    if(strcmp(actual,target->bundle_sha256)!=0)return 0;
+    offset = 0;
+    for (index = 0; index < (size_t)target->version; ++index) {
+        if (migrations[index].length > length - offset ||
+            memcmp(migration + offset, migrations[index].sql,
+                migrations[index].length) != 0) return 0;
+        offset += migrations[index].length;
+    }
+    if (offset != length) return 0;
     if(sqlite3_open_v2(path,&db,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_FULLMUTEX,NULL)!=SQLITE_OK){if(db)sqlite3_close(db);return 0;}
+    if (!wena_sqlite_connection_harden(db)) goto fail;
     sqlite3_busy_timeout(db,5000);
     if(sqlite3_exec(db,"PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;",NULL,NULL,NULL)!=SQLITE_OK||!scalar_text(db,"PRAGMA quick_check","ok"))goto fail;
-    if(sqlite3_prepare_v2(db,"PRAGMA user_version",-1,&s,NULL)!=SQLITE_OK)goto fail;
-    if(sqlite3_step(s)!=SQLITE_ROW){sqlite3_finalize(s);goto fail;}version=sqlite3_column_int(s,0);sqlite3_finalize(s);
-    if(version==0){if(sqlite3_exec(db,"BEGIN IMMEDIATE",NULL,NULL,NULL)!=SQLITE_OK)goto fail;if(sqlite3_exec(db,migration_v1,NULL,NULL,NULL)!=SQLITE_OK)goto rollback;
-        if(sqlite3_prepare_v2(db,"INSERT INTO schema_migrations VALUES(1,?1,strftime('%s','now'))",-1,&s,NULL)!=SQLITE_OK)goto rollback;
-        if(sqlite3_bind_text(s,1,migration_v1_sha256,-1,SQLITE_STATIC)!=SQLITE_OK||sqlite3_step(s)!=SQLITE_DONE){sqlite3_finalize(s);goto rollback;}sqlite3_finalize(s);
-        if(sqlite3_exec(db,"PRAGMA user_version=1",NULL,NULL,NULL)!=SQLITE_OK||sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)!=SQLITE_OK)goto rollback;
-    }else if(version==1){if(sqlite3_prepare_v2(db,"SELECT checksum FROM schema_migrations WHERE version=1",-1,&s,NULL)!=SQLITE_OK)goto fail;if(sqlite3_step(s)!=SQLITE_ROW||sqlite3_column_text(s,0)==NULL||strcmp((const char *)sqlite3_column_text(s,0),actual)!=0){sqlite3_finalize(s);goto fail;}sqlite3_finalize(s);
-    }else goto fail;
-    if(!foreign_keys_clean(db)){goto fail;}*database=db;return 1;
-rollback: sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);
+    /* Read version/history only after obtaining the writer lock. A concurrent
+     * creator may have finished the migration while this opener was waiting. */
+    if(!migrate(db,target,1))goto fail;
+    *database=db;return 1;
 fail: sqlite3_close(db);return 0;
 }

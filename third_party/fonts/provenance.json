@@ -1,0 +1,11 @@
+{
+  "repository": "https://android.googlesource.com/platform/external/roboto-fonts",
+  "commit": "5d982bb4526f3e8a438a776619c060e1daf2f18f",
+  "path": "RobotoStatic-Regular.ttf",
+  "bytes": 305656,
+  "sha256": "06cba01eb71ea5cbd3a7df498910624db68953beead4be18fd91f8ec7dc72351",
+  "font_version": "Version 2.138; 2017",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "modifications": "None; generated C array encodes the unchanged font bytes."
+}

@@ -15,25 +15,56 @@ SQL_MAGIC = b"WENA-SQL-END-v1!"
 I18N_MAGIC = b"WENA-I18N-END-v1"
 
 
-lock = json.loads((ROOT / "config" / "migrations-lock.json").read_text(encoding="utf-8"))
-migration = (ROOT / lock["migration_path"]).read_bytes()
-assert len(migration) == lock["migration_size"]
-assert hashlib.sha256(migration).hexdigest() == lock["migration_sha256"]
-subprocess.run(["python3", str(ROOT / "scripts" / "verify_migrations.py")], check=True)
 verify_spec = importlib.util.spec_from_file_location("verify_migrations", ROOT / "scripts" / "verify_migrations.py")
 verify_module = importlib.util.module_from_spec(verify_spec)
 verify_spec.loader.exec_module(verify_module)
+lock, migration = verify_module.verify()
+assert lock["schema_version"] == 4
+assert lock["migrations"][0]["sha256"] == verify_module.V1_SHA256
+assert migration.startswith((ROOT / lock["migrations"][0]["path"]).read_bytes())
+assert len(migration) == lock["migrations"][-1]["bundle_size"]
+assert hashlib.sha256(migration).hexdigest() == lock["migrations"][-1]["bundle_sha256"]
+subprocess.run(["python3", str(ROOT / "scripts" / "verify_migrations.py"), "--check"], check=True)
 with tempfile.TemporaryDirectory() as temporary:
     stale = Path(temporary)
     (stale / "config").mkdir()
     (stale / "server" / "migrations").mkdir(parents=True)
-    (stale / "config" / "migrations-lock.json").write_text(json.dumps(lock), encoding="utf-8")
-    (stale / lock["migration_path"]).write_bytes(migration + b"-- stale\n")
-    try:
-        verify_module.verify(stale)
-        raise AssertionError("stale migration unexpectedly passed")
-    except SystemExit as error:
-        assert "stale" in str(error)
+    def reset():
+        (stale / "config" / "migrations-lock.json").write_text(json.dumps(lock), encoding="utf-8")
+        for entry in lock["migrations"]:
+            (stale / entry["path"]).write_bytes((ROOT / entry["path"]).read_bytes())
+        (stale / verify_module.HEADER).write_bytes((ROOT / verify_module.HEADER).read_bytes())
+    for case in range(11):
+        reset()
+        altered = json.loads(json.dumps(lock))
+        if case == 0:
+            path = stale / lock["migrations"][0]["path"]
+            path.write_bytes(path.read_bytes() + b"-- immutable\n")
+        elif case == 1:
+            path = stale / lock["migrations"][1]["path"]
+            path.write_bytes(path.read_bytes() + b"-- stale\n")
+        elif case == 2:
+            path = stale / verify_module.HEADER
+            path.write_bytes(path.read_bytes() + b"/* stale */\n")
+        elif case == 9:
+            path = stale / lock["migrations"][2]["path"]
+            path.write_bytes(path.read_bytes() + b"-- stale v3\n")
+        elif case == 10:
+            path = stale / lock["migrations"][3]["path"]
+            path.write_bytes(path.read_bytes() + b"-- stale v4\n")
+        else:
+            if case == 3: altered["migrations"].reverse()
+            elif case == 4: altered["migrations"].pop()
+            elif case == 5: altered["migrations"][1]["version"] = 3
+            elif case == 6: altered["migrations"][1]["bundle_sha256"] = "0" * 64
+            elif case == 7: altered["schema_version"] = 5
+            else: altered["unexpected"] = True
+            (stale / "config" / "migrations-lock.json").write_text(json.dumps(altered), encoding="utf-8")
+        try:
+            verify_module.verify(stale)
+            raise AssertionError(f"altered migration fixture {case} unexpectedly passed")
+        except SystemExit:
+            pass
 
 ready = []
 for line in (ROOT / "config" / "targets.tsv").read_text(encoding="utf-8").splitlines():
