@@ -1,0 +1,51 @@
+Sanitizers: models
+Sanitizers: board_feature
+Sanitizers: collapse
+collapse tests passed
+Sanitizers: sqlite_board
+SQLite board snapshot tests passed
+Sanitizers: card_mutation
+native card mutation tests passed
+Sanitizers: card_editor_sqlite
+card editor SQLite integration passed
+Sanitizers: card_create
+Sanitizers: card_create_persistence
+native card creation persistence tests passed
+Sanitizers: card_move_persistence
+native card movement persistence tests passed
+Sanitizers: card_move
+Sanitizers: card_move_sqlite
+Card movement UI and SQLite integration passed
+Sanitizers: card_create_sqlite
+Card creation UI and SQLite integration passed
+Sanitizers: sqlite_workspace
+atomic local SQLite workspace tests passed
+Sanitizers: ui_catalog
+verified canonical runtime UI translations
+...
+----------------------------------------------------------------------
+Ran 3 tests in 1.036s
+
+OK
+verified 10824 canonical runtime translations across 246 languages
+Sanitizers: nuklear_card_create
+Real Nuklear Add card input, save, bounds and cancel passed
+Sanitizers: nuklear_card_move
+Real Nuklear move selectors, save and cancel passed
+Sanitizers: language_picker
+real Nuklear language picker checks passed
+Sanitizers: sqlite_hierarchy_create
+SQLite hierarchy creation tests passed
+Sanitizers: hierarchy_title
+hierarchy SQLite title and real Nuklear editor tests passed
+Sanitizers: card_restore_persistence
+native archived card restoration tests passed
+Sanitizers: card_archives
+Sanitizers: card_archives_sqlite
+Card Archives UI and SQLite restore integration passed
+Sanitizers: nuklear_card_archives
+Real Nuklear Archives selector, restore and cancel passed
+Sanitizers: native_theme
+native canonical theme and contrast checks passed
+Sanitizers: sdl_text_input
+complete bounded SDL UTF-8 text event tests passed

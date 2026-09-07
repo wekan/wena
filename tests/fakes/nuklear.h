@@ -1,6 +1,8 @@
 #ifndef NUKLEAR_H_
 #define NUKLEAR_H_
 
+struct nk_vec2 { float x; float y; };
+
 struct nk_rect {
     float x;
     float y;
@@ -18,6 +20,7 @@ struct nk_context {
     const char *button_to_press;
     const char *edit_text;
     int edit_count;
+    const char *combo_item_to_press;
 };
 
 #define NK_TEXT_LEFT 0x01
@@ -33,6 +36,13 @@ int nk_filter_default(const struct nk_text_edit *edit, nk_rune rune);
 unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
     char *buffer, int *length, int max, nk_plugin_filter filter);
 
+struct nk_vec2 nk_vec2(float x, float y);
+int nk_combo_begin_label(struct nk_context *, const char *, struct nk_vec2);
+int nk_combo_item_label(struct nk_context *, const char *, int);
+void nk_combo_end(struct nk_context *);
+int nk_combo_callback(struct nk_context *, void (*)(void *, int, const char **),
+    void *, int, int, int, struct nk_vec2);
+
 struct nk_rect nk_rect(float x, float y, float w, float h);
 int nk_begin(struct nk_context *context, const char *title,
              struct nk_rect bounds, unsigned int flags);
@@ -43,6 +53,8 @@ void nk_layout_row_begin(struct nk_context *context, int format,
 void nk_layout_row_push(struct nk_context *context, float value);
 void nk_layout_row_end(struct nk_context *context);
 void nk_label(struct nk_context *context, const char *text, int alignment);
+/* Fake records semantic text; real Nuklear suites verify actual wrapping. */
+#define nk_label_wrap(context, text) nk_label(context, text, NK_TEXT_LEFT)
 int nk_button_label(struct nk_context *context, const char *title);
 int nk_group_begin(struct nk_context *context, const char *title,
                    unsigned int flags);

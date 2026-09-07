@@ -15,7 +15,10 @@ typedef enum WenaDomainOperation {
     WENA_DOMAIN_EDIT_SWIMLANE_TITLE = 6,
     WENA_DOMAIN_MOVE_CARD = 7,
     WENA_DOMAIN_MOVE_LIST = 8,
-    WENA_DOMAIN_MOVE_SWIMLANE = 9
+    WENA_DOMAIN_MOVE_SWIMLANE = 9,
+    WENA_DOMAIN_CREATE_LIST = 10,
+    WENA_DOMAIN_CREATE_SWIMLANE = 11,
+    WENA_DOMAIN_RESTORE_CARD = 12
 } WenaDomainOperation;
 
 typedef struct WenaDomainCommand {

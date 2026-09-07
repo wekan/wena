@@ -36,10 +36,17 @@ typedef struct WenaBoardLayout {
     struct WenaListInteraction *list_interaction;
     struct WenaCardInteraction *card_interaction;
     WenaBoardCollapseState *collapse;
+    void (*toolbar)(struct nk_context *context, void *user_data);
+    void *toolbar_context;
+    struct WenaSwimlaneInteraction *swimlane_interaction;
+    /* Optional viewport overlay; default zero preserves embedded composition. */
+    int sidebar_as_window;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {
     unsigned int actions;
+    WenaId board_id;
+    WenaId swimlane_id;
     WenaId list_id;
 } WenaListInteraction;
 
@@ -47,6 +54,13 @@ typedef struct WenaCardInteraction {
     unsigned int actions;
     WenaId card_id;
 } WenaCardInteraction;
+
+#define WENA_SWIMLANE_EDIT_TITLE 1u
+typedef struct WenaSwimlaneInteraction {
+    unsigned int actions;
+    WenaId board_id;
+    WenaId swimlane_id;
+} WenaSwimlaneInteraction;
 
 void wena_board_collapse_init(WenaBoardCollapseState *state);
 /* Bind to the active board and prune absent/archived/out-of-scope IDs. */

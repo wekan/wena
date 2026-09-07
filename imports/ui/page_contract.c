@@ -1,11 +1,61 @@
 #include "page_contract.h"
 
+static WenaUiTranslator translation_callback;
+static void *translation_context;
+
+typedef struct WenaUiTextContract {
+    WenaUiTextId id;
+    const char *i18n_key;
+    const char *fallback_text;
+} WenaUiTextContract;
+
+static const WenaUiTextContract texts[] = {
+    {WENA_UI_TEXT_ACTIVITIES, "activities", "Activities"},
+    {WENA_UI_TEXT_MEMBERS, "members", "Members"},
+    {WENA_UI_TEXT_LABELS, "labels", "Labels"},
+    {WENA_UI_TEXT_ARCHIVES, "archives", "Archives"},
+    {WENA_UI_TEXT_REFRESH, "refresh", "Refresh"},
+    {WENA_UI_TEXT_ADD_MEMBER, "add-members", "Add member"},
+    {WENA_UI_TEXT_ADD_LABEL, "add-label", "Add label"},
+    {WENA_UI_TEXT_RESTORE, "restore", "Restore selected"},
+    {WENA_UI_TEXT_LANGUAGE, "language", "Language"},
+    {WENA_UI_TEXT_SWIMLANE, "swimlane", "Swimlane"},
+    {WENA_UI_TEXT_LIST, "list", "List"},
+    {WENA_UI_TEXT_NO_ARCHIVED_CARDS, "no-archived-cards", "No archived cards"},
+    {WENA_UI_TEXT_ERROR, "error", "Error"}
+};
+
+void wena_ui_set_translator(WenaUiTranslator translator, void *context)
+{
+    translation_callback = translator;
+    translation_context = translator == NULL ? NULL : context;
+}
+
+static const char *translated(const char *key, const char *fallback)
+{
+    const char *value;
+    if (translation_callback != NULL) {
+        value = translation_callback(translation_context, key);
+        if (value != NULL && value[0] != '\0') return value;
+    }
+    return fallback;
+}
+
+const char *wena_ui_text(WenaUiTextId id)
+{
+    size_t i;
+    for (i = 0; i < sizeof(texts) / sizeof(texts[0]); ++i)
+        if (texts[i].id == id)
+            return translated(texts[i].i18n_key, texts[i].fallback_text);
+    return "";
+}
+
 static const WenaUiControlContract controls[] = {
     {WENA_UI_BOARD_MENU, "board", "Board menu", "[>]", "GET", "open-board-menu", 1u},
     {WENA_UI_ADD_CARD, "add-card", "Add card", "[+]", "POST", "create-card", 2u},
     {WENA_UI_LIST_MENU, "list", "List menu", "[>]", "GET", "open-list-menu", 3u},
-    {WENA_UI_OPEN_CARD, "card", "Open card", "[>]", "GET", "open-card", 4u},
-    {WENA_UI_CARD_MENU, "card", "Card menu", "[>]", "GET", "open-card-menu", 5u},
+    {WENA_UI_OPEN_CARD, "minicardDetailsActionsPopup-title", "Open card", "[>]", "GET", "open-card", 4u},
+    {WENA_UI_CARD_MENU, "cardDetailsActionsPopup-title", "Card menu", "[>]", "GET", "open-card-menu", 5u},
     {WENA_UI_EDIT_TITLE, "edit", "Edit title", "[E]", "POST", "edit-card-title", 6u},
     {WENA_UI_ARCHIVE_CARD, "archive-card", "Archive card", "[A]", "POST", "archive-card", 7u},
     {WENA_UI_CLOSE, "close", "Close details", "[X]", "GET", "close-card", 8u},
@@ -17,7 +67,13 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_COLLAPSE_LIST, "collapse", "Collapse", "[-]", "GET", "collapse-list", 14u},
     {WENA_UI_EXPAND_LIST, "uncollapse", "Uncollapse", "[+]", "GET", "expand-list", 15u},
     {WENA_UI_COLLAPSE_SWIMLANE, "collapse", "Collapse", "[-]", "GET", "collapse-swimlane", 16u},
-    {WENA_UI_EXPAND_SWIMLANE, "uncollapse", "Uncollapse", "[+]", "GET", "expand-swimlane", 17u}
+    {WENA_UI_EXPAND_SWIMLANE, "uncollapse", "Uncollapse", "[+]", "GET", "expand-swimlane", 17u},
+    {WENA_UI_MOVE_CARD_TO, "moveCardPopup-title", "Move card", "[>]", "GET", "open-move-card", 18u},
+    {WENA_UI_ADD_LIST, "add-list", "Add list", "[+]", "GET", "open-create-list", 19u},
+    {WENA_UI_ADD_SWIMLANE, "add-swimlane", "Add swimlane", "[+]", "GET", "open-create-swimlane", 20u},
+    {WENA_UI_RENAME_BOARD, "rename", "Rename board", "[E]", "GET", "open-rename-board", 21u},
+    {WENA_UI_RENAME_SWIMLANE, "rename", "Rename swimlane", "[E]", "GET", "open-rename-swimlane", 22u},
+    {WENA_UI_RESTORE_CARD, "restore", "Restore", "[R]", "GET", "restore-card-editor", 23u}
 };
 
 static const WenaUiPageContract pages[] = {
@@ -75,7 +131,8 @@ const char *wena_ui_control_text(WenaUiControlId id)
 {
     const WenaUiControlContract *control;
     control = wena_ui_control(id);
-    return control == NULL ? "" : control->fallback_text;
+    return control == NULL ? "" :
+        translated(control->i18n_key, control->fallback_text);
 }
 
 const WenaUiPageContract *wena_ui_pages(size_t *count)

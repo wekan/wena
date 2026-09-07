@@ -39,7 +39,9 @@ int main(int argc, char **argv)
     const char *bad_forms[] = {
         "title=%", "title=%0", "title=%GG", "title=%00", "title=%0A",
         "title=%7F", "title=One&title=Two", "title=%C0%AF", "title=%FF",
-        "title=OK&broken", "title=", "title=one&&title=two"
+        "title=OK&broken", "title=", "title=one&&title=two",
+        "title=%C2%80", "title=Bad%C2%85Title", "title=%C2%9F",
+        "title=Bad\302\205Title"
     };
     assert(argc == 3);
     file = fopen(argv[1], "rb"); assert(file);
@@ -113,10 +115,10 @@ int main(int argc, char **argv)
         assert(!wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
     }
     assert(scalar(db, "SELECT version FROM cards") == 3);
-    strcpy(command.form_body, "cardId=c1&expectedVersion=3&title=With+spaces%2Bsign");
+    strcpy(command.form_body, "cardId=c1&expectedVersion=3&title=With+spaces%2Bsign%C2%A0");
     command.form_body_length = strlen(command.form_body);
     assert(wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
-    assert(!strcmp(response.regions[0].content, "With spaces+sign"));
+    assert(!strcmp(response.regions[0].content, "With spaces+sign\302\240"));
     oversized[128] = 0;
     assert(wena_card_mutation_save(&adapter, "b1", "c1", 4, oversized));
     assert(strlen(card.title) == 128);

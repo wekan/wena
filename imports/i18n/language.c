@@ -106,6 +106,7 @@ int wena_language_set(WenaLanguageState *state, const char *settings_path,
                       size_t available_count)
 {
     WenaLanguageState changed;
+    if (state == NULL) return 0;
     if (!wena_language_apply(&changed, requested, available, available_count, 1) ||
         !wena_language_save(settings_path, changed.current)) {
         return 0;
@@ -119,6 +120,7 @@ int wena_language_clear(WenaLanguageState *state, const char *settings_path,
                         const char *const *available, size_t available_count)
 {
     WenaLanguageState changed;
+    if (state == NULL) return 0;
     if (!wena_language_apply(&changed, detected_locale, available,
                              available_count, 0)) {
         return 0;

@@ -77,7 +77,7 @@ def build_one(target):
 
 def build(selection):
     if selection == "desktop":
-        print("Building local SDL2/SQLite desktop app (existing database)", flush=True)
+        print("Building local SDL2/SQLite desktop app (create or open workspace)", flush=True)
         output = ROOT / "dist" / "desktop" / ("wena-desktop.exe" if sys.platform == "win32" else "wena-desktop")
         output.parent.mkdir(parents=True, exist_ok=True)
         return subprocess.call(test_command(ROOT / "scripts" / "build_desktop.sh") + [str(output)], cwd=ROOT)
@@ -111,7 +111,7 @@ def choose(title, choices):
 def build_menu():
     ready = [item for item in targets() if item["status"] == "ready"]
     choices = [("h", "Current host"), ("a", "All ready targets"),
-               ("d", "Local SDL2/SQLite desktop app (existing database)")]
+               ("d", "Local SDL2/SQLite desktop app (create or open workspace)")]
     choices += [(str(index), f"{item['name']} ({item['target']})")
                 for index, item in enumerate(ready, 1)]
     choices.append(("b", "Back"))
@@ -158,9 +158,10 @@ def tools_menu():
 # One catalog drives listing, named execution and the complete native run.
 # Shell wrappers for capability/schema already include their Python helpers.
 TEST_SUITES = (
-    ('desktop', 'test_desktop.sh', 'Local SDL2/SQLite desktop existing-database smoke and argument failures'),
+    ('desktop', 'test_desktop.sh', 'Local SDL2/SQLite workspace creation, startup and event regressions'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
+    ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),
     ('language', 'test_language.sh', 'Persistent override and immediate runtime switching'),
     ('server-settings', 'test_server_settings.sh', 'Admin server address, ROOT_URL, and lifecycle state'),
     ('html4-render', 'test_legacy_html4_render.sh', 'ROOT_URL-scoped escaped Legacy HTML4 baseline'),
@@ -176,6 +177,9 @@ TEST_SUITES = (
     ('persistence', 'test_persistence.sh', 'Atomic in-memory transaction and rollback contract'),
     ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
     ('sqlite-form-validation', 'test_sqlite_form_validation.sh', 'Strict SQLite mutation input parsing and numeric limits'),
+    ('hierarchy-title', 'test_hierarchy_title.sh', 'Hierarchy create and rename SQLite adapters and real Nuklear input'),
+    ('sqlite-hierarchy-create', 'test_sqlite_hierarchy_create.sh', 'Scoped SQLite list and swimlane creation persistence'),
+    ('sqlite-workspace', 'test_sqlite_workspace.sh', 'Atomic no-clobber local SQLite workspace initialization'),
     ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
     ('progressive', 'test_progressive_integration.sh', 'HTML4 fallback, DnD, POST, and multi-region integration'),
@@ -192,10 +196,24 @@ TEST_SUITES = (
     ('theme-parity', 'test_theme_color_parity.py', 'Theme parity regression checks'),
     ('collapse', 'test_collapse.sh', 'List collapse state, scope and responsive layout'),
     ('board-feature', 'test_board_feature.sh', 'Board feature regression checks'),
+    ('nuklear-card-move', 'test_nuklear_card_move.sh', 'Real Nuklear list and swimlane selection, save and cancel'),
+    ('nuklear-card-create', 'test_nuklear_card_create.sh', 'Real Nuklear create input typing, bounded rejection and cancel'),
+    ('sdl-text-input', 'test_sdl_text_input.sh', 'Complete bounded SDL UTF-8 text events and malformed input rejection'),
+    ('native-theme', 'test_native_theme.sh', 'Canonical native theme colors, contrast and draw commands'),
     ('nuklear-board', 'test_nuklear_board.sh', 'Real Nuklear board visibility, clipping and mouse collapse geometry'),
     ('nuklear-editor', 'test_nuklear_editor.sh', 'Real Nuklear bounded editor interaction'),
     ('nuklear', 'test_nuklear_integration.sh', 'Nuklear regression checks'),
     ('card-editor-sqlite', 'test_card_editor_sqlite.sh', 'Guarded card title editor SQLite integration'),
+    ('card-create-sqlite', 'test_card_create_sqlite.sh', 'Card create UI adapter scope, rollback, retry and reopen'),
+    ('card-restore-persistence', 'test_card_restore_persistence.sh', 'Guarded archived card restoration scope, replay and persistence'),
+    ('card-archives', 'test_card_archives.sh', 'Archived card selection and restore feature interactions'),
+    ('card-archives-sqlite', 'test_card_archives_sqlite.sh', 'Archived card UI integration with SQLite restore adapter'),
+    ('nuklear-card-archives', 'test_nuklear_card_archives.sh', 'Real Nuklear archived card selection and restore interaction'),
+    ('card-move', 'test_card_move.sh', 'Bounded card movement form destinations and cancellation'),
+    ('card-move-sqlite', 'test_card_move_sqlite.sh', 'Card move UI integration with guarded SQLite adapter'),
+    ('card-move-persistence', 'test_card_move_persistence.sh', 'Guarded card move scope, optimistic conflict and replay'),
+    ('card-create-persistence', 'test_card_create_persistence.sh', 'Guarded native create adapter scope, replay, rollback and reopen'),
+    ('card-create', 'test_card_create.sh', 'Bounded scoped card creation editor interactions'),
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
     ('collect-release-assets', 'test_collect_release_assets.py', 'Collect release assets regression checks'),
@@ -204,6 +222,7 @@ TEST_SUITES = (
     ('release-workflow', 'test_release_workflow.py', 'Release workflow regression checks'),
     ('source-structure', 'test_source_structure.py', 'Source structure regression checks'),
     ('target-catalog', 'test_target_catalog.py', 'Target catalog regression checks'),
+    ('ui-catalog', 'test_ui_catalog.sh', 'Generated canonical offline UI translations and language fallback'),
     ('ui-contract', 'test_ui_contract.py', 'Ui contract regression checks'),
     ('verify-i18n-catalog', 'test_verify_i18n_catalog.py', 'Verify i18n catalog regression checks'),
     ('verify-release-assets', 'test_verify_release_assets.py', 'Verify release assets regression checks'),
@@ -223,9 +242,9 @@ def test_command(script):
 
 
 def test_prerequisite(name):
-    if name in {"nuklear", "desktop"} and not shutil.which("sdl2-config"):
+    if name in {"nuklear", "desktop", "sdl-text-input"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
-    if name in {"desktop", "nuklear-board", "nuklear-editor", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+    if name in {"desktop", "nuklear-board", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-archives", "language-picker", "hierarchy-title", "native-theme", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
         source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))
@@ -275,6 +294,8 @@ def run_all_tests(jobs=4, suites=None, executor=None):
 
 
 def run_test(name):
+    if name == "sanitizers":
+        return subprocess.call(test_command(ROOT / "tests" / "test_native_sanitizers.sh"), cwd=ROOT)
     if name == "all":
         return run_all_tests()
     if name.startswith("target-release-"):
@@ -324,6 +345,7 @@ def main(argv):
         return build(argv[1])
     if argv == ["tests", "--list"]:
         print("all\tAll native/static suites (four parallel workers; shared builds serial)")
+        print("sanitizers\tOptional ASan/UBSan native model, UI and SQLite regression subset")
         for name, _filename, description in TEST_SUITES:
             print(f"{name}\t{description}")
         for item in targets():

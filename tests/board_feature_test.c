@@ -237,10 +237,14 @@ int main(void)
                                                 600.0f, &card_details));
     assert(card_details.interaction.actions == WENA_CARD_DETAILS_ARCHIVE);
     assert(strcmp(card_details.interaction.card_id, "one") == 0);
+    wena_card_details_close(&card_details);
     context.button_to_press = "Card menu";
-    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
+                                                600.0f, &card_details));
     assert(card_interaction.actions == WENA_CARD_BODY_OPEN_MENU);
     assert(strcmp(card_interaction.card_id, "one") == 0);
+    assert(card_details.visible);
+    assert(strcmp(card_details.card_id, "one") == 0);
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(card_interaction.actions == WENA_CARD_BODY_NO_ACTION);
     assert(card_interaction.card_id[0] == '\0');

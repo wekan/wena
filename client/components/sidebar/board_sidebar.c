@@ -1,4 +1,5 @@
 #include "board_sidebar.h"
+#include "../../../imports/ui/page_contract.h"
 
 #include <nuklear.h>
 #include <stddef.h>
@@ -45,25 +46,25 @@ static unsigned int wena_sidebar_section_content(struct nk_context *context,
     if (sidebar->section == WENA_SIDEBAR_ACTIVITIES) {
         wena_sidebar_item_list(context, items->activities, items->activity_count,
                                "No activities");
-        return nk_button_label(context, "Refresh") ?
+        return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)) ?
                WENA_SIDEBAR_REFRESH_ACTIVITIES : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_MEMBERS) {
         wena_sidebar_item_list(context, items->members, items->member_count,
                                "No members");
-        return nk_button_label(context, "Add member") ?
+        return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_ADD_MEMBER)) ?
                WENA_SIDEBAR_ADD_MEMBER : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_LABELS) {
         wena_sidebar_item_list(context, items->labels, items->label_count,
                                "No labels");
-        return nk_button_label(context, "Add label") ?
+        return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_ADD_LABEL)) ?
                WENA_SIDEBAR_ADD_LABEL : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_ARCHIVES) {
         wena_sidebar_item_list(context, items->archives, items->archive_count,
                                "No archived items");
-        return nk_button_label(context, "Restore selected") ?
+        return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_RESTORE)) ?
                WENA_SIDEBAR_RESTORE_ARCHIVE : WENA_SIDEBAR_NO_ACTION;
     }
     return WENA_SIDEBAR_INVALID_STATE;
@@ -98,23 +99,23 @@ unsigned int wena_board_sidebar_render(struct nk_context *context,
         return action;
     }
     nk_layout_row_dynamic(context, 28.0f, 2);
-    action |= wena_sidebar_section_button(context, sidebar, "Activities",
+    action |= wena_sidebar_section_button(context, sidebar, wena_ui_text(WENA_UI_TEXT_ACTIVITIES),
                                            WENA_SIDEBAR_ACTIVITIES);
-    action |= wena_sidebar_section_button(context, sidebar, "Members",
+    action |= wena_sidebar_section_button(context, sidebar, wena_ui_text(WENA_UI_TEXT_MEMBERS),
                                            WENA_SIDEBAR_MEMBERS);
     nk_layout_row_dynamic(context, 28.0f, 2);
-    action |= wena_sidebar_section_button(context, sidebar, "Labels",
+    action |= wena_sidebar_section_button(context, sidebar, wena_ui_text(WENA_UI_TEXT_LABELS),
                                            WENA_SIDEBAR_LABELS);
-    action |= wena_sidebar_section_button(context, sidebar, "Archives",
+    action |= wena_sidebar_section_button(context, sidebar, wena_ui_text(WENA_UI_TEXT_ARCHIVES),
                                            WENA_SIDEBAR_ARCHIVES);
 
-    section_title = "Activities";
+    section_title = wena_ui_text(WENA_UI_TEXT_ACTIVITIES);
     if (sidebar->section == WENA_SIDEBAR_MEMBERS) {
-        section_title = "Members";
+        section_title = wena_ui_text(WENA_UI_TEXT_MEMBERS);
     } else if (sidebar->section == WENA_SIDEBAR_LABELS) {
-        section_title = "Labels";
+        section_title = wena_ui_text(WENA_UI_TEXT_LABELS);
     } else if (sidebar->section == WENA_SIDEBAR_ARCHIVES) {
-        section_title = "Archives";
+        section_title = wena_ui_text(WENA_UI_TEXT_ARCHIVES);
     }
     nk_layout_row_dynamic(context, 28.0f, 1);
     nk_label(context, section_title, NK_TEXT_LEFT);

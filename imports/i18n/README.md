@@ -21,3 +21,33 @@ python3 scripts/generate_i18n_catalog.py \
 Update the lock deliberately after regeneration. Every local and CI target build
 runs `scripts/verify_i18n_catalog.py`; missing, corrupt, incomplete, unexpectedly
 large, or lock-mismatched data stops the build before compilation.
+
+## Runtime translations for implemented UI
+
+`ui_catalog.c` looks up the control, page-heading, and common UI text keys declared
+in `imports/ui/page_contract.c`. `ui_catalog_data.h` is a deterministic generated
+subset of the same pinned binary catalog for every canonical language. It adds
+no manually maintained translations and needs no runtime decompressor, heap
+allocation, or additional dependency. Returned UTF-8 strings have static lifetime;
+the language state is read on each lookup so switching language immediately
+changes subsequent labels. Unknown languages and empty translated values fall
+back to canonical English; unknown keys return `NULL` for the caller's fallback.
+The existing locale resolver preserves exact canonical tags, including underscore
+and modifier spellings, before normalizing detected operating-system locales.
+
+Regenerate after adding a canonical key to the implemented UI contract:
+
+```sh
+python3 scripts/generate_ui_i18n.py
+python3 scripts/generate_ui_i18n.py --check
+sh tests/test_ui_catalog.sh
+```
+
+The generator verifies the pinned catalog identity and key order, checks selected
+placeholder inventories, and rejects parameterized UI keys until a formatter is
+implemented. The desktop build checks the generated data before compilation.
+The runtime test compares every compiled translation byte against the canonical
+source values and tests persisted selection of every catalog language plus
+language changes through the optional page-contract translation callback. This
+subset does not claim translation of every planned feature, font coverage, or
+complete bidirectional shaping support.

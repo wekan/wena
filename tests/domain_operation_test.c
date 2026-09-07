@@ -78,5 +78,14 @@ int main(void)
     strcpy(intent.operation, "move-swimlane");
     assert(wena_domain_operation_dispatch(&adapter, &intent, 7ul, &response));
     assert(fake.last.operation == WENA_DOMAIN_MOVE_SWIMLANE);
+    strcpy(intent.operation, "create-list");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 8ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_CREATE_LIST);
+    strcpy(intent.operation, "create-swimlane");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 9ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_CREATE_SWIMLANE);
+    strcpy(intent.operation, "restore-card");
+    assert(wena_domain_operation_dispatch(&adapter, &intent, 10ul, &response));
+    assert(fake.last.operation == WENA_DOMAIN_RESTORE_CARD);
     return 0;
 }

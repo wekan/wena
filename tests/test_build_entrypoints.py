@@ -30,6 +30,9 @@ def test_runner():
         assert Path(call.call_args.args[0][-1]).parent == ROOT / "dist" / "desktop"
     with patch.object(wena.shutil, "which", return_value=None):
         assert "SDL2" in wena.test_prerequisite("desktop")
+    with patch.object(wena.subprocess, "call", return_value=7) as call:
+        assert wena.run_test("sanitizers") == 7
+        assert call.call_args.args[0][-1] == str(ROOT / "tests" / "test_native_sanitizers.sh")
     names = [item[0] for item in wena.TEST_SUITES]
     assert len(names) == len(set(names))
     # Every suite which writes the shared host artifact must be serialized.

@@ -22,6 +22,9 @@ unsigned int wena_card_details_canvas_render(struct nk_context *context,
         action |= WENA_CARD_DETAILS_ARCHIVE;
     }
     nk_layout_row_dynamic(context, 28.0f, 1);
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_MOVE_CARD_TO))) {
+        action |= WENA_CARD_DETAILS_MOVE;
+    }
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE))) {
         action |= WENA_CARD_DETAILS_CLOSE;
     }

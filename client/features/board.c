@@ -10,7 +10,8 @@ static void wena_board_open_card_details(const WenaBoardLayout *layout,
     size_t index;
 
     if (card_details == NULL || layout->card_interaction == NULL ||
-        (layout->card_interaction->actions & WENA_CARD_BODY_OPEN_DETAILS) == 0u) {
+        (layout->card_interaction->actions & (WENA_CARD_BODY_OPEN_DETAILS |
+                                              WENA_CARD_BODY_OPEN_MENU)) == 0u) {
         return;
     }
     for (index = 0; index < layout->card_count; ++index) {
@@ -20,6 +21,32 @@ static void wena_board_open_card_details(const WenaBoardLayout *layout,
             return;
         }
     }
+}
+
+static void wena_board_sidebar_window(struct nk_context *context,
+                                       const WenaBoardLayout *layout,
+                                       float width, float height)
+{
+    float panel_width;
+    float content_height;
+    float panel_top;
+    float panel_height;
+
+    if (!layout->sidebar_as_window || layout->sidebar == NULL ||
+        !layout->sidebar->visible) return;
+    panel_width = width < 360.0f ? width : 360.0f;
+    /* Keep the opening header click outside the new menu's controls, so its
+       release cannot accidentally select a section in the newly shown window. */
+    panel_top = height > 44.0f ? 44.0f : 0.0f;
+    panel_height = height - panel_top;
+    content_height = panel_height > 24.0f ? panel_height - 24.0f : 1.0f;
+    if (nk_begin(context, "Wena board menu",
+        nk_rect(width - panel_width, panel_top, panel_width, panel_height),
+        NK_WINDOW_BORDER)) {
+        nk_layout_row_dynamic(context, content_height, 1);
+        (void)wena_board_sidebar_render(context, layout->sidebar);
+    }
+    nk_end(context);
 }
 
 int wena_board_feature_render(struct nk_context *context,
@@ -50,6 +77,7 @@ int wena_board_feature_render_with_state(struct nk_context *context,
         wena_board_open_card_details(layout, card_details);
         (void)wena_card_details_render(context, card_details, layout->cards,
                                        layout->card_count, width, height);
+        wena_board_sidebar_window(context, layout, width, height);
     }
     return rendered;
 }

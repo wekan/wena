@@ -109,3 +109,37 @@ unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
     return 0u;
 }
 
+
+struct nk_vec2 nk_vec2(float x, float y)
+{
+    struct nk_vec2 value; value.x = x; value.y = y; return value;
+}
+int nk_combo_begin_label(struct nk_context *context, const char *label,
+    struct nk_vec2 size)
+{
+    (void)context; (void)label; (void)size; return 1;
+}
+int nk_combo_item_label(struct nk_context *context, const char *label, int align)
+{
+    (void)align;
+    if (context->combo_item_to_press != NULL &&
+        !strcmp(context->combo_item_to_press, label)) {
+        context->combo_item_to_press = NULL; return 1;
+    }
+    return 0;
+}
+void nk_combo_end(struct nk_context *context) { (void)context; }
+
+int nk_combo_callback(struct nk_context *context,
+    void (*getter)(void *, int, const char **), void *data, int selected,
+    int count, int height, struct nk_vec2 size)
+{
+    int i;
+    const char *label;
+    (void)height; (void)size;
+    for (i = 0; i < count; ++i) {
+        getter(data, i, &label);
+        if (nk_combo_item_label(context, label, NK_TEXT_LEFT)) return i;
+    }
+    return selected;
+}

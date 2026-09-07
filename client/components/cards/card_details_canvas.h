@@ -9,6 +9,7 @@ struct nk_context;
 #define WENA_CARD_DETAILS_EDIT_TITLE 1u
 #define WENA_CARD_DETAILS_ARCHIVE 2u
 #define WENA_CARD_DETAILS_CLOSE 4u
+#define WENA_CARD_DETAILS_MOVE 8u
 
 unsigned int wena_card_details_canvas_render(struct nk_context *context,
                                              const WenaCard *card);

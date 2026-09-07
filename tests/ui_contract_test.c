@@ -3,6 +3,14 @@
 #include <assert.h>
 #include <string.h>
 
+static const char *translate(void *context, const char *key)
+{
+    if (strcmp(key, "save") == 0) return (const char *)context;
+    if (strcmp(key, "language") == 0) return "Kieli";
+    if (strcmp(key, "cancel") == 0) return "";
+    return NULL;
+}
+
 int main(void)
 {
     const WenaUiPageContract *pages;
@@ -39,5 +47,14 @@ int main(void)
     assert(strcmp(wena_ui_control(WENA_UI_ARCHIVE_CARD)->http_method, "POST") == 0);
     assert(strcmp(wena_ui_control(WENA_UI_ARCHIVE_CARD)->domain_operation, "archive-card") == 0);
     assert(wena_ui_control((WenaUiControlId)999) == NULL);
+    assert(strcmp(wena_ui_control_text(WENA_UI_SAVE), "Save") == 0);
+    wena_ui_set_translator(translate, (void *)"Tallenna");
+    assert(strcmp(wena_ui_control_text(WENA_UI_SAVE), "Tallenna") == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_CANCEL), "Cancel") == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_LANGUAGE), "Kieli") == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_ACTIVITIES), "Activities") == 0);
+    assert(strcmp(wena_ui_text((WenaUiTextId)999), "") == 0);
+    wena_ui_set_translator(NULL, NULL);
+    assert(strcmp(wena_ui_control_text(WENA_UI_SAVE), "Save") == 0);
     return 0;
 }

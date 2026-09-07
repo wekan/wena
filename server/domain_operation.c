@@ -13,6 +13,9 @@ static WenaDomainOperation wena_domain_operation(const char *value)
     if (value != NULL && strcmp(value, "move-card") == 0) return WENA_DOMAIN_MOVE_CARD;
     if (value != NULL && strcmp(value, "move-list") == 0) return WENA_DOMAIN_MOVE_LIST;
     if (value != NULL && strcmp(value, "move-swimlane") == 0) return WENA_DOMAIN_MOVE_SWIMLANE;
+    if (value != NULL && strcmp(value, "create-list") == 0) return WENA_DOMAIN_CREATE_LIST;
+    if (value != NULL && strcmp(value, "create-swimlane") == 0) return WENA_DOMAIN_CREATE_SWIMLANE;
+    if (value != NULL && strcmp(value, "restore-card") == 0) return WENA_DOMAIN_RESTORE_CARD;
     return (WenaDomainOperation)0;
 }
 

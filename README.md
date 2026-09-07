@@ -12,19 +12,25 @@ files, then initialize the pinned MIT-licensed Nuklear source:
 ```sh
 git submodule update --init
 ./build.sh build desktop
-./dist/desktop/wena-desktop --database /absolute/path/wena.sqlite --actor ACTOR_ID --board BOARD_ID
+./dist/desktop/wena-desktop --database /absolute/path/wena.sqlite \
+  --actor local-user --board my-board --create --title "My board" --language en
 ```
 
-The desktop entry point opens an **existing Wena relational database** and an
-existing actor/board. It displays the board hierarchy and connects card title
-editing and archiving to the transactional SQLite adapter. Swimlanes and lists
-can be collapsed and expanded. Local database access trusts the operating-system
-user; the actor argument is not a login mechanism.
+Use an existing parent directory. `--create` initializes a new local workspace
+without overwriting files. Omit `--create` and `--title` to reopen it with the same
+database, actor and board arguments.
 
-First-run board creation, complete translations, remote synchronization and the
-remaining WeKan features are still pending. Do not point this command at a
-Meteor/FerretDB database: direct format migration is not implemented. See
-[native desktop details](docs/native-desktop.md) for setup and limitations.
+The desktop supports creating cards, lists and swimlanes; editing their titles;
+renaming the board; moving, archiving and restoring cards; and collapsing lists
+and swimlanes. Changes use guarded SQLite transactions and survive reopening.
+The language selector changes canonical WeKan labels immediately and remembers
+the selection. Local access trusts the operating-system user; the actor argument
+is not a login mechanism.
+
+Complete WeKan feature parity, native drag/drop, Unicode font/RTL coverage,
+remote synchronization and GUI cross-platform packaging remain open. Direct
+Meteor/FerretDB format migration is not implemented. See
+[native desktop details](docs/native-desktop.md) for supported behavior and limits.
 
 ## Tests and existing target builds
 
@@ -33,6 +39,7 @@ Meteor/FerretDB database: direct format migration is not implemented. See
 ./build.sh tests --list
 ./build.sh tests card-editor-sqlite
 ./build.sh tests nuklear-editor
+./build.sh tests sanitizers
 ./build.sh --list
 ./build.sh build host
 ```

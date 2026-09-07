@@ -14,6 +14,8 @@ typedef struct WenaCardMutation {
     char route[257];
     WenaCard *cards;
     size_t card_count;
+    size_t *published_card_count;
+    size_t card_capacity;
 } WenaCardMutation;
 
 int wena_card_mutation_init(WenaCardMutation *adapter, sqlite3 *database,
@@ -31,6 +33,29 @@ int wena_card_mutation_save_request(WenaCardMutation *adapter,
 int wena_card_mutation_archive(void *context, const char *board_id,
     const char *card_id, unsigned long expected_version);
 int wena_card_mutation_archive_request(WenaCardMutation *adapter,
+    const char *board_id, const char *card_id, unsigned long expected_version,
+    unsigned long request_version);
+/* Creation is disabled until a caller-owned count and bounded array capacity
+ * are explicitly registered. The backing array is the one passed to init. */
+int wena_card_mutation_set_create_cache(WenaCardMutation *adapter,
+    size_t *card_count, size_t capacity);
+int wena_card_mutation_create(void *context, const char *board_id,
+    const char *list_id, const char *swimlane_id, const char *title);
+int wena_card_mutation_create_request(WenaCardMutation *adapter,
+    const char *board_id, const char *list_id, const char *swimlane_id,
+    unsigned long request_version, const char *title);
+int wena_card_mutation_move(void *context, const char *board_id,
+    const char *card_id, unsigned long expected_version,
+    const char *target_list_id, const char *target_swimlane_id);
+int wena_card_mutation_move_request(WenaCardMutation *adapter,
+    const char *board_id, const char *card_id, unsigned long expected_version,
+    unsigned long request_version, const char *target_list_id,
+    const char *target_swimlane_id);
+int wena_card_mutation_load_archived(void *context, const char *board_id,
+    const char *card_id, char *title, size_t capacity, unsigned long *version);
+int wena_card_mutation_restore(void *context, const char *board_id,
+    const char *card_id, unsigned long expected_version);
+int wena_card_mutation_restore_request(WenaCardMutation *adapter,
     const char *board_id, const char *card_id, unsigned long expected_version,
     unsigned long request_version);
 #endif

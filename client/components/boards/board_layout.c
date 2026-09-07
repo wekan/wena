@@ -277,6 +277,10 @@ static void wena_render_lists(struct nk_context *context,
             if (layout->list_interaction != NULL &&
                 list_action != WENA_LIST_HEADER_NO_ACTION) {
                 layout->list_interaction->actions = list_action;
+                (void)wena_model_set_required(layout->list_interaction->board_id,
+                    sizeof(layout->list_interaction->board_id), layout->board->id);
+                (void)wena_model_set_required(layout->list_interaction->swimlane_id,
+                    sizeof(layout->list_interaction->swimlane_id), swimlane->id);
                 (void)wena_model_set_required(layout->list_interaction->list_id,
                     sizeof(layout->list_interaction->list_id), list->id);
             }
@@ -306,6 +310,13 @@ int wena_board_layout_render(struct nk_context *context,
     if (layout->list_interaction != NULL) {
         layout->list_interaction->actions = WENA_LIST_HEADER_NO_ACTION;
         layout->list_interaction->list_id[0] = '\0';
+        layout->list_interaction->board_id[0] = '\0';
+        layout->list_interaction->swimlane_id[0] = '\0';
+    }
+    if (layout->swimlane_interaction != NULL) {
+        layout->swimlane_interaction->actions = 0u;
+        layout->swimlane_interaction->board_id[0] = '\0';
+        layout->swimlane_interaction->swimlane_id[0] = '\0';
     }
     if (layout->card_interaction != NULL) {
         layout->card_interaction->actions = WENA_CARD_BODY_NO_ACTION;
@@ -316,6 +327,9 @@ int wena_board_layout_render(struct nk_context *context,
         return 0;
     }
     header_action = wena_board_header_render(context, layout->board);
+    if (layout->toolbar != NULL) {
+        layout->toolbar(context, layout->toolbar_context);
+    }
     if (layout->sidebar != NULL &&
         (header_action & WENA_BOARD_HEADER_OPEN_MENU) != 0u) {
         layout->sidebar->visible = 1;
@@ -332,8 +346,17 @@ int wena_board_layout_render(struct nk_context *context,
                 WENA_COLLAPSE_SWIMLANE, swimlane->id) ? 80.0f : 360.0f, 1);
         if (wena_model_group_begin(context, "lane/", layout->board->id,
                                     "", swimlane->id)) {
-            nk_layout_row_dynamic(context, 26.0f, 1);
+            nk_layout_row_dynamic(context, 26.0f,
+                layout->swimlane_interaction == NULL ? 1 : 2);
             nk_label(context, swimlane->title, NK_TEXT_LEFT);
+            if (layout->swimlane_interaction != NULL &&
+                nk_button_label(context, wena_ui_control_text(WENA_UI_RENAME_SWIMLANE))) {
+                layout->swimlane_interaction->actions = WENA_SWIMLANE_EDIT_TITLE;
+                (void)wena_model_set_required(layout->swimlane_interaction->board_id,
+                    sizeof(layout->swimlane_interaction->board_id), layout->board->id);
+                (void)wena_model_set_required(layout->swimlane_interaction->swimlane_id,
+                    sizeof(layout->swimlane_interaction->swimlane_id), swimlane->id);
+            }
             if (!wena_collapse_control(context, layout, WENA_COLLAPSE_SWIMLANE,
                                        swimlane->id)) {
                 wena_render_lists(context, layout, swimlane);
@@ -341,6 +364,7 @@ int wena_board_layout_render(struct nk_context *context,
             nk_group_end(context);
         }
     }
-    (void)wena_board_sidebar_render(context, layout->sidebar);
+    if (!layout->sidebar_as_window)
+        (void)wena_board_sidebar_render(context, layout->sidebar);
     return 1;
 }

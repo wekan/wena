@@ -16,38 +16,38 @@
 
 ## Paused checkpoint (resume here)
 
-The original `e2e5804` migration-hardening checkpoint has been resumed from
-upstream `51f8ad1`. Do not repeat migration hardening, title editing, native card
-archiving, bounded board loading, or swimlane/list collapse: their implementations
-and positive/negative/regression tests are now present.
+The original title-edit checkpoint and the following Add card checkpoint have
+been completed locally from upstream `51f8ad1` and local checkpoint `04afa15`.
+Do not repeat migration hardening, native title/archive/create/move/restore card
+adapters, bounded board loading, hierarchy creation/renaming, workspace seeding,
+runtime label lookup/language selection, or swimlane/list collapse. Their tested
+implementations are present below.
 
-The next native feature slice is **Add card**: connect the existing list-header
-intent to a bounded create-card editor and the shared SQLite transaction adapter.
-Carry the exact selected board, list and rendered swimlane through the intent;
-do not silently create in the first list/swimlane (the existing server create
-callback still chooses that default). Verify save/cancel, invalid title/IDs,
-wrong parents, replay, transactional failure, commit-only cache refresh and reopen
-persistence before checking that slice. Then continue remaining list-menu/sidebar
-features and native movement. Keep the local desktop executable and full native
-suite running as features are integrated.
+The next native feature slice is **list/swimlane reordering**: connect explicit
+native controls to the existing guarded `move-list` and `move-swimlane` SQLite
+operations. Capture the authoritative version and exact board/object scope;
+validate bounded positions and update the ordered snapshot only after commit.
+Cover first/last positions, no-op moves, stale versions, wrong scope, replay,
+rollback, rendered order and database reopen. Then continue remaining sidebar
+mutations and card fields/collections, with versioned migration work where needed.
+Keep `build desktop`, real Nuklear input and the full native suite running.
 
-Current executable boundary: `build desktop` is a separate, tested POSIX host
-SDL2/SQLite application for an **existing Wena schema-v1 database**. It composes
-board loading, card details/title/archive adapters and collapse state. It is not
-a first-run workspace creator, remote client, or WeKan/FerretDB drop-in reader.
-Cataloged cross-release targets still build the older startup executable, not the
-desktop app. The embedded translation payload is present; runtime label lookup,
-Unicode font coverage and complete language/RTL rendering remain incomplete.
-Local actor selection trusts the OS user and must not be described as login or
-board-membership authorization. See `docs/native-desktop.md`.
+Current executable boundary: `build desktop` is a tested POSIX SDL2/SQLite
+application that can explicitly create and reopen a local Wena schema-v1
+workspace. It supports card creation/title/movement/archive/restoration, hierarchy
+creation/renaming, collapse and persisted canonical language selection. Cataloged
+cross-release targets still build the earlier bootstrap executable. Remote REST,
+WeKan/FerretDB conversion, complete collections, Unicode fonts/RTL geometry and
+full UI/platform parity remain open. Local actor selection trusts the OS user;
+it is not login or board-membership authorization. See `docs/native-desktop.md`.
 
-Latest validation (2026-09-07): **49 native/static/runtime suites passed, zero
-failed or skipped**, including real Nuklear editor/board geometry, SDL desktop
-smoke, SQLite/UI integration, concurrent snapshot checks and pinned WeKan parity.
-Seven changed C suites also passed UBSan. The local desktop and Linux amd64
-bootstrap builds passed. Cross-platform compilers and a real-browser E2E were not
-run. Reproduction details and remaining limits are in `docs/work-session.md` and
-the captured runner output in `docs/test-results-2026-09-07.txt`.
+Latest validation (2026-09-07): **68 native suites passed, zero failed or skipped**;
+**25 ASan/UBSan groups passed** (LeakSanitizer disabled on this host).
+Validation is recorded in `docs/work-session-02.md` and its captured runner logs;
+the earlier session's 49-suite report is retained as historical evidence. Do not
+interpret host SDL/SQLite or JavaScript VM coverage as cross-platform GUI release
+validation or real-browser E2E. No GitHub writes, push, PR, release or tag were
+performed during either local session.
 
 ## Expanded build, release, test, and server phases
 
@@ -108,6 +108,14 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
   - [_] Map implemented Wena views/actions to canonical WeKan i18n keys and add
     parity tests for all languages, key order, placeholders, UTF-8/RTL, missing
     keys, locale normalization/fallback, runtime switching, and offline binaries.
+    - [x] Generate a strict-C89 static lookup for implemented shared-contract keys
+      directly from the pinned full catalog, for all 246 languages. Compare every
+      compiled value with canonical bytes; verify placeholders, fallback, exact
+      underscore/modifier tags and deterministic generation without new dependencies.
+    - [x] Connect runtime labels, an SDL toolbar language chooser and an atomic
+      per-workspace preference. Test immediate switching, every canonical tag,
+      invalid/read-only paths, write failure/recovery and bounded long CLI paths.
+      Complete feature messages, font coverage and RTL layout remain open.
 - [_] Add fast native equivalents of WeKan test categories, running against the
   current OS/CPU executable wherever behavior crosses a process boundary:
   - [x] Strict-C89 model/unit and negative-validation suites.
@@ -123,6 +131,14 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
     - [x] Build and execute the optional desktop using the SDL dummy video driver;
       verify bounded successful startup, malformed/duplicate arguments, missing or
       corrupt files, unknown actor/board, and logical database immutability.
+    - [x] Exercise explicit workspace initialization, localized seed titles,
+      no-overwrite and long database paths through the real executable. On Linux,
+      inject real SDL events from a test-only preload helper and verify that a
+      toolbar action opened over the sidebar creates a persisted list.
+    - [x] Preserve every UTF-8 code point in complete SDL text events through the
+      existing Wena platform adapter. Reject malformed/control/unterminated events
+      and frame-capacity overflow without partial insertion; test real SDL input,
+      multi-event frames and the integrated non-ASCII list creation workflow.
   - [_] SQLite schema, migration, transaction, corruption, concurrency, and query
     performance suites using temporary databases.
     - [x] Close code-scanning alert #1 (`cpp/sql-injection`): accept only the exact
@@ -135,6 +151,9 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
     and local/remote boundary suites.
   - [_] Platform artifact-format, dependency/license, sanitizer, fuzz, leak, and
     performance regression suites; run independent native suites in parallel.
+    - [x] Add an opt-in ASan/UBSan runner for native model/UI/storage regressions.
+      Leak detection defaults on; report when the host cannot support it. Full
+      fuzzing, leak validation and performance/platform coverage remain pending.
 - [_] Add optional Wena Server in Admin Panel / Settings / Server:
   - [x] Configuration model/UI: disabled by default; explicit IPv4 bind address and
     validated port (for example `127.0.0.1:3000`), with restart/status/error state.
@@ -189,7 +208,7 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
       duplicate fields, malformed escapes, NUL and ASCII controls. Parse every
       optimistic version/position with exact overflow-checked decimal rules;
       validate request-version range and bounded command strings before beginning
-      a transaction. All nine existing operations have malformed-numeric, rollback,
+      a transaction. The original nine operations have malformed-numeric, rollback,
       response-clearing and idempotency-key isolation regression coverage.
     - [x] Create verified SQLite online backups without stopping the listener: preflight
       source integrity/FKs and bounded free space, snapshot through SQLite's backup API,
@@ -461,7 +480,32 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
         SQLite startup checks, SDL input/resize/quit loop, details adapters and
         session-local collapse state. Headless real-executable tests cover startup,
         invalid arguments/scope/files and unchanged logical data in smoke mode.
-      - [_] Implement scoped Add card editing/persistence and cache insertion.
+      - [x] Implement scoped Add card editing/persistence and cache insertion.
+        Preserve board/list/rendered-swimlane intent; validate explicit parent IDs
+        rather than defaulting native creation. Bound input and cache capacity,
+        append only after commit, namespace generated IDs by actor/route/request,
+        and test real input, cancel, malformed scope, replay, rollback and reopen.
+      - [x] Add an explicit no-overwrite workspace initializer using private
+        adjacent staging, the pinned migration, a seed transaction and atomic
+        publication. Cover invalid titles/IDs/migration, existing destinations,
+        concurrent creators and injected late failure. Editable seed titles share
+        the 128-byte adapter limit; actor display names retain their 256-byte limit.
+      - [x] Connect card movement to bounded native list/swimlane selectors and
+        the existing optimistic SQLite operation. Reject stale/wrong/replayed
+        requests; publish exact committed position and reorder the visible cache
+        immediately. Cover same-column moves, SQL rollback, real UI and reopen.
+      - [x] Add guarded native board/list/swimlane title editors and list/swimlane
+        creation through the existing typed SQLite transaction adapter. New typed
+        create operations do not expose unaudited HTTP routes. Test input, scope,
+        version, replay, capacity, concurrent append order, rollback and reopen.
+      - [x] Restore archived cards from a scoped native Archives panel through
+        the shared guarded transaction boundary. Preserve card position, validate
+        the archived version and update cache visibility only after commit. Cover
+        empty archives, selection/cancel, scope/conflict/replay/rollback and reopen.
+      - [x] Render the sidebar as an optional bounded overlay, keep explicit
+        board actions focused, and open card actions through the details canvas.
+        Use full-width wrapped card/list titles and separate action rows. Real
+        Nuklear tests verify text/scissor visibility at the desktop's 14px font.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
   - [_] Add server adapters for SQLite, REST, files, migrations, and import/export.
 - [_] Convert Meteor 3 schema to SQLite schema that is optimized for fast queries
@@ -489,6 +533,11 @@ the captured runner output in `docs/test-results-2026-09-07.txt`.
       from Meteor's Legacy HTML4 source with byte-identical RGB values. Native and
       HTML4 already consume the common contract; non-color tokens, reference captures,
       viewport/state goldens, contrast and focus parity remain pending.
+    - [x] Apply a readable native light default using canonical shared colors:
+      light panels, white controls, dark text and blue accents. Test normal,
+      hover, active, header and selection contrast and actual Nuklear commands.
+      This is one native default; complete component/theme screenshot parity,
+      typography, focus behavior and responsive/RTL states remain open.
 - [_] Import/Export from WeKan, Trello, etc via WeKan REST API, Trello API, etc
 - [_] Match current Meteor 3 WeKan environment variables, REST API contracts, and
   password/LDAP/OAuth2/OIDC/CAS/SAML login behavior without copying JavaScript or

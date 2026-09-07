@@ -23,7 +23,13 @@ typedef enum WenaUiControlId {
     WENA_UI_COLLAPSE_LIST,
     WENA_UI_EXPAND_LIST,
     WENA_UI_COLLAPSE_SWIMLANE,
-    WENA_UI_EXPAND_SWIMLANE
+    WENA_UI_EXPAND_SWIMLANE,
+    WENA_UI_MOVE_CARD_TO,
+    WENA_UI_ADD_LIST,
+    WENA_UI_ADD_SWIMLANE,
+    WENA_UI_RENAME_BOARD,
+    WENA_UI_RENAME_SWIMLANE,
+    WENA_UI_RESTORE_CARD
 } WenaUiControlId;
 
 typedef struct WenaUiControlContract {
@@ -45,6 +51,29 @@ typedef struct WenaUiColorContract {
     const char *name;
     const char *rgb;
 } WenaUiColorContract;
+
+typedef enum WenaUiTextId {
+    WENA_UI_TEXT_ACTIVITIES,
+    WENA_UI_TEXT_MEMBERS,
+    WENA_UI_TEXT_LABELS,
+    WENA_UI_TEXT_ARCHIVES,
+    WENA_UI_TEXT_REFRESH,
+    WENA_UI_TEXT_ADD_MEMBER,
+    WENA_UI_TEXT_ADD_LABEL,
+    WENA_UI_TEXT_RESTORE,
+    WENA_UI_TEXT_LANGUAGE,
+    WENA_UI_TEXT_SWIMLANE,
+    WENA_UI_TEXT_LIST,
+    WENA_UI_TEXT_NO_ARCHIVED_CARDS,
+    WENA_UI_TEXT_ERROR
+} WenaUiTextId;
+
+/* The renderer owns this process-local callback and its context lifetime.
+ * Returned strings must remain alive through the rendered frame. NULL resets
+ * the adapter; unknown translations fall back to the existing UI contract. */
+typedef const char *(*WenaUiTranslator)(void *context, const char *key);
+void wena_ui_set_translator(WenaUiTranslator translator, void *context);
+const char *wena_ui_text(WenaUiTextId id);
 
 const WenaUiControlContract *wena_ui_control(WenaUiControlId id);
 const char *wena_ui_control_text(WenaUiControlId id);

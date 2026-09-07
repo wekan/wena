@@ -1,57 +1,101 @@
-# Optional local desktop
+# Local desktop
 
-The optional desktop executable opens an **existing Wena relational schema-v1
-SQLite database** and displays its board through SDL2 and Nuklear. It is separate
-from the release-target bootstrap executables. It does not initialize a workspace,
-import a Meteor/FerretDB database, or provide remote authentication.
-
-Build on a POSIX host with a C compiler, SDL2 development files (`sdl2-config`),
-SQLite development files, Python 3, and the pinned Nuklear submodule:
+The POSIX desktop uses SDL2, Nuklear and Wena's relational schema-v1 SQLite
+database. Build with a C compiler, SDL2 development files (`sdl2-config`), SQLite
+development files, Python 3 and the pinned Nuklear submodule:
 
 ```sh
-sh scripts/build_desktop.sh /absolute/output/wena-desktop
-/absolute/output/wena-desktop --database /absolute/data/wena.sqlite \
-  --actor existing_actor_id --board existing_board_id
+git submodule update --init
+./build.sh build desktop
+./dist/desktop/wena-desktop --database /absolute/data/wena.sqlite \
+  --actor local-user --board my-board --create --title "My board" --language en
 ```
 
-The output embeds and verifies the same pinned migration and offline translation
-catalog as other Wena artifacts. SDL2 and SQLite remain shared host dependencies;
-this host build is not a new verified cross-release target. Parent directories for
-the output must already exist.
+The database's parent directory must already exist. `--create` explicitly seeds
+one actor, board, list and swimlane. The list and swimlane use canonical labels
+in the selected language. Initialization validates inputs, applies the pinned
+migration, commits and checks SQLite inside a private adjacent staging directory,
+then publishes the closed file without replacing an existing path. Files,
+directories and symlinks at the destination are preserved. Concurrent creators
+produce exactly one successful publication. The containing directory is assumed
+to be trusted; persistence of its directory entry across sudden power loss is
+not guaranteed by this initializer.
 
-The operating-system user is trusted to select the existing local actor and board.
-Actor existence is checked, but this CLI is **not an authentication mechanism** or
-a per-board membership authorization system. Do not expose it as a remote launch
-service. The process first checks actor and board data through a read-only database
-connection, then uses the verified migration/storage startup gates before opening
-the interactive view. Missing files, unknown scope, malformed records and invalid
-artifact payloads fail closed. Identifiers use the current adapter's bounded ASCII
-letters, digits, underscore and hyphen convention.
-
-Implemented interactions include opening card details, bounded title editing with
-Save/Cancel, archiving a card, board-menu/sidebar state, and list/swimlane collapse.
-Title and archive writes use the shared optimistic, idempotent SQLite transaction
-adapter and refresh the in-memory card only after commit. Conflicts retain the edit
-or report a generic status; cancel/reopen details to load the current title/version.
-The board hierarchy is loaded at startup, so changes made by another process are
-not continuously synchronized. Existing Add card, list menu and sidebar content
-actions remain unimplemented intents. Keyboard text entry uses SDL text-input
-handling; complete accessibility, touch, drag/drop, theme, RTL, translated runtime
-labels and full Unicode font coverage remain future work.
-
-Headless startup verification uses three frames and disables mutation callbacks:
+Reopen the same workspace by omitting `--create` and `--title`:
 
 ```sh
-SDL_VIDEODRIVER=dummy /absolute/output/wena-desktop \
-  --database /absolute/data/wena.sqlite --actor existing_actor_id \
-  --board existing_board_id --smoke
-sh tests/test_desktop.sh
+./dist/desktop/wena-desktop --database /absolute/data/wena.sqlite \
+  --actor local-user --board my-board
 ```
 
-The suite builds the real executable, creates an isolated valid fixture, verifies
-successful SDL/Nuklear rendering, rejects invalid arguments and absent/unknown
-scope, and compares the logical database contents before and after smoke. SQLite
-startup may configure WAL and perform storage checks; the smoke assertion concerns
-schema and domain data, not byte-for-byte journal identity. Separate editor and
-adapter suites cover title/archive input, version conflicts, transaction rollback,
-replay and persistence after reopening SQLite.
+The output embeds and verifies the pinned migration and full offline translation
+catalog. SDL2 and SQLite remain shared host dependencies. Cataloged cross-release
+targets still build the earlier bootstrap executable; they do not yet package
+this desktop. Direct Meteor/FerretDB database migration is not implemented.
+
+## Local interactions
+
+- Add card in an exact list/swimlane; open details and edit the title; move to a
+  selected list/swimlane; archive; restore through Board menu → Archives.
+- Add list or swimlane through the toolbar. Rename the board through the toolbar,
+  a list through List menu, or a swimlane through its Rename button.
+- Collapse or expand lists and swimlanes. Collapse state is session-local.
+- Select a language in the toolbar. Labels change immediately; the selection
+  persists in `DATABASE_PATH.language`. `--language LOCALE` overrides a saved
+  selection; otherwise the OS locale is used on first launch. The preference is
+  disabled for database paths too long for its bounded settings writer. A failed
+  settings write keeps the previous language and displays an error.
+
+Titles accept 1–128 UTF-8 bytes. Empty, overlong, malformed UTF-8 and control
+character input cannot be saved. Editors retain unsuccessful input and offer
+Cancel/Close. Mutations validate actor and exact board/parent scope, optimistic
+versions where applicable, and durable request identities. Idempotency replay is
+rejected. Model arrays change only after a successful SQLite commit. Moving a
+card appends it in the target column immediately and preserves that order on
+reopen. Lists are board-wide and render in every swimlane.
+
+The snapshot has explicit limits of 64 swimlanes, 128 lists and 2048 cards
+(including archived cards). Loading fails rather than truncating invalid or
+over-capacity data. New objects are rejected before database mutation if their
+cache has no space. Changes by another process are not continuously synchronized;
+reopen a panel to obtain an authoritative version and restart to reload the full
+hierarchy after external changes.
+
+## Trust and remaining scope
+
+The OS user selects the existing local actor and board. Actor existence is
+checked, but this is not login or per-board membership authorization. Existing
+databases undergo a read-only scope preflight before the verified storage startup
+gates. Missing files, malformed records, unknown scope and invalid artifact
+payloads fail closed. Identifiers use bounded ASCII letters, digits, underscore
+and hyphen. Do not expose this command as a remote launch service.
+
+Activities, members and labels still have scaffold sidebar content. Descriptions,
+comments, checklists, attachments, due dates, membership/authentication, native
+list/swimlane movement and drag/drop, import/export and remote REST are unfinished.
+Canonical runtime strings cover the implemented shared UI contract in every
+catalog language; full translation of feature-specific messages, Unicode fonts,
+bidirectional shaping, RTL geometry, touch and accessibility parity remain open.
+
+## Verification
+
+```sh
+./build.sh tests all
+./build.sh tests sanitizers
+SDL_VIDEODRIVER=dummy ./dist/desktop/wena-desktop \
+  --database /absolute/data/wena.sqlite --actor local-user \
+  --board my-board --smoke
+```
+
+Smoke renders three real SDL/Nuklear frames with mutation callbacks and preference
+writes disabled. Adding `--create` explicitly allows workspace initialization
+before those read-only frames. Storage startup can configure WAL; existing-data
+smoke assertions compare schema and domain contents, not journal bytes.
+
+The suite covers startup, creation, input bounds, malformed arguments, wrong
+scope, conflicts, replay, injected rollback, concurrent creation and persistence
+after reopening. Real Nuklear tests consume draw commands after every frame,
+including mouse-down frames, matching the SDL renderer's lifecycle. Optional
+ASan/UBSan tests default to leak detection; environments that cannot support
+LeakSanitizer may set `ASAN_OPTIONS=detect_leaks=0:halt_on_error=1` and must report
+that limitation. See [latest session report](work-session-02.md).

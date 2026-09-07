@@ -143,12 +143,30 @@ int wena_locale_resolve(const char *requested, const char *const *available,
     char base[64];
     char *separator;
     const char *match;
-    if (available == NULL ||
-        !wena_locale_normalize(requested, normalized, sizeof(normalized))) {
+    if (available == NULL || available_count == 0) return 0;
+    /* Canonical tags include underscore and modifier spellings. Preserve an
+       exact catalog selection before applying OS-locale normalization. */
+    match = requested == NULL ? NULL :
+            wena_find(requested, available, available_count);
+    if (!wena_locale_normalize(requested, normalized, sizeof(normalized))) {
         normalized[0] = '\0';
     }
-    match = normalized[0] == '\0' ? NULL :
-            wena_find(normalized, available, available_count);
+    if (match == NULL && normalized[0] != '\0') {
+        match = wena_find(normalized, available, available_count);
+    }
+    if (match == NULL && normalized[0] != '\0') {
+        size_t index;
+        char candidate[64];
+        /* Catalog tags retain canonical spelling. Resolve normalized OS
+           locales against those spellings in deterministic inventory order. */
+        for (index = 0; index < available_count; ++index) {
+            if (wena_locale_normalize(available[index], candidate, sizeof(candidate)) &&
+                strcmp(candidate, normalized) == 0) {
+                match = available[index];
+                break;
+            }
+        }
+    }
     if (match == NULL && normalized[0] != '\0') {
         wena_copy(base, sizeof(base), normalized);
         separator = strchr(base, '-');
