@@ -113,11 +113,37 @@ static const char migration_v3[] =
 ");\n";
 static const char migration_v4[] =
 "CREATE INDEX checklist_items_card_order_idx ON checklist_items(card_id, checklist_id, position, id);\n";
+static const char migration_v5[] =
+"CREATE TABLE labels (\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  id TEXT NOT NULL CHECK (typeof(id) = 'text' AND length(CAST(id AS BLOB)) BETWEEN 1 AND 64 AND instr(id, char(0)) = 0),\n"
+"  name TEXT NOT NULL DEFAULT '' CHECK (typeof(name) = 'text' AND length(CAST(name AS BLOB)) <= 128 AND instr(name, char(0)) = 0),\n"
+"  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n"
+"  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n"
+"  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n"
+"  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n"
+"  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= created_at),\n"
+"  PRIMARY KEY (board_id, id),\n"
+"  UNIQUE (board_id, position),\n"
+"  UNIQUE (board_id, name, color),\n"
+"  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE TABLE card_labels (\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0),\n"
+"  label_id TEXT NOT NULL CHECK (typeof(label_id) = 'text' AND length(CAST(label_id AS BLOB)) BETWEEN 1 AND 64 AND instr(label_id, char(0)) = 0),\n"
+"  PRIMARY KEY (board_id, card_id, label_id),\n"
+"  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT,\n"
+"  FOREIGN KEY (board_id, label_id) REFERENCES labels(board_id, id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX card_labels_label_cards_idx ON card_labels(board_id, label_id, card_id);\n"
+"CREATE INDEX card_labels_card_order_idx ON card_labels(card_id, label_id, board_id);\n";
 static const WenaCompiledMigration migrations[] = {
     {1, migration_v1, 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5", 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"},
     {2, migration_v2, 424u, "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83", 2673u, "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919"},
     {3, migration_v3, 2313u, "944b67e3548c07694a86f630fa3acd0d61bd298e8df5c648d9bb2d7da6fc886c", 4986u, "80a19517e0633f8f1445e136c6560c2e2f88b6349b0d2d99f1146433f9a9d704"},
     {4, migration_v4, 101u, "0d3dd3c932a4c710fdba04b3d7eda22efaa2693a411369d2cdc6368b8898606c", 5087u, "5f315dcf32ce637ebbc147d1cc2522e6ec214fa6a2c32f00b797fec9183c4427"},
+    {5, migration_v5, 2315u, "ed5db1279fac66f43648bd6a309335cf272e7b4b868b6ea950252ab1e5304317", 7402u, "460dd2311693546f8624f168b2fb16bd4b5b18fd9b6922a2469759d840a47a81"},
 };
 static const WenaSchemaObject schema_objects[] = {
     {2, "cards_board_id_unique", "index", "CREATE UNIQUE INDEX cards_board_id_unique ON cards(board_id, id)"},
@@ -125,6 +151,10 @@ static const WenaSchemaObject schema_objects[] = {
     {3, "checklists", "table", "CREATE TABLE checklists (\n  id TEXT NOT NULL PRIMARY KEY CHECK (typeof(id) = 'text' AND length(CAST(id AS BLOB)) BETWEEN 1 AND 64 AND instr(id, char(0)) = 0),\n  board_id TEXT NOT NULL,\n  card_id TEXT NOT NULL,\n  title TEXT NOT NULL CHECK (typeof(title) = 'text' AND length(CAST(title AS BLOB)) BETWEEN 1 AND 128 AND instr(title, char(0)) = 0),\n  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n  hide_checked_items INTEGER NOT NULL DEFAULT 0 CHECK (typeof(hide_checked_items) = 'integer' AND hide_checked_items IN (0, 1)),\n  hide_all_items INTEGER NOT NULL DEFAULT 0 CHECK (typeof(hide_all_items) = 'integer' AND hide_all_items IN (0, 1)),\n  show_on_minicard INTEGER DEFAULT NULL CHECK (show_on_minicard IS NULL OR (typeof(show_on_minicard) = 'integer' AND show_on_minicard IN (0, 1))),\n  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= 0),\n  UNIQUE (board_id, card_id, id),\n  UNIQUE (card_id, position),\n  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT\n)"},
     {3, "checklist_items", "table", "CREATE TABLE checklist_items (\n  id TEXT NOT NULL PRIMARY KEY CHECK (typeof(id) = 'text' AND length(CAST(id AS BLOB)) BETWEEN 1 AND 64 AND instr(id, char(0)) = 0),\n  board_id TEXT NOT NULL,\n  card_id TEXT NOT NULL,\n  checklist_id TEXT NOT NULL,\n  title TEXT NOT NULL CHECK (typeof(title) = 'text' AND length(CAST(title AS BLOB)) BETWEEN 1 AND 128 AND instr(title, char(0)) = 0),\n  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n  is_finished INTEGER NOT NULL DEFAULT 0 CHECK (typeof(is_finished) = 'integer' AND is_finished IN (0, 1)),\n  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= 0),\n  UNIQUE (checklist_id, position),\n  FOREIGN KEY (board_id, card_id, checklist_id) REFERENCES checklists(board_id, card_id, id) ON DELETE RESTRICT\n)"},
     {4, "checklist_items_card_order_idx", "index", "CREATE INDEX checklist_items_card_order_idx ON checklist_items(card_id, checklist_id, position, id)"},
+    {5, "labels", "table", "CREATE TABLE labels (\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  id TEXT NOT NULL CHECK (typeof(id) = 'text' AND length(CAST(id AS BLOB)) BETWEEN 1 AND 64 AND instr(id, char(0)) = 0),\n  name TEXT NOT NULL DEFAULT '' CHECK (typeof(name) = 'text' AND length(CAST(name AS BLOB)) <= 128 AND instr(name, char(0)) = 0),\n  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= created_at),\n  PRIMARY KEY (board_id, id),\n  UNIQUE (board_id, position),\n  UNIQUE (board_id, name, color),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n)"},
+    {5, "card_labels", "table", "CREATE TABLE card_labels (\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0),\n  label_id TEXT NOT NULL CHECK (typeof(label_id) = 'text' AND length(CAST(label_id AS BLOB)) BETWEEN 1 AND 64 AND instr(label_id, char(0)) = 0),\n  PRIMARY KEY (board_id, card_id, label_id),\n  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT,\n  FOREIGN KEY (board_id, label_id) REFERENCES labels(board_id, id) ON DELETE RESTRICT\n)"},
+    {5, "card_labels_label_cards_idx", "index", "CREATE INDEX card_labels_label_cards_idx ON card_labels(board_id, label_id, card_id)"},
+    {5, "card_labels_card_order_idx", "index", "CREATE INDEX card_labels_card_order_idx ON card_labels(card_id, label_id, board_id)"},
 };
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop

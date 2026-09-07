@@ -90,6 +90,11 @@ backup, and restore behavior.
 The implemented checklist schema and its validation evidence are documented in
 [schema-v3-storage.md](schema-v3-storage.md).
 
-The current artifact target is schema-v4: `004_checklist_item_card_order.sql` adds
+Schema-v4 `004_checklist_item_card_order.sql` adds
 the measured selected-card ordered index without changing v1-v3. See
 [checklist-query-work.md](checklist-query-work.md) for exact query and upgrade evidence.
+
+The current artifact target is schema-v5. `005_labels.sql` adds board-owned labels
+and scoped card assignments through the same immutable migration chain. See
+[schema-v5-storage.md](schema-v5-storage.md) for field contracts, exact color
+semantics, indexed query work, upgrade and restore evidence.

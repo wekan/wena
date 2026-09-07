@@ -82,8 +82,8 @@ assert run.returncode == 0, (run.stdout, run.stderr)
 assert 'Wena desktop smoke passed' in run.stdout
 assert domain_content() == before_domain
 with sqlite3.connect(path) as db:
-    assert db.execute('PRAGMA user_version').fetchone() == (4,)
-    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (4,)
+    assert db.execute('PRAGMA user_version').fetchone() == (5,)
+    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (5,)
     assert db.execute('SELECT count(*) FROM card_descriptions').fetchone() == (0,)
 before = content()
 for args in [[], ['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],
