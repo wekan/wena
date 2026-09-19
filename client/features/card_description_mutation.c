@@ -47,7 +47,7 @@ int wena_card_description_mutation_load(void *context,const char *board,
             ok=sqlite3_column_type(statement,0)==SQLITE_TEXT&&sqlite3_column_type(statement,1)==SQLITE_TEXT;
             if(ok){text=(const char*)sqlite3_column_text(statement,1);length=(size_t)sqlite3_column_bytes(statement,1);}
         }
-        ok=ok&&stored_version>0&&stored_version<LONG_MAX&&length<capacity&&wena_model_description_valid(text,length);
+        ok=ok&&stored_version>0&&stored_version<=(sqlite3_int64)WENA_VERSION_READ_MAX&&length<capacity&&wena_model_description_valid(text,length);
         if(ok){memcpy(description,text,length);description[length]=0;*version=(unsigned long)stored_version;}
     }
     sqlite3_finalize(statement);return ok;
@@ -63,7 +63,7 @@ int wena_card_description_mutation_save_request(WenaCardDescriptionMutation *a,
     const char hex[]="0123456789ABCDEF";
     size_t length,index;
     unsigned char c;
-    if(!scoped(a,board,card)||!description||!expected||expected>=(unsigned long)LONG_MAX||
+    if(!scoped(a,board,card)||!description||!expected||expected > WENA_VERSION_MUTATE_MAX||
         !request||request>=(unsigned long)LONG_MAX)return 0;
     for(length=0;length<WENA_DESCRIPTION_CAPACITY&&description[length];++length){}
     if(!wena_model_description_valid(description,length))return 0;

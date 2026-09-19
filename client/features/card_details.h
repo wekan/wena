@@ -3,6 +3,7 @@
 
 #include "../../models/card.h"
 #include "../components/cards/card_details_canvas.h"
+#include "../components/forms/input_limits.h"
 
 #include <stddef.h>
 
@@ -32,8 +33,7 @@ typedef struct WenaCardDetailsState {
     int editing_title;
     int title_error;
     int title_length;
-    /* One extra input byte detects an over-limit edit without saving it. */
-    char title_input[WENA_CARD_DETAILS_TITLE_CAPACITY + 1];
+    char title_input[WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY)];
     unsigned long title_version;
     WenaCardDetailsLoadTitle load_title;
     WenaCardDetailsSaveTitle save_title;

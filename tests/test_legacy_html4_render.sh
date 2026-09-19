@@ -7,6 +7,6 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/legacy_html4_render_test.c" \
   "$root_dir/server/settings.c" "$root_dir/server/root_url.c" \
-  "$root_dir/server/legacy_html4.c" "$root_dir/imports/ui/page_contract.c" \
+  "$root_dir/server/legacy_html4.c" "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   -o "$test_dir/html4-render-test"
 "$test_dir/html4-render-test"

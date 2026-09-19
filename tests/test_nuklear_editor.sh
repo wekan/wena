@@ -9,7 +9,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/nuklear_editor_test.c" \
   "$root_dir/client/features/card_details.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
-  "$root_dir/imports/ui/page_contract.c" \
+  "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/model.c" "$root_dir/models/card.c" \
   -o "$test_dir/test" -lm
 "$test_dir/test"

@@ -3,7 +3,7 @@ import re,subprocess
 import os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];WEKAN=Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))
-SOURCE=WEKAN/'imports/lib/legacyHtml4.js';CONTRACT=ROOT/'imports/ui/page_contract.c'
+SOURCE=WEKAN/'imports/lib/legacyHtml4.js';CONTRACT=ROOT/'models/color.c'
 PIN='689a393841f08c3a020a4ef435b869b7641b21df'
 assert subprocess.check_output(['git','-C',str(WEKAN),'rev-parse','HEAD'],text=True).strip()==PIN
 js=SOURCE.read_text(encoding='utf-8');c=CONTRACT.read_text(encoding='utf-8')

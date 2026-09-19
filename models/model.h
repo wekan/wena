@@ -2,6 +2,7 @@
 #define WENA_MODEL_H
 
 #include <stddef.h>
+#include "version.h"
 
 #define WENA_ID_CAPACITY 65
 #define WENA_TITLE_CAPACITY 257

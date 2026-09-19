@@ -5,5 +5,5 @@ test_dir=$(mktemp -d "${TMPDIR:-/tmp}/wena-checklist-titles-XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/checklist_item_titles_test.c" \
-  "$root_dir/models/checklist_item_titles.c" -o "$test_dir/test"
+  "$root_dir/models/checklist_item_titles.c" "$root_dir/models/model.c" "$root_dir/models/text.c" -o "$test_dir/test"
 "$test_dir/test"

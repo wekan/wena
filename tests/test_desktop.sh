@@ -82,8 +82,8 @@ assert run.returncode == 0, (run.stdout, run.stderr)
 assert 'Wena desktop smoke passed' in run.stdout
 assert domain_content() == before_domain
 with sqlite3.connect(path) as db:
-    assert db.execute('PRAGMA user_version').fetchone() == (5,)
-    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (5,)
+    assert db.execute('PRAGMA user_version').fetchone() == (6,)
+    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (6,)
     assert db.execute('SELECT count(*) FROM card_descriptions').fetchone() == (0,)
 before = content()
 for args in [[], ['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],
@@ -204,6 +204,84 @@ if sys.platform.startswith('linux'):
         actual = db.execute('SELECT board_id,card_id,title,is_finished FROM checklist_items').fetchall()
         assert actual == [('board', 'card', 'SDL item Ä', 1)], actual
         assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+    # Drive the unchanged executable through label create, assign, cancel and
+    # inspect on separate process launches. Later launches preserve all rows.
+    labels_before = None
+    for mode in ('create', 'cancel', 'read'):
+        labels_env = dict(event_env, WENA_TEST_LABELS=mode)
+        if mode != 'create':
+            labels_env['WENA_TEST_CARD_BADGES'] = '1'
+        run = subprocess.run([exe, '--database', str(event_path), '--actor', 'actor',
+                              '--board', 'board', '--language', 'en'], env=labels_env,
+                             capture_output=True, text=True, timeout=20)
+        assert run.returncode == 0, (mode, run.stdout, run.stderr)
+        with sqlite3.connect(event_path) as db:
+            actual = db.execute('SELECT board_id,name,color FROM labels').fetchall()
+            assert actual == [('board', 'SDL label Ä', 'white')], (mode, actual)
+            actual = db.execute('SELECT board_id,card_id FROM card_labels').fetchall()
+            assert actual == [('board', 'card')], (mode, actual)
+            assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+            current = '\n'.join(db.iterdump())
+            if mode == 'create':
+                labels_before = current
+            else:
+                assert current == labels_before, mode + ' unexpectedly wrote label data'
+    # Clicking an assigned badge routes directly to its scoped label panel.
+    # Editing the same row proves the panel opened and the cache was refreshed.
+    run = subprocess.run([exe, '--database', str(event_path), '--actor', 'actor',
+                          '--board', 'board', '--language', 'en'],
+                         env=dict(event_env, WENA_TEST_LABEL_BADGE='1'),
+                         capture_output=True, text=True, timeout=20)
+    assert run.returncode == 0, (run.stdout, run.stderr)
+    with sqlite3.connect(event_path) as db:
+        actual = db.execute('SELECT name FROM labels').fetchall()
+        assert actual == [('SDL label Ä badge',)], actual
+        assert db.execute('SELECT board_id,card_id FROM card_labels').fetchall() == [('board', 'card')]
+    # Count display requires explicit persisted opt-in. Keep the independent
+    # collapse fixture unchanged while checking 0/0 -> 0/1 -> 1/1 interaction.
+    summary_path = directory / 'summary-board.sqlite'
+    # Keep this real-SDL count fixture independent from the label badge fixture:
+    # it starts with one plain card and no checklist rows, so the added count row
+    # has stable coordinates of its own.
+    with sqlite3.connect(path) as source, sqlite3.connect(summary_path) as target:
+        source.backup(target)
+        summary_before = '\n'.join(target.iterdump())
+    summary_args = [exe, '--database', str(summary_path), '--actor', 'actor',
+                    '--board', 'board', '--language', 'en']
+    summary_env = dict(event_env, WENA_TEST_CHECKLIST_SUMMARY='disabled')
+    run = subprocess.run(summary_args, env=summary_env, capture_output=True,
+                         text=True, timeout=20)
+    assert run.returncode == 0, run.stderr
+    with sqlite3.connect(summary_path) as db:
+        assert '\n'.join(db.iterdump()) == summary_before, 'disabled counter accepted item mutation'
+    settings_after = None
+    for mode in ('enable', 'cancel'):
+        run = subprocess.run(summary_args,
+                             env=dict(event_env, WENA_TEST_BOARD_SETTINGS=mode),
+                             capture_output=True, text=True, timeout=20)
+        assert run.returncode == 0, (mode, run.stderr)
+        with sqlite3.connect(summary_path) as db:
+            actual_settings = db.execute('SELECT show_checklist_count FROM board_settings').fetchall()
+            assert actual_settings == [(1,)], (mode, actual_settings, run.stdout, run.stderr)
+            current = '\n'.join(db.iterdump())
+            if mode == 'enable':
+                settings_after = current
+            else:
+                assert current == settings_after, 'cancel changed persisted board setting'
+    # Give the opt-in display one empty list. This is deliberately a 0/0
+    # fixture: compact counts show existing empty checklists too, and the
+    # actual SDL click below must open/close without changing it.
+    with sqlite3.connect(summary_path) as db:
+        db.execute("INSERT INTO checklists(id,board_id,card_id,title,position,version,created_at,updated_at) VALUES('summary-list','board','card','Summary list',0,1,0,0)")
+        summary_open_before = '\n'.join(db.iterdump())
+    run = subprocess.run(summary_args,
+                         env=dict(event_env, WENA_TEST_CHECKLIST_SUMMARY='open'),
+                         capture_output=True, text=True, timeout=20)
+    assert run.returncode == 0, run.stderr
+    with sqlite3.connect(summary_path) as db:
+        assert '\n'.join(db.iterdump()) == summary_open_before
+        assert db.execute('PRAGMA integrity_check').fetchone() == ('ok',)
+        assert db.execute('PRAGMA foreign_key_check').fetchall() == []
     # Collapse is actor-specific local state and survives an actual process restart.
     assert not list(directory.glob('wena-collapse-*.prefs'))
     collapse_env = dict(event_env, WENA_TEST_COLLAPSE='1')
@@ -216,7 +294,7 @@ if sys.platform.startswith('linux'):
     with sqlite3.connect(event_path) as db:
         collapsed_domain = '\n'.join(db.iterdump())
     # This would edit the card if the collapsed list were accidentally visible.
-    run = subprocess.run(args, env=dict(event_env, WENA_TEST_DESCRIPTION='save'),
+    run = subprocess.run(args, env=dict(event_env, WENA_TEST_DESCRIPTION='save', WENA_TEST_CARD_BADGES='1'),
                          capture_output=True, text=True, timeout=20)
     assert run.returncode == 0, run.stderr
     with sqlite3.connect(event_path) as db:
@@ -229,7 +307,7 @@ if sys.platform.startswith('linux'):
         db.execute("INSERT INTO actors VALUES('other-actor','Other',1)")
         version_before = db.execute("SELECT version FROM cards WHERE id='card'").fetchone()[0]
     other_args = [exe, '--database', str(event_path), '--actor', 'other-actor', '--board', 'board', '--language', 'en']
-    run = subprocess.run(other_args, env=dict(event_env, WENA_TEST_DESCRIPTION='save'),
+    run = subprocess.run(other_args, env=dict(event_env, WENA_TEST_DESCRIPTION='save', WENA_TEST_CARD_BADGES='1'),
                          capture_output=True, text=True, timeout=20)
     assert run.returncode == 0, run.stderr
     with sqlite3.connect(event_path) as db:
@@ -249,7 +327,7 @@ if sys.platform.startswith('linux'):
     assert run.returncode == 0, run.stderr
     assert preferences[0].read_bytes() == preference_bytes
     assert staging.read_bytes() == b'foreign incomplete staging'
-    print('Linux real SDL sidebar/create, hierarchy move, descriptions, checklists and scoped collapse persistence passed')
+    print('Linux real SDL sidebar/create, hierarchy move, descriptions, checklists, labels and scoped collapse persistence passed')
 else:
     print('Linux LD_PRELOAD event regression not applicable to this platform')
 print('Desktop smoke, long paths, explicit initialization, canonical locale seeds and negative startup checks passed')

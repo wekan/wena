@@ -50,10 +50,11 @@ static int load_state(void *context, const char *board, const char *card,
         value = sqlite3_column_int64(statement, 1);
         stored = sqlite3_column_text(statement, 0);
         bytes = sqlite3_column_bytes(statement, 0);
-        if (stored && bytes > 0 && (size_t)bytes < capacity &&
+        if (sqlite3_column_type(statement, 0) == SQLITE_TEXT &&
+            sqlite3_column_type(statement, 1) == SQLITE_INTEGER && stored && bytes > 0 && (size_t)bytes < capacity &&
             (size_t)bytes == strlen((const char *)stored) &&
             wena_model_title_string_valid((const char *)stored, 129u) && value > 0 &&
-            value < LONG_MAX) {
+            value <= (sqlite3_int64)WENA_VERSION_READ_MAX) {
             memcpy(title, stored, (size_t)bytes + 1);
             *version = (unsigned long)value;
             ok = 1;
@@ -85,7 +86,7 @@ int wena_card_mutation_save_request(WenaCardMutation *a, const char *board,
     const char hex[] = "0123456789ABCDEF";
     size_t n, out, index;
     if (!scoped(a, board, card) || !wena_model_title_string_valid(title, 129u) || !expected ||
-        expected >= (unsigned long)LONG_MAX || !request ||
+        expected > WENA_VERSION_MUTATE_MAX || !request ||
         request >= (unsigned long)LONG_MAX) return 0;
     out = 0;
     for (n = 0; title[n]; ++n) {
@@ -154,7 +155,7 @@ int wena_card_mutation_archive_request(WenaCardMutation *a,
     WenaRegionResponse response;
     size_t index;
     if (!scoped(a, board, card) || !expected ||
-        expected >= (unsigned long)LONG_MAX || !request ||
+        expected > WENA_VERSION_MUTATE_MAX || !request ||
         request >= (unsigned long)LONG_MAX) return 0;
     memset(&command, 0, sizeof(command));
     command.operation = WENA_DOMAIN_ARCHIVE_CARD;
@@ -260,7 +261,7 @@ int wena_card_mutation_move_request(WenaCardMutation *a,
     size_t index, selected_index;
     if (!scoped(a, board, card) || !wena_model_identifier_valid(list) ||
         !wena_model_identifier_valid(lane) ||
-        !expected || expected >= (unsigned long)LONG_MAX ||
+        !expected || expected > WENA_VERSION_MUTATE_MAX ||
         !request || request >= (unsigned long)LONG_MAX ||
         (a->published_card_count && *a->published_card_count != a->card_count))
         return 0;
@@ -321,7 +322,7 @@ int wena_card_mutation_restore_request(WenaCardMutation *a,
     WenaCard *selected;
     size_t index;
     if (!scoped(a, board, card) || !expected ||
-        expected >= (unsigned long)LONG_MAX || !request ||
+        expected > WENA_VERSION_MUTATE_MAX || !request ||
         request >= (unsigned long)LONG_MAX ||
         (a->published_card_count && *a->published_card_count != a->card_count))
         return 0;
@@ -372,7 +373,7 @@ int wena_card_mutation_reorder_request(WenaCardMutation *a,
     size_t indices[2048],index,count,source,ordinal;
     unsigned long position,previous;
     int found;
-    if(!scoped(a,board,card)||!expected||expected>=(unsigned long)LONG_MAX||
+    if(!scoped(a,board,card)||!expected||expected > WENA_VERSION_MUTATE_MAX||
         !request||request>=(unsigned long)LONG_MAX||!a->cards||a->card_count>2048||
         (a->published_card_count&&*a->published_card_count!=a->card_count))return 0;
     source=0;found=0;

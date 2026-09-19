@@ -14,8 +14,7 @@ typedef struct WenaCardDescriptionState {
     WenaId board_id;
     WenaId card_id;
     unsigned long version;
-    /* One extra byte detects overlong edits; Nuklear also reserves a NUL. */
-    char input[WENA_DESCRIPTION_CAPACITY + 1];
+    char input[WENA_NATIVE_EDIT_CAPACITY(WENA_DESCRIPTION_CAPACITY)];
     WenaCardDescriptionLoad load;
     WenaCardDescriptionSave save;
     void *context;

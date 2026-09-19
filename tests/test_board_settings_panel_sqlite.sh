@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+test_dir="${TMPDIR:-/tmp}/wena-board-settings-panel-sqlite-$$"
+mkdir -p "$test_dir"
+trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
+settings_schema=${WENA_BOARD_SETTINGS_SCHEMA:-$root_dir/server/migrations/006_board_settings.sql}
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
+  -I"$root_dir/tests/fakes" \
+  "$root_dir/tests/board_settings_panel_sqlite_test.c" "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/client/features/boards/settings_panel.c" \
+  "$root_dir/client/features/boards/settings_store.c" \
+  "$root_dir/client/features/boards/settings.c" \
+  "$root_dir/client/features/card_details.c" \
+  "$root_dir/client/components/cards/card_details_canvas.c" \
+  "$root_dir/imports/ui/page_contract.c" \
+  "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/models/text.c" \
+  "$root_dir/models/checklist_item_titles.c" "$root_dir/models/model.c" "$root_dir/models/card.c" \
+  "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/board_settings.c" \
+  "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" "$root_dir/server/mutations/labels.c" \
+  "$root_dir/server/mutations/checklist_batch.c" \
+  "$root_dir/server/sha256.c" "$root_dir/server/region_response.c" \
+  -lsqlite3 -o "$test_dir/test"
+"$test_dir/test" "$root_dir/server/migrations/001_initial.sql" "$settings_schema" "$test_dir/settings.sqlite"

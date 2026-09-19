@@ -31,7 +31,8 @@ static int position_column(sqlite3_stmt *statement, int column, double *out)
 static int version_column(sqlite3_stmt *statement, int column)
 {
     return sqlite3_column_type(statement, column) == SQLITE_INTEGER &&
-        sqlite3_column_int64(statement, column) > 0;
+        sqlite3_column_int64(statement, column) > 0 &&
+        sqlite3_column_int64(statement, column) <= (sqlite3_int64)WENA_VERSION_READ_MAX;
 }
 
 static int prepare(sqlite3 *db, const char *sql, const char *board,

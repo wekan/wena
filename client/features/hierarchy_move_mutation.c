@@ -73,7 +73,7 @@ int wena_hierarchy_move_mutation_load(void *context,const char *board,
     ok=sqlite3_step(statement)==SQLITE_ROW&&sqlite3_column_type(statement,0)==SQLITE_INTEGER&&
         sqlite3_column_type(statement,1)==SQLITE_INTEGER;
     if(ok){value=sqlite3_column_int64(statement,0);stored=sqlite3_column_int64(statement,1);
-        ok=value>0&&value<LONG_MAX&&stored==(sqlite3_int64)selected;
+        ok=value>0&&value<=(sqlite3_int64)WENA_VERSION_READ_MAX&&stored==(sqlite3_int64)selected;
         if(ok){*version=(unsigned long)value;*position=(unsigned long)stored;}}
     sqlite3_finalize(statement);return ok;
 }
@@ -89,7 +89,7 @@ int wena_hierarchy_move_mutation_move_request(WenaHierarchyMoveMutation *a,
     WenaSwimlane lane;
     char order[65];
     size_t selected,count,index;
-    if(!selection(a,board,kind,id,&selected,order)||!expected||expected>=(unsigned long)LONG_MAX||
+    if(!selection(a,board,kind,id,&selected,order)||!expected||expected > WENA_VERSION_MUTATE_MAX||
         !request||request>=(unsigned long)LONG_MAX)return 0;
     s=a->snapshot;count=kind==WENA_HIERARCHY_LIST?s->list_count:s->swimlane_count;
     if(target>=(unsigned long)count)return 0;

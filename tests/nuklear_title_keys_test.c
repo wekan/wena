@@ -184,6 +184,21 @@ static void focus_field(Fixture *f)
         f->mode == 1 ? nk_vec2(420, 55) : nk_vec2(200, 145));
 }
 
+static int draft_length(const Fixture *f)
+{
+    if (f->mode == 0) return f->details.title_length;
+    if (f->mode == 1) return f->create.title_length;
+    return f->hierarchy.title_length;
+}
+
+static void clear_field(Fixture *f)
+{
+    focus_field(f);
+    key(f, NK_KEY_TEXT_SELECT_ALL, 1); key(f, NK_KEY_TEXT_SELECT_ALL, 0);
+    key(f, NK_KEY_BACKSPACE, 1); key(f, NK_KEY_BACKSPACE, 0);
+    assert(draft_length(f) == 0);
+}
+
 static void initialize(Fixture *f, int mode)
 {
     WenaListInteraction intent;
@@ -228,6 +243,40 @@ int main(void)
     int mode;
     int count;
     for (mode = 0; mode < 4; ++mode) {
+        /* A full valid prefix must not remain saveable after Nuklear sees
+         * a four-byte scalar beyond the model limit. Exercise real key input
+         * and both Save and Enter, then verify Cancel preserves persistence. */
+        initialize(&f, mode); clear_field(&f);
+        for (count = 0; count < 128; ++count) character(&f, (nk_rune)'a');
+        assert(draft_length(&f) == 128);
+        character(&f, (nk_rune)128512UL);
+        assert(draft_length(&f) == 132);
+        click(&f, label_center(&f, "Save"));
+        assert(editing(&f) && error(&f) && !f.attempts && !f.writes);
+        focus_field(&f); key(&f, NK_KEY_ENTER, 1); key(&f, NK_KEY_ENTER, 0);
+        assert(editing(&f) && error(&f) && !f.attempts && !f.writes);
+        click(&f, label_center(&f, "Cancel"));
+        assert(!editing(&f) && !f.writes && !strcmp(f.stored, "Original"));
+        nk_free(&f.context);
+
+        /* The exact valid byte boundary accepts complete supplementary-plane
+         * characters; a partially fitting final scalar stays an invalid draft. */
+        initialize(&f, mode); clear_field(&f);
+        for (count = 0; count < 32; ++count) character(&f, (nk_rune)128512UL);
+        assert(draft_length(&f) == 128);
+        key(&f, NK_KEY_ENTER, 1);
+        assert(!editing(&f) && f.attempts == 1 && f.writes == 1);
+        assert(strlen(f.stored) == 128);
+        nk_free(&f.context);
+        initialize(&f, mode); clear_field(&f);
+        for (count = 0; count < 126; ++count) character(&f, (nk_rune)'a');
+        character(&f, (nk_rune)128512UL); assert(draft_length(&f) == 130);
+        key(&f, NK_KEY_ENTER, 1);
+        assert(editing(&f) && error(&f) && !f.attempts && !f.writes);
+        key(&f, NK_KEY_ENTER, 0); key(&f, NK_KEY_TEXT_RESET_MODE, 1);
+        assert(!editing(&f) && !f.writes);
+        nk_free(&f.context);
+
         /* Enter outside the edit field cannot submit an unfocused form. */
         initialize(&f, mode);
         key(&f, NK_KEY_ENTER, 1); key(&f, NK_KEY_ENTER, 0);

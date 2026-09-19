@@ -6,5 +6,5 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
   "$root_dir/tests/native_theme_test.c" "$root_dir/client/platform/theme.c" \
-  "$root_dir/imports/ui/page_contract.c" -o "$test_dir/test" -lm
+  "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" -o "$test_dir/test" -lm
 "$test_dir/test"

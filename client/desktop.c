@@ -15,6 +15,12 @@
 #include "features/card_description_mutation.h"
 #include "features/checklists.h"
 #include "features/checklist_mutation.h"
+#include "features/labels/panel.h"
+#include "features/labels/mutation.h"
+#include "features/labels/badges.h"
+#include "features/boards/presentation.h"
+#include "features/boards/settings_panel.h"
+#include "features/checklists/badges.h"
 #include "features/language_picker.h"
 #include "features/hierarchy_title.h"
 #include "features/hierarchy_mutation.h"
@@ -37,12 +43,27 @@
 #include <string.h>
 #include <sys/stat.h>
 
+static unsigned int desktop_card_badges(struct nk_context *context,
+    void *opaque, const WenaCard *card)
+{
+    WenaBoardPresentation *view;
+    unsigned int actions;
+    view = (WenaBoardPresentation *)opaque;
+    actions = view->valid ? wena_label_badges_render(context, view->badges, card) :
+                           WENA_CARD_BODY_NO_ACTION;
+    if (view->summary_valid)
+        actions |= wena_checklist_badges_render(context, view->summary, card);
+    return actions;
+}
+
 #define DESKTOP_ADD_LIST 1u
 #define DESKTOP_ADD_SWIMLANE 2u
 #define DESKTOP_RENAME_BOARD 4u
+#define DESKTOP_BOARD_SETTINGS 8u
 typedef struct WenaDesktopToolbar {
     WenaLanguagePicker *language;
     WenaBoardFilterState *filter;
+    WenaBoardPresentation *labels;
     int filter_changed;
     int collapse_error;
     int collapse_retry;
@@ -58,14 +79,32 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
     toolbar->filter_changed = 0;
     toolbar->collapse_retry = 0;
     wena_language_picker_render(context, toolbar->language);
-    nk_layout_row_dynamic(context, 28.0f, 3);
+    nk_layout_row_dynamic(context, 28.0f, 4);
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_ADD_LIST)))
         toolbar->actions |= DESKTOP_ADD_LIST;
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_ADD_SWIMLANE)))
         toolbar->actions |= DESKTOP_ADD_SWIMLANE;
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_RENAME_BOARD)))
         toolbar->actions |= DESKTOP_RENAME_BOARD;
+    if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_SETTINGS)))
+        toolbar->actions |= DESKTOP_BOARD_SETTINGS;
     toolbar->filter_changed = wena_board_filter_render(context, toolbar->filter);
+    if (toolbar->labels != NULL && toolbar->labels->error) {
+        nk_layout_row_dynamic(context, 22.0f, 1);
+        nk_label(context, wena_ui_text(WENA_UI_TEXT_LABELS), NK_TEXT_LEFT);
+        nk_layout_row_dynamic(context, 28.0f, 2);
+        nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+        if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)))
+            toolbar->labels->refresh_pending = 1;
+    }
+    if (toolbar->labels != NULL && toolbar->labels->summary_error) {
+        nk_layout_row_dynamic(context, 22.0f, 1);
+        nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS), NK_TEXT_LEFT);
+        nk_layout_row_dynamic(context, 28.0f, 2);
+        nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+        if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)))
+            toolbar->labels->summary_pending = 1;
+    }
     if (toolbar->collapse_error) {
         nk_layout_row_dynamic(context, 22.0f, 2);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_SETTINGS), NK_TEXT_LEFT);
@@ -86,6 +125,8 @@ typedef enum WenaDesktopPanel {
     DESKTOP_PANEL_ARCHIVES,
     DESKTOP_PANEL_DESCRIPTION,
     DESKTOP_PANEL_CHECKLISTS,
+    DESKTOP_PANEL_LABELS,
+    DESKTOP_PANEL_BOARD_SETTINGS,
     DESKTOP_PANEL_HIERARCHY_TITLE,
     DESKTOP_PANEL_HIERARCHY_MOVE
 } WenaDesktopPanel;
@@ -97,6 +138,8 @@ typedef struct WenaDesktopEditors {
     WenaCardArchivesState archives;
     WenaCardDescriptionState description;
     WenaChecklistsState checklists;
+    WenaLabelsState labels;
+    WenaBoardSettingsState board_settings;
     WenaHierarchyTitleState hierarchy;
     WenaHierarchyMoveState hierarchy_move;
 } WenaDesktopEditors;
@@ -118,6 +161,10 @@ static void desktop_close_other_editors(WenaDesktopEditors *editors,
         wena_card_description_close(&editors->description);
     if (keep != DESKTOP_PANEL_CHECKLISTS)
         wena_checklists_close(&editors->checklists);
+    if (keep != DESKTOP_PANEL_LABELS)
+        wena_labels_close(&editors->labels);
+    if (keep != DESKTOP_PANEL_BOARD_SETTINGS)
+        wena_board_settings_close(&editors->board_settings);
     if (keep != DESKTOP_PANEL_HIERARCHY_TITLE)
         wena_hierarchy_title_close(&editors->hierarchy);
     if (keep != DESKTOP_PANEL_HIERARCHY_MOVE)
@@ -208,6 +255,7 @@ int main(int argc, char **argv)
     WenaCardMutation mutation;
     WenaCardDescriptionMutation description_mutation;
     WenaChecklistMutation checklist_mutation;
+    WenaBoardPresentation label_view;
     const WenaCard *selected_card;
     WenaListInteraction list_interaction;
     WenaSwimlaneInteraction swimlane_interaction;
@@ -266,6 +314,7 @@ int main(int argc, char **argv)
     memset(&list_interaction, 0, sizeof(list_interaction));
     memset(&swimlane_interaction, 0, sizeof(swimlane_interaction));
     memset(&toolbar, 0, sizeof(toolbar));
+    memset(&label_view, 0, sizeof(label_view));
     database = NULL; window = NULL; renderer = NULL; context = NULL;
     sdl_started = 0; status = 1;
     if (!wena_executable_path_current(executable, sizeof(executable)) ||
@@ -339,6 +388,9 @@ int main(int argc, char **argv)
     layout.list_interaction = &list_interaction;
     toolbar.language = &language_picker;
     toolbar.filter = &filter;
+    toolbar.labels = &label_view;
+    layout.card_badges = desktop_card_badges;
+    layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;
     layout.card_visible_context = &filter;
     layout.toolbar = desktop_toolbar;
@@ -349,6 +401,8 @@ int main(int argc, char **argv)
     wena_card_archives_init(&editors.archives, NULL, NULL, NULL);
     wena_card_description_init(&editors.description, NULL, NULL, NULL);
     wena_checklists_init(&editors.checklists, NULL, NULL, NULL);
+    wena_labels_init(&editors.labels, NULL, NULL, NULL);
+    wena_board_settings_init(&editors.board_settings, NULL, NULL, NULL);
     wena_hierarchy_title_init(&editors.hierarchy);
     wena_hierarchy_move_init(&editors.hierarchy_move, NULL, NULL, NULL);
     if (!wena_card_mutation_init(&mutation, database, actor_id, board_id,
@@ -363,6 +417,12 @@ int main(int argc, char **argv)
                                       actor_id, board_id)) goto cleanup;
     wena_checklists_init(&editors.checklists, wena_checklist_mutation_load,
         smoke ? NULL : wena_checklist_mutation_save, &checklist_mutation);
+    if (!wena_board_presentation_init(&label_view, database, actor_id, board_id) ||
+        !label_view.valid) goto cleanup;
+    wena_labels_init(&editors.labels, wena_board_presentation_labels_load,
+        smoke ? NULL : wena_board_presentation_labels_save, &label_view);
+    wena_board_settings_init(&editors.board_settings, wena_board_presentation_settings_load,
+        smoke ? NULL : wena_board_presentation_settings_save, &label_view);
     if (!smoke) {
         if (!wena_hierarchy_mutation_init(&hierarchy_mutation, database,
             actor_id, board_id, snapshot)) goto cleanup;
@@ -399,6 +459,7 @@ int main(int argc, char **argv)
     if (renderer == NULL) goto cleanup;
     context = nk_sdl_init(window, renderer);
     if (context == NULL) goto cleanup;
+    wena_sdl_install_clipboard(context);
     nk_sdl_font_stash_begin(&atlas);
     font = wena_native_font_add(atlas, 14.0f);
     if (font == NULL) font = nk_font_atlas_add_default(atlas, 14.0f, NULL);
@@ -434,7 +495,8 @@ int main(int argc, char **argv)
                 card_interaction.actions != 0u || toolbar.actions != 0u ||
                 swimlane_interaction.actions != 0u ||
                 (editors.details.interaction.actions & (WENA_CARD_DETAILS_MOVE |
-                    WENA_CARD_DETAILS_DESCRIPTION | WENA_CARD_DETAILS_CHECKLISTS)) != 0u)
+                    WENA_CARD_DETAILS_DESCRIPTION | WENA_CARD_DETAILS_CHECKLISTS |
+                    WENA_CARD_DETAILS_LABELS)) != 0u)
                 sidebar.visible = 0;
             if ((list_interaction.actions & WENA_LIST_HEADER_ADD_CARD) != 0u) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_CREATE_CARD);
@@ -444,6 +506,24 @@ int main(int argc, char **argv)
             if ((card_interaction.actions & (WENA_CARD_BODY_OPEN_DETAILS |
                                              WENA_CARD_BODY_OPEN_MENU)) != 0u) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_DETAILS);
+            }
+            if ((card_interaction.actions & WENA_CARD_BODY_OPEN_LABELS) != 0u) {
+                selected_card = desktop_selected_card(snapshot, card_interaction.card_id);
+                if (selected_card != NULL && wena_labels_open(&editors.labels,
+                    snapshot->board.id, selected_card))
+                    opened_panel = DESKTOP_PANEL_LABELS;
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_LABELS);
+            }
+            if ((card_interaction.actions & WENA_CARD_BODY_OPEN_CHECKLISTS) != 0u) {
+                selected_card = desktop_selected_card(snapshot, card_interaction.card_id);
+                if (selected_card != NULL && wena_checklists_open(&editors.checklists,
+                    selected_card)) opened_panel = DESKTOP_PANEL_CHECKLISTS;
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_CHECKLISTS);
+            }
+            if ((toolbar.actions & DESKTOP_BOARD_SETTINGS) != 0u) {
+                if (wena_board_settings_open(&editors.board_settings, snapshot->board.id))
+                    opened_panel = DESKTOP_PANEL_BOARD_SETTINGS;
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_BOARD_SETTINGS);
             }
             if ((editors.details.interaction.actions & WENA_CARD_DETAILS_MOVE) != 0u) {
                 if (wena_card_move_open(&editors.move, &layout,
@@ -465,7 +545,16 @@ int main(int argc, char **argv)
                     opened_panel = DESKTOP_PANEL_CHECKLISTS;
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_CHECKLISTS);
             }
-            if (toolbar.actions != 0u ||
+            if ((editors.details.interaction.actions & WENA_CARD_DETAILS_LABELS) != 0u) {
+                selected_card = desktop_selected_card(snapshot,
+                    editors.details.interaction.card_id);
+                if (selected_card != NULL && wena_labels_open(&editors.labels,
+                    snapshot->board.id, selected_card))
+                    opened_panel = DESKTOP_PANEL_LABELS;
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_LABELS);
+            }
+            if ((toolbar.actions & (DESKTOP_ADD_LIST | DESKTOP_ADD_SWIMLANE |
+                                     DESKTOP_RENAME_BOARD)) != 0u ||
                 (list_interaction.actions & WENA_LIST_HEADER_OPEN_MENU) != 0u ||
                 swimlane_interaction.actions != 0u) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_HIERARCHY_TITLE);
@@ -492,6 +581,11 @@ int main(int argc, char **argv)
                 if (sidebar.section == WENA_SIDEBAR_ARCHIVES) {
                     if (wena_card_archives_open(&editors.archives, &layout))
                         opened_panel = DESKTOP_PANEL_ARCHIVES;
+                    sidebar.visible = 0;
+                    sidebar.section = WENA_SIDEBAR_ACTIVITIES;
+                } else if (sidebar.section == WENA_SIDEBAR_LABELS) {
+                    if (wena_labels_open(&editors.labels, snapshot->board.id, NULL))
+                        opened_panel = DESKTOP_PANEL_LABELS;
                     sidebar.visible = 0;
                     sidebar.section = WENA_SIDEBAR_ACTIVITIES;
                 }
@@ -526,6 +620,14 @@ int main(int argc, char **argv)
                 (void)wena_checklists_render(context, &editors.checklists,
                     snapshot->cards, snapshot->card_count,
                     (float)width, (float)height);
+            if (opened_panel != DESKTOP_PANEL_LABELS)
+                (void)wena_labels_render(context, &editors.labels,
+                    snapshot->board.id, snapshot->cards, snapshot->card_count,
+                    (float)width, (float)height);
+            if (opened_panel != DESKTOP_PANEL_BOARD_SETTINGS)
+                (void)wena_board_settings_render(context, &editors.board_settings,
+                    snapshot->board.id, (float)width, (float)height);
+            (void)wena_board_presentation_poll(&label_view);
             if (!smoke && collapse_path[0] != '\0' &&
                 (toolbar.collapse_retry ||
                  desktop_collapse_changed(&collapse, &observed_collapse))) {
@@ -554,6 +656,7 @@ cleanup:
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     if (window != NULL) SDL_DestroyWindow(window);
     if (sdl_started) { SDL_StopTextInput(); SDL_Quit(); }
+    wena_board_presentation_close(&label_view);
     free(snapshot);
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;
     wena_embedded_migration_free(&migration);

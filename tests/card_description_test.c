@@ -35,7 +35,8 @@ int main(void)
     assert(wena_card_description_open(&state,&card));frame(&state,&card,"Save","");
     assert(!state.visible&&store.calls==2&&store.text[0]==0);
     assert(wena_card_description_open(&state,&card));memset(oversized,'x',sizeof(oversized));oversized[sizeof(oversized)-1]=0;
-    frame(&state,&card,"Save",oversized);assert(state.error&&state.length==1025&&store.calls==2);
+    frame(&state,&card,"Save",oversized);assert(state.error&&state.length==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_DESCRIPTION_CAPACITY) - 1&&store.calls==2);
     frame(&state,&card,"Save","Bad\001");assert(state.error&&store.calls==2);
     frame(&state,&card,"Save","Bad\177");assert(state.error&&store.calls==2);
     frame(&state,&card,"Save","Bad\302\205");assert(state.error&&store.calls==2);

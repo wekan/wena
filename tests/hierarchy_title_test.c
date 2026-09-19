@@ -169,7 +169,8 @@ static void creation_tests(sqlite3 *database, WenaHierarchyMutation *adapter,
         nk_input_unicode(context, (nk_rune)'x'); nk_input_end(context);
         render(context, state, layout);
     }
-    assert(state->title_length == WENA_CARD_DETAILS_TITLE_CAPACITY);
+    assert(state->title_length ==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY) - 1);
     click(context, state, layout, "Save");
     assert(state->visible && state->error && snapshot->swimlane_count == count);
     click(context, state, layout, "Cancel");
@@ -312,7 +313,8 @@ int main(int argc, char **argv)
         nk_input_unicode(&context, (nk_rune)'a'); nk_input_end(&context);
         render(&context, &state, &layout);
     }
-    assert(state.title_length == WENA_CARD_DETAILS_TITLE_CAPACITY);
+    assert(state.title_length ==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY) - 1);
     click(&context, &state, &layout, "Save");
     assert(state.visible && state.error && strcmp(before, snapshot->lists[0].title) == 0);
     click(&context, &state, &layout, "Cancel");

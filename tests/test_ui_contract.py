@@ -37,7 +37,8 @@ def main():
         subprocess.run([
             "cc", "-std=c89", "-pedantic-errors", "-Wall", "-Wextra", "-Werror",
             str(ROOT / "tests" / "ui_contract_test.c"),
-            str(ROOT / "imports" / "ui" / "page_contract.c"), "-o", str(binary),
+            str(ROOT / "imports" / "ui" / "page_contract.c"),
+            str(ROOT / "models" / "color.c"), "-o", str(binary),
         ], check=True)
         subprocess.run([str(binary)], check=True)
 

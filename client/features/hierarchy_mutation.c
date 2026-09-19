@@ -88,7 +88,7 @@ int wena_hierarchy_mutation_load(void *context, const char *board,
             bytes > 0 && (size_t)bytes < capacity &&
             wena_model_title_valid((const char *)stored, (size_t)bytes,
                                     WENA_CARD_DETAILS_TITLE_CAPACITY) &&
-            value > 0 && value < LONG_MAX;
+            value > 0 && value <= (sqlite3_int64)WENA_VERSION_READ_MAX;
         if (ok) {
             memcpy(title, stored, (size_t)bytes);
             title[bytes] = '\0';
@@ -126,7 +126,7 @@ int wena_hierarchy_mutation_save_request(WenaHierarchyMutation *adapter,
     size_t index;
     unsigned char c;
     model_title = selected(adapter, board, kind, target);
-    if (!model_title || !title || !expected || expected >= (unsigned long)LONG_MAX ||
+    if (!model_title || !title || !expected || expected > WENA_VERSION_MUTATE_MAX ||
         !request || request >= (unsigned long)LONG_MAX) return 0;
     for (length = 0; length < WENA_CARD_DETAILS_TITLE_CAPACITY && title[length];
          ++length) {}

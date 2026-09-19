@@ -1,6 +1,7 @@
 #ifndef WENA_BOARD_FILTER_H
 #define WENA_BOARD_FILTER_H
 #include "../../models/card.h"
+#include "../components/forms/input_limits.h"
 struct nk_context;
 #define WENA_BOARD_FILTER_CAPACITY 129
 /* Session-only literal title substring: ASCII case-insensitive, other UTF-8
@@ -8,7 +9,7 @@ struct nk_context;
 typedef struct WenaBoardFilterState {
     WenaId board_id;
     char query[WENA_BOARD_FILTER_CAPACITY];
-    char input[WENA_BOARD_FILTER_CAPACITY + 1];
+    char input[WENA_NATIVE_EDIT_CAPACITY(WENA_BOARD_FILTER_CAPACITY)];
     int length;
     int error;
 } WenaBoardFilterState;

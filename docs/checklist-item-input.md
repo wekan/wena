@@ -34,10 +34,13 @@ be called before mutation. In particular, an unsplit multiline title may parse
 successfully and subsequently be rejected by the native single-line model.
 The input, output and count memory ranges must not overlap.
 
-Multiple parsed titles do not imply atomic batch persistence. The initial
-native editor creates one item per guarded mutation; backend scope/version/
-idempotency checks remain mandatory. A future batch UI must first gain an
-explicit atomic batch adapter and tests.
+The native editor now offers an explicit multiline checkbox when adding an
+item. This uses the separate atomic batch action, with a tighter limit of eight
+items and 1,031 raw UTF-8 bytes. Each parsed item still has a 128-byte title
+limit. Blank lines disappear, duplicates remain, and appended items keep their
+original order. A failure rejects the whole batch. The initial single-item
+action remains available. See [atomic batch entry](checklist-batch.md) for the
+transaction, input and test contract.
 
 Checklist UI labels are derived from the same committed canonical language
 catalog as other controls: `checklists`, `checklist`, `add-checklist`,

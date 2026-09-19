@@ -11,7 +11,7 @@ typedef struct WenaCardCreateState {
     int visible;
     int error;
     int title_length;
-    char title_input[WENA_CARD_DETAILS_TITLE_CAPACITY + 1];
+    char title_input[WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY)];
     WenaId board_id;
     WenaId list_id;
     WenaId swimlane_id;

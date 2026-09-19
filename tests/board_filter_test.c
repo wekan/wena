@@ -32,6 +32,15 @@ static int filter_frame(struct nk_context *ctx,WenaBoardFilterState *state,int k
     if(nk_begin(ctx,"Filter test",nk_rect(0,0,640,180),NK_WINDOW_BORDER))changed=wena_board_filter_render(ctx,state);
     nk_end(ctx);nk_foreach(command,ctx){(void)command;}return changed;
 }
+static void filter_character(struct nk_context *ctx, WenaBoardFilterState *state,
+                             nk_rune rune)
+{
+    const struct nk_command *command;
+    nk_clear(ctx); nk_input_begin(ctx); nk_input_unicode(ctx, rune); nk_input_end(ctx);
+    assert(nk_begin(ctx, "Filter test", nk_rect(0, 0, 640, 180), NK_WINDOW_BORDER));
+    assert(!wena_board_filter_render(ctx, state)); nk_end(ctx);
+    nk_foreach(command, ctx) { (void)command; }
+}
 int main(void)
 {
     WenaBoardFilterState filter;
@@ -103,5 +112,25 @@ int main(void)
     for(i=0;i<129;++i) filter.input[i]='x';
     filter.length=129;
     filter_frame(&ctx,&filter,NK_KEY_ENTER,1,-1);assert(!strcmp(filter.query,"A")&&filter.error);
-    nk_free(&ctx);puts("board filter model, scope, rendering and real key tests passed");return 0;
+    nk_free(&ctx);assert(nk_init_default(&ctx,&font));
+    wena_board_filter_cancel(&filter);
+    filter_frame(&ctx,&filter,-1,0,-1);filter_frame(&ctx,&filter,-1,0,1);filter_frame(&ctx,&filter,-1,0,0);
+    filter_frame(&ctx,&filter,NK_KEY_TEXT_SELECT_ALL,1,-1);filter_frame(&ctx,&filter,NK_KEY_TEXT_SELECT_ALL,0,-1);
+    filter_frame(&ctx,&filter,NK_KEY_BACKSPACE,1,-1);filter_frame(&ctx,&filter,NK_KEY_BACKSPACE,0,-1);
+    assert(filter.length==0);
+    for(i=0;i<128;++i)filter_character(&ctx,&filter,'a');
+    filter_character(&ctx,&filter,(nk_rune)128512UL);assert(filter.length==132);
+    assert(!filter_frame(&ctx,&filter,NK_KEY_ENTER,1,-1));
+    assert(filter.error&&!strcmp(filter.query,"A"));
+    filter_frame(&ctx,&filter,NK_KEY_ENTER,0,-1);
+    filter_frame(&ctx,&filter,NK_KEY_TEXT_RESET_MODE,1,-1);
+    assert(!filter.error&&filter.length==1&&!strcmp(filter.input,"A"));
+    filter_frame(&ctx,&filter,NK_KEY_TEXT_RESET_MODE,0,-1);
+    filter_frame(&ctx,&filter,-1,0,1);filter_frame(&ctx,&filter,-1,0,0);
+    filter_frame(&ctx,&filter,NK_KEY_TEXT_SELECT_ALL,1,-1);filter_frame(&ctx,&filter,NK_KEY_TEXT_SELECT_ALL,0,-1);
+    filter_frame(&ctx,&filter,NK_KEY_BACKSPACE,1,-1);filter_frame(&ctx,&filter,NK_KEY_BACKSPACE,0,-1);
+    for(i=0;i<32;++i)filter_character(&ctx,&filter,(nk_rune)128512UL);
+    assert(filter.length==128);assert(filter_frame(&ctx,&filter,NK_KEY_ENTER,1,-1));
+    assert(!filter.error&&strlen(filter.query)==128);
+    nk_free(&ctx);puts("board filter model, scope, rendering, UTF-8 bounds and real key tests passed");return 0;
 }

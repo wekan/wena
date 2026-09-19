@@ -22,7 +22,7 @@ int main(void)
  wena_checklists_init(&s,load,save,NULL);assert(wena_checklists_open(&s,&c));
  frame(&s,&c,"Add Checklist",NULL);assert(s.action==WENA_CHECKLIST_CREATE);frame(&s,&c,"Cancel",NULL);assert(!s.action&&!writes);
  frame(&s,&c,"Add Checklist",NULL);frame(&s,&c,"Save","");assert(s.error&&!writes);
- memset(big,'x',sizeof(big));big[sizeof(big)-1]=0;frame(&s,&c,"Save",big);assert(s.length==129&&!writes);frame(&s,&c,"Save","Bad\n");assert(!writes);frame(&s,&c,"Save","Valid");assert(writes==1&&!s.action&&last.action==WENA_CHECKLIST_CREATE);
+ memset(big,'x',sizeof(big));big[sizeof(big)-1]=0;frame(&s,&c,"Save",big);assert(s.length==132&&!writes);frame(&s,&c,"Save","Bad\n");assert(!writes);frame(&s,&c,"Save","Valid");assert(writes==1&&!s.action&&last.action==WENA_CHECKLIST_CREATE);
  frame(&s,&c,"Rename",NULL);assert(s.action==WENA_CHECKLIST_RENAME);frame(&s,&c,"Save","Renamed");assert(!strcmp(s.snapshot->checklists[0].title,"Renamed")&&last.expected_checklist_version==3);
  frame(&s,&c,"Add an item to checklist",NULL);frame(&s,&c,"Save","  Item trim  ");assert(last.action==WENA_CHECKLIST_ADD_ITEM&&!strcmp(last_title,"Item trim"));
  frame(&s,&c,"Edit",NULL);assert(s.action==WENA_CHECKLIST_RENAME_ITEM);fail_save=1;frame(&s,&c,"Save","Retained");assert(s.error&&s.action&&!strcmp(s.input,"Retained"));fail_save=0;frame(&s,&c,"Cancel",NULL);

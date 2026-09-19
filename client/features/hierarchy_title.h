@@ -31,7 +31,7 @@ typedef struct WenaHierarchyTitleState {
     WenaHierarchyKind kind;
     WenaId board_id;
     WenaId target_id;
-    char title_input[WENA_CARD_DETAILS_TITLE_CAPACITY + 1];
+    char title_input[WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY)];
     unsigned long title_version;
     WenaHierarchyLoadTitle load_title;
     WenaHierarchySaveTitle save_title;

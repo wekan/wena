@@ -17,6 +17,38 @@
 
 ## Paused checkpoint (resume here)
 
+**Current continuation (2026-09-11).** Labels/card assignments, atomic checklist
+batch input, same-card checklist/item reordering, compact count presentation and
+schema-v6 board display settings are integrated locally. Continue from cross-card
+checklist movement and expanded minicard presentation; do not restart these
+completed slices.
+
+Focused validation covers schema-v6 upgrade/interruption/restore, board
+presentation's zero-SQL idle frames and failed-refresh recovery, real Nuklear
+settings/order panels, exact cached label/count badges, and an actual SDL desktop
+workflow for settings opt-in, Cancel, 0/0 count display and restart. Native title
+and description editors retain a complete over-limit four-byte UTF-8 scalar in
+their draft buffers while applying the stricter persisted-model bounds on Save;
+the focused regressions cover the resulting reject-without-write behavior. The
+broad normal gate has passed; the sanitizer gate remains the final current
+checkpoint evidence.
+
+Current decisions: group new label code under `client/features/labels/` and typed
+operations under `server/mutations/`; reuse the existing guarded transaction and
+request registry. One `models/color` table supplies both the legacy UI contract
+and labels, and `models/text` supplies strict UTF-8 ECMAScript trim to both label
+and checklist inputs. Label names may be empty, item colors follow the pinned
+25-color palette or exact `#RRGGBB`. All real label changes advance the board
+version, including card assignments, so captured deletion confirmations detect
+intervening assignments; this deliberately trades more board contention for a
+single reliable aggregate guard. Deletion removes assignments from archived
+cards too. Batch entry stays within the existing 4097-byte request envelope:
+at most eight 128-byte titles, atomically appended. Reordering guards the complete
+card collection and compacts positions atomically. Count presentation uses a
+bounded snapshot rather than render-frame SQL; a missing `board_settings` row
+means the canonical false default. Cross-card movement and expandable minicard
+contents remain open.
+
 The original title-edit checkpoint and the following Add card checkpoint have
 been completed locally from upstream `51f8ad1` and local checkpoint `04afa15`.
 Do not repeat migration hardening, native title/archive/create/move/restore card
@@ -27,22 +59,16 @@ implementations are present below.
 List/swimlane reordering, indexed card movement, descriptions, checklist
 create/edit/complete/delete, literal filtering and persisted collapse preferences
 are implemented and integrated; do not restart them. The current artifact embeds
-the verified schema-v4 chain and the measured checklist query index.
+the verified schema-v6 chain and the measured checklist query index.
 
-The next native feature slice is **board labels and card-label assignment**,
-turning the existing Labels sidebar intent into a complete stored feature. First
-read pinned WeKan label/card models and the shared color contract; define exact
-board ownership, empty/default/color semantics, title and collection bounds,
-optimistic versions and deletion behavior. Use an additive migration and the
-existing guarded transaction/snapshot adapters. Test selected-card scope,
-foreign-board labels, duplicate assignment, stale versions, replay, rollback,
-capacity, real Nuklear controls and reopen before marking it complete. Checklist
-reordering, cross-card movement, atomic batch entry and native minicard presentation
-remain additional open slices. Keep `build desktop`, real input and the full suite
-running while progressing through the component inventory.
+The next native feature slice is **cross-card checklist movement and fuller
+minicard presentation**. Labels, card-label assignment, atomic batch entry,
+same-card reordering and default-off compact counts are complete locally. Keep
+`build desktop`, real input and the full suite running while progressing through
+the component inventory.
 
 Current executable boundary: `build desktop` is a tested POSIX SDL2/SQLite
-application that creates/reopens a local Wena schema-v4 workspace and upgrades
+application that creates/reopens a local Wena schema-v6 workspace and upgrades
 older Wena schemas atomically. It supports card creation/title/description,
 movement/archive/restoration, hierarchy creation/renaming/reordering, checklist
 create/edit/complete/confirmed deletion, persisted collapse, literal filtering and
@@ -52,12 +78,13 @@ Remote REST, WeKan/FerretDB conversion, complete collections, full fonts/RTL and
 UI/platform parity remain open. Local actor selection trusts the OS user;
 it is not login or board-membership authorization. See `docs/native-desktop.md`.
 
-Latest validation (2026-09-07): **102 native suites passed, zero failed or
-skipped**, and all **60 ASan/UBSan groups passed**. Explicit host bootstrap build,
+Latest validation (2026-09-11): **123 native suites passed, zero failed or
+skipped**. The full ASan/UBSan rerun is pending after the current UTF-8 input,
+labels, presentation and schema-v6 integrations. Explicit host bootstrap build,
 real SDL workflows and verified Linux desktop packaging passed. LeakSanitizer is
-disabled on this host. Results and captured logs are in `docs/work-session-03.md`;
-earlier reports remain historical. Do not interpret host SDL/SQLite or JavaScript
-VM coverage as cross-platform GUI release validation or real-browser E2E.
+disabled on this host. Earlier reports remain historical. Do not interpret host
+SDL/SQLite or JavaScript VM coverage as cross-platform GUI release validation or
+real-browser E2E.
 No GitHub write, push, PR, release or tag was performed.
 
 ## Coordinated continuation after `0a61868`
@@ -69,18 +96,33 @@ only after its implementation, targeted regressions and integration support it.
 
 | Stream | Current slice | State |
 | --- | --- | --- |
-| Native UI | Description/checklist editors, flags and confirmed deletion | Integrated; fake, real Nuklear and SQLite gates passed |
-| Persistence | Checklist mutations and shared complete snapshot | Integrated; scope/version/replay/no-op/rollback/reopen gates passed |
-| Shared models/review | Models, literal filter and component inventory | Integrated; further narrow-viewport work remains open |
-| i18n/dependencies/preferences | Trusted font, canonical parser/messages, collapse settings | Integrated; 19,188 translations and actual SDL preference flows verified |
-| Build/tests | Host build, Linux desktop package and real SDL integration | 102-suite/60-sanitizer final gate passed |
-| Storage evolution | Immutable schema-v1–v4 and selected-card query index | Integrated; upgrades/restore/query-work regressions passed |
+| Native UI | Labels, board setting and compact badges | Integrated; actual SDL opt-in/Cancel/0/0/restart flow passes |
+| Persistence | Assignments, board setting and cached presentation | Integrated; idle SQL, rollback, retry and torn-read gates pass |
+| Shared models/review | Trim, colors, versions and owned clipboard handling | Focused C89/UTF-8/selection regressions pass |
+| Checklist workflows | Batch input, same-card ordering and summaries | Integrated; cross-card movement/expanded minicard contents remain open |
+| Build/tests | Native, SDL and sanitizer regression catalogue | Focused gates pass; broad rerun is the current verification step |
+| Storage evolution | Immutable schema-v1–v6 | V6 settings upgrade/restore/interruption/concurrency gates pass |
 
-Each stream received subsequent tasks after completed slices. The broad checkpoint
-uses verified SQLite 3.51.3. The Labels slice above is the next open implementation
-assignment; no broad WeKan/platform goal is inferred complete from these gates.
+Each stream receives the next bounded task after completing a slice. Tests use
+verified SQLite 3.51.3 for native C work. The baseline results above remain
+historical until all current integrations are rerun; no broad WeKan/platform goal
+is inferred complete from focused gates.
 
 Architecture decisions for this cycle:
+
+- Keep future board display settings in one additive `board_settings` extension
+  table, with the existing board version as its optimistic boundary. A missing
+  row means the canonical false default. This follows the description extension
+  pattern, preserves immutable original table definitions and reuses the audited
+  CREATE-only migration registry instead of adding an ALTER execution path.
+- Render labels from a complete bounded bitset snapshot, never per-frame SQL.
+  Invalidate cached presentation after commit; a reload failure exposes an
+  explicit read-only Refresh and must not replay a successful mutation.
+- Keep the pinned Nuklear source unchanged and install an owned SDL clipboard
+  paste callback. It validates the complete UTF-8 payload, filter, selection
+  and byte capacity before the length-delimited editor call, because the pinned
+  generic paste path treats byte length as a rune count. Rejected pastes leave
+  both draft and selection unchanged.
 
 - Reuse the existing model module for strict ID/title validation. Keep its
   permissive string-copy API and different multiline-region/path contracts
@@ -619,10 +661,39 @@ Architecture decisions for this cycle:
         Cancel/Escape write nothing and Enter never confirms. Test stale scope,
         replay, late rollback, ignored-child survivor rejection, preserved position
         gaps, reopen and post-commit refresh failure without a second deletion.
-      - [_] Finish native minicard checklist presentation, reordering,
-        cross-card movement and atomic batch item creation. Stored
-        minicard inherit/false/true semantics and the canonical bounded item-entry
-        parser are tested prerequisites; these complete UI/mutation slices are open.
+      - [x] Add atomic checklist batch entry in the existing native item editor.
+        The canonical newline checkbox switches to multiline text; one guarded
+        request appends up to eight trimmed, nonempty 128-byte titles in order.
+        Keep the existing 4097-byte request limit, preserve all-or-nothing writes,
+        advance card/checklist versions once, and test capacity, scope, stale
+        revisions, replay, late rollback, reopen and actual Nuklear input.
+      - [x] Add same-card checklist and item reordering through a bounded native
+        Move selector and guarded SQLite transaction. Validate the whole card
+        collection before collision-safe position compaction, advance only moved
+        rows plus the appropriate parent/card revisions, and cover stale sibling,
+        scope, replay, rollback, max-position and real Nuklear cancellation.
+      - [x] Add compact native checklist count badges behind a persisted board
+        opt-in. Schema-v6 keeps the original board table immutable using a
+        default-false extension row; a complete bounded summary is loaded only
+        after writes or explicit refresh, never during drawing. Empty lists show
+        0/0 and their badge opens the exact card checklist panel.
+      - [_] Finish expanded native minicard checklist presentation and cross-card
+        checklist/item movement. Stored inherit/false/true semantics and compact
+        default-off counts are implemented; draggable/expanded contents are not.
+      - [x] Add board-scoped schema-v5 labels and card assignments through the
+        existing transaction boundary. Preserve v1-v4 bytes and exact canonical
+        empty-name/default-color/hex semantics; validate full bounded catalogs.
+        Native board/card panels support create/edit/assign/unassign/confirmed
+        delete, including removal from archived cards. Scope, stale versions,
+        duplicate/no-op, replay, late rollback, reopen and real SDL input passed.
+      - [x] Complete cached label badges in the board view. Full 2048-card,
+        128-label bitsets and pure scoped rendering pass focused tests; desktop
+        card-label workflows, restart, cancellation and package integration pass.
+        Clicking an assigned badge opens the same exact-card labels panel.
+      - [x] Centralize item/board color contracts and strict ECMAScript UTF-8 trim
+        in model modules. Reuse existing parser semantics and select black/white
+        label text from sRGB luminance without a new runtime dependency; canonical
+        parity and independent contrast/UTF-8 regression suites pass.
       - [x] Persist scoped collapse preferences with validated atomic files and
         explicit failed-save recovery. Test input/path/scope/capacity failures,
         write rollback, pruning, actual SDL restart/actor isolation and smoke

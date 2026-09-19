@@ -91,7 +91,7 @@ int main(void)
  character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Hide all checklist items");click(&ctx,&state,&card,"Cancel");assert(state.snapshot->checklists[0].hide_all_items&&writes==2);character(&ctx,&state,&card,0);
  click(&ctx,&state,&card,"Rename");character(&ctx,&state,&card,0);click_at(&ctx,&state,&card,nk_vec2(350,55));
  for(i=0;i<140;++i)character(&ctx,&state,&card,'x');
- assert(state.length==129);click(&ctx,&state,&card,"Save");assert(state.error&&writes==2);
+ assert(state.length==132);click(&ctx,&state,&card,"Save");assert(state.error&&writes==2);
  click(&ctx,&state,&card,"Cancel");assert(!state.action);key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,1);assert(!state.visible&&!state.snapshot&&writes==2);
  key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,0);wena_checklists_init(&state,load,NULL,NULL);assert(wena_checklists_open(&state,&card));character(&ctx,&state,&card,0);assert(label_center(&ctx,"A").x>0);key(&ctx,&state,&card,NK_KEY_ENTER,1);assert(state.visible&&writes==2);key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,1);assert(!state.visible&&writes==2);
  key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,0);

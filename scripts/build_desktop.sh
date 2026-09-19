@@ -18,10 +18,14 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/imports/preferences/collapse.c" \
   "$root_dir/client/platform/font.c" \
   "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
-  "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" \
+  "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
+  "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" \
+  "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
   "$root_dir/client/features/board.c" "$root_dir/client/features/card_details.c" \
   "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklist_store.c" \
-  "$root_dir/client/features/checklist_mutation.c" \
+  "$root_dir/client/features/checklist_mutation.c" "$root_dir/client/features/checklists/summary.c" "$root_dir/client/features/checklists/badges.c" \
+  "$root_dir/client/features/labels/panel.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/features/labels/badges.c" \
+  "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" \
   "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/client/features/card_archives.c" \
   "$root_dir/client/features/card_description.c" "$root_dir/client/features/card_description_mutation.c" \
@@ -42,7 +46,11 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/imports/i18n/language.c" \
   "$root_dir/server/sqlite_board.c" "$root_dir/server/sqlite_storage.c" \
   "$root_dir/server/sqlite_workspace.c" \
-  "$root_dir/server/sqlite_persistence.c" "$root_dir/server/region_response.c" \
+  "$root_dir/server/sqlite_persistence.c" \
+  "$root_dir/server/mutations/checklist_order.c" \
+  "$root_dir/server/mutations/board_settings.c" \
+  "$root_dir/server/mutations/checklist_batch.c" \
+  "$root_dir/server/mutations/labels.c" "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/server/region_response.c" \
   "$root_dir/server/embedded_migration.c" "$root_dir/server/executable_path.c" \
   "$root_dir/server/sha256.c" -o "$1" $(sdl2-config --libs) -lsqlite3 -lm
 python3 "$root_dir/scripts/embed_migrations.py" --executable "$1"

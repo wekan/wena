@@ -82,9 +82,10 @@ static void begin_edit(WenaChecklistsState *state, WenaChecklistAction action, s
         strcpy(state->checklist_id, state->snapshot->checklists[list_index].id);
         state->checklist_version = state->snapshot->checklist_versions[list_index];
     }
-    if (action == WENA_CHECKLIST_RENAME) strcpy(state->input,
+    if (action == WENA_CHECKLIST_RENAME || action == WENA_CHECKLIST_REORDER) strcpy(state->input,
         state->snapshot->checklists[list_index].title);
-    if (action == WENA_CHECKLIST_RENAME_ITEM || action == WENA_CHECKLIST_SET_FINISHED) {
+    if (action == WENA_CHECKLIST_RENAME_ITEM || action == WENA_CHECKLIST_SET_FINISHED ||
+        action == WENA_CHECKLIST_REORDER_ITEM) {
         strcpy(state->item_id, state->snapshot->items[item_index].id);
         state->item_version = state->snapshot->item_versions[item_index];
         strcpy(state->input, state->snapshot->items[item_index].title);
@@ -97,6 +98,47 @@ static void begin_edit(WenaChecklistsState *state, WenaChecklistAction action, s
             state->snapshot->checklists[list_index].show_on_minicard;
     }
     state->length = (int)strlen(state->input);
+}
+
+static int is_ordering(WenaChecklistAction action)
+{
+    return action == WENA_CHECKLIST_REORDER || action == WENA_CHECKLIST_REORDER_ITEM;
+}
+
+static void begin_order(WenaChecklistsState *state)
+{
+    size_t list, item, index;
+    int ordinal;
+    if (state->action != WENA_CHECKLIST_RENAME &&
+        state->action != WENA_CHECKLIST_RENAME_ITEM) return;
+    for (list = 0; list < state->snapshot->checklist_count; ++list)
+        if (!strcmp(state->snapshot->checklists[list].id, state->checklist_id)) break;
+    if (list == state->snapshot->checklist_count) { state->error = 1; return; }
+    if (state->action == WENA_CHECKLIST_RENAME) {
+        begin_edit(state, WENA_CHECKLIST_REORDER, list, 0);
+        state->order_position = (int)list;
+        state->order_count = (int)state->snapshot->checklist_count;
+    } else {
+        for (item = 0; item < state->snapshot->item_count; ++item)
+            if (!strcmp(state->snapshot->items[item].id, state->item_id)) break;
+        if (item == state->snapshot->item_count) { state->error = 1; return; }
+        begin_edit(state, WENA_CHECKLIST_REORDER_ITEM, list, item);
+        ordinal = 0;
+        for (index = 0; index < state->snapshot->item_count; ++index) {
+            if (strcmp(state->snapshot->items[index].checklist_id, state->checklist_id)) continue;
+            if (index == item) state->order_position = ordinal;
+            ++ordinal;
+        }
+        state->order_count = ordinal;
+    }
+}
+
+static void order_label(void *context, int index, const char **label)
+{
+    char *buffer;
+    buffer = (char *)context;
+    sprintf(buffer, "%d", index + 1);
+    *label = buffer;
 }
 
 static int is_deletion(WenaChecklistAction action)
@@ -133,8 +175,13 @@ static void confirm_deletion(WenaChecklistsState *state)
 static void submit_edit(WenaChecklistsState *state)
 {
     WenaChecklistEdit mutation;
-    char parsed[1][WENA_CHECKLIST_TITLE_CAPACITY];
+    char parsed[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
     size_t count;
+    if (is_ordering(state->action) && (state->order_position < 0 ||
+        state->order_position >= state->order_count)) {
+        state->error = 1;
+        return;
+    }
     if (state->action == WENA_CHECKLIST_SET_FLAGS && ((state->hide_checked_items != 0 &&
         state->hide_checked_items != 1) || (state->hide_all_items != 0 && state->hide_all_items
         != 1))) {
@@ -142,7 +189,16 @@ static void submit_edit(WenaChecklistsState *state)
         return;
     }
     /* Title forms retain their draft after validation or persistence failures. */
-    if (!is_deletion(state->action) && state->action != WENA_CHECKLIST_SET_FINISHED &&
+    if (state->action == WENA_CHECKLIST_ADD_ITEMS) {
+        if (state->length < 0 ||
+            !wena_checklist_item_batch_parse(state->input, (size_t)state->length,
+                parsed, &count)) {
+            state->error = 1;
+            return;
+        }
+    }
+    else if (!is_deletion(state->action) && !is_ordering(state->action) &&
+        state->action != WENA_CHECKLIST_SET_FINISHED &&
         state->action != WENA_CHECKLIST_SET_FLAGS) {
         if (state->length < 0 || !wena_model_title_valid(state->input, (size_t) state->length,
             WENA_CHECKLIST_TITLE_CAPACITY)) {
@@ -168,7 +224,13 @@ static void submit_edit(WenaChecklistsState *state)
     mutation.expected_item_version = state->item_version;
     /* The adapter consumes these borrowed pointers during this call only. */
     mutation.title = (state->action == WENA_CHECKLIST_SET_FINISHED || state->action ==
-        WENA_CHECKLIST_SET_FLAGS || is_deletion(state->action)) ? NULL : parsed[0];
+        WENA_CHECKLIST_SET_FLAGS || state->action == WENA_CHECKLIST_ADD_ITEMS ||
+        is_deletion(state->action) || is_ordering(state->action)) ? NULL : parsed[0];
+    if (is_ordering(state->action)) mutation.target_position = (unsigned long)state->order_position;
+    if (state->action == WENA_CHECKLIST_ADD_ITEMS) {
+        mutation.batch_text = state->input;
+        mutation.batch_length = (size_t)state->length;
+    }
     mutation.is_finished = state->is_finished;
     mutation.hide_checked_items = state->hide_checked_items;
     mutation.hide_all_items = state->hide_all_items;
@@ -209,11 +271,12 @@ static int progress_for(const WenaChecklistSnapshot *snapshot, size_t index,
 int wena_checklists_render(struct nk_context *context, WenaChecklistsState *state,
     const WenaCard *cards, size_t card_count, float width, float height)
 {
-    size_t list_index, item_index, selected;
+    size_t list_index, item_index, selected, batch_count;
     WenaChecklistProgress counts;
-    int cancel, submit, checked;
+    int cancel, submit, checked, split;
     unsigned int keys;
     char progress[64];
+    char batch_titles[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
     if (!state || !state->visible) return 0;
     /* Selection is exact and unique. A removed, archived, or ambiguous card
      * closes the panel before any pending draft can reach the adapter. */
@@ -268,6 +331,13 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                             nk_label_wrap(context, state->snapshot->items[item_index].title);
                 }
             }
+            else if (is_ordering(state->action)) {
+                nk_label_wrap(context, state->input);
+                nk_label(context, wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER), NK_TEXT_LEFT);
+                state->order_position = nk_combo_callback(context, order_label, progress,
+                    state->order_position, state->order_count, 24, nk_vec2(180, 220));
+                /* Enter does not confirm movement, including an open selector. */
+            }
             else if (state->action == WENA_CHECKLIST_SET_FLAGS) {
                 nk_checkbox_label(context, wena_ui_text(WENA_UI_TEXT_HIDE_CHECKED_ITEMS),
                     &state->hide_checked_items);
@@ -281,9 +351,39 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
             }
             else {
                 nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLIST), NK_TEXT_LEFT);
-                keys = nk_edit_string(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER, state->input,
-                    &state->length, (int)sizeof(state->input), nk_filter_default);
-                submit = (wena_title_input_keys(context, keys) & WENA_TITLE_INPUT_COMMIT) != 0u;
+                if (state->action == WENA_CHECKLIST_ADD_ITEM ||
+                    state->action == WENA_CHECKLIST_ADD_ITEMS) {
+                    split = state->action == WENA_CHECKLIST_ADD_ITEMS;
+                    if (nk_checkbox_label(context,
+                        wena_ui_text(WENA_UI_TEXT_CHECKLIST_SPLIT_LINES), &split)) {
+                        /* Switching modes never discards or truncates a draft. */
+                        if (!split && (state->length < 0 ||
+                            state->length >= WENA_CHECKLIST_TITLE_CAPACITY ||
+                            memchr(state->input, '\n', (size_t)state->length) ||
+                            memchr(state->input, '\r', (size_t)state->length)))
+                            state->error = 1;
+                        else state->action = split ? WENA_CHECKLIST_ADD_ITEMS :
+                            WENA_CHECKLIST_ADD_ITEM;
+                    }
+                }
+                if (state->action == WENA_CHECKLIST_ADD_ITEMS) {
+                    batch_count = 0;
+                    if (state->length >= 0) (void)wena_checklist_item_batch_parse(
+                        state->input, (size_t)state->length, batch_titles, &batch_count);
+                    sprintf(progress, "%lu / %lu", (unsigned long)batch_count,
+                        (unsigned long)WENA_CHECKLIST_BATCH_MAX_ITEMS);
+                    nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLIST_WITH_ITEMS), NK_TEXT_LEFT);
+                    nk_label(context, progress, NK_TEXT_LEFT);
+                    nk_layout_row_dynamic(context, 120, 1);
+                    (void)nk_edit_string(context, NK_EDIT_BOX, state->input,
+                        &state->length, (int)sizeof(state->input), nk_filter_default);
+                    /* Enter creates a line; only the explicit Save submits. */
+                } else {
+                    keys = nk_edit_string(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
+                        state->input, &state->length,
+                        WENA_NATIVE_EDIT_CAPACITY(WENA_CHECKLIST_TITLE_CAPACITY), nk_filter_default);
+                    submit = (wena_title_input_keys(context, keys) & WENA_TITLE_INPUT_COMMIT) != 0u;
+                }
             }
             nk_layout_row_dynamic(context, 28, 2);
             /* Enter never confirms deletion: only an explicit button click does. */
@@ -301,6 +401,10 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                     state->action == WENA_CHECKLIST_RENAME ? WENA_UI_OPEN_DELETE_CHECKLIST :
                     WENA_UI_OPEN_DELETE_CHECKLIST_ITEM))) {
                     confirm_deletion(state);
+                    submit = 0;
+                }
+                if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_MOVE_SELECTION))) {
+                    begin_order(state);
                     submit = 0;
                 }
             }

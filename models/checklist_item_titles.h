@@ -2,6 +2,9 @@
 #define WENA_CHECKLIST_ITEM_TITLES_H
 #include "checklist.h"
 #define WENA_CHECKLIST_ENTRY_MAX_BYTES 16384u
+#define WENA_CHECKLIST_BATCH_MAX_ITEMS 8u
+#define WENA_CHECKLIST_BATCH_MAX_BYTES \
+    (WENA_CHECKLIST_BATCH_MAX_ITEMS * WENA_CHECKLIST_TITLE_CAPACITY - 1u)
 /* Canonical parseChecklistItemTitles semantics on bounded strict UTF-8.
  * Trim ECMAScript whitespace, drop blank candidates, split only at LF when
  * requested, reverse only in split mode. NULL text with length zero is blank.
@@ -14,4 +17,10 @@
 int wena_checklist_item_titles_parse(const char *text, size_t length,
     int split_newlines, int reverse,
     char (*titles)[WENA_CHECKLIST_TITLE_CAPACITY], size_t capacity, size_t *count);
+/* Atomic native append input: LF split, canonical trim/blank removal, insertion
+ * order and duplicates preserved. Reject the complete batch on any invalid
+ * title, control byte, empty result or bound violation; never truncate. */
+int wena_checklist_item_batch_parse(const char *text, size_t length,
+    char titles[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY],
+    size_t *count);
 #endif

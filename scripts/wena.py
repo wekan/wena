@@ -163,15 +163,33 @@ def tools_menu():
 TEST_SUITES = (
     ('desktop-package', 'test_desktop_package.py', 'Linux amd64 desktop package extraction, integrity and deterministic metadata'),
     ('desktop', 'test_desktop.sh', 'Local SDL2/SQLite workspace creation, startup and event regressions'),
+    ('label-badges', 'test_label_badges.sh', 'Pure cached label badge rendering, scope validation and click routing'),
+    ('labels-sqlite', 'test_labels_sqlite.sh', 'Label UI and SQLite persistence callbacks, stale revisions and transaction rollback'),
+    ('labels-mutation', 'test_labels_mutation.sh', 'Scoped board labels and card assignments with guarded SQLite rollback and replay'),
+    ('nuklear-labels', 'test_nuklear_labels.sh', 'Real Nuklear label input, palette colors, contrast and explicit cancellation'),
+    ('labels', 'test_labels.sh', 'Bounded board label editor, card assignment controls and draft lifecycle'),
+    ('nuklear-checklist-batch', 'test_nuklear_checklist_batch.sh', 'Real Nuklear multiline batch mode, explicit save and retained failure drafts'),
+    ('checklist-batch', 'test_checklist_batch.sh', 'Atomic bounded multiline checklist item creation and rollback'),
+    ('checklist-badges', 'test_checklist_badges.sh', 'Pure opt-in checklist count badges with empty progress, scope and click routing'),
+    ('nuklear-checklist-order', 'test_nuklear_checklist_order.sh', 'Real Nuklear checklist and item ordering forms, bounds and cancellation'),
+    ('checklist-order', 'test_checklist_order.sh', 'Guarded checklist and child ordering with atomic compaction and stale sibling refusal'),
+    ('checklist-summary', 'test_checklist_summary.sh', 'Bounded board checklist summary projection with exact visibility and terminal revision guards'),
     ('checklist-item-titles', 'test_checklist_item_titles.sh', 'Bounded canonical multiline checklist title parsing'),
     ('checklist-delete', 'test_checklist_delete.sh', 'Guarded confirmed checklist deletion, rollback and concurrent child changes'),
     ('checklist-mutation', 'test_checklist_mutation.sh', 'Guarded native checklist SQLite persistence and rollback'),
+    ('nuklear-board-settings', 'test_nuklear_board_settings.sh', 'Real Nuklear board count checkbox, explicit save and readonly controls'),
+    ('board-settings-panel-sqlite', 'test_board_settings_panel_sqlite.sh', 'Board setting UI persistence, stale revisions, rollback and reopen'),
+    ('board-presentation', 'test_board_presentation.sh', 'Committed board view cache refresh, quiet-frame SQL bounds and explicit retry'),
+    ('board-settings', 'test_board_settings.sh', 'Guarded explicit board checklist-count persistence, noop, terminal revisions and rollback'),
+    ('board-settings-panel', 'test_board_settings_panel.sh', 'Native board checklist-count setting draft, explicit save and readonly lifecycle'),
     ('board-filter', 'test_board_filter.sh', 'Real Nuklear local card filter scope, validation and visibility'),
     ('checklists', 'test_checklists.sh', 'Native checklist draft editing and bounded callbacks'),
     ('nuklear-checklists', 'test_nuklear_checklists.sh', 'Real Nuklear checklist input and controls'),
     ('checklists-sqlite', 'test_checklists_sqlite.sh', 'Native checklist UI and SQLite guarded integration'),
     ('collapse-preferences', 'test_collapse_preferences.sh', 'Scoped atomic native collapse preferences and failed writes'),
     ('checklist-models', 'test_checklist_models.sh', 'Pure checklist and item scope, defaults and validation models'),
+    ('colors', 'test_colors.sh', 'Canonical palette, strict custom colors and independently checked readable contrast'),
+    ('model-text', 'test_model_text.sh', 'Shared ECMAScript trim and bounded label-name normalization'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),
@@ -193,7 +211,10 @@ TEST_SUITES = (
     ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
     ('sqlite-schema-v2', 'test_sqlite_schema_v2.sh', 'Atomic description schema and staged backup upgrade'),
     ('sqlite-schema-v3', 'test_sqlite_schema_v3.sh', 'Scoped checklist schema and atomic legacy upgrade'),
+    ('sqlite-schema-v6', 'test_sqlite_schema_v6.sh', 'Default-off board checklist settings schema, atomic upgrades and staged restore'),
+    ('sqlite-schema-v5', 'test_sqlite_schema_v5.sh', 'Scoped label catalog and assignment schema with atomic legacy upgrade'),
     ('sqlite-schema-v4', 'test_sqlite_schema_v4.sh', 'Bounded selected-card item queries and indexed schema upgrade'),
+    ('version-boundaries', 'test_version_boundaries.sh', 'Shared terminal revision limits across native mutation families and reopen'),
     ('sqlite-form-validation', 'test_sqlite_form_validation.sh', 'Strict SQLite mutation input parsing and numeric limits'),
     ('hierarchy-move-sqlite', 'test_hierarchy_move_sqlite.sh', 'Hierarchy reorder UI and SQLite rollback, cache and reopen'),
     ('hierarchy-move-mutation', 'test_hierarchy_move_mutation.sh', 'Guarded hierarchy reorder adapter scope, version and replay'),
@@ -287,7 +308,7 @@ def test_prerequisite(name):
         return "requires readelf (binutils) for actual ELF runtime requirements"
     if name in {"nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
-    if name in {"desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+    if name in {"desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
         source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))

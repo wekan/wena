@@ -69,6 +69,34 @@ static void click(struct nk_context *ctx, WenaCardDescriptionState *state,
     click_at(ctx, state, card, label_center(ctx, label));
 }
 
+static void supplementary_bounds(WenaCard *card, struct nk_user_font *font)
+{
+    struct nk_context ctx;
+    WenaCardDescriptionState state;
+    int i, before;
+    before = writes; stored[0] = 0; other_window = 0;
+    assert(nk_init_default(&ctx, font));
+    wena_card_description_init(&state, load, save, NULL);
+    assert(wena_card_description_open(&state, card)); render(&ctx, &state, card);
+    click_at(&ctx, &state, card, nk_vec2(350, 70));
+    for (i = 0; i < 1024; ++i) character(&ctx, &state, card, 'a');
+    assert(state.length == 1024);
+    character(&ctx, &state, card, (nk_rune)128512UL);
+    assert(state.length == 1028);
+    click(&ctx, &state, card, "Save");
+    assert(state.visible && state.error && writes == before && !stored[0]);
+    click(&ctx, &state, card, "Cancel");
+    assert(!state.visible && writes == before && !stored[0]);
+    nk_free(&ctx); assert(nk_init_default(&ctx, font));
+    assert(wena_card_description_open(&state, card)); render(&ctx, &state, card);
+    click_at(&ctx, &state, card, nk_vec2(350, 70));
+    for (i = 0; i < 256; ++i) character(&ctx, &state, card, (nk_rune)128512UL);
+    assert(state.length == 1024);
+    click(&ctx, &state, card, "Save");
+    assert(!state.visible && writes == before + 1 && strlen(stored) == 1024);
+    nk_free(&ctx);
+}
+
 int main(void)
 {
     struct nk_context ctx;struct nk_user_font font;WenaCardDescriptionState state;WenaCard card;int i;
@@ -94,7 +122,7 @@ int main(void)
     nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&card);
     click_at(&ctx,&state,&card,nk_vec2(350,70));
     for(i=0;i<1100;++i) character(&ctx,&state,&card,'x');
-    assert(state.length==WENA_DESCRIPTION_CAPACITY);click(&ctx,&state,&card,"Save");
+    assert(state.length==(int)sizeof(state.input)-1);click(&ctx,&state,&card,"Save");
     assert(state.visible&&state.error&&writes==1);
     key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,1);assert(!state.visible&&writes==1);
     key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,0);
@@ -108,5 +136,6 @@ int main(void)
     nk_window_set_focus(&ctx,"Card description");
     nk_input_motion(&ctx,350,70);
     key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,1);assert(!state.visible&&writes==1);
-    nk_free(&ctx);puts("Real multiline description Enter, readonly, bounds and Escape passed");return 0;
+    nk_free(&ctx);supplementary_bounds(&card,&font);
+    puts("Real multiline description Enter, readonly, UTF-8 bounds and Escape passed");return 0;
 }

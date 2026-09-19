@@ -3,6 +3,7 @@
 
 #include "checklist_store.h"
 #include "card_details.h"
+#include "../../models/checklist_item_titles.h"
 
 /* Callbacks run synchronously. Load publishes a complete scoped snapshot; save
  * accepts one guarded intent. A NULL save callback opens a read-only panel. */
@@ -17,6 +18,8 @@ typedef struct WenaChecklistsState {
     /* A successful write followed by a failed reload disables further edits. */
     int needs_refresh;
     int length;
+    int order_position;
+    int order_count;
     WenaId board_id;
     WenaId card_id;
     WenaId checklist_id;
@@ -30,7 +33,9 @@ typedef struct WenaChecklistsState {
     int hide_all_items;
     /* Preserve stored override until native minicard presentation is supported. */
     WenaChecklistMinicard preserved_show_on_minicard;
-    char input[WENA_CHECKLIST_TITLE_CAPACITY + 1];
+    /* One full UTF-8 scalar beyond the limit detects overflow even when the
+     * next input character needs four bytes; the final byte is a terminator. */
+    char input[WENA_NATIVE_EDIT_CAPACITY(WENA_CHECKLIST_BATCH_MAX_BYTES + 1u)];
     WenaChecklistSnapshot *snapshot;
     WenaChecklistsLoad load;
     WenaChecklistsSave save;

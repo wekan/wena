@@ -2,6 +2,7 @@
 #define WENA_UI_PAGE_CONTRACT_H
 
 #include <stddef.h>
+#include "../../models/color.h"
 
 #define WENA_UI_BASELINE_CONTENT_TABLES 1u
 #define WENA_UI_NATURAL_TAB_ORDER 1u
@@ -41,7 +42,12 @@ typedef enum WenaUiControlId {
     WENA_UI_CHECKLIST_SETTINGS,
     WENA_UI_OPEN_DELETE_CHECKLIST,
     WENA_UI_OPEN_DELETE_CHECKLIST_ITEM,
-    WENA_UI_CONFIRM_DELETE
+    WENA_UI_CONFIRM_DELETE,
+    WENA_UI_OPEN_LABELS,
+    WENA_UI_ADD_LABEL,
+    WENA_UI_EDIT_LABEL,
+    WENA_UI_OPEN_DELETE_LABEL,
+    WENA_UI_CREATE_LABEL
 } WenaUiControlId;
 
 typedef struct WenaUiControlContract {
@@ -59,10 +65,7 @@ typedef struct WenaUiPageContract {
     const char *heading_i18n_key;
 } WenaUiPageContract;
 
-typedef struct WenaUiColorContract {
-    const char *name;
-    const char *rgb;
-} WenaUiColorContract;
+typedef WenaColorContract WenaUiColorContract;
 
 typedef enum WenaUiTextId {
     WENA_UI_TEXT_ACTIVITIES,
@@ -105,7 +108,17 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_DELETE_CHECKLIST_ITEM,
     WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST,
     WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST_ITEM,
-    WENA_UI_TEXT_CHECKLIST_WITH_ITEMS
+    WENA_UI_TEXT_CHECKLIST_WITH_ITEMS,
+    WENA_UI_TEXT_NAME,
+    WENA_UI_TEXT_SELECT_COLOR,
+    WENA_UI_TEXT_CUSTOM_COLOR,
+    WENA_UI_TEXT_CREATE_LABEL,
+    WENA_UI_TEXT_EDIT_LABEL,
+    WENA_UI_TEXT_DELETE_LABEL,
+    WENA_UI_TEXT_CARDS,
+    WENA_UI_TEXT_CHECKLIST_SPLIT_LINES,
+    WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD,
+    WENA_UI_TEXT_MOVE_SELECTION
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

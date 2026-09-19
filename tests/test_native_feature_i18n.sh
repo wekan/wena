@@ -10,7 +10,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/features/card_move.c" "$root_dir/client/features/card_archives.c" \
   "$root_dir/client/features/hierarchy_title.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
-  "$root_dir/imports/ui/page_contract.c" "$root_dir/imports/i18n/ui_catalog.c" \
+  "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" "$root_dir/imports/i18n/ui_catalog.c" \
   "$root_dir/imports/i18n/locale.c" "$root_dir/models/model.c" \
   "$root_dir/models/board.c" "$root_dir/models/swimlane.c" \
   "$root_dir/models/list.c" "$root_dir/models/card.c" \

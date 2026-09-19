@@ -50,7 +50,17 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_DELETE_CHECKLIST_ITEM, "checklistItemDeletePopup-title", "Delete Checklist Item?"},
     {WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST, "confirm-checklist-delete-popup", "Are you sure you want to delete the checklist?"},
     {WENA_UI_TEXT_CONFIRM_DELETE_CHECKLIST_ITEM, "confirm-checklist-item-delete-popup", "Are you sure you want to delete the checklist item?"},
-    {WENA_UI_TEXT_CHECKLIST_WITH_ITEMS, "r-with-items", "with items"}
+    {WENA_UI_TEXT_CHECKLIST_WITH_ITEMS, "r-with-items", "with items"},
+    {WENA_UI_TEXT_NAME, "name", "Name"},
+    {WENA_UI_TEXT_SELECT_COLOR, "select-color", "Select Color"},
+    {WENA_UI_TEXT_CUSTOM_COLOR, "custom-color", "Custom color"},
+    {WENA_UI_TEXT_CREATE_LABEL, "createLabelPopup-title", "Create Label"},
+    {WENA_UI_TEXT_EDIT_LABEL, "editLabelPopup-title", "Change Label"},
+    {WENA_UI_TEXT_DELETE_LABEL, "deleteLabelPopup-title", "Delete Label?"},
+    {WENA_UI_TEXT_CARDS, "cards", "Cards"},
+    {WENA_UI_TEXT_CHECKLIST_SPLIT_LINES, "newlineBecomesNewChecklistItem", "Each line of text becomes one of the checklist items"},
+    {WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD, "checklist-count-on-minicard", "Checklist item count (0/0) on minicard"},
+    {WENA_UI_TEXT_MOVE_SELECTION, "move-selection", "Move selection"}
 };
 
 void wena_ui_set_translator(WenaUiTranslator translator, void *context)
@@ -113,7 +123,12 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_CHECKLIST_SETTINGS, "checklistActionsPopup-title", "Checklist Actions", "[>]", "GET", "open-checklist-settings", 32u},
     {WENA_UI_OPEN_DELETE_CHECKLIST, "delete", "Delete", "[X]", "GET", "open-delete-checklist", 33u},
     {WENA_UI_OPEN_DELETE_CHECKLIST_ITEM, "delete", "Delete", "[X]", "GET", "open-delete-checklist-item", 34u},
-    {WENA_UI_CONFIRM_DELETE, "delete", "Delete", "[X]", "GET", "confirm-local-delete", 35u}
+    {WENA_UI_CONFIRM_DELETE, "delete", "Delete", "[X]", "GET", "confirm-local-delete", 35u},
+    {WENA_UI_OPEN_LABELS, "cardLabelsPopup-title", "Labels", "[>]", "GET", "open-card-labels", 36u},
+    {WENA_UI_ADD_LABEL, "label-create", "Create Label", "[+]", "GET", "open-create-label", 37u},
+    {WENA_UI_EDIT_LABEL, "editLabelPopup-title", "Change Label", "[E]", "GET", "open-edit-label", 38u},
+    {WENA_UI_OPEN_DELETE_LABEL, "delete", "Delete", "[X]", "GET", "open-delete-label", 39u},
+    {WENA_UI_CREATE_LABEL, "create", "Create", "[+]", "GET", "create-local-label", 40u}
 };
 
 static const WenaUiPageContract pages[] = {
@@ -127,34 +142,7 @@ static const WenaUiPageContract pages[] = {
     {"/b/:boardId/:slug", "board"}
 };
 
-static const WenaUiColorContract colors[] = {
-    {"belize", "#2980b9"}, {"nephritis", "#27ae60"},
-    {"pomegranate", "#c0392b"}, {"pumpkin", "#e67e22"},
-    {"wisteria", "#8e44ad"}, {"moderatepink", "#cd5a91"},
-    {"strongcyan", "#00aecc"}, {"limegreen", "#4bbf6b"},
-    {"midnight", "#2c3e50"}, {"dark", "#333333"},
-    {"relax", "#568ba2"}, {"corteza", "#568ba2"},
-    {"natural", "#6b8e23"}, {"modern", "#2980b9"},
-    {"moderndark", "#263238"}, {"exodark", "#1f2933"},
-    {"cleandark", "#263238"}, {"cleanlight", "#e8f3fa"},
-    {"clearblue", "#2980b9"}, {"cleargreen", "#27ae60"},
-    {"clearorange", "#e67e22"}, {"clearpink", "#cd5a91"},
-    {"clearpurple", "#8e44ad"}, {"clearred", "#c0392b"},
-    {"appleglasspastel", "#568ba2"},
-    {"white", "#ffffff"}, {"green", "#3cb500"},
-    {"yellow", "#fad900"}, {"orange", "#ff9f19"},
-    {"red", "#eb4646"}, {"purple", "#a632db"},
-    {"blue", "#0079bf"}, {"sky", "#00c2e0"},
-    {"lime", "#51e898"}, {"pink", "#ff78cb"},
-    {"black", "#4d4d4d"}, {"silver", "#c0c0c0"},
-    {"peachpuff", "#ffdab9"}, {"crimson", "#dc143c"},
-    {"plum", "#dda0dd"}, {"darkgreen", "#006400"},
-    {"slateblue", "#6a5acd"}, {"magenta", "#ff00ff"},
-    {"gold", "#ffd700"}, {"navy", "#000080"},
-    {"gray", "#808080"}, {"saddlebrown", "#8b4513"},
-    {"paleturquoise", "#afeeee"}, {"mistyrose", "#ffe4e1"},
-    {"indigo", "#4b0082"}
-};
+
 
 const WenaUiControlContract *wena_ui_control(WenaUiControlId id)
 {
@@ -185,8 +173,5 @@ const WenaUiPageContract *wena_ui_pages(size_t *count)
 
 const WenaUiColorContract *wena_ui_colors(size_t *count)
 {
-    if (count != NULL) {
-        *count = sizeof(colors) / sizeof(colors[0]);
-    }
-    return colors;
+    return wena_color_contracts(count);
 }

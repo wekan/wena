@@ -44,6 +44,11 @@ typedef struct WenaBoardLayout {
     /* Optional presentation predicate; arrays and mutation scopes stay intact. */
     int (*card_visible)(void *context, const WenaCard *card);
     void *card_visible_context;
+    /* Optional cached presentation, called only for a displayed active card.
+     * Callers must not query persistence while drawing each frame. */
+    unsigned int (*card_badges)(struct nk_context *context, void *user_data,
+                        const WenaCard *card);
+    void *card_badges_context;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {

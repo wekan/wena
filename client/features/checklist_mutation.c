@@ -1,4 +1,5 @@
 #include "checklist_mutation.h"
+#include "../../models/checklist_item_titles.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -116,7 +117,7 @@ int wena_checklist_mutation_load(void *context, const char *board_id, const char
         "EXISTS(SELECT 1 FROM actors WHERE id=?3)", board_id, card_id, &statement)) goto done;
     sqlite3_bind_text(statement, 3, adapter->actor_id, -1, SQLITE_TRANSIENT);
     if (sqlite3_step(statement) != SQLITE_ROW ||
-        !read_integer(statement, 0, (unsigned long) LONG_MAX - 1, &candidate->card_version) ||
+        !read_integer(statement, 0, WENA_VERSION_READ_MAX, &candidate->card_version) ||
         !candidate->card_version) goto done;
     sqlite3_finalize(statement);
     statement = NULL;
@@ -136,7 +137,7 @@ int wena_checklist_mutation_load(void *context, const char *board_id, const char
         id = read_text(statement, 0, 65);
         title = read_text(statement, 1, 129);
         if (!read_integer(statement, 2, WENA_CHECKLIST_POSITION_MAX, &position) ||
-            !read_integer(statement, 3, (unsigned long) LONG_MAX - 1, &version) ||
+            !read_integer(statement, 3, WENA_VERSION_READ_MAX, &version) ||
             !version ||
             !timestamps_valid(statement, 7, 8) ||
             !wena_checklist_init(checklist, id, board_id, card_id, title, position)) goto done;
@@ -169,7 +170,7 @@ int wena_checklist_mutation_load(void *context, const char *board_id, const char
         title = read_text(statement, 2, 129);
         if (!read_integer(statement, 3, WENA_CHECKLIST_POSITION_MAX, &position) ||
             !read_integer(statement, 4, 1, &flag) ||
-            !read_integer(statement, 5, (unsigned long) LONG_MAX - 1, &version) ||
+            !read_integer(statement, 5, WENA_VERSION_READ_MAX, &version) ||
             !version ||
             !timestamps_valid(statement, 6, 7) ||
             !wena_checklist_item_init(item, id, board_id, card_id, parent_id,
@@ -212,6 +213,15 @@ static const char *map_operation(WenaChecklistAction action, WenaDomainOperation
     case WENA_CHECKLIST_ADD_ITEM:
         *domain = WENA_DOMAIN_ADD_CHECKLIST_ITEM;
         return "add-checklist-item";
+    case WENA_CHECKLIST_ADD_ITEMS:
+        *domain = WENA_DOMAIN_ADD_CHECKLIST_ITEMS;
+        return "add-checklist-items";
+    case WENA_CHECKLIST_REORDER:
+        *domain = WENA_DOMAIN_REORDER_CHECKLIST;
+        return "reorder-checklist";
+    case WENA_CHECKLIST_REORDER_ITEM:
+        *domain = WENA_DOMAIN_REORDER_CHECKLIST_ITEM;
+        return "reorder-checklist-item";
     case WENA_CHECKLIST_RENAME_ITEM:
         *domain = WENA_DOMAIN_RENAME_CHECKLIST_ITEM;
         return "rename-checklist-item";
@@ -238,17 +248,19 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
 {
     WenaDomainCommand command;
     WenaRegionResponse response;
-    char encoded[385];
+    char encoded[WENA_CHECKLIST_BATCH_MAX_BYTES * 3u + 1u];
+    char batch[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
+    const char *input;
     const char *checklist, *item;
     const char hex[] = "0123456789ABCDEF";
-    size_t index, length;
+    size_t index, length, count;
     unsigned char byte;
     if (!scope_valid(adapter, board_id, card_id) ||
         !edit ||
         !request_version ||
         request_version >= (unsigned long) LONG_MAX ||
         !edit->expected_card_version ||
-        edit->expected_card_version >= (unsigned long) LONG_MAX) return 0;
+        edit->expected_card_version > WENA_VERSION_MUTATE_MAX) return 0;
     memset(&command, 0, sizeof(command));
     if (!map_operation(edit->action, &command.operation)) return 0;
     checklist = edit->checklist_id;
@@ -256,13 +268,38 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
     if (edit->action != WENA_CHECKLIST_CREATE &&
         (!wena_model_identifier_valid(checklist) ||
         !edit->expected_checklist_version ||
-        edit->expected_checklist_version >= (unsigned long) LONG_MAX)) return 0;
+        edit->expected_checklist_version > WENA_VERSION_MUTATE_MAX)) return 0;
     if ((edit->action == WENA_CHECKLIST_RENAME_ITEM ||
         edit->action == WENA_CHECKLIST_SET_FINISHED ||
+        edit->action == WENA_CHECKLIST_REORDER_ITEM ||
         edit->action == WENA_CHECKLIST_DELETE_ITEM) &&
         (!wena_model_identifier_valid(item) ||
         !edit->expected_item_version ||
-        edit->expected_item_version >= (unsigned long) LONG_MAX)) return 0;
+        edit->expected_item_version > WENA_VERSION_MUTATE_MAX)) return 0;
+    if (edit->action == WENA_CHECKLIST_REORDER ||
+        edit->action == WENA_CHECKLIST_REORDER_ITEM) {
+        if (edit->target_position >= (edit->action == WENA_CHECKLIST_REORDER ?
+            WENA_CARD_CHECKLIST_CAPACITY : WENA_CARD_CHECKLIST_ITEM_CAPACITY)) return 0;
+        command.request_version = request_version;
+        strcpy(command.user_id, adapter->actor_id); strcpy(command.route, adapter->route);
+        sprintf(command.form_body,
+            "cardId=%s&expectedVersion=%lu&checklistId=%s&expectedChecklistVersion=%lu&"
+            "itemId=%s&expectedItemVersion=%lu&targetPosition=%lu", card_id,
+            edit->expected_card_version, checklist, edit->expected_checklist_version,
+            edit->action == WENA_CHECKLIST_REORDER_ITEM ? item : "",
+            edit->expected_item_version, edit->target_position);
+        command.form_body_length = strlen(command.form_body);
+        return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
+    }
+    if (edit->action == WENA_CHECKLIST_ADD_ITEMS) {
+        if (!wena_checklist_item_batch_parse(edit->batch_text, edit->batch_length,
+            batch, &count)) return 0;
+        input = edit->batch_text;
+        length = edit->batch_length;
+    } else {
+        input = NULL;
+        length = 0;
+    }
     if (edit->action == WENA_CHECKLIST_DELETE ||
         edit->action == WENA_CHECKLIST_DELETE_ITEM) {
         encoded[0] = 0;
@@ -278,11 +315,14 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             edit->show_on_minicard != WENA_CHECKLIST_MINICARD_HIDE &&
             edit->show_on_minicard != WENA_CHECKLIST_MINICARD_SHOW)) return 0;
         encoded[0] = 0;
-    } else {
+    } else if (edit->action != WENA_CHECKLIST_ADD_ITEMS) {
         if (!wena_model_title_string_valid(edit->title, 129)) return 0;
+        input = edit->title;
         length = strlen(edit->title);
+    }
+    if (input) {
         for (index = 0; index < length; ++index) {
-            byte = (unsigned char) edit->title[index];
+            byte = (unsigned char) input[index];
             encoded[index * 3] = '%';
             encoded[index * 3 + 1] = hex[byte >> 4];
             encoded[index * 3 + 2] = hex[byte & 15];
@@ -292,6 +332,17 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
     command.request_version = request_version;
     strcpy(command.user_id, adapter->actor_id);
     strcpy(command.route, adapter->route);
+    if (edit->action == WENA_CHECKLIST_ADD_ITEMS) {
+        /* Worst case: 3093 encoded bytes + two 64-byte IDs, two 20-digit
+         * versions and fixed keys, safely below the unchanged 4097-byte body. */
+        sprintf(command.form_body,
+            "cardId=%s&expectedVersion=%lu&checklistId=%s&"
+            "expectedChecklistVersion=%lu&titles=%s", card_id,
+            edit->expected_card_version, checklist,
+            edit->expected_checklist_version, encoded);
+        command.form_body_length = strlen(command.form_body);
+        return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
+    }
     sprintf(command.form_body,
         "cardId=%s&expectedVersion=%lu&checklistId=%s&expectedChecklistVersion=%lu&"
         "itemId=%s&expectedItemVersion=%lu&title=%s&isFinished=%d", card_id,

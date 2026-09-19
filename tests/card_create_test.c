@@ -68,7 +68,11 @@ int main(void)
     assert(state.error && state.visible && store.calls == 0);
     memset(oversized, 'x', sizeof(oversized)); oversized[sizeof(oversized)-1] = 0;
     frame(&state, &layout, "Save", oversized);
-    assert(state.title_length == 129 && store.calls == 0);
+    /* The edit buffer retains one complete over-limit UTF-8 scalar; saving
+     * still uses the tighter persisted-title bound. */
+    assert(state.error && state.title_length ==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY) - 1 &&
+        store.calls == 0);
     frame(&state, &layout, "Save", "Bad\nTitle");
     assert(state.error && store.calls == 0);
     frame(&state, &layout, "Save", "Bad\300\257");

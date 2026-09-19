@@ -138,12 +138,19 @@ static const char migration_v5[] =
 ");\n"
 "CREATE INDEX card_labels_label_cards_idx ON card_labels(board_id, label_id, card_id);\n"
 "CREATE INDEX card_labels_card_order_idx ON card_labels(card_id, label_id, board_id);\n";
+static const char migration_v6[] =
+"CREATE TABLE board_settings (\n"
+"  board_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  show_checklist_count INTEGER NOT NULL DEFAULT 0 CHECK (typeof(show_checklist_count) = 'integer' AND show_checklist_count IN (0, 1)),\n"
+"  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n"
+");\n";
 static const WenaCompiledMigration migrations[] = {
     {1, migration_v1, 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5", 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"},
     {2, migration_v2, 424u, "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83", 2673u, "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919"},
     {3, migration_v3, 2313u, "944b67e3548c07694a86f630fa3acd0d61bd298e8df5c648d9bb2d7da6fc886c", 4986u, "80a19517e0633f8f1445e136c6560c2e2f88b6349b0d2d99f1146433f9a9d704"},
     {4, migration_v4, 101u, "0d3dd3c932a4c710fdba04b3d7eda22efaa2693a411369d2cdc6368b8898606c", 5087u, "5f315dcf32ce637ebbc147d1cc2522e6ec214fa6a2c32f00b797fec9183c4427"},
     {5, migration_v5, 2315u, "ed5db1279fac66f43648bd6a309335cf272e7b4b868b6ea950252ab1e5304317", 7402u, "460dd2311693546f8624f168b2fb16bd4b5b18fd9b6922a2469759d840a47a81"},
+    {6, migration_v6, 391u, "d4d89950ca938a52ff238ef57b44ee6bc54996c7361a45a1d519183acb3c50ed", 7793u, "3d688bc7af1ec04eef142ac3e50522a0dd4acac1328b38067d19b05909fe3d3a"},
 };
 static const WenaSchemaObject schema_objects[] = {
     {2, "cards_board_id_unique", "index", "CREATE UNIQUE INDEX cards_board_id_unique ON cards(board_id, id)"},
@@ -155,6 +162,7 @@ static const WenaSchemaObject schema_objects[] = {
     {5, "card_labels", "table", "CREATE TABLE card_labels (\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0),\n  label_id TEXT NOT NULL CHECK (typeof(label_id) = 'text' AND length(CAST(label_id AS BLOB)) BETWEEN 1 AND 64 AND instr(label_id, char(0)) = 0),\n  PRIMARY KEY (board_id, card_id, label_id),\n  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT,\n  FOREIGN KEY (board_id, label_id) REFERENCES labels(board_id, id) ON DELETE RESTRICT\n)"},
     {5, "card_labels_label_cards_idx", "index", "CREATE INDEX card_labels_label_cards_idx ON card_labels(board_id, label_id, card_id)"},
     {5, "card_labels_card_order_idx", "index", "CREATE INDEX card_labels_card_order_idx ON card_labels(card_id, label_id, board_id)"},
+    {6, "board_settings", "table", "CREATE TABLE board_settings (\n  board_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  show_checklist_count INTEGER NOT NULL DEFAULT 0 CHECK (typeof(show_checklist_count) = 'integer' AND show_checklist_count IN (0, 1)),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n)"},
 };
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop

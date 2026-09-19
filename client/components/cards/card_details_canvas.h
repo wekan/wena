@@ -12,6 +12,7 @@ struct nk_context;
 #define WENA_CARD_DETAILS_MOVE 8u
 #define WENA_CARD_DETAILS_DESCRIPTION 16u
 #define WENA_CARD_DETAILS_CHECKLISTS 32u
+#define WENA_CARD_DETAILS_LABELS 64u
 
 unsigned int wena_card_details_canvas_render(struct nk_context *context,
                                              const WenaCard *card);

@@ -16,14 +16,14 @@ int wena_checklist_snapshot_valid(const WenaChecklistSnapshot *snapshot,
         strcmp(snapshot->board_id, board_id) != 0 ||
         strcmp(snapshot->card_id, card_id) != 0 ||
         snapshot->card_version == 0 ||
-        snapshot->card_version >= (unsigned long) LONG_MAX ||
+        snapshot->card_version > WENA_VERSION_READ_MAX ||
         snapshot->checklist_count > WENA_CARD_CHECKLIST_CAPACITY ||
         snapshot->item_count > WENA_CARD_CHECKLIST_ITEM_CAPACITY) return 0;
     for (index = 0; index < snapshot->checklist_count; ++index) {
         checklist = &snapshot->checklists[index];
         if (!wena_checklist_valid(checklist) ||
             snapshot->checklist_versions[index] == 0 ||
-            snapshot->checklist_versions[index] >= (unsigned long) LONG_MAX ||
+            snapshot->checklist_versions[index] > WENA_VERSION_READ_MAX ||
             strcmp(checklist->board_id, board_id) != 0 ||
             strcmp(checklist->card_id, card_id) != 0) return 0;
         if (index > 0 &&
@@ -39,7 +39,7 @@ int wena_checklist_snapshot_valid(const WenaChecklistSnapshot *snapshot,
         item = &snapshot->items[index];
         if (!wena_checklist_item_valid(item) ||
             snapshot->item_versions[index] == 0 ||
-            snapshot->item_versions[index] >= (unsigned long) LONG_MAX) return 0;
+            snapshot->item_versions[index] > WENA_VERSION_READ_MAX) return 0;
         parent = NULL;
         for (previous_index = 0; previous_index < snapshot->checklist_count;
              ++previous_index) {

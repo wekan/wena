@@ -30,6 +30,8 @@ unsigned int wena_card_details_canvas_render(struct nk_context *context,
     }
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_OPEN_CHECKLISTS)))
         action |= WENA_CARD_DETAILS_CHECKLISTS;
+    if (nk_button_label(context, wena_ui_control_text(WENA_UI_OPEN_LABELS)))
+        action |= WENA_CARD_DETAILS_LABELS;
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE))) {
         action |= WENA_CARD_DETAILS_CLOSE;
     }

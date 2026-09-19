@@ -81,7 +81,9 @@ static void test_title_editor(void)
     memset(too_long, 'x', sizeof(too_long));
     too_long[sizeof(too_long) - 1] = '\0';
     editor_frame(&state, &card, "Save", too_long);
-    assert(state.title_error && state.title_length == 129 && store.saves == 1);
+    assert(state.title_error && state.title_length ==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY) - 1 &&
+        store.saves == 1);
     editor_frame(&state, &card, "Save", "Bad\nTitle");
     assert(state.title_error && store.saves == 1);
     editor_frame(&state, &card, "Save", "Bad\177Title");

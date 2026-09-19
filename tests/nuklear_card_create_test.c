@@ -118,7 +118,8 @@ int main(void)
     click_at(&ctx,&state,&layout,nk_vec2(420,55));
     for(index=0;index<160;++index)
         character(&ctx,&state,&layout,(nk_rune)'a');
-    assert(state.title_length==WENA_CARD_DETAILS_TITLE_CAPACITY);
+    assert(state.title_length ==
+        WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY) - 1);
     click(&ctx,&state,&layout,"Save");
     assert(state.visible && state.error && writes==1);
     click(&ctx,&state,&layout,"Cancel");

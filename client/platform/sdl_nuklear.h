@@ -18,4 +18,14 @@
  * Desktop builds set NK_INPUT_MAX=256 consistently in every translation unit. */
 int wena_sdl_handle_event(struct nk_context *context, SDL_Event *event);
 
+/* Install after nk_sdl_init. Keeps the pinned copy callback and replaces paste
+ * with strict UTF-8, selection and fixed-capacity preflight. Invalid/oversized
+ * paste preserves the complete draft, selection and undo state. Multiline
+ * editors accept LF/CR/TAB; single-line editors reject those controls. */
+void wena_sdl_install_clipboard(struct nk_context *context);
+/* Same byte-length preflight used by the SDL callback; input must not alias the
+ * editor buffer. Only fixed buffers used by native nk_edit_string are supported.
+ * Empty input succeeds without deleting selection. No persisted mutation. */
+int wena_sdl_paste_text(struct nk_text_edit *edit, const char *text, size_t length);
+
 #endif

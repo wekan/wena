@@ -1,8 +1,8 @@
 #ifndef WENA_CHECKLIST_STORE_H
 #define WENA_CHECKLIST_STORE_H
 #include "../../models/checklist_item.h"
-#define WENA_CARD_CHECKLIST_CAPACITY 64u
-#define WENA_CARD_CHECKLIST_ITEM_CAPACITY 1024u
+#define WENA_CARD_CHECKLIST_CAPACITY WENA_CHECKLIST_MAX_PER_CARD
+#define WENA_CARD_CHECKLIST_ITEM_CAPACITY WENA_CHECKLIST_MAX_ITEMS
 
 typedef enum WenaChecklistAction {
     WENA_CHECKLIST_CREATE = 1,
@@ -12,7 +12,10 @@ typedef enum WenaChecklistAction {
     WENA_CHECKLIST_SET_FINISHED = 5,
     WENA_CHECKLIST_SET_FLAGS = 6,
     WENA_CHECKLIST_DELETE = 7,
-    WENA_CHECKLIST_DELETE_ITEM = 8
+    WENA_CHECKLIST_DELETE_ITEM = 8,
+    WENA_CHECKLIST_ADD_ITEMS = 9,
+    WENA_CHECKLIST_REORDER = 10,
+    WENA_CHECKLIST_REORDER_ITEM = 11
 } WenaChecklistAction;
 typedef struct WenaChecklistEdit {
     WenaChecklistAction action;
@@ -26,6 +29,11 @@ typedef struct WenaChecklistEdit {
     int hide_checked_items;
     int hide_all_items;
     WenaChecklistMinicard show_on_minicard;
+    /* Borrowed raw UTF-8 LF-separated text for ADD_ITEMS only. */
+    const char *batch_text;
+    size_t batch_length;
+    /* Zero-based destination ordinal for same-card ordering only. */
+    unsigned long target_position;
 } WenaChecklistEdit;
 typedef struct WenaChecklistSnapshot {
     WenaId board_id;

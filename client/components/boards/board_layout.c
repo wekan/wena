@@ -231,7 +231,11 @@ static void wena_render_cards(struct nk_context *context,
             wena_same_id(card->swimlane_id, swimlane->id) &&
             (layout->card_visible == NULL ||
              layout->card_visible(layout->card_visible_context, card))) {
-            card_action = wena_card_body_render(context, card);
+            card_action = WENA_CARD_BODY_NO_ACTION;
+            if (layout->card_badges != NULL)
+                card_action = layout->card_badges(context,
+                    layout->card_badges_context, card);
+            card_action |= wena_card_body_render(context, card);
             if (layout->card_interaction != NULL &&
                 card_action != WENA_CARD_BODY_NO_ACTION) {
                 layout->card_interaction->actions = card_action;

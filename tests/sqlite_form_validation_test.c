@@ -1,4 +1,5 @@
 #include "../server/sqlite_persistence.h"
+#include "../models/version.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -131,17 +132,17 @@ int main(int argc, char **argv)
     command(&c, WENA_DOMAIN_EDIT_CARD_TITLE, "%30%30%31");
     assert(wena_sqlite_persistence_apply(&persistence, &c, &response));
     assert(response.regions[0].version == 2);
-    /* Boundary expected version is valid through LONG_MAX - 1, without
-     * signed SQLite overflow on the successful increment. */
+    /* The last successful increment must remain readable by native adapters.
+     * Request identities are independent and retain their previous bound. */
     reset(db);
-    sprintf(query, "UPDATE cards SET version=%lu WHERE id='c1'", (unsigned long)LONG_MAX - 1UL);
+    sprintf(query, "UPDATE cards SET version=%lu WHERE id='c1'", WENA_VERSION_MUTATE_MAX);
     assert(sqlite3_exec(db, query, NULL, NULL, NULL) == SQLITE_OK);
-    sprintf(boundary, "%lu", (unsigned long)LONG_MAX - 1UL);
+    sprintf(boundary, "%lu", WENA_VERSION_MUTATE_MAX);
     command(&c, WENA_DOMAIN_EDIT_CARD_TITLE, boundary); c.request_version = (unsigned long)LONG_MAX;
     assert(wena_sqlite_persistence_apply(&persistence, &c, &response));
-    assert(response.regions[0].version == (unsigned long)LONG_MAX);
+    assert(response.regions[0].version == WENA_VERSION_READ_MAX);
     assert(response.request_version == (unsigned long)LONG_MAX);
-    sprintf(boundary, "%lu", (unsigned long)LONG_MAX);
+    sprintf(boundary, "%lu", WENA_VERSION_READ_MAX);
     command(&c, WENA_DOMAIN_EDIT_CARD_TITLE, boundary); rejected(&persistence, &c);
     memset(&response, 0xa5, sizeof(response));
     assert(!wena_sqlite_persistence_apply(&persistence, NULL, &response));

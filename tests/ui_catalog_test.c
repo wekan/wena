@@ -28,6 +28,37 @@ int main(int argc, char **argv)
     wena_ui_set_translator(wena_ui_catalog_translate, &state);
     assert(strcmp(wena_ui_control_text(WENA_UI_SAVE), "Tallenna") == 0);
     assert(strcmp(wena_ui_text(WENA_UI_TEXT_LANGUAGE), "Kieli") == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_OPEN_LABELS),
+                  wena_ui_catalog_lookup(&state, "cardLabelsPopup-title")) == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_ADD_LABEL),
+                  wena_ui_catalog_lookup(&state, "label-create")) == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_EDIT_LABEL),
+                  wena_ui_catalog_lookup(&state, "editLabelPopup-title")) == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_CREATE_LABEL),
+                  wena_ui_catalog_lookup(&state, "create")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_NAME),
+                  wena_ui_catalog_lookup(&state, "name")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_SELECT_COLOR),
+                  wena_ui_catalog_lookup(&state, "select-color")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_CUSTOM_COLOR),
+                  wena_ui_catalog_lookup(&state, "custom-color")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_CREATE_LABEL),
+                  wena_ui_catalog_lookup(&state, "createLabelPopup-title")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_EDIT_LABEL),
+                  wena_ui_catalog_lookup(&state, "editLabelPopup-title")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_DELETE_LABEL),
+                  wena_ui_catalog_lookup(&state, "deleteLabelPopup-title")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_CARDS),
+                  wena_ui_catalog_lookup(&state, "cards")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_CHECKLIST_SPLIT_LINES),
+                  wena_ui_catalog_lookup(&state, "newlineBecomesNewChecklistItem")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD),
+                  wena_ui_catalog_lookup(&state, "checklist-count-on-minicard")) == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_MOVE_SELECTION),
+                  wena_ui_catalog_lookup(&state, "move-selection")) == 0);
+    assert(strcmp(wena_ui_control(WENA_UI_CREATE_LABEL)->http_method, "GET") == 0);
+    assert(strcmp(wena_ui_control(WENA_UI_OPEN_DELETE_LABEL)->domain_operation,
+                  "open-delete-label") == 0);
     retained = wena_ui_catalog_lookup(&state, "save");
     assert(wena_language_set(&state, argv[1], "ar", languages, count));
     assert(state.rtl);
@@ -55,6 +86,9 @@ int main(int argc, char **argv)
     assert(!wena_locale_resolve("fi", NULL, count, resolved, sizeof(resolved)));
     wena_ui_set_translator(NULL, NULL);
     assert(strcmp(wena_ui_control_text(WENA_UI_SAVE), "Save") == 0);
+    assert(strcmp(wena_ui_text(WENA_UI_TEXT_DELETE_LABEL), "Delete Label?") == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_OPEN_LABELS), "Labels") == 0);
+    assert(strcmp(wena_ui_control_text(WENA_UI_ADD_LABEL), "Create Label") == 0);
     /* Input keys supplied by the Python verifier come from page_contract.c.
        Dump all compiled UTF-8 bytes for exact comparison with canonical data. */
     while (fgets(key, sizeof(key), stdin) != NULL) {
