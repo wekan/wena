@@ -29,9 +29,8 @@ settings/order panels, exact cached label/count badges, and an actual SDL deskto
 workflow for settings opt-in, Cancel, 0/0 count display and restart. Native title
 and description editors retain a complete over-limit four-byte UTF-8 scalar in
 their draft buffers while applying the stricter persisted-model bounds on Save;
-the focused regressions cover the resulting reject-without-write behavior. The
-broad normal gate has passed; the sanitizer gate remains the final current
-checkpoint evidence.
+the focused regressions cover the resulting reject-without-write behavior. Both
+the broad normal and complete ASan/UBSan gates have passed for this checkpoint.
 
 Current decisions: group new label code under `client/features/labels/` and typed
 operations under `server/mutations/`; reuse the existing guarded transaction and
@@ -78,10 +77,10 @@ Remote REST, WeKan/FerretDB conversion, complete collections, full fonts/RTL and
 UI/platform parity remain open. Local actor selection trusts the OS user;
 it is not login or board-membership authorization. See `docs/native-desktop.md`.
 
-Latest validation (2026-09-11): **123 native suites passed, zero failed or
-skipped**. The full ASan/UBSan rerun is pending after the current UTF-8 input,
-labels, presentation and schema-v6 integrations. Explicit host bootstrap build,
-real SDL workflows and verified Linux desktop packaging passed. LeakSanitizer is
+Latest validation (2026-09-19): **123 native suites passed, zero failed or
+skipped**, followed by all **84 ASan/UBSan groups** (run in bounded groups using
+the pinned SQLite 3.51.3 headers/libraries). Explicit host bootstrap build, real
+SDL workflows and verified Linux desktop packaging passed. LeakSanitizer is
 disabled on this host. Earlier reports remain historical. Do not interpret host
 SDL/SQLite or JavaScript VM coverage as cross-platform GUI release validation or
 real-browser E2E.
