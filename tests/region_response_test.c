@@ -24,12 +24,12 @@ int main(void)
     memset(&source, 0, sizeof(source));
     source.request_version = 10ul;
     source.region_count = 2;
-    region(&source.regions[0], "card-card_1", 2ul, "Kortti ä");
+    region(&source.regions[0], "card-card_1", 2ul, "Card ä");
     region(&source.regions[1], "sidebar", 4ul, "Activity refreshed");
     assert(wena_region_response_encode(&source, wire, sizeof(wire), &length));
     assert(wena_region_response_parse(wire, length, &parsed));
     assert(parsed.request_version == 10ul && parsed.region_count == 2);
-    assert(strcmp(parsed.regions[0].content, "Kortti ä") == 0);
+    assert(strcmp(parsed.regions[0].content, "Card ä") == 0);
 
     memset(&state, 0, sizeof(state));
     state.last_request_version = 9ul;
