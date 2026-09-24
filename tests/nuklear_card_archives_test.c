@@ -9,18 +9,19 @@
 #include <string.h>
 
 static int writes;
-static WenaCard cards[2];
+static WenaCard cards[6];
+static int reads;
 static int load(void *context,const char *board,const char *card,char *title,
     size_t capacity,unsigned long *version)
 {
     (void)context; (void)board; (void)card; (void)capacity;
-    strcpy(title,"Archived"); *version=1; return 1;
+    ++reads; strcpy(title,"Archived"); *version=1; return 1;
 }
 static int restore(void *context,const char *board,const char *card,unsigned long version)
 {
     (void)context;
     assert(!strcmp(board,"board") && !strcmp(card,"two") && version==1);
-    cards[1].archived=0; ++writes; return 1;
+    cards[5].archived=0; ++writes; return 1;
 }
 
 static float text_width(nk_handle handle, float height,
@@ -81,28 +82,40 @@ static void click(struct nk_context *ctx, WenaCardArchivesState *state,
 int main(void)
 {
     struct nk_context ctx; struct nk_user_font font;
+    int i;
+    const char *ids[]={"one","p2","p3","p4","p5","two"};
     WenaCardArchivesState state; WenaBoardLayout layout; WenaBoard board;
     memset(&font,0,sizeof(font)); font.height=13; font.width=text_width;
     assert(nk_init_default(&ctx,&font));
     assert(wena_board_init(&board,"board","Board",0));
-    assert(wena_card_init(&cards[0],"one","board","lane","list","Repeated",0,1));
-    assert(wena_card_init(&cards[1],"two","board","lane","list","Repeated",1,1));
-    memset(&layout,0,sizeof(layout)); layout.board=&board; layout.cards=cards; layout.card_count=2;
+    for(i=0;i<6;++i)assert(wena_card_init(&cards[i],ids[i],"board","lane","list","Repeated",i,1));
+    memset(&layout,0,sizeof(layout)); layout.board=&board; layout.cards=cards; layout.card_count=6;
     wena_card_archives_init(&state,load,restore,NULL);
     assert(wena_card_archives_open(&state,&layout));
     render(&ctx,&state,&layout);
-    click(&ctx,&state,&layout,"Repeated [one]");
+    assert(state.table.page==0 && reads==1);
+    click(&ctx,&state,&layout,"Next Page");
+    assert(state.table.page==1 && reads==1 && writes==0);
     click(&ctx,&state,&layout,"Repeated [two]");
-    assert(!strcmp(state.card_id,"two"));
+    assert(!strcmp(state.card_id,"two") && reads==2);
+    click(&ctx,&state,&layout,"Previous Page");
+    assert(state.table.page==0 && !strcmp(state.card_id,"two") && reads==2);
+    /* The exact restore target remains visible when its row is on another page. */
+    (void)label_center(&ctx,"Repeated [two]");
     nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);
     render(&ctx,&state,&layout);
     nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);
     render(&ctx,&state,&layout);
     click(&ctx,&state,&layout,"Restore");
-    assert(state.visible && writes==1 && !cards[1].archived);
+    assert(state.visible && writes==1 && !cards[5].archived);
     assert(!strcmp(state.card_id,"one"));
+    click(&ctx,&state,&layout,"Next Page");
+    assert(state.table.page==1);
+    for(i=1;i<5;++i)cards[i].archived=0;
+    nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);render(&ctx,&state,&layout);
+    assert(state.table.page==0 && !strcmp(state.card_id,"one"));
     click(&ctx,&state,&layout,"Cancel");
     assert(!state.visible && writes==1);
-    nk_free(&ctx); puts("Real Nuklear Archives selector, restore and cancel passed");
+    nk_free(&ctx); puts("Real Nuklear paginated archives, exact selection, restore and cancel passed");
     return 0;
 }

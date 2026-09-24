@@ -40,7 +40,9 @@ in a private staged copy before restore interrupts the running database.
 
 - Add card in an exact list/swimlane; open details and edit the title; move to a
   selected list/swimlane and ordinal position; archive; restore through Board
-  menu → Archives. Description opens a multiline editor with explicit Save.
+  menu → Archives. Archives uses the shared four-row paginated table and keeps
+  the exact selected restore target visible when navigating between pages.
+  Description opens a multiline editor with explicit Save.
 - Add list or swimlane through the toolbar. Rename the board through the toolbar,
   a list through List menu, or a swimlane through its Rename button. Those list
   and swimlane panels also offer explicit movement to another sibling position.

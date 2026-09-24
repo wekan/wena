@@ -32,15 +32,15 @@ static const WenaCard *option_card(const WenaBoardLayout *layout, int selected)
     return NULL;
 }
 
-static void option_label(void *data, int index, const char **label)
+static unsigned int archive_row(struct nk_context *context,void *data,size_t index)
 {
     ArchiveOptions *options;
     const WenaCard *card;
-    options = (ArchiveOptions *)data;
-    card = option_card(options->layout, index);
-    if (card == NULL) { *label = wena_ui_text(WENA_UI_TEXT_UNKNOWN); return; }
-    else sprintf(options->label, "%s [%s]", card->title, card->id);
-    *label = options->label;
+    options=(ArchiveOptions*)data;
+    card=option_card(options->layout,(int)index);
+    if (!card) { nk_label(context,wena_ui_text(WENA_UI_TEXT_UNKNOWN),NK_TEXT_LEFT);return 0; }
+    sprintf(options->label,"%s [%s]",card->title,card->id);
+    return nk_button_label(context,options->label) ? 1u : 0u;
 }
 
 static void select_card(WenaCardArchivesState *state, const WenaCard *card)
@@ -63,12 +63,14 @@ void wena_card_archives_init(WenaCardArchivesState *state,
 {
     if (state == NULL) return;
     memset(state, 0, sizeof(*state));
+    (void)wena_table_init(&state->table,4);
     state->load = load; state->restore = restore; state->context = context;
 }
 
 void wena_card_archives_close(WenaCardArchivesState *state)
 {
     if (state == NULL) return;
+    state->table.page = 0;
     state->visible = 0; state->error = 0; state->version = 0;
     state->card_id[0] = '\0'; state->board_id[0] = '\0';
 }
@@ -91,15 +93,20 @@ int wena_card_archives_render(struct nk_context *context,
 {
     ArchiveOptions options;
     const WenaCard *card;
-    int count, selected, choice, close_requested;
+    WenaTableView view;
+    WenaTableResult result;
+    size_t i;
+    int count, selected, close_requested;
     if (state == NULL || !state->visible) return 0;
     if (!layout_valid(layout) || strcmp(state->board_id, layout->board->id)) {
         wena_card_archives_close(state); return 0;
     }
     if (context == NULL || width <= 0 || height <= 0) return 0;
     count = 0; selected = -1;
-    while ((card = option_card(layout, count)) != NULL) {
-        if (!strcmp(card->id, state->card_id)) selected = count;
+    for (i=0;i<layout->card_count;++i) {
+        card=&layout->cards[i];
+        if (!card->archived || strcmp(card->board_id,state->board_id)) continue;
+        if (!strcmp(card->id,state->card_id)) selected=count;
         ++count;
     }
     if (selected < 0) {
@@ -118,13 +125,25 @@ int wena_card_archives_render(struct nk_context *context,
         }
         nk_layout_row_dynamic(context, 28, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_ARCHIVES), NK_TEXT_LEFT);
+        options.layout=layout;
+        memset(&view,0,sizeof(view));
+        view.row_count=(size_t)count;view.column_count=1;view.row_height=28;
+        view.render_row=archive_row;view.context=&options;
+        view.empty_text=wena_ui_text(WENA_UI_TEXT_NO_ARCHIVED_CARDS);
+        result=wena_table_render(context,&state->table,&view);
+        if (result.action && (int)result.row!=selected) {
+            selected=(int)result.row;
+            select_card(state,option_card(layout,selected));
+        }
         if (count != 0) {
-            options.layout = layout;
-            nk_layout_row_dynamic(context, 28, 1);
-            choice = nk_combo_callback(context, option_label, &options, selected,
-                count, 24, nk_vec2(280, 220));
-            if (choice != selected && choice >= 0 && choice < count)
-                select_card(state, option_card(layout, choice));
+            /* Keep the restore target visible even after navigating away from
+             * its page. Rows return an intent; restoration remains explicit. */
+            card=option_card(layout,selected);
+            nk_layout_row_dynamic(context,28,1);
+            if (card) {
+                sprintf(options.label,"%s [%s]",card->title,card->id);
+                nk_label(context,options.label,NK_TEXT_LEFT);
+            } else nk_label(context,"",NK_TEXT_LEFT);
             nk_layout_row_dynamic(context, 28, 1);
             if (nk_button_label(context, wena_ui_control_text(WENA_UI_RESTORE_CARD))) {
                 if (state->version != 0 && state->restore != NULL &&
@@ -133,9 +152,6 @@ int wena_card_archives_render(struct nk_context *context,
                     select_card(state, option_card(layout, 0));
                 } else state->error = 1;
             }
-        } else {
-            nk_layout_row_dynamic(context, 28, 1);
-            nk_label(context, wena_ui_text(WENA_UI_TEXT_NO_ARCHIVED_CARDS), NK_TEXT_LEFT);
         }
         nk_layout_row_dynamic(context, 28, 2);
         if (nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL))) close_requested = 1;

@@ -9,7 +9,7 @@ static void frame(WenaCardArchivesState *state, WenaBoardLayout *layout,
     const char *button, const char *option)
 {
     struct nk_context context; memset(&context,0,sizeof(context));
-    context.button_to_press=button; context.combo_item_to_press=option;
+    context.button_to_press=button ? button : option;
     assert(wena_card_archives_render(&context,state,layout,800,600));
     assert(context.begin_count==context.end_count);
 }

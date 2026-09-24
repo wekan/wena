@@ -9,7 +9,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/card_archives_sqlite_test.c" \
   "$root_dir/tests/fakes/nuklear.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
-  "$root_dir/client/features/card_archives.c" \
+  "$root_dir/client/features/card_archives.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/client/features/card_mutation.c" \
   "$root_dir/imports/ui/page_contract.c" \

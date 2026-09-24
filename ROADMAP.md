@@ -84,8 +84,8 @@ See `imports/ui/svg/README.md`. Full UI/theme/responsive parity remains open.
 Reusable components are the implementation policy: shared rendering, pagination,
 selection and empty/error states belong in `client/components/`; feature adapters
 provide data and action callbacks. Do not duplicate table implementations per page.
-The first general paginated table is implemented and used by all four sidebar
-item lists. It shares navigation, page clamping, headings, row callbacks, exact
+The general paginated table is implemented and used by all four sidebar
+item lists, directory pickers and the archived-card panel. It shares navigation, page clamping, headings, row callbacks, exact
 absolute row intents and empty/error handling; translated navigation comes from
 the pinned catalog. Real Nuklear coverage includes different adapters and maximal
 size_t boundaries. Twenty focused native suites pass; table and sidebar integration
@@ -777,6 +777,11 @@ Architecture decisions for this cycle:
         the shared guarded transaction boundary. Preserve card position, validate
         the archived version and update cache visibility only after commit. Cover
         empty archives, selection/cancel, scope/conflict/replay/rollback and reopen.
+      - [x] Reuse the general paginated table for archived cards, with bounded
+        four-row pages and explicit exact-ID selection. Keep the restore target
+        visible across navigation; reuse shared page clamping and empty states.
+        Real mouse tests cover duplicate titles, no extra reads during paging,
+        shrinking data, restore/cancel and focused Escape behavior.
       - [x] Render the sidebar as an optional bounded overlay, keep explicit
         board actions focused, and open card actions through the details canvas.
         Use full-width wrapped card/list titles and separate action rows. Real

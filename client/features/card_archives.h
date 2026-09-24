@@ -1,12 +1,14 @@
 #ifndef WENA_CARD_ARCHIVES_H
 #define WENA_CARD_ARCHIVES_H
 #include "card_details.h"
+#include "../components/common/paginated_table.h"
 #include "../components/boards/board_layout.h"
 
 typedef int (*WenaCardArchivesRestore)(void *context, const char *board_id,
     const char *card_id, unsigned long expected_version);
 
 typedef struct WenaCardArchivesState {
+    WenaTableState table;
     int visible;
     int error;
     WenaId board_id;

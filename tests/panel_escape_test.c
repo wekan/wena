@@ -119,7 +119,7 @@ static void test_panel(int kind)
     assert(visible(&p) && writes==0);
     key_frame(&ctx,&p,&layout,NK_KEY_TEXT_RESET_MODE,0,0);
     click(&ctx,&p,&layout,kind==0?"First lane [first-lane]":kind==1?"1. First list [first-list]":"Archived [archived]");
-    assert(nk_window_find(&ctx,window_id(&p))->popup.active);
+    assert(!!nk_window_find(&ctx,window_id(&p))->popup.active==(kind!=2));
     key_frame(&ctx,&p,&layout,NK_KEY_TEXT_RESET_MODE,1,0);
     assert(!visible(&p) && writes==0);
     key_frame(&ctx,&p,&layout,NK_KEY_TEXT_RESET_MODE,0,0);
