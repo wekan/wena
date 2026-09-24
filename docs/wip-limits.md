@@ -5,6 +5,20 @@ limits and future lane/group limits. It has no database or UI dependencies.
 Storage, mutation enforcement and native UI integration remain open roadmap
 steps; adding this component alone does not enforce limits in the application.
 
+Schema v12 adds `list_wip_limits`, with one row per list and an exact board/list
+foreign key. Missing rows will use defaults; stored rows default to value 1,
+disabled and hard. Values are integers from 1 to 2147483647, permitting automatic
+count adjustment beyond the editor's 99 maximum while staying representable on
+32-bit native targets. Flags are integer booleans. A board/list index supports
+snapshot loading. Parent list revisions will guard changes; this migration
+does not rewrite parent or card rows or modify any earlier migration.
+
+The shared migration harness verifies all v1–v11 upgrades, preserved card state,
+parent revisions, archive timestamps and colors, constraints and exact settings
+after reopening. Failures at table/index creation, migration bookkeeping and
+commit leave no v12 objects and permit retry. Downgrades and missing tables are
+rejected; the generated registry and embedding tests pin the complete bundle.
+
 The port follows the original WeKan source:
 
 - `client/components/lists/listBody.js`: hard limits use all active cards in a

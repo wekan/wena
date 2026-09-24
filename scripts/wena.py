@@ -227,6 +227,7 @@ TEST_SUITES = (
     ('sqlite-schema-v3', 'test_sqlite_schema_v3.sh', 'Scoped checklist schema and atomic legacy upgrade'),
     ('card-sections', 'test_card_sections.sh', 'Reusable actor/card section preferences and schema-v8 upgrade'),
     ('sqlite-schema-v11', 'test_sqlite_schema_v11.sh', 'Immutable hierarchy colors migration, all-prefix upgrades and failure rollback'),
+    ('sqlite-schema-v12', 'test_sqlite_schema_v12.sh', 'Immutable list WIP migration, all-prefix upgrades and failure rollback'),
     ('sqlite-schema-v10', 'test_sqlite_schema_v10.sh', 'List archive state upgrades, constraints and transaction rollback'),
     ('sqlite-schema-v9', 'test_sqlite_schema_v9.sh', 'Card collapse preferences upgrade and rollback'),
     ('sqlite-schema-v7', 'test_sqlite_schema_v7.sh', 'Additive minicard preferences upgrade and rollback'),

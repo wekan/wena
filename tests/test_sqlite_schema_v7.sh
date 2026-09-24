@@ -18,6 +18,7 @@ PY
 archive_flag=
 if [ "$schema_version" = 10 ]; then archive_flag=-DWENA_SETTING_LIST_ARCHIVE; fi
 if [ "$schema_version" = 11 ]; then archive_flag=-DWENA_SETTING_COLORS; fi
+if [ "$schema_version" = 12 ]; then archive_flag=-DWENA_SETTING_WIP; fi
 cc $archive_flag "-DWENA_SETTING_SCHEMA_VERSION=$schema_version" \
  "-DWENA_SETTING_TABLE=\"$schema_table\"" "-DWENA_SETTING_COLUMN=\"$schema_column\"" \
  -std=c89 -pedantic-errors -Wall -Wextra -Werror \

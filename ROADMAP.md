@@ -827,6 +827,10 @@ Architecture decisions for this cycle:
             arithmetic overflow and preserve failed outputs. Match WeKan's
             explicit 1–99 input and count adjustment when enabling/hardening.
             Exhaustively test small counts, modes and edits plus size bounds.
+          - [x] Add additive schema-v12 list WIP settings with scoped parents,
+            strict integer values/flags, disabled hard-limit defaults and a
+            board index. Verify every v1–v11 upgrade, retained cards/revisions/
+            archives/colors, constraints, rollback and reopening.
           - [_] Add guarded persistence and atomic snapshot loading; count all
             active unfiltered cards across the list's swimlanes.
           - [_] Reuse the rule for card creation, restoration and movement.

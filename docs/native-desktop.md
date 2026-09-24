@@ -32,7 +32,7 @@ The output embeds and verifies the pinned migration chain and full offline trans
 catalog. SDL2 and SQLite remain shared host dependencies. Cataloged cross-release
 targets still build the earlier bootstrap executable; they do not yet package
 this desktop. Direct Meteor/FerretDB database migration is not implemented.
-Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v11
+Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v12
 chain on storage startup, including smoke mode. A verified old backup is upgraded
 in a private staged copy before restore interrupts the running database.
 
