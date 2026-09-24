@@ -896,7 +896,15 @@ Architecture decisions for this cycle:
                 writes, late/partial/commit rollback, replay, full 2048-card
                 capacity, terminal revisions and reopening. HTTP dispatch does
                 not expose these typed native batch operations.
-              - [_] Add native label batch capture/publication and shared panel UI.
+              - [x] Capture native selection label counts and revisions in one
+                read transaction, reusing the complete board-label reader. Keep
+                failed output pointers/bytes unchanged and reject inactive,
+                missing, duplicate or foreign cards. Stage the complete badge
+                cache before commit and publish only on success, sharing request
+                numbering with existing label adapters. Verify mixed membership,
+                stale/replayed commands, late/commit/staging rollback, no-op
+                publication, concurrent WAL snapshots and reopening.
+              - [_] Connect native label batches to the shared selection panel.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

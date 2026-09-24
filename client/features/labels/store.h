@@ -1,6 +1,7 @@
 #ifndef WENA_LABEL_STORE_H
 #define WENA_LABEL_STORE_H
 #include "../../../models/label.h"
+#include "../../../models/card_revision.h"
 
 typedef enum WenaLabelAction {
     WENA_LABEL_CREATE=1,
@@ -39,6 +40,15 @@ typedef struct WenaLabelBoardSnapshot {
     unsigned long card_versions[WENA_LABEL_BOARD_CARD_CAPACITY];
     unsigned char assignments[WENA_LABEL_BOARD_CARD_CAPACITY][WENA_LABEL_ASSIGNMENT_BYTES];
 } WenaLabelBoardSnapshot;
+/* Immutable selection capture: catalogue/revisions and per-label membership
+ * counts are read from one database snapshot. Caller owns allocated storage. */
+typedef struct WenaLabelSelectionSnapshot {
+    WenaLabelSnapshot catalogue;
+    size_t card_count;
+    WenaCardRevision cards[WENA_LABEL_BOARD_CARD_CAPACITY];
+    size_t assigned_counts[WENA_BOARD_LABEL_CAPACITY];
+} WenaLabelSelectionSnapshot;
+int wena_label_selection_snapshot_valid(const WenaLabelSelectionSnapshot *snapshot,const char *board);
 WenaLabelBoardSnapshot *wena_label_board_snapshot_create(void);
 void wena_label_board_snapshot_free(WenaLabelBoardSnapshot *snapshot);
 int wena_label_board_snapshot_valid(const WenaLabelBoardSnapshot *snapshot,const char *board_id);

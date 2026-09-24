@@ -54,6 +54,89 @@ static void raw(WenaDomainCommand *command,WenaDomainOperation action,
     sprintf(command->form_body,"cardId=&expectedCardVersion=0&expectedBoardVersion=%lu&%s",board_version,tail);
     command->form_body_length=strlen(command->form_body);
 }
+static int fail_commit(void *context){(void)context;return 1;}
+typedef struct SelectionRace {sqlite3 *writer;int fired;} SelectionRace;
+static int selection_race(unsigned int kind,void *context,void *statement,void *unused)
+{
+    SelectionRace *race;const char *query;(void)unused;race=(SelectionRace*)context;
+    query=sqlite3_sql((sqlite3_stmt*)statement);
+    if(kind==SQLITE_TRACE_STMT&&!race->fired&&query&&!strncmp(query,"SELECT id,name,color,position",sizeof("SELECT id,name,color,position")-1)){
+        race->fired=1;
+        sql(race->writer,"BEGIN IMMEDIATE;INSERT INTO card_labels VALUES('sel','s3','label');"
+            "UPDATE cards SET version=version+1 WHERE id='s3';UPDATE boards SET version=version+1 WHERE id='sel';COMMIT");
+    }
+    return 0;
+}
+static void selected_native(sqlite3 *db,const char *path)
+{
+    WenaLabelMutation adapter;WenaLabelSelectionSnapshot *capture,*before,*pointer;
+    WenaLabelBoardSnapshot *output,*old,*fresh;WenaId ids[2];sqlite3_int64 keys;SelectionRace race;
+    sql(db,"INSERT INTO boards VALUES('sel','Selection',1);INSERT INTO lists VALUES('sl','sel','List',0,1);"
+        "INSERT INTO swimlanes VALUES('ss','sel','Lane',0,1);"
+        "INSERT INTO cards VALUES('s1','sel','ss','sl','Repeated',0,0,1),('s2','sel','ss','sl','Repeated',1,0,1),('s3','sel','ss','sl','Other',2,0,1);"
+        "INSERT INTO labels VALUES('sel','label','Label','blue',0,1,0,0);INSERT INTO card_labels VALUES('sel','s1','label')");
+    assert(wena_label_mutation_init(&adapter,db,"u","sel"));capture=NULL;
+    before=(WenaLabelSelectionSnapshot*)malloc(sizeof(*before));assert(before);
+    output=wena_label_board_snapshot_create();old=wena_label_board_snapshot_create();fresh=wena_label_board_snapshot_create();assert(output&&old&&fresh);
+    strcpy(ids[0],"s2");strcpy(ids[1],"s1");
+    assert(wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    assert(capture->card_count==2&&capture->assigned_counts[0]==1&&capture->catalogue.assigned_card_counts[0]==1);
+    assert(!strcmp(capture->cards[0].id,"s2")&&capture->cards[0].version==1);
+    *before=*capture;pointer=capture;
+    capture->assigned_counts[0]=3;assert(!wena_label_selection_snapshot_valid(capture,"sel"));*capture=*before;
+    capture->card_count=0;assert(!wena_label_selection_snapshot_valid(capture,"sel"));*capture=*before;
+    strcpy(capture->cards[0].id,capture->cards[1].id);assert(!wena_label_selection_snapshot_valid(capture,"sel"));*capture=*before;
+    assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,0,&capture));
+    assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,WENA_LABEL_BOARD_CARD_CAPACITY+1,&capture));
+    assert(!wena_label_mutation_selected_load(&adapter,"foreign",(const WenaId*)ids,2,&capture));
+    strcpy(ids[1],"s2");assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    strcpy(ids[1],"fc");assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    strcpy(ids[1],"missing");assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    strcpy(ids[1],"s1");sql(db,"UPDATE cards SET archived=1 WHERE id='s1'");
+    assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    sql(db,"UPDATE cards SET archived=0 WHERE id='s1'");strcpy(adapter.actor_id,"missing");
+    assert(!wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));strcpy(adapter.actor_id,"u");
+    assert(capture==pointer&&!memcmp(capture,before,sizeof(*before)));
+    assert(wena_label_mutation_load_board(&adapter,"sel",output));*old=*output;
+    keys=number(db,"SELECT count(*) FROM idempotency_keys");
+    sql(db,"UPDATE cards SET version=2 WHERE id='s2'");
+    assert(!wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));
+    sql(db,"UPDATE cards SET version=1 WHERE id='s2'");
+    sql(db,"CREATE TRIGGER selection_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END");
+    assert(!wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));sql(db,"DROP TRIGGER selection_late");
+    /* The write is valid, but an unrelated malformed cache row prevents commit. */
+    sql(db,"UPDATE cards SET version=9223372036854775807 WHERE id='s3'");
+    assert(!wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));
+    sql(db,"UPDATE cards SET version=1 WHERE id='s3'");
+    sqlite3_commit_hook(db,fail_commit,NULL);
+    assert(!wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));sqlite3_commit_hook(db,NULL,NULL);
+    assert(!memcmp(capture,before,sizeof(*before))&&!memcmp(output,old,sizeof(*old)));
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='sel'")==1);
+    assert(number(db,"SELECT version FROM cards WHERE id='s2'")==1&&number(db,"SELECT version FROM boards WHERE id='sel'")==1);
+    assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys&&!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+    assert(wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));
+    assert(wena_label_mutation_load_board(&adapter,"sel",fresh)&&!memcmp(output,fresh,sizeof(*fresh)));
+    assert(!memcmp(capture,before,sizeof(*before))&&output->catalogue.assigned_card_counts[0]==2);
+    *old=*output;assert(!wena_label_mutation_selected_save_request(&adapter,"sel",capture,"label",1,output,100));assert(!memcmp(old,output,sizeof(*old)));
+    assert(wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture)&&capture->assigned_counts[0]==2);
+    keys=number(db,"SELECT count(*) FROM idempotency_keys");
+    assert(wena_label_mutation_selected_save(&adapter,"sel",capture,"label",1,output));
+    assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+    assert(wena_label_mutation_selected_save(&adapter,"sel",capture,"label",0,output));
+    assert(output->catalogue.assigned_card_counts[0]==0&&wena_label_mutation_load_board(&adapter,"sel",fresh)&&!memcmp(output,fresh,sizeof(*fresh)));
+    sql(db,"PRAGMA journal_mode=WAL");assert(sqlite3_open(path,&race.writer)==SQLITE_OK);race.fired=0;
+    assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,selection_race,&race)==SQLITE_OK);
+    assert(wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK&&race.fired);
+    assert(capture->catalogue.board_version==3&&capture->catalogue.assigned_card_counts[0]==0&&capture->assigned_counts[0]==0);
+    *old=*output;
+    assert(!wena_label_mutation_selected_save(&adapter,"sel",capture,"label",1,output)&&!memcmp(old,output,sizeof(*old)));
+    assert(wena_label_mutation_selected_load(&adapter,"sel",(const WenaId*)ids,2,&capture));
+    assert(capture->catalogue.board_version==4&&capture->catalogue.assigned_card_counts[0]==1&&capture->assigned_counts[0]==0);
+    assert(sqlite3_close(race.writer)==SQLITE_OK);
+    free(capture);free(before);free(output);free(old);free(fresh);
+}
+
 int main(int argc,char **argv)
 {
     sqlite3 *db,*second;
@@ -267,6 +350,12 @@ int main(int argc,char **argv)
     assert(wena_label_mutation_load(&adapter,"b","c",snapshot));
     assert(snapshot->card_version==WENA_VERSION_READ_MAX && snapshot->label_count==127);
     assert(wena_label_mutation_load_board(&adapter,"b",badges));
+    assert(sqlite3_close(db)==SQLITE_OK);
+    assert(sqlite3_open(argv[4],&db)==SQLITE_OK);
+    selected_native(db,argv[4]);assert(sqlite3_close(db)==SQLITE_OK);
+    assert(sqlite3_open(argv[4],&db)==SQLITE_OK);
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='sel'")==1);
+    assert(number(db,"SELECT version FROM boards WHERE id='sel'")==4);
     assert(sqlite3_close(db)==SQLITE_OK);
     wena_label_board_snapshot_free(badges);wena_label_board_snapshot_free(before_badges);
     wena_label_snapshot_free(snapshot);wena_label_snapshot_free(before);wena_label_snapshot_free(second_snapshot);

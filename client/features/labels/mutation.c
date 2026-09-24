@@ -1,4 +1,6 @@
 #include "mutation.h"
+#include "../../../server/list_state.h"
+#include "../../../server/mutations/card_archive.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,23 +139,12 @@ int wena_label_mutation_load(void *context,const char *board,const char *card,
     else sqlite3_exec(adapter->persistence.database,"ROLLBACK",NULL,NULL,NULL);
     free(candidate);return success;
 }
-int wena_label_mutation_load_board(void *context,const char *board,
-    WenaLabelBoardSnapshot *output)
+static int load_board_locked(WenaLabelMutation *adapter,const char *board,WenaLabelBoardSnapshot *candidate)
 {
-    WenaLabelMutation *adapter;
-    WenaLabelBoardSnapshot *candidate;
-    sqlite3_stmt *query;
-    const char *card_id,*label_id;
-    size_t card_index,label_index;
-    unsigned char mask;
-    unsigned long archived;
+    sqlite3_stmt *query;const char *card_id,*label_id;
+    size_t card_index,label_index;unsigned char mask;unsigned long archived;
     int success,status;
-    adapter=(WenaLabelMutation *)context;
-    if (!scope_valid(adapter,board,NULL) || !output) return 0;
-    candidate=wena_label_board_snapshot_create();if (!candidate) return 0;
-    if (sqlite3_exec(adapter->persistence.database,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK) {
-        free(candidate);return 0;
-    }
+    memset(candidate,0,sizeof(*candidate));
     query=NULL;success=0;
     if (!load_locked(adapter,board,NULL,&candidate->catalogue) ||
         !prepare(adapter,"SELECT id,version,archived FROM cards WHERE board_id=?1 ORDER BY id COLLATE BINARY",board,NULL,&query)) goto done;
@@ -191,12 +182,22 @@ int wena_label_mutation_load_board(void *context,const char *board,
     if (status==SQLITE_ROW) goto done;
     if (status!=SQLITE_DONE) goto done;
     sqlite3_finalize(query);query=NULL;
-    if (!wena_label_board_snapshot_valid(candidate,board) ||
-        sqlite3_exec(adapter->persistence.database,"COMMIT",NULL,NULL,NULL)!=SQLITE_OK) goto done;
-    *output=*candidate;success=1;
+    success=wena_label_board_snapshot_valid(candidate,board);
 done:
-    if (query) sqlite3_finalize(query);
-    if (!success) sqlite3_exec(adapter->persistence.database,"ROLLBACK",NULL,NULL,NULL);
+    if(query)sqlite3_finalize(query);
+    return success;
+}
+int wena_label_mutation_load_board(void *context,const char *board,WenaLabelBoardSnapshot *output)
+{
+    WenaLabelMutation *adapter;WenaLabelBoardSnapshot *candidate;int success;
+    adapter=(WenaLabelMutation*)context;
+    if(!scope_valid(adapter,board,NULL)||!output)return 0;
+    candidate=wena_label_board_snapshot_create();if(!candidate)return 0;
+    if(sqlite3_exec(adapter->persistence.database,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK){free(candidate);return 0;}
+    success=load_board_locked(adapter,board,candidate)&&
+        sqlite3_exec(adapter->persistence.database,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+    if(success)*output=*candidate;
+    else sqlite3_exec(adapter->persistence.database,"ROLLBACK",NULL,NULL,NULL);
     free(candidate);return success;
 }
 static const char *operation(WenaLabelAction action,WenaDomainOperation *domain)
@@ -253,24 +254,118 @@ int wena_label_mutation_save_request(WenaLabelMutation *adapter,const char *boar
     command.form_body_length=strlen(command.form_body);
     return wena_sqlite_persistence_apply(&adapter->persistence,&command,&response);
 }
-int wena_label_mutation_save(void *context,const char *board,const char *card,
-    const WenaLabelEdit *edit)
+static int next_request(WenaLabelMutation *adapter,const char *name,unsigned long *request)
 {
-    WenaLabelMutation *adapter;
-    WenaDomainOperation domain;
-    const char *name;
-    sqlite3_stmt *statement;
-    sqlite3_int64 version;
-    int ok;
-    adapter=(WenaLabelMutation *)context;
-    if (!scope_valid(adapter,board,card) || !edit || !(name=operation(edit->action,&domain))) return 0;
-    if (sqlite3_prepare_v2(adapter->persistence.database,"SELECT COALESCE(max(request_version),0) FROM idempotency_keys WHERE actor_id=?1 AND route=?2 AND operation=?3",-1,&statement,NULL)!=SQLITE_OK) return 0;
-    ok=sqlite3_bind_text(statement,1,adapter->actor_id,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
-        sqlite3_bind_text(statement,2,adapter->route,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
-        sqlite3_bind_text(statement,3,name,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
-        sqlite3_step(statement)==SQLITE_ROW && sqlite3_column_type(statement,0)==SQLITE_INTEGER;
+    sqlite3_stmt *statement;sqlite3_int64 version;int ok;
+    if(sqlite3_prepare_v2(adapter->persistence.database,"SELECT COALESCE(max(request_version),0) FROM idempotency_keys WHERE actor_id=?1 AND route=?2 AND operation=?3",-1,&statement,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(statement,1,adapter->actor_id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(statement,2,adapter->route,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(statement,3,name,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_step(statement)==SQLITE_ROW&&sqlite3_column_type(statement,0)==SQLITE_INTEGER;
     version=ok?sqlite3_column_int64(statement,0):-1;
-    sqlite3_finalize(statement);
-    if (version<0 || version>=(sqlite3_int64)LONG_MAX-1) return 0;
-    return wena_label_mutation_save_request(adapter,board,card,edit,(unsigned long)version+1UL);
+    if(sqlite3_finalize(statement)!=SQLITE_OK)return 0;
+    if(version<0||version>=(sqlite3_int64)LONG_MAX-1)return 0;
+    *request=(unsigned long)version+1UL;return 1;
+}
+int wena_label_mutation_save(void *context,const char *board,const char *card,const WenaLabelEdit *edit)
+{
+    WenaLabelMutation *adapter;WenaDomainOperation domain;const char *name;unsigned long request;
+    adapter=(WenaLabelMutation*)context;
+    if(!scope_valid(adapter,board,card)||!edit||!(name=operation(edit->action,&domain))||!next_request(adapter,name,&request))return 0;
+    return wena_label_mutation_save_request(adapter,board,card,edit,request);
+}
+
+static int selected_active(WenaLabelMutation *adapter,const char *board,const char *card)
+{
+    sqlite3_stmt *query;const char *list,*lane;int ok,archived;sqlite3_int64 at;
+    if(!wena_sqlite_card_archive_read(adapter->persistence.database,board,card,0,&archived,&at)||archived)return 0;
+    if(!prepare(adapter,"SELECT list_id,swimlane_id FROM cards WHERE board_id=?1 AND id=?2 AND archived=0",board,card,&query))return 0;
+    ok=sqlite3_step(query)==SQLITE_ROW;
+    if(ok){
+        list=read_text(query,0,65);lane=read_text(query,1,65);
+        ok=wena_model_identifier_valid(list)&&wena_model_identifier_valid(lane)&&
+            wena_sqlite_list_active(adapter->persistence.database,board,list)&&
+            wena_sqlite_swimlane_active(adapter->persistence.database,board,lane)&&sqlite3_step(query)==SQLITE_DONE;
+    }
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;return ok;
+}
+int wena_label_mutation_selected_load(void *context,const char *board,const WenaId *ids,
+    size_t count,WenaLabelSelectionSnapshot **output)
+{
+    WenaLabelMutation *adapter;WenaLabelBoardSnapshot *all;WenaLabelSelectionSnapshot *candidate;
+    size_t i,j,index;int ok;
+    adapter=(WenaLabelMutation*)context;
+    if(!scope_valid(adapter,board,NULL)||!output||!ids||!count||count>WENA_LABEL_BOARD_CARD_CAPACITY)return 0;
+    for(i=0;i<count;++i){
+        if(!wena_model_identifier_valid(ids[i]))return 0;
+        for(j=0;j<i;++j)if(!strcmp(ids[i],ids[j]))return 0;
+    }
+    all=wena_label_board_snapshot_create();candidate=(WenaLabelSelectionSnapshot*)calloc(1,sizeof(*candidate));
+    if(!all||!candidate){free(all);free(candidate);return 0;}
+    if(sqlite3_exec(adapter->persistence.database,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK){free(all);free(candidate);return 0;}
+    ok=0;
+    if(!load_board_locked(adapter,board,all))goto done;
+    candidate->catalogue=all->catalogue;candidate->card_count=count;
+    for(i=0;i<count;++i){
+        index=wena_label_board_card_index(all,ids[i]);
+        if(index==all->card_count||!selected_active(adapter,board,ids[i]))goto done;
+        strcpy(candidate->cards[i].id,ids[i]);candidate->cards[i].version=all->card_versions[index];
+        for(j=0;j<all->catalogue.label_count;++j)
+            if(all->assignments[index][j/8u]&(1u<<(j%8u)))++candidate->assigned_counts[j];
+    }
+    if(!wena_label_selection_snapshot_valid(candidate,board)||
+        sqlite3_exec(adapter->persistence.database,"COMMIT",NULL,NULL,NULL)!=SQLITE_OK)goto done;
+    free(*output);*output=candidate;candidate=NULL;ok=1;
+done:
+    if(!ok)sqlite3_exec(adapter->persistence.database,"ROLLBACK",NULL,NULL,NULL);
+    free(all);free(candidate);return ok;
+}
+
+typedef struct LabelPublication {
+    WenaLabelMutation *adapter;
+    const char *board;
+    WenaLabelBoardSnapshot *snapshot;
+} LabelPublication;
+static int prepare_labels(void *context,sqlite3 *database)
+{
+    LabelPublication *publication;publication=(LabelPublication*)context;
+    return database==publication->adapter->persistence.database&&
+        load_board_locked(publication->adapter,publication->board,publication->snapshot);
+}
+int wena_label_mutation_selected_save_request(WenaLabelMutation *adapter,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign,
+    WenaLabelBoardSnapshot *output,unsigned long request)
+{
+    WenaDomainCommand command;WenaRegionResponse response;LabelPublication publication;
+    size_t index;int ok;
+    if(!scope_valid(adapter,board,NULL)||!output||!wena_label_selection_snapshot_valid(selection,board)||
+        !wena_model_identifier_valid(label)||(assign!=0&&assign!=1)||!request||request>=(unsigned long)LONG_MAX||
+        adapter->persistence.prepare_publish||selection->catalogue.board_version>WENA_VERSION_MUTATE_MAX)return 0;
+    for(index=0;index<selection->catalogue.label_count;++index)
+        if(!strcmp(selection->catalogue.labels[index].id,label))break;
+    if(index==selection->catalogue.label_count||selection->catalogue.label_versions[index]>WENA_VERSION_MUTATE_MAX)return 0;
+    memset(&command,0,sizeof(command));command.request_version=request;
+    command.operation=assign?WENA_DOMAIN_ASSIGN_SELECTED_LABEL:WENA_DOMAIN_UNASSIGN_SELECTED_LABEL;
+    strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    command.selected_cards=selection->cards;command.selected_card_count=selection->card_count;
+    sprintf(command.form_body,"labelId=%s&expectedBoardVersion=%lu&expectedLabelVersion=%lu",label,
+        selection->catalogue.board_version,selection->catalogue.label_versions[index]);
+    command.form_body_length=strlen(command.form_body);
+    publication.adapter=adapter;publication.board=board;publication.snapshot=wena_label_board_snapshot_create();
+    if(!publication.snapshot)return 0;
+    adapter->persistence.prepare_publish=prepare_labels;adapter->persistence.publish_context=&publication;
+    ok=wena_sqlite_persistence_apply(&adapter->persistence,&command,&response);
+    adapter->persistence.prepare_publish=NULL;adapter->persistence.publish_context=NULL;
+    if(ok)*output=*publication.snapshot;
+    free(publication.snapshot);return ok;
+}
+
+int wena_label_mutation_selected_save(void *context,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign,WenaLabelBoardSnapshot *output)
+{
+    WenaLabelMutation *adapter;unsigned long request;
+    adapter=(WenaLabelMutation*)context;
+    if(!scope_valid(adapter,board,NULL)||(assign!=0&&assign!=1)||
+        !next_request(adapter,assign?"assign-selected-label":"unassign-selected-label",&request))return 0;
+    return wena_label_mutation_selected_save_request(adapter,board,selection,label,assign,output,request);
 }

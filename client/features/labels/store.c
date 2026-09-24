@@ -105,3 +105,20 @@ int wena_label_board_snapshot_valid(const WenaLabelBoardSnapshot *snapshot,const
         if (assigned[label]!=snapshot->catalogue.assigned_card_counts[label]) return 0;
     return 1;
 }
+
+int wena_label_selection_snapshot_valid(const WenaLabelSelectionSnapshot *snapshot,const char *board)
+{
+    size_t i,j;
+    if(!snapshot||!snapshot->card_count||snapshot->card_count>WENA_LABEL_BOARD_CARD_CAPACITY||
+        !wena_label_snapshot_valid(&snapshot->catalogue,board,NULL))return 0;
+    for(i=0;i<snapshot->card_count;++i){
+        if(!wena_model_identifier_valid(snapshot->cards[i].id)||!snapshot->cards[i].version||
+            snapshot->cards[i].version>WENA_VERSION_MUTATE_MAX)return 0;
+        for(j=0;j<i;++j)if(!strcmp(snapshot->cards[i].id,snapshot->cards[j].id))return 0;
+    }
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i)
+        if(snapshot->assigned_counts[i]>snapshot->card_count||
+            (i>=snapshot->catalogue.label_count&&snapshot->assigned_counts[i])||
+            snapshot->assigned_counts[i]>snapshot->catalogue.assigned_card_counts[i])return 0;
+    return 1;
+}

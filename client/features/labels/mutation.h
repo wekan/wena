@@ -28,4 +28,16 @@ int wena_label_mutation_save(void *context,const char *board_id,
 int wena_label_mutation_save_request(WenaLabelMutation *adapter,
     const char *board_id,const char *card_id,const WenaLabelEdit *edit,
     unsigned long request_version);
+/* Read catalogue, exact active-card revisions and mixed assignment counts in
+ * one snapshot. *output starts NULL or is owned by this API; success replaces it,
+ * failure preserves pointer and bytes. Release with free when closing the UI. */
+int wena_label_mutation_selected_load(void *context,const char *board,const WenaId *ids,
+    size_t count,WenaLabelSelectionSnapshot **output);
+/* Stage complete badge cache inside the guarded write transaction, publish only
+ * after commit. Failure preserves capture/output. No fallible post-commit reload. */
+int wena_label_mutation_selected_save_request(WenaLabelMutation *adapter,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign,
+    WenaLabelBoardSnapshot *output,unsigned long request);
+int wena_label_mutation_selected_save(void *context,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign,WenaLabelBoardSnapshot *output);
 #endif
