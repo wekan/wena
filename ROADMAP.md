@@ -988,6 +988,14 @@ Architecture decisions for this cycle:
                     keeping enforcement enabled and checking the final relations
                     before commit. Preserve descriptions, checklists/items,
                     archive metadata and actor card-section preferences.
+                    - [x] Add the card-owned checklist transfer primitive using
+                      the existing strict complete-collection reader. Preserve
+                      IDs, titles, positions, flags and creation times; advance
+                      revisions and monotonic update times. Verify complete
+                      content fingerprints after writes, including trigger
+                      changes. Tests cover rollback, ignored/altered children,
+                      terminal revisions, empty and full-capacity collections,
+                      and FK rejection until the owning card is also moved.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

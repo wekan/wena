@@ -14,4 +14,12 @@ int wena_sqlite_checklist_move(sqlite3 *database,
 int wena_sqlite_checklist_item_move(sqlite3 *database,
     const WenaDomainCommand *command, const char *board_id,
     unsigned long *result_version);
+/* Reboard every checklist/item owned by one card inside the caller's guarded
+ * transaction. Preserve content/order/preferences; advance each row revision
+ * and monotonic update time. The caller must move the card to target_board
+ * before committing, and roll back the entire transaction on any failure.
+ * FK enforcement is deferred until commit, never disabled. No actor/replay or
+ * card mutation is performed here. Returns 1 success, 0 failure. */
+int wena_sqlite_card_checklists_reboard(sqlite3 *database,const char *board,
+    const char *card,const char *target_board);
 #endif

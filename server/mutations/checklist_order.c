@@ -1,6 +1,8 @@
 #include "checklist_order.h"
 #include "common.h"
+#include "../sha256.h"
 #include "../../models/checklist_item.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -166,6 +168,81 @@ static int read_card_order(sqlite3 *db, const char *board, const char *card,
 done:
     if (statement && sqlite3_finalize(statement) != SQLITE_OK) valid = 0;
     return valid;
+}
+
+/* Hash the complete content expected after reboarding, not only row counts.
+ * Scope is checked by read_card_order; only revisions/update time may change.
+ * Typed length prefixes distinguish NULL, empty text and embedded delimiters. */
+static int reboard_digest(sqlite3 *db,const char *card,int items,int advancing,
+    sqlite3_int64 now,char output[65])
+{
+    sqlite3_stmt *query;WenaSha256 hash;const unsigned char *text;char prefix[48];
+    size_t count;int ok,step,column,type,bytes,revision_column;const char *sql;
+    sql=items?
+        "SELECT id,card_id,checklist_id,title,position,version+?2,is_finished,created_at,max(updated_at,?3) "
+        "FROM checklist_items WHERE card_id=?1 ORDER BY id COLLATE BINARY":
+        "SELECT id,card_id,title,position,hide_checked_items,hide_all_items,show_on_minicard,version+?2,"
+        "created_at,max(updated_at,?3) FROM checklists WHERE card_id=?1 ORDER BY id COLLATE BINARY";
+    if(sqlite3_prepare_v2(db,sql,-1,&query,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(query,1,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_int(query,2,advancing)==SQLITE_OK&&sqlite3_bind_int64(query,3,now)==SQLITE_OK;
+    wena_sha256_init(&hash);count=0;step=SQLITE_DONE;revision_column=items?5:7;
+    while(ok&&(step=sqlite3_step(query))==SQLITE_ROW){
+        if(++count>(items?WENA_CHECKLIST_MAX_ITEMS:WENA_CHECKLIST_MAX_PER_CARD)||
+            sqlite3_column_type(query,revision_column)!=SQLITE_INTEGER||
+            sqlite3_column_int64(query,revision_column)<1||
+            sqlite3_column_int64(query,revision_column)>(sqlite3_int64)WENA_VERSION_READ_MAX){ok=0;break;}
+        for(column=0;ok&&column<sqlite3_column_count(query);++column){
+            type=sqlite3_column_type(query,column);text=sqlite3_column_text(query,column);
+            bytes=sqlite3_column_bytes(query,column);
+            if(bytes<0||(!text&&type!=SQLITE_NULL)){ok=0;break;}
+            sprintf(prefix,"%d:%d:",type,bytes);
+            wena_sha256_update(&hash,(const unsigned char*)prefix,strlen(prefix));
+            if(bytes)wena_sha256_update(&hash,text,(size_t)bytes);
+        }
+    }
+    if(step!=SQLITE_DONE)ok=0;
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;
+    if(ok)wena_sha256_final_hex(&hash,output);
+    return ok;
+}
+static int reboard_rows(sqlite3 *db,const char *board,const char *card,
+    const char *target,sqlite3_int64 now,int items,size_t count)
+{
+    sqlite3_stmt *query;int ok;const char *sql;
+    sql=items?
+        "UPDATE checklist_items SET board_id=?1,version=version+1,updated_at=max(updated_at,?4) WHERE board_id=?3 AND card_id=?2":
+        "UPDATE checklists SET board_id=?1,version=version+1,updated_at=max(updated_at,?4) WHERE board_id=?3 AND card_id=?2";
+    if(sqlite3_prepare_v2(db,sql,-1,&query,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(query,1,target,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(query,2,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(query,3,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_int64(query,4,now)==SQLITE_OK&&sqlite3_step(query)==SQLITE_DONE&&
+        sqlite3_changes(db)==(int)count;
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;
+    return ok;
+}
+int wena_sqlite_card_checklists_reboard(sqlite3 *db,const char *board,
+    const char *card,const char *target)
+{
+    ChecklistOrderRow rows[WENA_CHECKLIST_MAX_PER_CARD];size_t lists,items,new_lists,new_items;
+    unsigned long unused;sqlite3_stmt *query;sqlite3_int64 now;int ok;
+    char expected_lists[65],expected_items[65],actual[65];
+    if(!db||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board)||
+        !wena_model_identifier_valid(card)||!wena_model_identifier_valid(target)||!strcmp(board,target)||
+        !read_card_order(db,board,card,"",0,rows,&lists,&unused,&items))return 0;
+    if(sqlite3_prepare_v2(db,"SELECT CAST(strftime('%s','now') AS INTEGER)*1000",-1,&query,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_step(query)==SQLITE_ROW&&sqlite3_column_type(query,0)==SQLITE_INTEGER;
+    now=ok?sqlite3_column_int64(query,0):0;
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;
+    if(!ok||now<0||!reboard_digest(db,card,0,1,now,expected_lists)||
+        !reboard_digest(db,card,1,1,now,expected_items)||
+        sqlite3_exec(db,"PRAGMA defer_foreign_keys=ON",NULL,NULL,NULL)!=SQLITE_OK||
+        !reboard_rows(db,board,card,target,now,0,lists)||!reboard_rows(db,board,card,target,now,1,items)||
+        !read_card_order(db,target,card,"",0,rows,&new_lists,&unused,&new_items)||lists!=new_lists||items!=new_items||
+        !reboard_digest(db,card,0,0,0,actual)||strcmp(actual,expected_lists)||
+        !reboard_digest(db,card,1,0,0,actual)||strcmp(actual,expected_items))return 0;
+    return 1;
 }
 
 static int write_order(sqlite3 *db, const char *board, const char *card,

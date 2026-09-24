@@ -1,5 +1,6 @@
 #include "../client/features/checklist_mutation.h"
 #include "../models/checklist_item_titles.h"
+#include "../server/mutations/checklist_order.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -101,6 +102,71 @@ static void corrupted(WenaChecklistMutation *adapter, WenaChecklistEdit *change,
     sql(db, repair_query); sql(db, "PRAGMA ignore_check_constraints=OFF");
 }
 
+static void reboard_tests(char **paths)
+{
+    sqlite3 *db;size_t i;char query[512];
+    const char *triggers[]={
+        "CREATE TRIGGER corrupt BEFORE UPDATE ON checklist_items BEGIN SELECT RAISE(IGNORE);END",
+        "CREATE TRIGGER corrupt AFTER UPDATE OF board_id ON checklist_items BEGIN UPDATE checklist_items SET title='Changed' WHERE id=NEW.id;END",
+        "CREATE TRIGGER corrupt AFTER UPDATE OF board_id ON checklists BEGIN UPDATE checklists SET hide_all_items=0 WHERE id=NEW.id;END",
+        "CREATE TRIGGER corrupt AFTER UPDATE OF board_id ON checklist_items BEGIN UPDATE checklist_items SET position=9 WHERE id=NEW.id;END",
+        "CREATE TRIGGER corrupt AFTER UPDATE OF board_id ON checklists BEGIN UPDATE checklists SET updated_at=0 WHERE id=NEW.id;END",
+        "CREATE TRIGGER corrupt AFTER UPDATE OF board_id ON checklist_items BEGIN UPDATE checklist_items SET card_id='other' WHERE id=NEW.id;END"
+    };
+    assert(sqlite3_open(":memory:",&db)==SQLITE_OK);sql(db,"PRAGMA foreign_keys=ON");
+    schema(db,paths[1]);schema(db,paths[2]);schema(db,paths[3]);
+    sql(db,"INSERT INTO boards VALUES('a','Source',1),('b','Destination',1);"
+        "INSERT INTO lists VALUES('al','a','List',0,1),('bl','b','List',0,1);"
+        "INSERT INTO swimlanes VALUES('as','a','Lane',0,1),('bs','b','Lane',0,1);"
+        "INSERT INTO cards VALUES('card','a','as','al','Card',0,0,1),('other','a','as','al','Other',1,0,1)");
+    sql(db,"INSERT INTO checklists(id,board_id,card_id,title,position,hide_checked_items,hide_all_items,show_on_minicard,created_at,updated_at) "
+        "VALUES('cl','a','card','Title: with separators',5,1,1,0,1,1000000000000000)");
+    sql(db,"INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished,created_at,updated_at) "
+        "VALUES('it','a','card','cl','Finished',7,1,1,1000000000000000)");
+    assert(!wena_sqlite_card_checklists_reboard(db,"a","card","b"));
+    sql(db,"BEGIN");assert(!wena_sqlite_card_checklists_reboard(db,"a","card","a"));
+    assert(!wena_sqlite_card_checklists_reboard(db,"a","bad/id","b"));
+    assert(!wena_sqlite_card_checklists_reboard(db,"wrong","card","b"));sql(db,"ROLLBACK");
+    /* A successful metadata stage is not permission to commit a dangling parent. */
+    sql(db,"BEGIN");assert(wena_sqlite_card_checklists_reboard(db,"a","card","b"));
+    assert(sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_CONSTRAINT);sql(db,"ROLLBACK");
+    assert(number(db,"PRAGMA foreign_keys")==1&&number(db,"PRAGMA defer_foreign_keys")==0);
+    for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){
+        sql(db,triggers[i]);sql(db,"BEGIN");assert(!wena_sqlite_card_checklists_reboard(db,"a","card","b"));
+        sql(db,"ROLLBACK;DROP TRIGGER corrupt");
+        assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='a' AND version=1 AND hide_all_items=1")==1);
+        assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='a' AND version=1 AND title='Finished' AND position=7")==1);
+    }
+    sql(db,"BEGIN");sprintf(query,"UPDATE checklist_items SET version=%lu",WENA_VERSION_READ_MAX);sql(db,query);
+    assert(!wena_sqlite_card_checklists_reboard(db,"a","card","b"));sql(db,"ROLLBACK");
+    sql(db,"BEGIN");sprintf(query,"UPDATE checklists SET version=%lu",WENA_VERSION_READ_MAX);sql(db,query);
+    assert(!wena_sqlite_card_checklists_reboard(db,"a","card","b"));sql(db,"ROLLBACK");
+    sql(db,"BEGIN");assert(wena_sqlite_card_checklists_reboard(db,"a","card","b"));
+    sql(db,"UPDATE cards SET board_id='b',list_id='bl',swimlane_id='bs',version=version+1 WHERE id='card';COMMIT");
+    assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0);
+    assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='b' AND version=2 AND position=5 AND hide_checked_items=1 AND hide_all_items=1 AND show_on_minicard=0 AND updated_at=1000000000000000")==1);
+    assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='b' AND version=2 AND position=7 AND is_finished=1 AND updated_at=1000000000000000")==1);
+    sql(db,"BEGIN");assert(wena_sqlite_card_checklists_reboard(db,"a","other","b"));
+    sql(db,"UPDATE cards SET board_id='b',list_id='bl',swimlane_id='bs',version=version+1 WHERE id='other';COMMIT");
+    /* Exercise the complete 64-checklist / 1024-item collection with one owner. */
+    sql(db,"DELETE FROM checklist_items;DELETE FROM checklists;BEGIN");
+    for(i=0;i<WENA_CHECKLIST_MAX_PER_CARD;++i){
+        sprintf(query,"INSERT INTO checklists(id,board_id,card_id,title,position) VALUES('cl%lu','b','card','List',%lu)",(unsigned long)i,(unsigned long)i);sql(db,query);
+    }
+    for(i=0;i<WENA_CHECKLIST_MAX_ITEMS;++i){
+        sprintf(query,"INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position) VALUES('it%lu','b','card','cl%lu','Item',%lu)",
+            (unsigned long)i,(unsigned long)(i%WENA_CHECKLIST_MAX_PER_CARD),(unsigned long)(i/WENA_CHECKLIST_MAX_PER_CARD));sql(db,query);
+    }
+    sql(db,"COMMIT;BEGIN;INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position) VALUES('overflow','b','card','cl0','Extra',1000)");
+    assert(!wena_sqlite_card_checklists_reboard(db,"b","card","a"));sql(db,"ROLLBACK;BEGIN");
+    assert(wena_sqlite_card_checklists_reboard(db,"b","card","a"));
+    sql(db,"UPDATE cards SET board_id='a',list_id='al',swimlane_id='as',version=version+1 WHERE id='card';COMMIT");
+    assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='a' AND version=2")==WENA_CHECKLIST_MAX_PER_CARD);
+    assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='a' AND version=2")==WENA_CHECKLIST_MAX_ITEMS);
+    assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0&&number(db,"PRAGMA defer_foreign_keys")==0);
+    assert(sqlite3_close(db)==SQLITE_OK);
+}
+
 int main(int argc, char **argv)
 {
     sqlite3 *db, *second;
@@ -112,7 +178,7 @@ int main(int argc, char **argv)
     unsigned long version;
     char query[512];
     size_t index;
-    assert(argc == 5); assert(sqlite3_open(argv[4], &db) == SQLITE_OK);
+    assert(argc == 5);reboard_tests(argv); assert(sqlite3_open(argv[4], &db) == SQLITE_OK);
     sql(db, "PRAGMA foreign_keys=ON");
     schema(db, argv[1]); schema(db, argv[2]); schema(db, argv[3]);
     sql(db, "INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);"
