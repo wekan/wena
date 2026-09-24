@@ -4,6 +4,7 @@
 struct nk_context;
 
 #include <stddef.h>
+#include "../common/paginated_table.h"
 
 typedef enum WenaSidebarSection {
     WENA_SIDEBAR_ACTIVITIES = 0,
@@ -27,6 +28,7 @@ typedef struct WenaBoardSidebar {
     int visible;
     WenaSidebarSection section;
     WenaSidebarItems items;
+    WenaTableState table;
 } WenaBoardSidebar;
 
 #define WENA_SIDEBAR_NO_ACTION 0u

@@ -315,6 +315,22 @@ int main(void)
     context.button_to_press = "Restore selected";
     assert((wena_board_sidebar_render(&context, &sidebar) &
             WENA_SIDEBAR_RESTORE_ARCHIVE) != 0u);
+    {
+        const char *many[21]; size_t item;
+        for (item = 0; item < 21; ++item) many[item] = "Older activity";
+        sidebar.items.activities = many; sidebar.items.activity_count = 21;
+        sidebar.section = WENA_SIDEBAR_ACTIVITIES;
+        memset(&context, 0, sizeof(context)); context.button_to_press = "Next Page";
+        assert(wena_board_sidebar_render(&context, &sidebar) == WENA_SIDEBAR_NO_ACTION);
+        assert(sidebar.table.page == 1);
+        memset(&context, 0, sizeof(context)); context.button_to_press = "Next Page";
+        assert(wena_board_sidebar_render(&context, &sidebar) == WENA_SIDEBAR_NO_ACTION);
+        assert(sidebar.table.page == 2);
+        memset(&context, 0, sizeof(context)); context.button_to_press = "Members";
+        assert(wena_board_sidebar_render(&context, &sidebar) & WENA_SIDEBAR_SECTION_CHANGED);
+        assert(sidebar.table.page == 0);
+        sidebar.items.activities = activities; sidebar.items.activity_count = 1;
+    }
     context.button_to_press = "Close";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(!sidebar.visible);

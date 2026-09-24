@@ -10,6 +10,7 @@ void wena_board_sidebar_init(WenaBoardSidebar *sidebar)
     if (sidebar != NULL) {
         memset(sidebar, 0, sizeof(*sidebar));
         sidebar->section = WENA_SIDEBAR_ACTIVITIES;
+        (void)wena_table_init(&sidebar->table, 10);
     }
 }
 
@@ -21,20 +22,24 @@ static int wena_sidebar_items_valid(const WenaSidebarItems *items)
              (items->archive_count != 0 && items->archives == NULL));
 }
 
-static void wena_sidebar_item_list(struct nk_context *context,
-                                   const char *const *items, size_t count,
-                                   const char *empty_text)
+static unsigned int sidebar_row(struct nk_context *context, void *data, size_t row)
 {
-    size_t index;
-
+    const char *const *items;
+    items = (const char *const *)data;
+    nk_label(context, items[row] ? items[row] : "", NK_TEXT_LEFT);
+    return 0;
+}
+static void wena_sidebar_item_list(struct nk_context *context,
+    WenaTableState *state, const char *const *items, size_t count,
+    const char *empty_text)
+{
+    WenaTableView view;
+    memset(&view, 0, sizeof(view));
+    view.row_count = count; view.column_count = 1; view.row_height = 24.0f;
+    view.empty_text = empty_text; view.render_row = sidebar_row;
+    view.context = (void *)items;
+    (void)wena_table_render(context, state, &view);
     nk_layout_row_dynamic(context, 24.0f, 1);
-    if (count == 0) {
-        nk_label(context, empty_text, NK_TEXT_LEFT);
-        return;
-    }
-    for (index = 0; index < count; ++index) {
-        nk_label(context, items[index] != NULL ? items[index] : "", NK_TEXT_LEFT);
-    }
 }
 
 static unsigned int wena_sidebar_section_content(struct nk_context *context,
@@ -44,25 +49,25 @@ static unsigned int wena_sidebar_section_content(struct nk_context *context,
 
     items = &sidebar->items;
     if (sidebar->section == WENA_SIDEBAR_ACTIVITIES) {
-        wena_sidebar_item_list(context, items->activities, items->activity_count,
+        wena_sidebar_item_list(context, &sidebar->table, items->activities, items->activity_count,
                                "No activities");
         return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)) ?
                WENA_SIDEBAR_REFRESH_ACTIVITIES : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_MEMBERS) {
-        wena_sidebar_item_list(context, items->members, items->member_count,
+        wena_sidebar_item_list(context, &sidebar->table, items->members, items->member_count,
                                "No members");
         return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_ADD_MEMBER)) ?
                WENA_SIDEBAR_ADD_MEMBER : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_LABELS) {
-        wena_sidebar_item_list(context, items->labels, items->label_count,
+        wena_sidebar_item_list(context, &sidebar->table, items->labels, items->label_count,
                                "No labels");
         return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_ADD_LABEL)) ?
                WENA_SIDEBAR_ADD_LABEL : WENA_SIDEBAR_NO_ACTION;
     }
     if (sidebar->section == WENA_SIDEBAR_ARCHIVES) {
-        wena_sidebar_item_list(context, items->archives, items->archive_count,
+        wena_sidebar_item_list(context, &sidebar->table, items->archives, items->archive_count,
                                "No archived items");
         return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_RESTORE)) ?
                WENA_SIDEBAR_RESTORE_ARCHIVE : WENA_SIDEBAR_NO_ACTION;
@@ -76,6 +81,7 @@ static unsigned int wena_sidebar_section_button(struct nk_context *context,
                                                 WenaSidebarSection section)
 {
     if (nk_button_label(context, title)) {
+        if (sidebar->section != section) sidebar->table.page = 0;
         sidebar->section = section;
         return WENA_SIDEBAR_SECTION_CHANGED;
     }
