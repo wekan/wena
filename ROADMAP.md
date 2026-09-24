@@ -850,7 +850,14 @@ Architecture decisions for this cycle:
               display order, and reject missing endpoints, duplicate/archived/
               foreign IDs or invalid caches. Verify filtered gaps, equal endpoints,
               duplicate titles, aliasing, unchanged failures and full capacity.
-            - [_] Capture visible traversal and connect Shift-click range controls.
+            - [x] Capture visible traversal and connect Shift-click range controls.
+              Reuse one bounded controller for rendered card IDs and deferred
+              intents; keep ranges in current display order, excluding filtered
+              cards and collapsed parents. Retain the anchor across Shift clicks,
+              fall back to a single toggle when it is hidden or cleared, and
+              reject duplicate/overflow traversal without changing selection.
+              Real Nuklear input tests cover Shift intents, reversed ordering,
+              hidden gaps, repeated ranges and unchanged failed selections.
           - [_] Connect the shared selection panel to guarded bulk actions.
             - [x] Add an exact-selection archive transaction. A native-only typed
               ID/revision span supports all 2048 cards without widening HTTP

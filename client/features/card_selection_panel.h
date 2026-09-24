@@ -29,6 +29,21 @@ void wena_card_selection_panel_set_archive(WenaCardSelectionPanel *panel,
 void wena_card_selection_panel_close(WenaCardSelectionPanel *panel);
 int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectionPanel *panel,
     const WenaCard *cards,size_t count,const char *board,float width,float height);
+/* Zero-initialize caller-owned traversal storage once. Begin before drawing,
+ * visit controls in
+ * display order, then apply an intent after drawing. Hidden anchors fall back
+ * to a single toggle; a valid range keeps its anchor for repeated Shift clicks.
+ * Duplicate/overflow traversal fails closed without changing selected IDs. */
+typedef struct WenaCardSelectionTraversal {
+    WenaCardSelection *selection;
+    WenaId board_id,anchor,ids[WENA_CARD_SELECTION_CAPACITY];
+    size_t count;
+    int error;
+} WenaCardSelectionTraversal;
+void wena_card_selection_traversal_begin(WenaCardSelectionTraversal *state,WenaCardSelection *selection);
+unsigned int wena_card_selection_traversal_control(struct nk_context *context,void *state,const WenaCard *card);
+int wena_card_selection_traversal_apply(WenaCardSelectionTraversal *state,const WenaCard *cards,
+    size_t count,const char *target,unsigned int action);
 /* Reusable cached minicard checkbox; returns a card-body intent, never writes. */
 unsigned int wena_card_selection_control(struct nk_context *context,void *selection,
     const WenaCard *card);

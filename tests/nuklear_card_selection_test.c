@@ -93,6 +93,64 @@ static void minicard_control(WenaCardSelection *selection,WenaCard *cards)
  assert(!control_frame(&ctx,selection,&cards[7]));
  nk_free(&ctx);
 }
+/* The supplied visible order deliberately differs from cache order and skips
+ * hidden cards. Real checkbox input emits intents without mutating the model. */
+static unsigned int traversal_frame(struct nk_context *ctx,WenaCardSelectionTraversal *state,
+ WenaCardSelection *selection,WenaCard *cards)
+{
+ unsigned int action;action=0;wena_card_selection_traversal_begin(state,selection);
+ if(nk_begin(ctx,"Range",nk_rect(0,0,320,240),NK_WINDOW_BORDER)){
+  action|=wena_card_selection_traversal_control(ctx,state,&cards[4]);
+  action|=wena_card_selection_traversal_control(ctx,state,&cards[2]);
+  action|=wena_card_selection_traversal_control(ctx,state,&cards[0]);
+ }
+ nk_end(ctx);return action;
+}
+static void traversal(WenaCardSelection *selection,WenaCard *cards)
+{
+ struct nk_context ctx;struct nk_user_font font;struct nk_vec2 point;
+ WenaCardSelectionTraversal *state;WenaCardSelection *before;
+ unsigned int action;int down;
+ state=(WenaCardSelectionTraversal*)calloc(1,sizeof(*state));
+ before=(WenaCardSelection*)malloc(sizeof(*before));assert(state&&before);
+ memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
+ nk_input_begin(&ctx);nk_input_end(&ctx);assert(!traversal_frame(&ctx,state,selection,cards));
+ point=label_center(&ctx,"Selected:");action=0;
+ for(down=1;down>=0;--down){
+  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_motion(&ctx,(int)point.x,(int)point.y);
+  nk_input_key(&ctx,NK_KEY_SHIFT,1);
+  nk_input_button(&ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(&ctx);
+  action|=traversal_frame(&ctx,state,selection,cards);
+ }
+ assert(action==WENA_CARD_BODY_RANGE_SELECTION&&!selection->count);
+ /* With no anchor Shift-click toggles one card. */
+ assert(wena_card_selection_traversal_apply(state,cards,9,"c4",action));
+ assert(selection->count==1&&!strcmp(state->anchor,"c4"));
+ assert(wena_card_selection_traversal_apply(state,cards,9,"c0",action));
+ assert(selection->count==3&&!strcmp(selection->ids[0],"c4")&&!strcmp(selection->ids[1],"c2")&&!strcmp(selection->ids[2],"c0"));
+ assert(!wena_card_selection_contains(selection,"c1")&&!wena_card_selection_contains(selection,"c3"));
+ /* Repeated ranges retain anchor; reversing display order uses current order. */
+ assert(wena_card_selection_traversal_apply(state,cards,9,"c2",action)&&selection->count==2);
+ strcpy(state->ids[0],"c0");strcpy(state->ids[2],"c4");
+ assert(wena_card_selection_traversal_apply(state,cards,9,"c0",action));
+ assert(selection->count==3&&!strcmp(selection->ids[0],"c0")&&!strcmp(state->anchor,"c4"));
+ memcpy(before,selection,sizeof(*before));
+ assert(!wena_card_selection_traversal_apply(state,cards,9,"c1",action)&&!memcmp(before,selection,sizeof(*before)));
+ /* Hidden anchor cannot pull hidden cards into a range. */
+ state->count=1;strcpy(state->ids[0],"c1");
+ assert(wena_card_selection_traversal_apply(state,cards,9,"c1",action));
+ assert(selection->count==4&&!strcmp(state->anchor,"c1"));
+ wena_card_selection_clear(selection);
+ nk_clear(&ctx);nk_input_begin(&ctx);nk_input_key(&ctx,NK_KEY_SHIFT,0);nk_input_end(&ctx);
+ assert(!traversal_frame(&ctx,state,selection,cards)&&!state->anchor[0]);
+ memcpy(before,selection,sizeof(*before));
+ /* Duplicate callback visits invalidate the entire frame, including prior intents. */
+ if(nk_begin(&ctx,"Duplicate",nk_rect(330,0,300,240),NK_WINDOW_BORDER))
+  assert(!wena_card_selection_traversal_control(&ctx,state,&cards[4]));
+ nk_end(&ctx);assert(state->error);
+ assert(!wena_card_selection_traversal_apply(state,cards,9,"c4",action)&&!memcmp(before,selection,sizeof(*before)));
+ nk_free(&ctx);free(before);free(state);
+}
 int main(void)
 {
  struct nk_context ctx;struct nk_user_font font;WenaBoard board;WenaCard cards[9];
@@ -106,6 +164,7 @@ int main(void)
  assert(wena_card_init(&cards[7],"archived","board","lane","list","Archived",7,1));
  assert(wena_card_init(&cards[8],"outside","board","other","list","Outside",8,0));
  minicard_control(selection,cards);
+ traversal(selection,cards);
  layout.board=&board;layout.cards=cards;layout.card_count=9;
  memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
  assert(wena_card_selection_panel_open(&state,cards,9,"board","list","lane")&&selection->count==6);

@@ -350,6 +350,7 @@ int main(int argc, char **argv)
     WenaSqliteWorkspaceSeed seed;
     WenaSqliteBoardSnapshot *snapshot;
     WenaCardSelection *selection;
+    WenaCardSelectionTraversal *selection_traversal;
     WenaBoardLayout layout;
     WenaBoardSidebar sidebar;
     WenaBoardCollapseState collapse;
@@ -424,7 +425,7 @@ int main(int argc, char **argv)
     memset(&swimlane_interaction, 0, sizeof(swimlane_interaction));
     memset(&toolbar, 0, sizeof(toolbar));
     memset(&label_view, 0, sizeof(label_view));
-    database = NULL; window = NULL; renderer = NULL; context = NULL;selection=NULL;
+    database = NULL; window = NULL; renderer = NULL; context = NULL;selection=NULL;selection_traversal=NULL;
     sdl_started = 0; status = 1;
     if (!wena_executable_path_current(executable, sizeof(executable)) ||
         !wena_i18n_catalog_open(&catalog, executable) ||
@@ -472,7 +473,8 @@ int main(int argc, char **argv)
     if (!wena_language_picker_init(&language_picker, &language, language_path,
         smoke || language_path[0] == '\0')) goto cleanup;
     selection=(WenaCardSelection*)malloc(sizeof(*selection));
-    if(!selection||!wena_card_selection_init(selection,board_id))goto cleanup;
+    selection_traversal=(WenaCardSelectionTraversal*)calloc(1,sizeof(*selection_traversal));
+    if(!selection_traversal||!selection||!wena_card_selection_init(selection,board_id))goto cleanup;
     wena_card_selection_panel_init(&editors.selection,selection);
     layout.board = &snapshot->board;
     layout.swimlanes = snapshot->swimlanes; layout.swimlane_count = snapshot->swimlane_count;
@@ -580,7 +582,7 @@ int main(int argc, char **argv)
         wena_card_selection_panel_set_archive(&editors.selection,
             wena_hierarchy_mutation_selected_cards_load,wena_hierarchy_mutation_selected_cards_archive,&hierarchy_mutation);
         editors.hierarchy.selection_enabled=1;
-        layout.card_selection=wena_card_selection_control;layout.card_selection_context=selection;
+        layout.card_selection=wena_card_selection_traversal_control;layout.card_selection_context=selection_traversal;
         wena_hierarchy_title_set_list_cards_adapters(&editors.hierarchy,
             wena_hierarchy_mutation_list_cards_load,wena_hierarchy_mutation_list_cards_archive);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
@@ -654,6 +656,7 @@ int main(int argc, char **argv)
             layout.card_count = snapshot->card_count;
             layout.list_count = snapshot->list_count;
             layout.swimlane_count = snapshot->swimlane_count;
+            wena_card_selection_traversal_begin(selection_traversal,selection);
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) goto cleanup;
             wena_reorder_drag_end(context, &preview.drag.gesture);
@@ -683,8 +686,9 @@ int main(int argc, char **argv)
                     WENA_CARD_DETAILS_DESCRIPTION | WENA_CARD_DETAILS_CHECKLISTS |
                     WENA_CARD_DETAILS_LABELS)) != 0u)
                 sidebar.visible = 0;
-            if(card_interaction.actions&WENA_CARD_BODY_TOGGLE_SELECTION)
-                (void)wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,card_interaction.card_id);
+            if(card_interaction.actions&(WENA_CARD_BODY_TOGGLE_SELECTION|WENA_CARD_BODY_RANGE_SELECTION))
+                (void)wena_card_selection_traversal_apply(selection_traversal,snapshot->cards,snapshot->card_count,
+                    card_interaction.card_id,card_interaction.actions&(WENA_CARD_BODY_TOGGLE_SELECTION|WENA_CARD_BODY_RANGE_SELECTION));
             if ((list_interaction.actions & WENA_LIST_HEADER_ADD_CARD) != 0u) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_CREATE_CARD);
                 if (wena_card_create_open(&editors.create, &layout, &list_interaction))
@@ -908,6 +912,7 @@ cleanup:
     if (window != NULL) SDL_DestroyWindow(window);
     if (sdl_started) { SDL_StopTextInput(); SDL_Quit(); }
     wena_board_presentation_close(&label_view);
+    free(selection_traversal);
     free(selection);
     free(snapshot);
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;

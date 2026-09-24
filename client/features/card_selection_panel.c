@@ -167,3 +167,49 @@ unsigned int wena_card_selection_control(struct nk_context *context,void *data,c
     return nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_SELECTED),&checked)?
         WENA_CARD_BODY_TOGGLE_SELECTION:WENA_CARD_BODY_NO_ACTION;
 }
+
+
+void wena_card_selection_traversal_begin(WenaCardSelectionTraversal *state,WenaCardSelection *selection)
+{
+    if(!state)return;
+    state->selection=selection;state->count=0;state->error=0;
+    if(!selection||!wena_model_identifier_valid(selection->board_id)){state->error=1;return;}
+    if(strcmp(state->board_id,selection->board_id)||
+        !wena_card_selection_contains(selection,state->anchor))state->anchor[0]='\0';
+    strcpy(state->board_id,selection->board_id);
+}
+unsigned int wena_card_selection_traversal_control(struct nk_context *context,void *data,const WenaCard *card)
+{
+    WenaCardSelectionTraversal *state;size_t i;unsigned int action;
+    state=(WenaCardSelectionTraversal*)data;
+    if(!context||!state||state->error||!card)return 0;
+    if(!wena_model_identifier_valid(card->id)||card->archived||
+        strcmp(card->board_id,state->board_id)||state->count>=WENA_CARD_SELECTION_CAPACITY){state->error=1;return 0;}
+    for(i=0;i<state->count;++i)if(!strcmp(state->ids[i],card->id)){state->error=1;return 0;}
+    strcpy(state->ids[state->count++],card->id);
+    action=wena_card_selection_control(context,state->selection,card);
+    if(action&&nk_input_is_key_down(&context->input,NK_KEY_SHIFT))return WENA_CARD_BODY_RANGE_SELECTION;
+    return action;
+}
+int wena_card_selection_traversal_apply(WenaCardSelectionTraversal *state,const WenaCard *cards,
+    size_t count,const char *target,unsigned int action)
+{
+    size_t i;int found,anchored;
+    if(!state||state->error||!state->selection||!wena_model_identifier_valid(target)||
+        strcmp(state->board_id,state->selection->board_id)||
+        (action!=WENA_CARD_BODY_TOGGLE_SELECTION&&action!=WENA_CARD_BODY_RANGE_SELECTION))return 0;
+    found=0;anchored=0;
+    for(i=0;i<state->count;++i){
+        if(!strcmp(state->ids[i],target))found=1;
+        if(!strcmp(state->ids[i],state->anchor))anchored=1;
+    }
+    if(!found)return 0;
+    if(action==WENA_CARD_BODY_RANGE_SELECTION&&anchored&&
+        wena_card_selection_contains(state->selection,state->anchor))
+        return wena_card_selection_range(state->selection,cards,count,(const WenaId*)state->ids,
+            state->count,state->anchor,target);
+    if(!wena_card_selection_toggle(state->selection,cards,count,target))return 0;
+    if(wena_card_selection_contains(state->selection,target))strcpy(state->anchor,target);
+    else state->anchor[0]='\0';
+    return 1;
+}
