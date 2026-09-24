@@ -57,6 +57,58 @@ const WenaChecklistCardSummary *wena_checklist_summary_find(
     index = find_index(summary, card_id);
     return index < summary->card_count ? &summary->cards[index] : NULL;
 }
+void wena_checklist_contents_free(WenaChecklistBoardContents *contents)
+{
+    size_t index;
+    WenaChecklistContents *list, *next;
+    if (!contents) return;
+    for (index = 0; index < WENA_SQLITE_BOARD_MAX_CARDS; ++index) {
+        list = contents->cards[index];
+        while (list) {
+            next = list->next; free(list->items); free(list); list = next;
+        }
+    }
+    free(contents);
+}
+const WenaChecklistContents *wena_checklist_contents_find(
+    const WenaChecklistBoardContents *contents, const char *card_id)
+{
+    size_t index;
+    if (!contents || !wena_checklist_summary_find(&contents->summary, card_id)) return NULL;
+    index = find_index(&contents->summary, card_id);
+    return contents->cards[index];
+}
+static int retain_checklist(WenaChecklistBoardContents *contents, size_t card_index,
+    const WenaChecklist *checklist, unsigned long version)
+{
+    WenaChecklistContents **tail, *node;
+    if (!contents) return 1;
+    node = (WenaChecklistContents *)calloc(1, sizeof(*node));
+    if (!node) return 0;
+    node->checklist = *checklist; node->version = version;
+    tail = &contents->cards[card_index];
+    while (*tail) tail = &(*tail)->next;
+    *tail = node; return 1;
+}
+static int retain_item(WenaChecklistBoardContents *contents, size_t card_index,
+    const WenaChecklistItem *item)
+{
+    WenaChecklistContents *list;
+    WenaChecklistItem *items;
+    size_t capacity;
+    if (!contents) return 1;
+    list = contents->cards[card_index];
+    while (list && strcmp(list->checklist.id, item->checklist_id)) list = list->next;
+    if (!list || list->item_count >= WENA_CHECKLIST_MAX_ITEMS) return 0;
+    if (list->item_count == list->item_capacity) {
+        capacity = list->item_capacity ? list->item_capacity * 2 : 4;
+        if (capacity > WENA_CHECKLIST_MAX_ITEMS) capacity = WENA_CHECKLIST_MAX_ITEMS;
+        items = (WenaChecklistItem *)realloc(list->items, capacity * sizeof(*items));
+        if (!items) return 0;
+        list->items = items; list->item_capacity = capacity;
+    }
+    list->items[list->item_count++] = *item; return 1;
+}
 static const char *read_text(sqlite3_stmt *statement, int column, size_t capacity)
 {
     const char *text; int bytes;
@@ -92,8 +144,9 @@ static int prepare(sqlite3 *db, const char *sql, const char *board,
     }
     return 1;
 }
-int wena_checklist_summary_load(sqlite3 *database, const char *actor_id,
-    const char *board_id, int enabled, WenaChecklistBoardSummary *output)
+static int load_summary(sqlite3 *database, const char *actor_id,
+    const char *board_id, int enabled, WenaChecklistBoardSummary *output,
+    WenaChecklistBoardContents *contents)
 {
     WenaChecklistBoardSummary *candidate;
     WenaChecklistCardSummary *card, *previous_card;
@@ -160,6 +213,8 @@ int wena_checklist_summary_load(sqlite3 *database, const char *actor_id,
         }
         if (!wena_checklist_valid(&checklist) ||
             (previous_card == card && previous_position >= position)) goto rollback;
+        if (!retain_checklist(contents, (size_t)(card - candidate->cards), &checklist,
+            version)) goto rollback;
         previous_card = card; previous_position = position; ++card->checklist_count;
     }
     if (step != SQLITE_DONE) goto rollback;
@@ -186,6 +241,7 @@ int wena_checklist_summary_load(sqlite3 *database, const char *actor_id,
             !wena_checklist_item_init(&item, id, scope, card_id, parent, title, position, (int)flag)) goto rollback;
         if (previous_card == card && !strcmp(previous_parent, parent) && previous_position >= position) goto rollback;
         previous_card = card; strcpy(previous_parent, parent); previous_position = position;
+        if (!retain_item(contents, (size_t)(card - candidate->cards), &item)) goto rollback;
         ++card->progress.total; card->progress.finished += (size_t)flag;
     }
     if (step != SQLITE_DONE) goto rollback;
@@ -208,4 +264,22 @@ rollback:
 done:
     if (statement) sqlite3_finalize(statement);
     free(candidate); return success;
+}
+
+int wena_checklist_summary_load(sqlite3 *database, const char *actor_id,
+    const char *board_id, int enabled, WenaChecklistBoardSummary *output)
+{
+    return load_summary(database, actor_id, board_id, enabled, output, NULL);
+}
+int wena_checklist_contents_load(sqlite3 *database, const char *actor_id,
+    const char *board_id, WenaChecklistBoardContents **output)
+{
+    WenaChecklistBoardContents *candidate;
+    if (!output) return 0;
+    candidate = (WenaChecklistBoardContents *)calloc(1, sizeof(*candidate));
+    if (!candidate) return 0;
+    if (!load_summary(database, actor_id, board_id, 1, &candidate->summary, candidate)) {
+        wena_checklist_contents_free(candidate); return 0;
+    }
+    wena_checklist_contents_free(*output); *output = candidate; return 1;
 }

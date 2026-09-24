@@ -183,6 +183,61 @@ static void unrelated_work(sqlite3 *db, WenaChecklistBoardSummary *summary)
     execute(db, "CREATE INDEX checklist_items_card_order_idx ON checklist_items(card_id, checklist_id, position, id);");
     execute(db, "DELETE FROM checklist_items WHERE id LIKE 'unrelated-item-%';DELETE FROM checklists WHERE id LIKE 'unrelated-check-%'");
 }
+static void contents(sqlite3 *db)
+{
+    WenaChecklistBoardContents *view, *before;
+    const WenaChecklistContents *list;
+    Work work;
+    int shown;
+    view = NULL;
+    memset(&work, 0, sizeof(work));
+    assert(sqlite3_trace_v2(db, SQLITE_TRACE_PROFILE, trace, &work) == SQLITE_OK);
+    assert(wena_checklist_contents_load(db, "actor", "board", &view));
+    baseline(&view->summary);
+    /* The same six queries plus BEGIN/COMMIT, independent of card count. */
+    assert(work.statements == 7);
+    memset(&work, 0, sizeof(work));
+    list = wena_checklist_contents_find(view, "b-todo");
+    assert(list && !list->next && list->version == 1 && list->item_count == 2);
+    assert(!strcmp(list->checklist.title, "Mixed"));
+    assert(!strcmp(list->items[0].title, "Todo") && !list->items[0].is_finished);
+    assert(!strcmp(list->items[1].title, "Done") && list->items[1].is_finished);
+    assert(wena_checklist_shown_at_minicard(&list->checklist, 1, &shown) && shown);
+    assert(wena_checklist_shown_at_minicard(&list->checklist, 0, &shown) && !shown);
+    assert(!wena_checklist_contents_find(view, "a-empty"));
+    assert(!wena_checklist_contents_find(view, "other-card"));
+    assert(!wena_checklist_contents_find(view, "../invalid"));
+    list = wena_checklist_contents_find(view, "c-zero");
+    assert(list && !list->item_count && !list->items);
+    assert(!work.statements);
+    assert(sqlite3_trace_v2(db, 0, NULL, NULL) == SQLITE_OK);
+    before = view;
+    assert(!wena_checklist_contents_load(db, "missing", "board", &view) && view == before);
+    execute(db, "BEGIN");
+    assert(!wena_checklist_contents_load(db, "actor", "board", &view) && view == before);
+    assert(!sqlite3_get_autocommit(db)); execute(db, "ROLLBACK");
+    execute(db, "PRAGMA ignore_check_constraints=ON;UPDATE checklist_items SET title='' WHERE id='item'");
+    assert(!wena_checklist_contents_load(db, "actor", "board", &view) && view == before);
+    assert(!strcmp(wena_checklist_contents_find(view, "b-todo")->items[0].title, "Todo"));
+    execute(db, "UPDATE checklist_items SET title='Todo' WHERE id='item';PRAGMA ignore_check_constraints=OFF");
+    commit_failure = 1; assert(sqlite3_set_authorizer(db, authorize, NULL) == SQLITE_OK);
+    assert(!wena_checklist_contents_load(db, "actor", "board", &view) && view == before);
+    commit_failure = 0; assert(sqlite3_set_authorizer(db, NULL, NULL) == SQLITE_OK);
+    execute(db, "INSERT INTO checklists(id,board_id,card_id,title,position,show_on_minicard) VALUES('aaa','board','b-todo','Second',9,0);"
+        "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES('extra','board','b-todo','aaa','Last',7,0)");
+    assert(wena_checklist_contents_load(db, "actor", "board", &view));
+    list = wena_checklist_contents_find(view, "b-todo");
+    assert(list && !strcmp(list->checklist.id, "check") && list->item_count == 2);
+    list = list->next;
+    assert(list && !list->next && !strcmp(list->checklist.id, "aaa") && list->item_count == 1);
+    assert(!strcmp(list->items[0].title, "Last") && list->items[0].position == 7);
+    assert(wena_checklist_shown_at_minicard(&list->checklist, 1, &shown) && !shown);
+    execute(db, "DELETE FROM checklist_items WHERE id='extra';DELETE FROM checklists WHERE id='aaa'");
+    assert(wena_checklist_contents_load(db, "actor", "other", &view));
+    assert(!wena_checklist_contents_find(view, "b-todo"));
+    assert(wena_checklist_contents_find(view, "other-card"));
+    wena_checklist_contents_free(view); wena_checklist_contents_free(NULL);
+}
 int main(int argc, char **argv)
 {
     FILE *file; long length; unsigned char *bundle; char hash[65];
@@ -193,7 +248,7 @@ int main(int argc, char **argv)
     bundle = (unsigned char *)malloc((size_t)length); assert(bundle);
     assert(fread(bundle, 1, (size_t)length, file) == (size_t)length); assert(fclose(file) == 0);
     wena_sha256_hex(bundle, (size_t)length, hash);
-    assert(wena_sqlite_open(argv[2], bundle, (size_t)length, hash, &db)); seed(db);
+    assert(wena_sqlite_open(argv[2], bundle, (size_t)length, hash, &db)); seed(db); contents(db);
     summary = wena_checklist_summary_create(); before = wena_checklist_summary_create(); assert(summary && before);
     memset(&work, 0, sizeof(work)); assert(sqlite3_trace_v2(db, SQLITE_TRACE_PROFILE, trace, &work) == SQLITE_OK);
     assert(wena_checklist_summary_load(NULL, "actor", "board", 0, summary));

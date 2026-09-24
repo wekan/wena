@@ -59,6 +59,24 @@ files remain documentation only. The compiler deliberately supports only bounded
 rectangles/circles/lines; future complex artwork requires reviewed extensions.
 See `imports/ui/svg/README.md`. Full UI/theme/responsive parity remains open.
 
+Reusable components are the implementation policy: shared rendering, pagination,
+selection and empty/error states belong in `client/components/`; feature adapters
+provide data and action callbacks. Do not duplicate table implementations per page.
+
+Expanded minicard preparation: the shared board checklist reader now optionally
+retains owned ordered checklist/item contents in the same read transaction as its
+counts. It uses the same seven statements regardless of card count, allocates only
+for existing rows, preserves the previous snapshot on failure, and performs no SQL
+for lookups. Fast summary regressions and ASan/UBSan pass. Native rendering and
+board display settings for expanded contents remain open.
+
+Blocker procedure: inspect original WeKan behavior and pinned dependency source,
+then consult official documentation and copyfree-compatible implementation examples.
+Record unresolved constraints here with the attempted resolution and affected work;
+continue all independent work. The current contents projection has no unresolved
+blocker. SQLite's documented read-transaction snapshot semantics and the existing
+validated streaming queries support the implementation without a new dependency.
+
 ## Earlier checkpoint (2026-09-19; historical)
 
 **Current continuation (2026-09-11).** Labels/card assignments, atomic checklist
