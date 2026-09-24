@@ -5,7 +5,7 @@ test_dir=$(mktemp -d "${TMPDIR:-/tmp}/wena-version-boundaries-XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/version_boundaries_test.c" \
-  "$root_dir/client/features/card_mutation.c" \
+  "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/features/card_description_mutation.c" \
   "$root_dir/client/features/hierarchy_mutation.c" \
   "$root_dir/client/features/hierarchy_move_mutation.c" \

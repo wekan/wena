@@ -5,7 +5,7 @@ test_dir="${TMPDIR:-/tmp}/wena-card-reorder-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/card_reorder_test.c" "$root_dir/client/features/card_mutation.c" \
+ "$root_dir/tests/card_reorder_test.c" "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
  "$root_dir/server/sqlite_board.c" "$root_dir/server/sqlite_persistence.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \

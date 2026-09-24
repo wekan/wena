@@ -38,6 +38,11 @@ int main(int argc,char**argv)
     strcpy(s->cards[0].list_id,"l1");
     assert(wena_card_mutation_init(&other,d,"unknown","b",s->cards,count));assert(!wena_card_mutation_reorder(&other,"b","c0",1,2));
     assert(wena_card_mutation_init(&other,d,"u","b",s->cards,count-1));assert(!wena_card_mutation_reorder(&other,"b","c0",1,1));unchanged(d,s,before,keys);
+    /* A valid sorted snapshot must not conceal a malformed traversal cache. */
+    {WenaCard swap;swap=s->cards[0];s->cards[0]=s->cards[3];s->cards[3]=swap;}
+    assert(!wena_card_mutation_reorder(&a,"b","c0",1,2));
+    assert(number(d,"SELECT count(*) FROM idempotency_keys")==keys);
+    memcpy(s,before,sizeof(*s));
     /* Abort after other rows have already been moved into temporary slots. */
     sql(d,"CREATE TRIGGER reject_stage BEFORE UPDATE ON cards WHEN OLD.id='c0' AND NEW.position>8 BEGIN SELECT RAISE(ABORT,'stage'); END;");
     assert(!wena_card_mutation_reorder(&a,"b","c0",1,2));unchanged(d,s,before,keys);sql(d,"DROP TRIGGER reject_stage");

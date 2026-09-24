@@ -1,7 +1,9 @@
 #include "card_mutation.h"
+#include "../../models/card_order.h"
 
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int scoped(WenaCardMutation *a, const char *board, const char *card)
@@ -370,11 +372,12 @@ int wena_card_mutation_reorder_request(WenaCardMutation *a,
     WenaCard moved;
     WenaId list,lane;
     char order[65];
-    size_t indices[2048],index,count,source,ordinal;
-    unsigned long position,previous;
+    WenaCardOrderSlot *slots;
+    size_t index,count,source,ordinal;
+    int valid;
     int found;
     if(!scoped(a,board,card)||!expected||expected > WENA_VERSION_MUTATE_MAX||
-        !request||request>=(unsigned long)LONG_MAX||!a->cards||a->card_count>2048||
+        !request||request>=(unsigned long)LONG_MAX||!a->cards||a->card_count>WENA_CARD_ORDER_CAPACITY||
         (a->published_card_count&&*a->published_card_count!=a->card_count))return 0;
     source=0;found=0;
     for(index=0;index<a->card_count;++index){
@@ -389,32 +392,33 @@ int wena_card_mutation_reorder_request(WenaCardMutation *a,
     }
     if(!found)return 0;
     strcpy(list,a->cards[source].list_id);strcpy(lane,a->cards[source].swimlane_id);
-    wena_sha256_init(&hash);count=0;previous=0;ordinal=0;
-    for(index=0;index<a->card_count;++index){
-        WenaCard *row;
-        row=&a->cards[index];
-        if(strcmp(row->board_id,board)||strcmp(row->list_id,list)||strcmp(row->swimlane_id,lane))continue;
-        if((row->archived!=0&&row->archived!=1)||
-            !(row->sort>=0&&row->sort<(double)(LONG_MAX-2048)&&row->sort<=9007199254740991.0))return 0;
-        position=(unsigned long)row->sort;
-        if((double)position!=row->sort||(count&&position<=previous))return 0;
-        if(!wena_sqlite_card_order_add(&hash,row->id,strlen(row->id),position))return 0;
-        previous=position;indices[count]=index;if(index==source)ordinal=count;++count;
+    slots=NULL;count=0;ordinal=0;valid=0;
+    if(!wena_card_order_capture(a->cards,a->card_count,board,list,lane,&slots,&count))return 0;
+    wena_sha256_init(&hash);
+    for(index=0;index<count;++index){
+        /* Publication traverses physical cache order; reject a cache whose
+         * column traversal disagrees with the shared sorted snapshot. */
+        if((index&&slots[index].model_index<=slots[index-1].model_index)||
+            !wena_sqlite_card_order_add(&hash,slots[index].id,strlen(slots[index].id),
+                (unsigned long)slots[index].position))goto done;
+        if(slots[index].model_index==source)ordinal=index;
     }
-    if(target>=(unsigned long)count)return 0;
+    if(target>=(unsigned long)count)goto done;
     wena_sha256_final_hex(&hash,order);
     memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_MOVE_CARD;
     command.request_version=request;strcpy(command.user_id,a->actor_id);strcpy(command.route,a->route);
     sprintf(command.form_body,"cardId=%s&expectedVersion=%lu&targetListId=%s&targetSwimlaneId=%s&targetPosition=%lu&expectedOrder=%s",
         card,expected,list,lane,target,order);command.form_body_length=strlen(command.form_body);
-    if(!wena_sqlite_persistence_apply(&a->persistence,&command,&response))return 0;
-    if(ordinal==(size_t)target)return 1;
+    if(!wena_sqlite_persistence_apply(&a->persistence,&command,&response))goto done;
+    valid=1;
+    if(ordinal==(size_t)target)goto done;
     moved=a->cards[source];
-    if(ordinal<(size_t)target){for(index=ordinal;index<(size_t)target;++index)a->cards[indices[index]]=a->cards[indices[index+1]];}
-    else{for(index=ordinal;index>(size_t)target;--index)a->cards[indices[index]]=a->cards[indices[index-1]];}
-    a->cards[indices[target]]=moved;
-    for(index=0;index<count;++index)a->cards[indices[index]].sort=(double)index;
-    return 1;
+    if(ordinal<(size_t)target){for(index=ordinal;index<(size_t)target;++index)a->cards[slots[index].model_index]=a->cards[slots[index+1].model_index];}
+    else{for(index=ordinal;index>(size_t)target;--index)a->cards[slots[index].model_index]=a->cards[slots[index-1].model_index];}
+    a->cards[slots[target].model_index]=moved;
+    for(index=0;index<count;++index)a->cards[slots[index].model_index].sort=(double)index;
+ done:
+    free(slots);return valid;
 }
 
 int wena_card_mutation_reorder(void *context,const char *board,const char *card,
