@@ -10,6 +10,9 @@ typedef struct WenaUiTextContract {
 } WenaUiTextContract;
 
 static const WenaUiTextContract texts[] = {
+    {WENA_UI_TEXT_ARCHIVE_LIST_CARDS, "list-archive-cards", "Archive all cards in this list"},
+    {WENA_UI_TEXT_ARCHIVE_LIST_CARDS_CONFIRM, "list-archive-cards-pop", "This will remove all the cards in this list from the board. To view cards in Archive and bring them back to the board, click \342\200\234Menu\342\200\235 > \342\200\234Archive\342\200\235."},
+    {WENA_UI_TEXT_MOVE_TO_ARCHIVE, "archive", "Move to Archive"},
     {WENA_UI_TEXT_PREVIOUS_PAGE, "previous-page", "Previous Page"},
     {WENA_UI_TEXT_BOARDS, "boards", "Boards"},
     {WENA_UI_TEXT_LOADING, "loading", "Loading, please wait."},

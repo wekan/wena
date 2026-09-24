@@ -569,6 +569,8 @@ int main(int argc, char **argv)
         wena_hierarchy_title_set_archive_provider(&editors.hierarchy,WENA_HIERARCHY_SWIMLANE,
             wena_hierarchy_mutation_swimlane_archive);
         wena_hierarchy_title_set_color_adapters(&editors.hierarchy,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
+        wena_hierarchy_title_set_list_cards_adapters(&editors.hierarchy,
+            wena_hierarchy_mutation_list_cards_load,wena_hierarchy_mutation_list_cards_archive);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
         if (!wena_card_mutation_set_create_cache(&mutation, &snapshot->card_count,
             WENA_SQLITE_BOARD_MAX_CARDS)) goto cleanup;
@@ -741,8 +743,8 @@ int main(int argc, char **argv)
                     (void)wena_hierarchy_title_open(&editors.hierarchy, &layout,
                         WENA_HIERARCHY_SWIMLANE, swimlane_interaction.swimlane_id);
                 else
-                    (void)wena_hierarchy_title_open(&editors.hierarchy, &layout,
-                        WENA_HIERARCHY_LIST, list_interaction.list_id);
+                    (void)wena_hierarchy_title_open_list(&editors.hierarchy, &layout,
+                        list_interaction.list_id,list_interaction.swimlane_id);
                 if (editors.hierarchy.visible)
                     opened_panel = DESKTOP_PANEL_HIERARCHY_TITLE;
             }

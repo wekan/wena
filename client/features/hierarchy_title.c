@@ -43,6 +43,7 @@ void wena_hierarchy_title_close(WenaHierarchyTitleState *state)
     state->requested_action = 0u;
     state->creating = 0;
     state->editing_color = 0;
+    state->confirming_cards=0;state->scope_lane[0]=0;state->scope_lane_version=0;
     state->editing_wip=0;state->wip_length=0;state->wip_value[0]=0;
     memset(&state->color_input,0,sizeof(state->color_input));
     state->error = 0;
@@ -66,6 +67,7 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     memset(state->archives,0,sizeof(state->archives));
     state->load_color = NULL;state->save_color = NULL;
     state->load_wip=NULL;state->save_wip=NULL;
+    state->load_list_cards=NULL;state->archive_list_cards=NULL;
 }
 
 void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
@@ -103,6 +105,59 @@ void wena_hierarchy_title_set_wip_adapters(WenaHierarchyTitleState *state,
 {
     if(!state)return;
     wena_hierarchy_title_close(state);state->load_wip=load;state->save_wip=save;
+}
+void wena_hierarchy_title_set_list_cards_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadListCards load,WenaHierarchyArchiveListCards archive)
+{
+    if(!state)return;
+    wena_hierarchy_title_close(state);state->load_list_cards=load;state->archive_list_cards=archive;
+}
+int wena_hierarchy_title_open_list(WenaHierarchyTitleState *state,
+    const WenaBoardLayout *layout,const char *list,const char *lane)
+{
+    if(!state)return 0;
+    wena_hierarchy_title_close(state);
+    if(lane&&lane[0]&&(!layout||!layout->board||
+        !selected(layout,WENA_HIERARCHY_SWIMLANE,layout->board->id,lane)))return 0;
+    if(!wena_hierarchy_title_open(state,layout,WENA_HIERARCHY_LIST,list))return 0;
+    if(lane&&lane[0]&&!wena_model_set_required(state->scope_lane,sizeof(state->scope_lane),lane)){
+        wena_hierarchy_title_close(state);return 0;
+    }
+    return 1;
+}
+static int render_archive_cards(struct nk_context *context,WenaHierarchyTitleState *state,const WenaBoardLayout *layout,float width,float height)
+{
+    int confirm,cancel;size_t i;confirm=cancel=0;
+    if(nk_begin_titled(context,"Archive list cards",wena_ui_text(WENA_UI_TEXT_ARCHIVE_LIST_CARDS),
+        nk_rect(width*0.1f,0,width*0.8f,height<340?height:340),NK_WINDOW_BORDER)){
+        if(wena_title_input_keys(context,0u)&WENA_TITLE_INPUT_CANCEL){
+            nk_end(context);wena_hierarchy_title_close(state);return 1;
+        }
+        nk_layout_row_dynamic(context,80,1);
+        nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_ARCHIVE_LIST_CARDS_CONFIRM));
+        nk_layout_row_dynamic(context,28,1);
+        nk_label(context,state->original_title,NK_TEXT_LEFT);
+        if(state->scope_lane[0]){
+            nk_layout_row_dynamic(context,28,2);
+            nk_label(context,wena_ui_text(WENA_UI_TEXT_SWIMLANE),NK_TEXT_LEFT);
+            for(i=0;i<layout->swimlane_count;++i)if(!strcmp(layout->swimlanes[i].id,state->scope_lane)){
+                nk_label(context,layout->swimlanes[i].title,NK_TEXT_LEFT);break;
+            }
+        }
+        nk_layout_row_dynamic(context,28,2);
+        confirm=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_MOVE_TO_ARCHIVE));
+        cancel=nk_button_label(context,wena_ui_control_text(WENA_UI_CANCEL));
+        if(state->error){nk_layout_row_dynamic(context,48,1);nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));}
+    }
+    nk_end(context);
+    if(cancel)wena_hierarchy_title_close(state);
+    else if(confirm){
+        if(state->archive_list_cards&&state->archive_list_cards(state->context,state->board_id,
+            state->target_id,state->scope_lane,state->title_version,state->scope_lane_version))
+            wena_hierarchy_title_close(state);
+        else state->error=1;
+    }
+    return 1;
 }
 static int render_wip(struct nk_context *context,WenaHierarchyTitleState *state,float width,float height)
 {
@@ -213,6 +268,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
     int archive;
     int color_requested;
     int wip_requested;
+    int cards_requested;
     int save;
     unsigned int edit_keys;
     if (state) state->requested_action = 0u;
@@ -225,14 +281,18 @@ int wena_hierarchy_title_render(struct nk_context *context,
         wena_hierarchy_title_close(state);
         return 0;
     }
+    if(state->scope_lane[0]&&!selected(layout,WENA_HIERARCHY_SWIMLANE,state->board_id,state->scope_lane)){
+        wena_hierarchy_title_close(state);return 0;
+    }
+    if(state->confirming_cards)return render_archive_cards(context,state,layout,width,height);
     if(state->editing_wip)return render_wip(context,state,width,height);
     if(state->editing_color)return render_color(context,state,width,height);
-    save = cancel = archive = color_requested = wip_requested = 0;
+    save = cancel = archive = color_requested = wip_requested = cards_requested = 0;
     if (nk_begin_titled(context, "Edit hierarchy title",
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (archive_provider(state) && !state->creating ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_list_cards && state->archive_list_cards && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (archive_provider(state) && !state->creating ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
@@ -262,6 +322,9 @@ int wena_hierarchy_title_render(struct nk_context *context,
         if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->load_wip&&state->save_wip){
             nk_layout_row_dynamic(context,28,1);wip_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_EDIT_WIP_LIMIT));
         }
+        if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->load_list_cards&&state->archive_list_cards){
+            nk_layout_row_dynamic(context,28,1);cards_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_ARCHIVE_LIST_CARDS));
+        }
         if(!state->creating&&archive_provider(state)){
             nk_layout_row_dynamic(context,28.0f,1);
             archive=nk_button_label(context,wena_ui_control_text(state->kind==WENA_HIERARCHY_LIST?WENA_UI_ARCHIVE_LIST:WENA_UI_ARCHIVE_SWIMLANE));
@@ -273,6 +336,14 @@ int wena_hierarchy_title_render(struct nk_context *context,
     }
     nk_end(context);
     if (cancel) wena_hierarchy_title_close(state);
+    else if(cards_requested){
+        unsigned long list_version,lane_version;list_version=lane_version=0;
+        if(state->load_list_cards(state->context,state->board_id,state->target_id,state->scope_lane,
+            &list_version,&lane_version)&&list_version&&list_version<=WENA_VERSION_MUTATE_MAX&&
+            (state->scope_lane[0]?(lane_version&&lane_version<=WENA_VERSION_MUTATE_MAX):lane_version==0)){
+            state->title_version=list_version;state->scope_lane_version=lane_version;state->confirming_cards=1;state->error=0;
+        }else state->error=1;
+    }
     else if(wip_requested){
         WenaWipLimit limit;size_t count;unsigned long version;
         memset(&limit,0,sizeof(limit));count=0;version=0;

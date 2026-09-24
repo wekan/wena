@@ -821,7 +821,7 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
-        - [_] Archive all active cards in a list, scoped to the current lane
+        - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse
             bounded cascade reads, card archive writes and complete result
@@ -833,7 +833,13 @@ Architecture decisions for this cycle:
             peer-count publication with lane cascades. Verify failed outputs,
             stale scopes/revisions, partial/late/staging/commit rollback,
             no-op/replay, exact refreshed caches and reopening.
-          - [_] Connect the native confirmation UI with current-lane scope.
+          - [x] Connect the native confirmation UI with current-lane scope.
+            Share the list menu/editor state and existing mutation adapter;
+            preserve the scope through confirmation and retry. Real input tests
+            cover cancellation/Escape, Enter without writes, stale lane revisions,
+            late rollback, current-lane isolation and whole-list confirmation.
+            Resolved C89 translation literal limit: emit deduplicated byte arrays
+            for long canonical text; verify compiled bytes for every language.
         - [x] Port ordinary swimlane archive/restore with its card cascade.
           - [x] Add additive schema-v13 swimlane archive state and card archive
             timestamps with exact parent scope and board indexes. Reuse the

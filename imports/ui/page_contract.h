@@ -133,7 +133,10 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_NO_ARCHIVED_SWIMLANES,
     WENA_UI_TEXT_EDIT_WIP_LIMIT,
     WENA_UI_TEXT_ENABLE_WIP_LIMIT,
-    WENA_UI_TEXT_SOFT_WIP_LIMIT
+    WENA_UI_TEXT_SOFT_WIP_LIMIT,
+    WENA_UI_TEXT_ARCHIVE_LIST_CARDS,
+    WENA_UI_TEXT_ARCHIVE_LIST_CARDS_CONFIRM,
+    WENA_UI_TEXT_MOVE_TO_ARCHIVE
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

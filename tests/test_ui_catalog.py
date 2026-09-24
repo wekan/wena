@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -13,6 +14,20 @@ import generate_ui_i18n as generator
 class GeneratorTests(unittest.TestCase):
     def test_literal_octal_and_trigraph_safety(self):
         self.assertEqual(generator.literal('"\\?\nÄ1'), '"\\042\\134\\077\\012\\303\\2041"')
+
+    def test_long_values_use_deduplicated_byte_arrays(self):
+        short = "a" * 500
+        long = "ä" * 251
+        lock = {"source_revision": "test", "catalog_sha256": "test"}
+        with patch.object(generator, "selected_catalog", return_value=(
+                lock, ["short", "long"], [("en", [short, long]), ("fi", [short, long])])):
+            output = generator.generate()
+        self.assertEqual(output.count("static const char ui_long_0[]"), 1)
+        self.assertNotIn("ui_long_1", output)
+        self.assertIn("(char)195,(char)164", output)
+        self.assertIn("(char)0,", output)
+        self.assertEqual(output.count("        ui_long_0,"), 2)
+        self.assertIn(generator.literal(short), output)
 
     def test_contract_key_inventory(self):
         keys = generator.ui_keys((ROOT / "imports/ui/page_contract.c").read_text())

@@ -77,10 +77,6 @@ def selected_catalog(root=ROOT):
                 raise ValueError("invalid canonical UI value")
             if placeholders(value) != placeholders(english[key]):
                 raise ValueError("canonical UI placeholder mismatch")
-            # A short single C literal remains within C89's 509-character
-            # minimum after decoding, even for non-ASCII UTF-8 translations.
-            if len(value.encode("utf-8")) > 500:
-                raise ValueError("UI value exceeds C89 literal bound")
             row.append(value)
         selected.append((language["tag"], row))
     return lock, keys, selected
@@ -105,10 +101,22 @@ def generate(root=ROOT):
     lines.extend("    " + literal(key) + "," for key in keys)
     lines.extend(["};", "static const char *const ui_languages[] = {"])
     lines.extend("    " + literal(tag) + "," for tag, _ in languages)
-    lines.extend(["};", "static const char *const ui_values[WENA_UI_CATALOG_LANGUAGE_COUNT][WENA_UI_CATALOG_KEY_COUNT] = {"])
+    lines.append("};")
+    long_values = {}
+    for _, values in languages:
+        for value in values:
+            if len(value.encode("utf-8")) > 500 and value not in long_values:
+                name = "ui_long_%d" % len(long_values)
+                long_values[value] = name
+                lines.append("static const char " + name + "[] = {")
+                data = list(value.encode("utf-8")) + [0]
+                for offset in range(0, len(data), 16):
+                    lines.append("    " + ",".join("(char)%d" % byte for byte in data[offset:offset+16]) + ",")
+                lines.append("};")
+    lines.extend(["static const char *const ui_values[WENA_UI_CATALOG_LANGUAGE_COUNT][WENA_UI_CATALOG_KEY_COUNT] = {"])
     for tag, values in languages:
         lines.append("    { /* " + tag + " */")
-        lines.extend("        " + literal(value) + "," for value in values)
+        lines.extend("        " + long_values.get(value, literal(value)) + "," for value in values)
         lines.append("    },")
     lines.extend(["};", ""])
     return '\n'.join(lines)

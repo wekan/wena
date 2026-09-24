@@ -29,12 +29,22 @@ typedef int (*WenaHierarchyLoadWip)(void *context,const char *board_id,const cha
 typedef int (*WenaHierarchySaveWip)(void *context,const char *board_id,const char *list_id,
     unsigned long expected_version,WenaWipEdit edit,size_t value);
 
+typedef int (*WenaHierarchyLoadListCards)(void *context,const char *board,const char *list,
+    const char *lane,unsigned long *list_version,unsigned long *lane_version);
+typedef int (*WenaHierarchyArchiveListCards)(void *context,const char *board,const char *list,
+    const char *lane,unsigned long list_version,unsigned long lane_version);
+
 #define WENA_HIERARCHY_TITLE_MOVE 1u
 
 typedef struct WenaHierarchyTitleState {
     unsigned int requested_action;
     int visible;
     int creating;
+    int confirming_cards;
+    WenaId scope_lane;
+    unsigned long scope_lane_version;
+    WenaHierarchyLoadListCards load_list_cards;
+    WenaHierarchyArchiveListCards archive_list_cards;
     int editing_wip;
     WenaWipLimit wip_limit;
     size_t wip_count;
@@ -73,6 +83,10 @@ void wena_hierarchy_title_set_archive_provider(WenaHierarchyTitleState *state,
     WenaHierarchyKind kind,WenaHierarchyArchive archive);
 void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
     WenaHierarchyLoadTitle load,WenaHierarchySaveTitle save);
+void wena_hierarchy_title_set_list_cards_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadListCards load,WenaHierarchyArchiveListCards archive);
+int wena_hierarchy_title_open_list(WenaHierarchyTitleState *state,
+    const WenaBoardLayout *layout,const char *list,const char *lane);
 void wena_hierarchy_title_set_wip_adapters(WenaHierarchyTitleState *state,
     WenaHierarchyLoadWip load,WenaHierarchySaveWip save);
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,

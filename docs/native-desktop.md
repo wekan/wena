@@ -49,6 +49,9 @@ in a private staged copy before restore interrupts the running database.
   and archiving. Ordinary lane archives cascade to active cards; restore via
   Archives → Swimlanes preserves earlier card archives and enforces WIP limits.
   Cards, Lists and Swimlanes use the same paginated table and selection flow.
+- List menu → Archive all cards in this list opens a confirmation for that
+  list in the clicked swimlane. Cancel/Escape discard it; Enter does not archive.
+  Previously archived cards and the list/swimlane themselves remain unchanged.
 - Collapse or expand lists and swimlanes. The desktop remembers collapsed IDs
   in a separate preference file scoped to the exact workspace path, actor and
   board. Invalid or unwritable preferences leave the current session usable;
