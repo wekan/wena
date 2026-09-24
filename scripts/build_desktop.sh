@@ -35,7 +35,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/client/features/card_description.c" "$root_dir/client/features/card_description_mutation.c" \
   "$root_dir/client/features/hierarchy_drag.c" "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/hierarchy_mutation.c" \
-  "$root_dir/client/features/language_picker.c" "$root_dir/client/features/card_move.c" "$root_dir/models/card_order.c" \
+  "$root_dir/client/features/language_picker.c" "$root_dir/client/features/card_move.c" "$root_dir/client/components/forms/hierarchy_destination.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/features/card_mutation.c" "$root_dir/client/features/card_drag.c" "$root_dir/client/features/boards/reload.c" "$root_dir/client/features/card_create.c" \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \

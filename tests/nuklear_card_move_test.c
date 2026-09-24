@@ -3,6 +3,7 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/card_move.h"
+#include "../client/components/forms/hierarchy_destination.h"
 #include "../client/components/lists/list_header.h"
 #include <assert.h>
 #include <stdio.h>
@@ -79,11 +80,59 @@ static void click(struct nk_context *ctx, WenaCardMoveState *state,
     click_at(ctx, state, layout, label_center(ctx, label));
 }
 
+static int destination_frame(struct nk_context *ctx,WenaBoardLayout *layout,WenaId list,WenaId lane)
+{
+    int valid;const struct nk_command *command;valid=0;
+    if(nk_begin(ctx,"Reusable destination",nk_rect(0,0,640,480),NK_WINDOW_BORDER))
+        valid=wena_hierarchy_destination_render(ctx,layout,list,lane);
+    nk_end(ctx);nk_foreach(command,ctx){(void)command;}return valid;
+}
+static void destination_click(struct nk_context *ctx,WenaBoardLayout *layout,WenaId list,WenaId lane,const char *label)
+{
+    struct nk_vec2 point;int down;point=label_center(ctx,label);
+    for(down=1;down>=0;--down){
+        nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
+        nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);
+        (void)destination_frame(ctx,layout,list,lane);
+    }
+}
+static void shared_destination(void)
+{
+    struct nk_context ctx;struct nk_user_font font;WenaBoard board;WenaSwimlane lanes[3];
+    WenaList lists[4];WenaBoardLayout layout;WenaId list,lane;
+    assert(wena_board_init(&board,"b","Board",0));
+    assert(wena_swimlane_init(&lanes[0],"a","b","First",0,0));
+    assert(wena_swimlane_init(&lanes[1],"z","b","Second",1,0));
+    assert(wena_swimlane_init(&lanes[2],"hidden","b","Hidden",2,1));
+    assert(wena_list_init(&lists[0],"scoped","b","a","Scoped",0,0));
+    assert(wena_list_init(&lists[1],"wide","b","","Shared",1,0));
+    assert(wena_list_init(&lists[2],"archived","b","","Hidden",2,1));
+    assert(wena_list_init(&lists[3],"foreign","other","","Foreign",3,0));
+    memset(&layout,0,sizeof(layout));layout.board=&board;layout.swimlanes=lanes;layout.swimlane_count=3;layout.lists=lists;layout.list_count=4;
+    assert(!wena_hierarchy_destination_lane(&layout,"hidden"));
+    assert(!wena_hierarchy_destination_list(&layout,"foreign","a")&&!wena_hierarchy_destination_list(&layout,"archived","a"));
+    assert(wena_hierarchy_destination_list(&layout,"wide","z")==&lists[1]);
+    memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
+    strcpy(list,"scoped");strcpy(lane,"a");nk_input_begin(&ctx);nk_input_end(&ctx);
+    assert(destination_frame(&ctx,&layout,list,lane));
+    destination_click(&ctx,&layout,list,lane,"First [a]");destination_click(&ctx,&layout,list,lane,"Second [z]");
+    assert(!strcmp(lane,"z")&&!strcmp(list,"scoped"));
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);assert(!destination_frame(&ctx,&layout,list,lane));
+    destination_click(&ctx,&layout,list,lane,"(Unknown)");destination_click(&ctx,&layout,list,lane,"Shared [wide]");
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);assert(destination_frame(&ctx,&layout,list,lane));
+    assert(!strcmp(list,"wide")&&!strcmp(lane,"z"));
+    board.archived=1;assert(!wena_hierarchy_destination_lane(&layout,"a"));board.archived=0;
+    layout.lists=NULL;assert(!wena_hierarchy_destination_list(&layout,"wide","z"));
+    assert(!wena_hierarchy_destination_render(NULL,&layout,list,lane));
+    nk_free(&ctx);
+}
+
 int main(void)
 {
     struct nk_context ctx; struct nk_user_font font;
     WenaCardMoveState state; WenaBoardLayout layout;
     WenaBoard board; WenaList lists[2]; WenaSwimlane lanes[2]; WenaCard card;
+    shared_destination();
     memset(&font,0,sizeof(font)); font.height=13; font.width=text_width;
     assert(nk_init_default(&ctx,&font));
     assert(wena_board_init(&board,"board","Board",0));

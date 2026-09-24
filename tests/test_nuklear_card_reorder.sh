@@ -8,7 +8,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
   "$root_dir/tests/nuklear_card_reorder_test.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
-  "$root_dir/client/features/card_move.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/models/card_order.c" \
+  "$root_dir/client/features/card_move.c" "$root_dir/client/components/forms/hierarchy_destination.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/model.c" "$root_dir/models/card.c" \

@@ -947,6 +947,12 @@ Architecture decisions for this cycle:
                 including no-ops. Tests cover concurrent WAL changes, stale or
                 invalid sources, late/staging/commit failures, replay, stale cache
                 counts, successful order publication and reopening.
+              - [x] Extract list/swimlane destination controls into a reusable
+                component and use it in the existing card Move editor. Share
+                exact-ID labels, active/board/lane eligibility and explicit repair
+                of invalid destinations, without model writes or automatic
+                retargeting. Standalone real Nuklear tests verify lane changes,
+                scoped and board-wide lists, exclusions and explicit repair.
               - [_] Connect bulk moves to the shared destination UI and complete
                 remaining cross-board movement.
         - [x] Archive all active cards in a list, scoped to the current lane
