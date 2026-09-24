@@ -12,6 +12,9 @@ typedef int (*WenaCardMoveApply)(void *context, const char *board_id,
 
 typedef int (*WenaCardMoveReorder)(void *context, const char *board_id,
     const char *card_id, unsigned long expected_version, unsigned long target_position);
+typedef int (*WenaCardMoveInsert)(void *context,const char *board_id,
+    const char *card_id,unsigned long expected_version,const char *target_list_id,
+    const char *target_swimlane_id,unsigned long target_position);
 typedef WenaCardOrderSlot WenaCardMoveSlot;
 
 typedef struct WenaCardMoveState {
@@ -27,9 +30,14 @@ typedef struct WenaCardMoveState {
     WenaCardDetailsLoadTitle load;
     WenaCardMoveApply apply;
     WenaCardMoveReorder reorder;
+    WenaCardMoveInsert insert;
     WenaCardMoveSlot *order;
     size_t order_count;
     int reorder_choice;
+    WenaCardMoveSlot *destination_order;
+    size_t destination_count;
+    WenaId destination_list_id,destination_swimlane_id;
+    int destination_ready,insert_choice,insert_position;
     void *context;
 } WenaCardMoveState;
 
@@ -40,6 +48,7 @@ void wena_card_move_init(WenaCardMoveState *state,
  * Choice zero preserves legacy append; positive choices include archived slots. */
 void wena_card_move_set_reorder_adapter(WenaCardMoveState *state,
     WenaCardMoveReorder reorder);
+void wena_card_move_set_insert_adapter(WenaCardMoveState *state,WenaCardMoveInsert insert);
 void wena_card_move_close(WenaCardMoveState *state);
 int wena_card_move_open(WenaCardMoveState *state,
     const WenaBoardLayout *layout, const char *card_id);

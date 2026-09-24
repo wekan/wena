@@ -282,6 +282,7 @@ TEST_SUITES = (
     ('card-archives-sqlite', 'test_card_archives_sqlite.sh', 'Archived card UI integration with SQLite restore adapter'),
     ('nuklear-card-archives', 'test_nuklear_card_archives.sh', 'Real Nuklear archived card selection and restore interaction'),
     ('card-move-reorder-ui', 'test_card_move_reorder_ui.sh', 'Indexed card move editor snapshot lifetime and cancellation'),
+    ('nuklear-card-insert', 'test_nuklear_card_insert.sh', 'Real Move form exact insertion, bounded input and snapshot guards'),
     ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
     ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
     ('card-order', 'test_card_order.sh', 'Shared ordered card snapshots and stale detection'),

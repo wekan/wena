@@ -1015,7 +1015,12 @@ Architecture decisions for this cycle:
     Reuse the native insertion adapter once after drawing. Real Nuklear/SQLite
     tests verify disabled targets, duplicate titles, no SQL during rendering,
     source/destination guards, rollback, cache publication and consumed intents.
-  - [_] Connect exact cross-column insertion to native Move forms; complete arbitrary insertion-point movement and visual parity.
+  - [x] Connect the native Move form to exact cross-column insertion using the
+    shared position input and immutable source/destination snapshots. Preserve
+    append by default, include archived slots, support empty targets, bound the
+    ordinal and reject stale data before invoking the guarded adapter. Real
+    mouse tests cover selection, boundaries, retry, cancellation and Escape.
+  - [_] Complete remaining cross-board movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and

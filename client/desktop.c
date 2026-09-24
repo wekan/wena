@@ -572,6 +572,7 @@ int main(int argc, char **argv)
                             wena_card_mutation_move, &mutation);
         wena_card_move_set_reorder_adapter(&editors.move,
                                            wena_card_mutation_reorder);
+        wena_card_move_set_insert_adapter(&editors.move,wena_card_mutation_insert);
         wena_card_archives_init(&editors.archives, wena_card_mutation_load_archived,
                                 wena_card_mutation_restore, &mutation);
         wena_card_details_set_title_adapter(&editors.details, wena_card_mutation_load,

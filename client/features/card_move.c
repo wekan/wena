@@ -1,4 +1,5 @@
 #include "card_move.h"
+#include "../components/forms/position_input.h"
 #include "../../imports/ui/page_contract.h"
 #include <nuklear.h>
 #include <stdio.h>
@@ -67,12 +68,14 @@ void wena_card_move_close(WenaCardMoveState *state)
     WenaCardDetailsLoadTitle load;
     WenaCardMoveApply apply;
     WenaCardMoveReorder reorder;
+    WenaCardMoveInsert insert;
     void *context;
     if (state == NULL) return;
     load = state->load; apply = state->apply; reorder = state->reorder; context = state->context;
+    insert=state->insert;free(state->destination_order);
     free(state->order);
     wena_card_move_init(state, load, apply, context);
-    state->reorder = reorder;
+    state->reorder = reorder;state->insert=insert;
 }
 
 void wena_card_move_set_reorder_adapter(WenaCardMoveState *state,
@@ -81,6 +84,12 @@ void wena_card_move_set_reorder_adapter(WenaCardMoveState *state,
     if (state == NULL) return;
     wena_card_move_close(state);
     state->reorder = reorder;
+}
+
+void wena_card_move_set_insert_adapter(WenaCardMoveState *state,WenaCardMoveInsert insert)
+{
+    if(!state)return;
+    wena_card_move_close(state);state->insert=insert;
 }
 
 static int same_column(const WenaCardMoveState *state, const WenaCard *card)
@@ -127,7 +136,7 @@ int wena_card_move_open(WenaCardMoveState *state,
     strcpy(state->target_swimlane_id, card->swimlane_id);
     if (!state->load(state->context, state->board_id, state->card_id,
         title, sizeof(title), &state->version) || state->version == 0ul) return 0;
-    if (state->reorder != NULL && !capture_order(state, layout)) return 0;
+    if ((state->reorder != NULL || state->insert != NULL) && !capture_order(state, layout)) return 0;
     state->visible = 1;
     return 1;
 }
@@ -239,15 +248,44 @@ static void order_label(void *data, int selected, const char **text)
     *text = options->label;
 }
 
+static void reset_destination(WenaCardMoveState *state)
+{
+    free(state->destination_order);state->destination_order=NULL;state->destination_count=0;
+    state->destination_list_id[0]=state->destination_swimlane_id[0]=0;
+    state->destination_ready=0;state->insert_choice=state->insert_position=0;
+}
+static void render_insertion(struct nk_context *context,WenaCardMoveState *state,
+    const WenaBoardLayout *layout)
+{
+    if(!state->insert)return;
+    if(strcmp(state->destination_list_id,state->target_list_id)||
+        strcmp(state->destination_swimlane_id,state->target_swimlane_id)){
+        reset_destination(state);
+        strcpy(state->destination_list_id,state->target_list_id);
+        strcpy(state->destination_swimlane_id,state->target_swimlane_id);
+        state->destination_ready=find_lane(layout,state->target_swimlane_id)!=NULL&&
+            find_list(layout,state->target_list_id,state->target_swimlane_id)!=NULL&&
+            wena_card_order_capture(layout->cards,layout->card_count,state->board_id,
+                state->target_list_id,state->target_swimlane_id,&state->destination_order,&state->destination_count);
+    }
+    nk_layout_row_dynamic(context,24,1);
+    if(state->destination_ready)nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER),&state->insert_choice);
+    else nk_label(context,wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER),NK_TEXT_LEFT);
+    nk_layout_row_dynamic(context,28,1);
+    state->insert_position=wena_position_input(context,state->insert_position,
+        (int)state->destination_count+1,state->destination_ready&&state->insert_choice);
+}
+
 static void render_order(struct nk_context *context, WenaCardMoveState *state,
     const WenaBoardLayout *layout)
 {
     CardOrderOptions options;
-    if (state->reorder == NULL) return;
     if (strcmp(state->target_list_id, state->source_list_id) ||
         strcmp(state->target_swimlane_id, state->source_swimlane_id)) {
-        state->reorder_choice = 0; return;
+        state->reorder_choice = 0;render_insertion(context,state,layout);return;
     }
+    reset_destination(state);
+    if(state->reorder==NULL)return;
     nk_layout_row_dynamic(context, 24, 1);
     nk_label(context, wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER), NK_TEXT_LEFT);
     nk_layout_row_dynamic(context, 28, 1);
@@ -286,6 +324,15 @@ int wena_card_move_render(struct nk_context *context, WenaCardMoveState *state,
             if (find_lane(layout, state->target_swimlane_id) == NULL ||
                 find_list(layout, state->target_list_id, state->target_swimlane_id) == NULL)
                 state->error = 1;
+            else if(state->insert&&state->insert_choice){
+                if(!state->destination_ready||state->insert_position<0||
+                    (size_t)state->insert_position>state->destination_count||!order_current(state,layout)||
+                    !wena_card_order_current(state->destination_order,state->destination_count,
+                        layout->cards,layout->card_count,state->board_id,state->target_list_id,state->target_swimlane_id)||
+                    !state->insert(state->context,state->board_id,state->card_id,state->version,
+                        state->target_list_id,state->target_swimlane_id,(unsigned long)state->insert_position))state->error=1;
+                else close_requested=1;
+            }
             else if (state->reorder != NULL && state->reorder_choice != 0) {
                 if (state->reorder_choice < 1 ||
                     (size_t)state->reorder_choice > state->order_count ||

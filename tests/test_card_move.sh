@@ -14,7 +14,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/card_move_test.c" \
   "$root_dir/tests/fakes/nuklear.c" \
   "$root_dir/client/features/board.c" \
-  "$root_dir/client/features/card_move.c" "$root_dir/models/card_order.c" \
+  "$root_dir/client/features/card_move.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \

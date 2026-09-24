@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-test_dir="${TMPDIR:-/tmp}/wena-nuklear-card-reorder-$$"
+test_dir="${TMPDIR:-/tmp}/wena-nuklear-card-insert-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
-  "$root_dir/tests/nuklear_card_reorder_test.c" \
+  "$root_dir/tests/nuklear_card_insert_test.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/features/card_move.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
