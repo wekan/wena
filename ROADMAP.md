@@ -905,8 +905,17 @@ Architecture decisions for this cycle:
                   member departs. Reuse the all-prefix migration test harness;
                   verify upgrades from v1-v13, defaults, malformed rows, all table
                   and index definitions, seven rollback boundaries and reopening.
+                - [x] Add shared strict SQLite roster and card-person readers.
+                  Capture board/card revisions, roster names/revisions/timestamps,
+                  both member and assignee sets and original order positions in a
+                  caller-owned transaction. Keep inactive entries and readable
+                  terminal revisions; reject dangling actors, invalid types/scopes,
+                  malformed text and over-capacity collections. Preserve failed
+                  output bytes and transaction ownership. Test empty/full sets,
+                  corruption, denied reads, input/output aliasing, concurrent WAL
+                  changes, read-only connections and reopening.
                 - [_] Add guarded single/bulk assignment operations, consistent
-                  captures and cross-board member filtering in the transaction.
+                  native captures and cross-board member filtering in the transaction.
                 - [_] Connect shared paginated person controls to card details and
                   multi-selection, showing mixed assignment and publishing caches
                   only after successful commit. Verify real input and rollback.

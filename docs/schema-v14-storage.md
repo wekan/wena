@@ -31,6 +31,13 @@ constraints and defaults, preserved parent revisions, assignment retention after
 roster removal, schema-object removal, seven injected DDL/ledger/commit failures,
 retry and reopening. Existing migration bytes and checksums remain unchanged.
 
+`server/card_people_store` supplies common strict readers for roster rows and both
+card fields within a caller-owned read or write transaction. They preserve original
+positions, return board/card and roster/actor revisions, reject malformed or
+incomplete data, and publish output only after every row validates. They never
+commit, roll back or grant access. Native callers must still stage these outputs
+until their enclosing read transaction commits.
+
 Guarded assignment writes, roster management, transactional transfer filtering,
 native snapshots and paginated person controls remain pending in `ROADMAP.md`.
 Until those operations are implemented, these tables have no automatic writers.
