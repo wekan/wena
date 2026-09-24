@@ -16,6 +16,7 @@ typedef struct Trace {
 typedef struct Access {
     int deny_labels;
     int deny_summary;
+    int deny_sections;
     unsigned long denials;
 } Access;
 static int trace(unsigned int type,void *context,void *statement,void *unused)
@@ -41,7 +42,8 @@ static int authorize(void *context,int action,const char *first,const char *seco
     (void)second;(void)database;(void)trigger;
     access=(Access *)context;
     if (action==SQLITE_READ && first &&
-        ((access->deny_labels && !strcmp(first,"labels")) ||
+        ((access->deny_sections && !strcmp(first,"actor_card_sections")) ||
+         (access->deny_labels && !strcmp(first,"labels")) ||
          (access->deny_summary && (!strcmp(first,"checklists") || !strcmp(first,"checklist_items"))))) {
         ++access->denials;return SQLITE_DENY;
     }
@@ -187,6 +189,17 @@ int main(int argc,char **argv)
     assert(sqlite3_set_authorizer(database,NULL,NULL)==SQLITE_OK);
     view.summary_pending=1;assert(wena_board_presentation_poll(&view));
     assert(number(database,"SELECT count(*) FROM idempotency_keys")==keys);
+    memset(&access,0,sizeof(access));access.deny_sections=1;
+    assert(sqlite3_set_authorizer(database,authorize,&access)==SQLITE_OK);
+    view.sections_pending=1;assert(!wena_board_presentation_poll(&view));
+    assert(view.sections_error&&!view.sections_valid&&!view.sections_pending);
+    denied=access.denials;assert(denied>0);quiet(database,&view,&work,0);assert(access.denials==denied);
+    assert(sqlite3_set_authorizer(database,NULL,NULL)==SQLITE_OK);
+    view.sections_pending=1;assert(wena_board_presentation_poll(&view));
+    assert(wena_card_section_save(database,"u","b","c","checklist-check",0,1));
+    assert(wena_board_presentation_poll(&view));
+    assert(wena_card_sections_find(view.sections,"c","checklist-check")->collapsed);
+    quiet(database,&view,&work,1);
     /* Rolled-back writes may advance SQLite's counter, causing one safe reload. */
     assert(wena_board_presentation_labels_load(&view,"b","c",labels));
     edit(&label_edit,labels,WENA_LABEL_CREATE,"Rolled back");
@@ -231,7 +244,7 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_settings_load(&view,"b",&settings));
     assert(wena_board_presentation_settings_save(&view,"b",settings.board_version,1));assert(wena_board_presentation_poll(&view));
     wena_board_presentation_close(&view);wena_board_presentation_close(&view);
-    assert(!view.badges && !view.summary && !view.contents && !wena_board_presentation_poll(&view));
+    assert(!view.badges && !view.summary && !view.contents && !view.sections && !wena_board_presentation_poll(&view));
     assert(sqlite3_close(database)==SQLITE_OK);assert(sqlite3_open(argv[2],&database)==SQLITE_OK);
     assert(wena_board_presentation_init(&view,database,"u","b"));
     assert(view.valid && view.summary_valid && !view.badges->catalogue.label_count && !view.settings.show_checklists);

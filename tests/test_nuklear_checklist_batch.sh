@@ -8,7 +8,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
   "$root_dir/tests/nuklear_checklist_batch_test.c" \
   "$root_dir/client/features/card_details.c" \
-  "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklist_store.c" \
+  "$root_dir/client/features/checklists.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" "$root_dir/client/features/checklist_store.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \

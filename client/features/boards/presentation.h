@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "../labels/mutation.h"
 #include "../checklists/summary.h"
+#include "../../../imports/preferences/sections.h"
 
 typedef struct WenaBoardPresentation {
     WenaLabelMutation mutation;
@@ -17,6 +18,8 @@ typedef struct WenaBoardPresentation {
     int summary_valid;
     int summary_pending;
     int summary_error;
+    WenaCardSectionsSnapshot *sections;
+    int sections_valid, sections_pending, sections_error;
     sqlite3_int64 observed_changes;
 } WenaBoardPresentation;
 /* Initialize fresh or closed storage. Owns snapshots, never the database.
@@ -30,6 +33,7 @@ void wena_board_presentation_close(WenaBoardPresentation *view);
  * Unchanged frames issue no SQL. Each pending read is attempted only once;
  * failures require another write, panel open or explicit pending-flag retry. */
 int wena_board_presentation_poll(WenaBoardPresentation *view);
+int wena_board_presentation_sections_refresh(WenaBoardPresentation *view);
 int wena_board_presentation_labels_refresh(WenaBoardPresentation *view);
 int wena_board_presentation_summary_refresh(WenaBoardPresentation *view);
 /* Panel callbacks preserve committed-save success even if later cache loading

@@ -218,6 +218,7 @@ TEST_SUITES = (
     ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
     ('sqlite-schema-v2', 'test_sqlite_schema_v2.sh', 'Atomic description schema and staged backup upgrade'),
     ('sqlite-schema-v3', 'test_sqlite_schema_v3.sh', 'Scoped checklist schema and atomic legacy upgrade'),
+    ('card-sections', 'test_card_sections.sh', 'Reusable actor/card section preferences and schema-v8 upgrade'),
     ('sqlite-schema-v7', 'test_sqlite_schema_v7.sh', 'Additive minicard preferences upgrade and rollback'),
     ('sqlite-schema-v6', 'test_sqlite_schema_v6.sh', 'Default-off board checklist settings schema, atomic upgrades and staged restore'),
     ('sqlite-schema-v5', 'test_sqlite_schema_v5.sh', 'Scoped label catalog and assignment schema with atomic legacy upgrade'),

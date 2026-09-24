@@ -441,6 +441,7 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
     int cancel, submit, checked, split;
     unsigned int keys;
     char progress[64];
+    char section_key[WENA_SECTION_KEY_CAPACITY];
     char batch_titles[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
     if (!state || !state->visible) return 0;
     /* Selection is exact and unique. A removed, archived, or ambiguous card
@@ -618,9 +619,16 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                 }
                 sprintf(progress, "%lu / %lu (%u%%)", (unsigned long)counts.finished,
                     (unsigned long)counts.total, counts.percent);
-                nk_layout_row_dynamic(context, 30, 1);
+                nk_layout_row_dynamic(context, 30, state->sections ? 2 : 1);
                 nk_label_wrap(context, state->snapshot->checklists[list_index].title);
+                checked = 0;
+                if (state->sections && wena_card_section_checklist_key(
+                    state->snapshot->checklists[list_index].id, section_key, sizeof(section_key)))
+                    checked = wena_card_section_toggle(context, state->sections,
+                        state->board_id, state->card_id, section_key);
+                nk_layout_row_dynamic(context, 30, 1);
                 nk_label(context, progress, NK_TEXT_LEFT);
+                if (checked) continue;
                 if (state->save) {
                     nk_layout_row_dynamic(context, 28, 2);
                     if (nk_button_label(context,

@@ -3,6 +3,7 @@
 
 #include "checklist_store.h"
 #include "card_details.h"
+#include "../components/common/card_section.h"
 #include "../../models/checklist_item_titles.h"
 
 /* Callbacks run synchronously. Load publishes a complete scoped snapshot; save
@@ -42,6 +43,7 @@ typedef struct WenaChecklistsState {
      * next input character needs four bytes; the final byte is a terminator. */
     char input[WENA_NATIVE_EDIT_CAPACITY(WENA_CHECKLIST_BATCH_MAX_BYTES + 1u)];
     WenaChecklistSnapshot *snapshot;
+    WenaCardSectionControl *sections; /* Shared presentation preferences; not owned. */
     WenaChecklistsLoad load;
     WenaChecklistsSave save;
     void *context;

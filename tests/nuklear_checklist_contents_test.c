@@ -4,12 +4,15 @@
 #include "../client/components/cards/checklist_contents.h"
 #include "../client/components/cards/card_body.h"
 #include "../client/features/checklist_mutation.h"
+#include "../client/features/checklists.h"
+#include "../imports/preferences/sections.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 static unsigned long statements;
 static WenaChecklistCompletionIntent *active_intent;
+static WenaCardSectionControl *active_sections;
 static int trace(unsigned int kind, void *data, void *query, void *extra)
 {(void)kind;(void)data;(void)query;(void)extra;++statements;return 0;}
 static void sql(sqlite3 *db,const char *query)
@@ -32,7 +35,7 @@ static unsigned int draw(struct nk_context *ctx,WenaChecklistBoardContents *cont
 {
  unsigned int action;action=0;
  if(nk_begin(ctx,"Preview",nk_rect(0,0,600,700),NK_WINDOW_BORDER))
-  action=wena_checklist_contents_render_actions(ctx,contents,card,board_default,active_intent);
+  action=wena_checklist_contents_render_controls(ctx,contents,card,board_default,active_intent,active_sections);
  nk_end(ctx);return action;
 }
 static void frame(struct nk_context *ctx,WenaChecklistBoardContents *contents,
@@ -48,6 +51,40 @@ static void click_item(struct nk_context *ctx,WenaChecklistBoardContents *conten
   nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);
   assert(!draw(ctx,contents,card,1));
  }
+}
+static void panel_frame(struct nk_context *ctx,WenaChecklistsState *panel,WenaCard *card)
+{
+ nk_clear(ctx);nk_input_begin(ctx);nk_input_end(ctx);
+ assert(wena_checklists_render(ctx,panel,card,1,640,700));
+}
+static void shared_sections(sqlite3 *db,struct nk_context *ctx,WenaChecklistBoardContents **contents,
+ WenaChecklistMutation *adapter,WenaCard *card)
+{
+ WenaCardSectionsSnapshot *preferences;WenaCardSectionControl controls;
+ WenaChecklistsState panel;struct nk_vec2 point;int down;
+ preferences=NULL;memset(&controls,0,sizeof(controls));
+ sql(db,"UPDATE checklists SET hide_all_items=0,hide_checked_items=0 WHERE id='inherit'");
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
+ active_sections=&controls;active_intent=NULL;
+ statements=0;assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
+ frame(ctx,*contents,card,1);assert(label(ctx,"[ ] Todo",NULL));
+ click_item(ctx,*contents,card,"Collapse");assert(controls.pending&&controls.collapsed&&!strcmp(controls.key,"checklist-inherit"));
+ frame(ctx,*contents,card,1);assert(!label(ctx,"[ ] Todo",NULL)&&!statements);
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ assert(wena_card_section_save(db,"u","b",controls.card_id,controls.key,controls.version,controls.collapsed));controls.pending=0;
+ assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
+ wena_checklists_init(&panel,wena_checklist_mutation_load,NULL,adapter);panel.sections=&controls;
+ assert(wena_checklists_open(&panel,card));panel_frame(ctx,&panel,card);
+ assert(label(ctx,"Inherited",NULL)&&!label(ctx,"Todo",NULL));
+ assert(label(ctx,"Uncollapse",&point));
+ for(down=1;down>=0;--down){nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);assert(wena_checklists_render(ctx,&panel,card,1,640,700));}
+ assert(controls.pending&&!controls.collapsed&&controls.version==1);
+ assert(wena_card_section_save(db,"u","b",controls.card_id,controls.key,controls.version,controls.collapsed));controls.pending=0;
+ assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
+ wena_checklists_close(&panel);frame(ctx,*contents,card,1);assert(label(ctx,"[ ] Todo",NULL));
+ controls.readonly=1;frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Collapse");assert(!controls.pending);
+ active_sections=NULL;wena_card_sections_free(preferences);
 }
 int main(int argc,char **argv)
 {
@@ -114,6 +151,7 @@ int main(int argc,char **argv)
  assert(contents->summary.cards[0].progress.finished==1&&contents->summary.cards[0].progress.total==3);
  sql(db,"UPDATE checklists SET hide_all_items=1 WHERE id='inherit'");assert(wena_checklist_contents_load(db,"u","b",&contents));
  frame(&ctx,contents,&card,1);assert(label(&ctx,"Inherited",NULL)&&!label(&ctx,"[ ] Todo",NULL));
+ shared_sections(db,&ctx,&contents,&adapter,&card);
  sql(db,"UPDATE cards SET archived=1");assert(wena_checklist_contents_load(db,"u","b",&contents));
  frame(&ctx,contents,&card,1);assert(!label(&ctx,"Shown",NULL));
  wena_checklist_contents_free(contents);nk_free(&ctx);assert(sqlite3_close(db)==SQLITE_OK);

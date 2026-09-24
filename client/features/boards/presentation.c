@@ -13,6 +13,7 @@ void wena_board_presentation_close(WenaBoardPresentation *view)
     wena_label_board_snapshot_free(view->badges);
     wena_checklist_summary_free(view->summary);
     wena_checklist_contents_free(view->contents);
+    wena_card_sections_free(view->sections);
     memset(view,0,sizeof(*view));
 }
 int wena_board_presentation_init(WenaBoardPresentation *view,sqlite3 *database,
@@ -30,7 +31,7 @@ int wena_board_presentation_init(WenaBoardPresentation *view,sqlite3 *database,
         wena_board_presentation_close(view);return 0;
     }
     view->observed_changes=sqlite3_total_changes64(database);
-    view->refresh_pending=1;view->summary_pending=1;
+    view->refresh_pending=1;view->summary_pending=1;view->sections_pending=1;
     (void)wena_board_presentation_poll(view);
     return 1;
 }
@@ -68,6 +69,14 @@ int wena_board_presentation_summary_refresh(WenaBoardPresentation *view)
     view->summary_valid=valid;view->summary_error=!valid;
     return valid;
 }
+int wena_board_presentation_sections_refresh(WenaBoardPresentation *view)
+{
+    if (!initialized(view)) return 0;
+    view->sections_pending=0;
+    view->sections_valid=wena_card_sections_load(view->mutation.persistence.database,
+        view->mutation.actor_id,view->mutation.board_id,&view->sections);
+    view->sections_error=!view->sections_valid;return view->sections_valid;
+}
 int wena_board_presentation_poll(WenaBoardPresentation *view)
 {
     sqlite3_int64 changes;
@@ -77,10 +86,12 @@ int wena_board_presentation_poll(WenaBoardPresentation *view)
         view->observed_changes=changes;
         view->valid=0;view->refresh_pending=1;
         view->summary_valid=0;view->summary_pending=1;
+        view->sections_valid=0;view->sections_pending=1;
     }
     if (view->refresh_pending) (void)wena_board_presentation_labels_refresh(view);
     if (view->summary_pending) (void)wena_board_presentation_summary_refresh(view);
-    return view->valid && view->summary_valid;
+    if (view->sections_pending) (void)wena_board_presentation_sections_refresh(view);
+    return view->valid && view->summary_valid && view->sections_valid;
 }
 int wena_board_presentation_labels_load(void *context,const char *board_id,
     const char *card_id,WenaLabelSnapshot *snapshot)

@@ -21,3 +21,11 @@ permissions or mutations. Activities, members, labels and archives already share
 it through the sidebar's text-row adapter. Future administration tables should
 provide their own row callback rather than copy pagination loops. Ordinary
 Nuklear labels and controls remain live text; SVG is for scalable artwork/themes.
+
+`common/card_section.[ch]` is the shared collapse control for card sections.
+The owner supplies a validated actor/board preference snapshot and a frame-local
+intent slot. Both minicards and opened cards use `checklist-<id>` for a checklist,
+matching WeKan's profile key, so they share state rather than keep separate flags.
+The control performs no I/O: the feature consumes a captured preference revision
+after rendering, then refreshes the snapshot. Read-only/error states draw inert
+controls. Reuse this control and `models/card_section` for future card sections.

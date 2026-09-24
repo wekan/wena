@@ -1,6 +1,6 @@
 # Local desktop
 
-The POSIX desktop uses SDL2, Nuklear and Wena's relational schema-v7 SQLite
+The POSIX desktop uses SDL2, Nuklear and Wena's relational schema-v8 SQLite
 database. Build with a C compiler, SDL2 development files (`sdl2-config`), SQLite
 development files, Python 3 and the pinned Nuklear submodule:
 
@@ -32,7 +32,7 @@ The output embeds and verifies the pinned migration chain and full offline trans
 catalog. SDL2 and SQLite remain shared host dependencies. Cataloged cross-release
 targets still build the earlier bootstrap executable; they do not yet package
 this desktop. Direct Meteor/FerretDB database migration is not implemented.
-Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v7
+Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v8
 chain on storage startup, including smoke mode. A verified old backup is upgraded
 in a private staged copy before restore interrupts the running database.
 
@@ -130,8 +130,9 @@ Default, Yes and No overrides, which take priority over the board preference.
 Hidden/all-completed display flags are respected, and a title click opens the
 card's checklist editor. Preview checkboxes save completion through the same guarded editor mutation.
 A rejected save shows an error and requires Refresh before another preview edit;
-refresh never retries a mutation. Inline title/add editing, per-user checklist
-collapse and drag/drop remain open.
+refresh never retries a mutation. Collapse controls share a persisted actor/card
+section preference between the preview and the opened checklist panel. Inline
+title/add editing and drag/drop remain open.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded
 Apache-2.0 Roboto asset covers selected Latin, Greek and Cyrillic glyphs. Full

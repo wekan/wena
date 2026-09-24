@@ -62,6 +62,7 @@ static unsigned int desktop_card_badges(struct nk_context *context,
 typedef struct WenaDesktopChecklistPreview {
     WenaBoardPresentation *view;
     WenaChecklistCompletionIntent intent;
+    WenaCardSectionControl sections;
     int readonly;
     int error;
 } WenaDesktopChecklistPreview;
@@ -71,9 +72,9 @@ static unsigned int desktop_card_contents(struct nk_context *context,
 {
     WenaDesktopChecklistPreview *preview;
     preview = (WenaDesktopChecklistPreview *)opaque;
-    return preview->view->summary_valid ? wena_checklist_contents_render_actions(context,
+    return preview->view->summary_valid ? wena_checklist_contents_render_controls(context,
         preview->view->contents, card, preview->view->settings.show_checklists,
-        preview->readonly || preview->error ? NULL : &preview->intent) : WENA_CARD_BODY_NO_ACTION;
+        preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections) : WENA_CARD_BODY_NO_ACTION;
 }
 
 #define DESKTOP_ADD_LIST 1u
@@ -118,7 +119,8 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
         if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)))
             toolbar->labels->refresh_pending = 1;
     }
-    if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->preview->error)) {
+    if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->labels->sections_error ||
+        toolbar->preview->error || toolbar->preview->sections.error)) {
         nk_layout_row_dynamic(context, 22.0f, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 28.0f, 2);
@@ -126,6 +128,8 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
         if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH))) {
             toolbar->labels->summary_pending = 1;
             toolbar->preview->error = 0;
+            toolbar->preview->sections.error = 0;
+            toolbar->labels->sections_pending = 1;
         }
     }
     if (toolbar->collapse_error) {
@@ -448,6 +452,7 @@ int main(int argc, char **argv)
                                       actor_id, board_id)) goto cleanup;
     wena_checklists_init(&editors.checklists, wena_checklist_mutation_load,
         smoke ? NULL : wena_checklist_mutation_save, &checklist_mutation);
+    editors.checklists.sections = &preview.sections;
     if (!wena_board_presentation_init(&label_view, database, actor_id, board_id) ||
         !label_view.valid) goto cleanup;
     wena_labels_init(&editors.labels, wena_board_presentation_labels_load,
@@ -512,6 +517,9 @@ int main(int argc, char **argv)
         if (width > 0 && height > 0) {
             opened_panel = DESKTOP_PANEL_NONE;
             preview.intent.pending = 0;
+            preview.sections.pending = 0;
+            preview.sections.snapshot = label_view.sections_valid ? label_view.sections : NULL;
+            preview.sections.readonly = smoke || !label_view.sections_valid;
             layout.card_count = snapshot->card_count;
             layout.list_count = snapshot->list_count;
             layout.swimlane_count = snapshot->swimlane_count;
@@ -670,6 +678,15 @@ int main(int argc, char **argv)
                 label_view.summary_valid = 0;
                 label_view.summary_pending = 1;
             }
+            if (preview.sections.pending) {
+                preview.sections.pending = 0;
+                preview.sections.error = !wena_card_section_save(database, actor_id,
+                    snapshot->board.id, preview.sections.card_id, preview.sections.key,
+                    preview.sections.version, preview.sections.collapsed);
+                label_view.sections_valid = 0;
+                label_view.sections_pending = 1;
+            }
+            if (opened_panel == DESKTOP_PANEL_CHECKLISTS) label_view.sections_pending = 1;
             (void)wena_board_presentation_poll(&label_view);
             if (!smoke && collapse_path[0] != '\0' &&
                 (toolbar.collapse_retry ||

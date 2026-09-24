@@ -20,10 +20,10 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/client/platform/font.c" \
   "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
-  "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" \
+  "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" \
   "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
   "$root_dir/client/features/board.c" "$root_dir/client/features/card_details.c" \
-  "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklist_store.c" \
+  "$root_dir/client/features/checklists.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" "$root_dir/client/features/checklist_store.c" \
   "$root_dir/client/features/checklist_mutation.c" "$root_dir/client/features/checklists/summary.c" "$root_dir/client/features/checklists/badges.c" \
   "$root_dir/client/features/labels/panel.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/features/labels/badges.c" \
   "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" \

@@ -31,9 +31,9 @@ once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
 Cross-board transfer and full inline minicard editing remain open.
 
-Latest integrated validation: 126 native suites passed, zero failed or skipped,
-plus all four localhost HTTP/runtime suites passed outside the sandbox (130 total;
-runtime rerun after schema-v7).
+Latest integrated validation: 127 native suites passed, zero failed or skipped,
+plus all four localhost HTTP/runtime suites passed outside the sandbox (131 total;
+runtime rerun after schema-v8).
 The sandbox itself denies loopback bind with EPERM; no listener implementation
 change was needed. Fixed a macOS unused-variable build error in OS entropy and a
 reference inventory scanner that wrongly excluded checkouts beneath `.tools`.
@@ -98,8 +98,12 @@ Inline completion now captures an owned one-shot item intent with all parent/ite
 revisions and applies the existing guarded mutation after drawing. Failure clears
 the intent, shows an error and requires explicit Refresh before more preview
 writes; reloads cannot replay it. Eleven focused suites and targeted sanitizers
-pass, plus desktop startup checks. Inline title/add editing, per-user checklist
-collapse and drag/drop remain open.
+pass, plus desktop startup checks. Schema-v8 now adds actor/card section
+preferences with shared model, storage and collapse control. Minicards and the
+opened card share the same checklist key; preferences leave canonical card/board
+revisions unchanged. Nineteen focused suites, section/preview/presentation
+sanitizers and desktop checks pass. See `docs/section-preferences.md`.
+Inline title/add editing and drag/drop remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -784,8 +788,12 @@ Architecture decisions for this cycle:
         through shared boolean storage and one settings panel; preserve overrides.
       - [x] Toggle inline checklist completion using shared guarded mutations,
         captured exact IDs/revisions, one-shot intents and read-only error recovery.
-      - [_] Finish expanded minicard inline title/add editing,
-        per-user collapse, drag/drop and cross-board checklist/item movement.
+      - [x] Share persisted per-user checklist collapse between minicards and
+        opened cards through reusable card-section preferences and controls.
+        Validate actor/card scope, optimistic versions, capacity, rollback, refresh
+        and reopen; keep canonical card/board revisions unchanged.
+      - [_] Finish expanded minicard inline title/add editing, drag/drop and
+        cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.
