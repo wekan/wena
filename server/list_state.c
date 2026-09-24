@@ -40,6 +40,8 @@ static int state_read(sqlite3 *db,const char *board,const char *list,unsigned lo
 }
 int wena_sqlite_list_state_read(sqlite3 *db,const char *board,const char *list,unsigned long version,int *archived,sqlite3_int64 *at)
 {return state_read(db,board,list,version,archived,at,0);}
+int wena_sqlite_swimlane_state_available(sqlite3 *db)
+{return wena_sqlite_optional_table(db,"swimlane_archive_state",13);}
 int wena_sqlite_swimlane_state_read(sqlite3 *db,const char *board,const char *lane,unsigned long version,int *archived,sqlite3_int64 *at)
 {return state_read(db,board,lane,version,archived,at,1);}
 int wena_sqlite_swimlane_active(sqlite3 *db,const char *board,const char *lane)

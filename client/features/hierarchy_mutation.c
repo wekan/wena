@@ -359,7 +359,7 @@ int wena_hierarchy_mutation_color_load(void *context,const char *board,
     if(!color||!version||!capacity||!color_selection(adapter,board,kind,id)||
         !wena_hierarchy_mutation_load(adapter,board,kind,id,title,sizeof(title),&current)||
         !wena_sqlite_hierarchy_color_read(adapter->persistence.database,board,id,kind==WENA_HIERARCHY_LIST,current,stored)||
-        (kind==WENA_HIERARCHY_LIST&&!wena_sqlite_list_active(adapter->persistence.database,board,id))||
+        !(kind==WENA_HIERARCHY_LIST?wena_sqlite_list_active(adapter->persistence.database,board,id):wena_sqlite_swimlane_active(adapter->persistence.database,board,id))||
         strlen(stored)>=capacity)return 0;
     strcpy(color,stored);*version=current;return 1;
 }

@@ -50,7 +50,7 @@ int wena_sqlite_hierarchy_color_change(sqlite3 *db,const WenaDomainCommand *comm
         !wena_mutation_text(command,"color",color,sizeof(color),2)||!wena_color_valid(color)||
         !wena_mutation_text(command,"expectedVersion",text,sizeof(text),0)||
         !wena_mutation_decimal(text,0,WENA_VERSION_MUTATE_MAX,&expected)||
-        (lists&&!wena_sqlite_list_active(db,board,id))||
+        !(lists?wena_sqlite_list_active(db,board,id):wena_sqlite_swimlane_active(db,board,id))||
         !wena_sqlite_hierarchy_color_read(db,board,id,lists,expected,stored))return 0;
     if(!strcmp(color,stored)){*result_version=expected;return 2;}
     sprintf(sql,"INSERT INTO %s(%s,board_id,color) VALUES(?1,?2,?3) ON CONFLICT(%s) DO UPDATE SET color=excluded.color WHERE %s.board_id=excluded.board_id",table,key,key,table);
@@ -67,6 +67,6 @@ int wena_sqlite_hierarchy_color_change(sqlite3 *db,const WenaDomainCommand *comm
         sqlite3_bind_int64(s,3,(sqlite3_int64)expected)==SQLITE_OK&&sqlite3_step(s)==SQLITE_DONE&&sqlite3_changes(db)==1;
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
     if(!ok||!wena_sqlite_hierarchy_color_read(db,board,id,lists,expected+1,stored)||strcmp(color,stored)||
-        (lists&&!wena_sqlite_list_active(db,board,id)))return 0;
+        !(lists?wena_sqlite_list_active(db,board,id):wena_sqlite_swimlane_active(db,board,id)))return 0;
     *result_version=expected+1;return 1;
 }

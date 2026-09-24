@@ -68,5 +68,13 @@ defaults; missing modern tables or replacement views fail without changing
 the prior snapshot. Child cards remain in the snapshot with their archive flags.
 Concurrent WAL tests change lane/card flags together between reader statements
 and verify that snapshots never combine their before and after states.
-Destination checks, native cascade publication and the shared menu/archive
-browser integration remain open roadmap items.
+Card create/move/restore now require active list and swimlane parents inside
+the write transaction. The common parent reader validates exact stored IDs;
+automatic creation skips archived lanes and rejects an all-hidden board.
+Movement also rejects a legacy active card whose source lane is archived.
+Swimlane reordering and color reads/edits use the same strict persisted-state
+check, so stale active display models cannot bypass archiving. Tests verify
+that rejected operations preserve card flags, positions, revisions and request
+identities, including automatic creation and native color callbacks.
+Native cascade publication and the shared menu/archive-browser integration
+remain open roadmap items.

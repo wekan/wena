@@ -15,6 +15,35 @@ static int change(WenaSqlitePersistence *store,const char *lane,unsigned long ve
  c.request_version=request;strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");
  sprintf(c.form_body,"swimlaneId=%s&expectedVersion=%lu",lane,version);c.form_body_length=strlen(c.form_body);return wena_sqlite_persistence_apply(store,&c,&r);
 }
+static int guarded(WenaSqlitePersistence *store,WenaDomainOperation operation,const char *form)
+{
+ WenaDomainCommand c;WenaRegionResponse r;memset(&c,0,sizeof(c));c.operation=operation;c.request_version=100;
+ strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");strcpy(c.form_body,form);c.form_body_length=strlen(form);
+ return wena_sqlite_persistence_apply(store,&c,&r);
+}
+static void destination_guards(sqlite3 *db,WenaSqlitePersistence *store)
+{
+ sqlite3_int64 keys,versions;char q[256];keys=number(db,"SELECT count(*) FROM idempotency_keys");versions=number(db,"SELECT sum(version) FROM cards");
+ assert(!guarded(store,WENA_DOMAIN_CREATE_CARD,"title=Hidden&targetListId=l&targetSwimlaneId=s"));
+ assert(!guarded(store,WENA_DOMAIN_RESTORE_CARD,"cardId=a&expectedVersion=2"));
+ assert(!guarded(store,WENA_DOMAIN_MOVE_CARD,"cardId=other&expectedVersion=1&targetListId=l&targetSwimlaneId=s"));
+ assert(!guarded(store,WENA_DOMAIN_MOVE_SWIMLANE,"swimlaneId=s&expectedVersion=2&targetPosition=1"));
+ assert(!guarded(store,WENA_DOMAIN_SET_SWIMLANE_COLOR,"swimlaneId=s&expectedVersion=2&color=red"));
+ /* Even a legacy active card under a hidden lane cannot be moved out. */
+ sql(db,"UPDATE cards SET archived=0 WHERE id='a'");
+ assert(!guarded(store,WENA_DOMAIN_MOVE_CARD,"cardId=a&expectedVersion=2&targetListId=l&targetSwimlaneId=t"));sql(db,"UPDATE cards SET archived=1 WHERE id='a'");
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys&&number(db,"SELECT sum(version) FROM cards")==versions);
+ assert(number(db,"SELECT count(*) FROM cards")==4&&number(db,"SELECT version FROM swimlanes WHERE id='s'")==2);
+ assert(guarded(store,WENA_DOMAIN_CREATE_CARD,"title=Automatic"));
+ sprintf(q,"SELECT count(*) FROM cards WHERE id='%s' AND swimlane_id='t'",store->created_card_id);assert(number(db,q)==1);
+ sprintf(q,"DELETE FROM cards WHERE id='%s'",store->created_card_id);sql(db,q);
+ sql(db,"INSERT INTO swimlane_archive_state VALUES('t','b',1,1),('empty','b',1,1)");
+ /* Use a fresh route identity for the all-hidden rejection. */
+ sql(db,"DELETE FROM idempotency_keys WHERE operation='create-card' AND request_version=100");
+ assert(!guarded(store,WENA_DOMAIN_CREATE_CARD,"title=No active lane"));
+ sql(db,"DELETE FROM swimlane_archive_state WHERE swimlane_id IN ('t','empty')");
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys&&number(db,"SELECT sum(version) FROM cards")==versions);
+}
 static void original(sqlite3 *db)
 {
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==1);
@@ -98,7 +127,7 @@ int main(int argc,char **argv)
  sql(db,"DELETE FROM actors");assert(!change(&store,"s",1,1,1));sql(db,"INSERT INTO actors VALUES('u','User',1)");
  sql(db,"PRAGMA query_only=ON");assert(!change(&store,"s",1,1,1));sql(db,"PRAGMA query_only=OFF");
  for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){sql(db,triggers[i]);assert(!change(&store,"s",1,1,1));sql(db,"DROP TRIGGER failure");original(db);}
- assert(change(&store,"s",1,1,1));assert(wena_sqlite_swimlane_state_read(db,"b","s",2,&archived,&at)&&archived);prior=at;snapshot_state(db,1,0);
+ assert(change(&store,"s",1,1,1));assert(wena_sqlite_swimlane_state_read(db,"b","s",2,&archived,&at)&&archived);prior=at;snapshot_state(db,1,0);destination_guards(db,&store);
  assert(at>number(db,"SELECT archived_at FROM card_archive_state WHERE card_id='pre'"));
  assert(number(db,"SELECT count(*) FROM card_archive_state WHERE card_id IN ('a','z') AND archived_at>(SELECT archived_at FROM swimlane_archive_state WHERE swimlane_id='s')")==2);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=1")==3);

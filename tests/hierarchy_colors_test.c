@@ -38,6 +38,9 @@ static void native_adapter(sqlite3 *db,int lists,const char *id,WenaSqliteBoardS
  if(lists){sql(db,"UPDATE list_archive_state SET archived=1");
   assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched));
   assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));sql(db,"UPDATE list_archive_state SET archived=0");}
+ if(!lists){sql(db,"INSERT INTO swimlane_archive_state VALUES('s','b',1,123)");
+  assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched)&&untouched==88&&!strcmp(color,"kept"));
+  assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));sql(db,"DELETE FROM swimlane_archive_state");}
  sql(db,"CREATE TRIGGER native_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
  assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));sql(db,"DROP TRIGGER native_late");
  assert(!memcmp(snapshot,before,sizeof(*snapshot)));
