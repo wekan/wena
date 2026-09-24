@@ -242,6 +242,7 @@ TEST_SUITES = (
     ('sqlite-hierarchy-create', 'test_sqlite_hierarchy_create.sh', 'Scoped SQLite list and swimlane creation persistence'),
     ('sqlite-workspace', 'test_sqlite_workspace.sh', 'Atomic no-clobber local SQLite workspace initialization'),
     ('sqlite-directory', 'test_sqlite_directory.sh', 'Shared bounded directory paging for boards and actors'),
+    ('list-archive', 'test_list_archive.sh', 'Guarded list archive/restore and atomic archived-list board snapshots'),
     ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
     ('sqlite-hardening', 'test_sqlite_hardening.sh', 'Defensive SQLite connection settings and untrusted schema refusal'),
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),

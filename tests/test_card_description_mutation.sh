@@ -11,7 +11,7 @@ assert hashlib.sha256(fixture).hexdigest() == "429503c784a355f492d4ca6e65428a5e3
 PYCODE
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
  "$root_dir/tests/card_description_mutation_test.c" "$root_dir/client/features/card_description_mutation.c" \
- "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" \
+ "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/list_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/server/mutations/board_settings.c" \
   "$root_dir/server/mutations/checklist_batch.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \

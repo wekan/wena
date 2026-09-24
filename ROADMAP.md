@@ -792,9 +792,16 @@ Architecture decisions for this cycle:
         index. Reuse migration regression scenarios for every v1-v9 upgrade,
         preserved cards/versions, constraints, failed DDL/index/commit rollback,
         downgrade rejection and reopening.
-      - [_] Wire ordinary-list archive/restore through guarded adapters and the
+      - [x] Implement ordinary-list archive/restore in the shared guarded
+        transaction and atomic board snapshots. Preserve card state/positions,
+        retain archive time on restore, reject stale versions, replay, malformed
+        state and cross-board corruption, and roll back ignored/altered writes.
+        Legacy snapshots remain readable; missing v10 archive tables fail closed.
+      - [_] Wire ordinary-list archive/restore through native adapters and the
         native menu/archive browser. Ordinary lists preserve card archive flags;
         template-list cascades remain separate until template models are ported.
+        Before exposing controls, retain hidden lists in complete hierarchy
+        ordering and reject archived destinations in card creation/movement.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside

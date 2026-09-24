@@ -65,16 +65,38 @@ static int load_board(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *s
     return ok;
 }
 
+/* Legacy snapshots have no archive table. A v10-or-newer database must have it;
+ * disappearance or a same-named view is corruption, not an unarchived default. */
+static int archive_available(sqlite3 *db)
+{
+    sqlite3_stmt *s;int result,available;const unsigned char *type;
+    if(sqlite3_prepare_v2(db,"SELECT type FROM sqlite_schema WHERE name='list_archive_state'",-1,&s,NULL)!=SQLITE_OK)return -1;
+    result=sqlite3_step(s);available=-1;
+    if(result==SQLITE_ROW){type=sqlite3_column_text(s,0);
+        if(type&&!strcmp((const char*)type,"table")&&sqlite3_step(s)==SQLITE_DONE)available=1;}
+    else if(result==SQLITE_DONE)available=0;
+    if(sqlite3_finalize(s)!=SQLITE_OK)return -1;
+    if(available)return available;
+    if(sqlite3_prepare_v2(db,"PRAGMA user_version",-1,&s,NULL)!=SQLITE_OK)return -1;
+    available=sqlite3_step(s)==SQLITE_ROW&&sqlite3_column_type(s,0)==SQLITE_INTEGER&&
+        sqlite3_column_int64(s,0)>=0&&sqlite3_column_int64(s,0)<10?0:-1;
+    if(sqlite3_finalize(s)!=SQLITE_OK)available=-1;
+    return available;
+}
+
 static int load_hierarchy(sqlite3 *db, const char *board,
                            WenaSqliteBoardSnapshot *s, int lists)
 {
     sqlite3_stmt *statement;
     const char *id, *parent, *title;
     double position;
-    int result, ok;
+    int result, ok,available,archived;
     const char *sql;
     sql = lists ? "SELECT id,board_id,title,position,version FROM lists WHERE board_id=?1 ORDER BY position,id" :
         "SELECT id,board_id,title,position,version FROM swimlanes WHERE board_id=?1 ORDER BY position,id";
+    available=lists?archive_available(db):0;if(available<0)return 0;
+    if(available)sql="SELECT l.id,l.board_id,l.title,l.position,l.version,a.archived,a.archived_at,a.list_id,a.board_id "
+        "FROM lists l LEFT JOIN list_archive_state a ON a.list_id=l.id WHERE l.board_id=?1 ORDER BY l.position,l.id";
     if (!prepare(db, sql, board, &statement)) return 0;
     ok = 1;
     while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
@@ -84,10 +106,18 @@ static int load_hierarchy(sqlite3 *db, const char *board,
         if (!id || !parent || !title || strcmp(parent, board) ||
             !position_column(statement, 3, &position) ||
             !version_column(statement, 4)) { ok = 0; break; }
+        archived=0;
+        if(available&&sqlite3_column_type(statement,7)!=SQLITE_NULL){
+            const char *scope;scope=text_column(statement,8,1);
+            if(!scope||strcmp(scope,board)||sqlite3_column_type(statement,5)!=SQLITE_INTEGER||
+                (sqlite3_column_int64(statement,5)!=0&&sqlite3_column_int64(statement,5)!=1)||
+                sqlite3_column_type(statement,6)!=SQLITE_INTEGER||sqlite3_column_int64(statement,6)<0){ok=0;break;}
+            archived=sqlite3_column_int(statement,5);
+        }
         if (lists) {
             if (s->list_count == WENA_SQLITE_BOARD_MAX_LISTS ||
                 !wena_list_init(&s->lists[s->list_count], id, parent, "", title,
-                    position, 0)) { ok = 0; break; }
+                    position, archived)) { ok = 0; break; }
             ++s->list_count;
         } else {
             if (s->swimlane_count == WENA_SQLITE_BOARD_MAX_SWIMLANES ||
