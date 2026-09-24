@@ -3,6 +3,7 @@
 
 #include "store.h"
 #include "../card_details.h"
+#include "../../components/forms/color_input.h"
 
 typedef int (*WenaLabelsLoad)(void *context, const char *board_id,
     const char *card_id, WenaLabelSnapshot *snapshot);
@@ -21,14 +22,11 @@ typedef struct WenaLabelsState {
     unsigned long label_version;
     unsigned long card_version;
     int name_length;
-    int color_length;
-    int use_custom_color;
+    WenaColorInput color_input;
     unsigned long affected_cards;
     /* Four overflow bytes admit one complete UTF-8 scalar beyond a full valid
      * name, so the panel can reject it instead of silently saving the prefix. */
     char name[WENA_LABEL_NAME_CAPACITY + 4];
-    char color[WENA_COLOR_CAPACITY + 1];
-    char custom_color[9];
     WenaLabelSnapshot *snapshot;
     WenaLabelsLoad load;
     WenaLabelsSave save;

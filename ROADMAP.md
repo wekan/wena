@@ -821,6 +821,13 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
+      - [x] Extract the label palette/custom-hex input into one reusable native
+        color form. Share bounded draft validation, named/default colors,
+        overflow rejection and preview rendering; keep persistence in callers.
+        Verify independent drafts, invalid-set preservation, palette/hex aliases,
+        real keyboard/mouse behavior and existing label SQLite integration.
+      - [_] Reuse the color form for persisted list/swimlane colors and headers,
+        matching WeKan's named palette, custom hex and readable text contrast.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the

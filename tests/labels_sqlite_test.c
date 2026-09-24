@@ -105,9 +105,9 @@ int main(int argc, char **argv)
     assert(!state.error && state.snapshot->label_count == 2 &&
         !strcmp(state.snapshot->labels[1].name, "Other label"));
     frame(&state, &card, "Change Label", NULL);
-    strcpy(state.custom_color, "#001122");
-    state.color_length = 7;
-    state.use_custom_color = 1;
+    strcpy(state.color_input.custom_color, "#001122");
+    state.color_input.color_length = 7;
+    state.color_input.use_custom_color = 1;
     frame(&state, &card, "Save", "Alpha");
     assert(!state.error && !strcmp(state.snapshot->labels[0].name, "Alpha") &&
         !strcmp(state.snapshot->labels[0].color, "#001122"));

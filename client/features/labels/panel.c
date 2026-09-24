@@ -29,10 +29,8 @@ void wena_labels_close(WenaLabelsState *state)
     state->card_id[0] = 0;
     state->label_id[0] = 0;
     state->name[0] = 0;
-    state->color[0] = 0;
-    state->custom_color[0] = 0;
+    memset(&state->color_input,0,sizeof(state->color_input));
     state->name_length = 0;
-    state->color_length = 0;
 }
 
 static const char *selected_card(const WenaLabelsState *state)
@@ -78,17 +76,6 @@ int wena_labels_open(WenaLabelsState *state, const char *board_id,
     return 1;
 }
 
-static void set_color(WenaLabelsState *state, const char *color)
-{
-    unsigned char rgb[3];
-    if (!wena_color_rgb(color, rgb)) return;
-    strcpy(state->color, color);
-    sprintf(state->custom_color, "#%02x%02x%02x", (unsigned int)rgb[0],
-        (unsigned int)rgb[1], (unsigned int)rgb[2]);
-    state->color_length = 7;
-    state->use_custom_color = 0;
-}
-
 static void begin_edit(WenaLabelsState *state, WenaLabelAction action,
     size_t label_index)
 {
@@ -110,20 +97,20 @@ static void begin_edit(WenaLabelsState *state, WenaLabelAction action,
         state->name_length = (int)strlen(state->name);
         state->label_version = state->snapshot->label_versions[label_index];
         state->affected_cards = state->snapshot->assigned_card_counts[label_index];
-        set_color(state, state->snapshot->labels[label_index].color);
+        (void)wena_color_input_set(&state->color_input, state->snapshot->labels[label_index].color);
         return;
     }
     /* WeKan chooses the first unused named color, then the first color if all
      * are in use. Equal colors remain legal for differently named labels. */
     colors = wena_colors(&color_count);
-    set_color(state, colors[0].name);
+    (void)wena_color_input_set(&state->color_input, colors[0].name);
     for (index = 0; index < color_count; ++index) {
         used = 0;
         for (other = 0; other < state->snapshot->label_count; ++other)
             if (!strcmp(colors[index].name, state->snapshot->labels[other].color))
                 used = 1;
         if (!used) {
-            set_color(state, colors[index].name);
+            (void)wena_color_input_set(&state->color_input, colors[index].name);
             break;
         }
     }
@@ -138,21 +125,13 @@ static void confirm_deletion(WenaLabelsState *state)
              * the destructive target or alter its captured revision. */
             strcpy(state->name, state->snapshot->labels[index].name);
             state->name_length = (int)strlen(state->name);
-            set_color(state, state->snapshot->labels[index].color);
+            (void)wena_color_input_set(&state->color_input, state->snapshot->labels[index].color);
             state->action = WENA_LABEL_DELETE;
             state->error = 0;
             return;
         }
     }
     state->error = 1;
-}
-
-static const char *draft_color(WenaLabelsState *state)
-{
-    if (!state->use_custom_color) return state->color;
-    if (state->color_length != 7 || state->custom_color[0] != '#') return NULL;
-    state->custom_color[7] = 0;
-    return wena_color_valid(state->custom_color) ? state->custom_color : NULL;
 }
 
 static void submit_edit(WenaLabelsState *state)
@@ -168,7 +147,7 @@ static void submit_edit(WenaLabelsState *state)
     edit.expected_label_version = state->label_version;
     edit.expected_card_version = state->card_version;
     if (state->action == WENA_LABEL_CREATE || state->action == WENA_LABEL_EDIT) {
-        color = draft_color(state);
+        color = wena_color_input_value(&state->color_input);
         if (state->name_length < 0 || !wena_label_name_valid(state->name,
             (size_t)state->name_length) || !color ||
             !wena_model_text_trim_bounds(state->name, (size_t)state->name_length,
@@ -208,36 +187,6 @@ static int scope_valid(const WenaLabelsState *state, const char *board_id,
     return matches == 1;
 }
 
-static void render_palette(struct nk_context *context, WenaLabelsState *state)
-{
-    const WenaColorContract *colors;
-    size_t index, count;
-    char previous[sizeof(state->custom_color)];
-    int previous_length;
-    nk_layout_row_dynamic(context, 24, 1);
-    nk_label(context, wena_ui_text(WENA_UI_TEXT_SELECT_COLOR), NK_TEXT_LEFT);
-    colors = wena_colors(&count);
-    nk_layout_row_dynamic(context, 22, 5);
-    for (index = 0; index < count; ++index)
-        if (wena_label_badge_render(context, colors[index].name, colors[index].name))
-            set_color(state, colors[index].name);
-    nk_layout_row_dynamic(context, 24, 1);
-    nk_label(context, wena_ui_text(WENA_UI_TEXT_CUSTOM_COLOR), NK_TEXT_LEFT);
-    memcpy(previous, state->custom_color, sizeof(previous));
-    previous_length = state->color_length;
-    /* One extra byte detects overlong hex input. Enter in the color field does
-     * not submit a form or a deletion confirmation. */
-    (void)nk_edit_string(context, NK_EDIT_FIELD, state->custom_color,
-        &state->color_length, (int)sizeof(state->custom_color), nk_filter_default);
-    if (previous_length != state->color_length ||
-        memcmp(previous, state->custom_color, sizeof(previous)))
-        state->use_custom_color = 1;
-    if (draft_color(state)) {
-        nk_layout_row_dynamic(context, 24, 1);
-        (void)wena_label_badge_render(context, state->name, draft_color(state));
-    }
-}
-
 int wena_labels_render(struct nk_context *context, WenaLabelsState *state,
     const char *board_id, const WenaCard *cards, size_t card_count,
     float width, float height)
@@ -268,7 +217,7 @@ int wena_labels_render(struct nk_context *context, WenaLabelsState *state,
         } else if (state->action) {
             if (state->action == WENA_LABEL_DELETE) {
                 nk_label(context, wena_ui_text(WENA_UI_TEXT_DELETE_LABEL), NK_TEXT_LEFT);
-                (void)wena_label_badge_render(context, state->name, state->color);
+                (void)wena_label_badge_render(context, state->name, state->color_input.color);
                 nk_label(context, wena_ui_text(WENA_UI_TEXT_CARDS), NK_TEXT_LEFT);
                 sprintf(count, "%lu", state->affected_cards);
                 nk_label(context, count, NK_TEXT_LEFT);
@@ -284,7 +233,7 @@ int wena_labels_render(struct nk_context *context, WenaLabelsState *state,
                     state->name[state->name_length] = 0;
                 submit = (wena_title_input_keys(context, keys) &
                     WENA_TITLE_INPUT_COMMIT) != 0u;
-                render_palette(context, state);
+                wena_color_input_render(context,&state->color_input,state->name,wena_label_badge_render);
             }
             nk_layout_row_dynamic(context, 28, 2);
             /* Destruction requires an explicit click in the confirmation view. */

@@ -104,12 +104,36 @@ static void open_create(WenaLabelsState *state, WenaCard *card)
 
 static void custom_color(WenaLabelsState *state, const char *color)
 {
-    assert(strlen(color) < sizeof(state->custom_color));
-    strcpy(state->custom_color, color);
-    state->color_length = (int)strlen(color);
-    state->use_custom_color = 1;
+    assert(strlen(color) < sizeof(state->color_input.custom_color));
+    strcpy(state->color_input.custom_color, color);
+    state->color_input.color_length = (int)strlen(color);
+    state->color_input.use_custom_color = 1;
 }
 
+static void color_input_tests(void)
+{
+    WenaColorInput first,second,before;const WenaColorContract *colors;size_t count,i;
+    memset(&first,0,sizeof(first));memset(&second,0,sizeof(second));
+    assert(wena_color_input_set(&first,"#aBcD01"));
+    assert(!strcmp(wena_color_input_value(&first),"#aBcD01"));
+    assert(!strcmp(first.custom_color,"#abcd01"));
+    assert(wena_color_input_set(&second,"red"));
+    before=first;assert(!wena_color_input_set(&first,"#abc"));assert(!memcmp(&before,&first,sizeof(first)));
+    assert(!wena_color_input_set(&first,"theme-dark"));assert(!memcmp(&before,&first,sizeof(first)));
+    colors=wena_colors(&count);assert(count==25);
+    for(i=0;i<count;++i){assert(wena_color_input_set(&first,colors[i].name));
+        assert(!strcmp(wena_color_input_value(&first),colors[i].name));}
+    assert(!strcmp(wena_color_input_value(&second),"red"));
+    assert(wena_color_input_set(&first,""));assert(!strcmp(wena_color_input_value(&first),""));
+    first.use_custom_color=1;first.color_length=8;strcpy(first.custom_color,"#1234567");
+    assert(!wena_color_input_value(&first));first.color_length=-1;assert(!wena_color_input_value(&first));
+    first.color_length=7;strcpy(first.custom_color,"#12zz34");assert(!wena_color_input_value(&first));
+    strcpy(first.custom_color,"#aBcD01");assert(!strcmp(wena_color_input_value(&first),"#aBcD01"));
+    assert(wena_color_input_set(&first,first.custom_color));assert(!first.use_custom_color);
+    assert(wena_color_input_set(&first,first.color));
+    first.use_custom_color=0;memset(first.color,'x',sizeof(first.color));assert(!wena_color_input_value(&first));
+    assert(!wena_color_input_value(NULL));assert(!wena_color_input_set(NULL,"red"));
+}
 int main(void)
 {
     WenaLabelsState state;
@@ -127,13 +151,14 @@ int main(void)
     store.label_count = 2;
     store.label_versions[0] = 3;
     store.label_versions[1] = 4;
+    color_input_tests();
     assert(wena_label_init(&store.labels[0], "label1", "b", "Same", "white", 0));
     assert(wena_label_init(&store.labels[1], "label2", "b", "Same", "green", 1));
     assert(wena_card_init(&card, "c", "b", "s", "l", "Card", 0, 0));
     wena_labels_init(&state, load, save, NULL);
     assert(wena_labels_open(&state, "b", &card));
     open_create(&state, &card);
-    assert(strcmp(state.color, "white") && strcmp(state.color, "green"));
+    assert(strcmp(state.color_input.color, "white") && strcmp(state.color_input.color, "green"));
     frame(&state, &card, "Cancel", "Discard");
     assert(!state.action && !writes);
     open_create(&state, &card);
@@ -184,7 +209,7 @@ int main(void)
     frame(&state, &card, "Change Label", NULL);
     frame(&state, &card, "Delete", "Unsaved\001rename");
     assert(state.action == WENA_LABEL_DELETE && !strcmp(state.name, "Edited") &&
-        !strcmp(state.color, "white"));
+        !strcmp(state.color_input.color, "white"));
     before = writes;
     frame(&state, &card, "Cancel", NULL);
     assert(writes == before && store.label_count == 4);

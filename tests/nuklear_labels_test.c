@@ -161,7 +161,7 @@ int main(void)
     render(&context, &state, &card);
     click(&context, &state, &card, "Create Label");
     character(&context, &state, &card, 0);
-    assert(state.action == WENA_LABEL_CREATE && !strcmp(state.color, "white"));
+    assert(state.action == WENA_LABEL_CREATE && !strcmp(state.color_input.color, "white"));
     assert_colors(&context, "white", "white");
     assert_colors(&context, "black", "black");
     assert_colors(&context, "yellow", "yellow");
@@ -196,7 +196,7 @@ int main(void)
     point.y += 28;
     click_at(&context, &state, &card, point);
     replace_text(&context, &state, &card, "#1234567");
-    assert(state.use_custom_color && state.color_length == 8);
+    assert(state.color_input.use_custom_color && state.color_input.color_length == 8);
     key(&context, &state, &card, NK_KEY_ENTER, 1);
     assert(writes == 2 && state.action == WENA_LABEL_EDIT);
     key(&context, &state, &card, NK_KEY_ENTER, 0);
