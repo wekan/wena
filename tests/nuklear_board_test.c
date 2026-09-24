@@ -3,6 +3,7 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/board.h"
+#include "../client/components/common/card_section.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -106,6 +107,56 @@ static void click(struct nk_context *context, WenaBoardLayout *layout,
     render(context, layout, 480.0f);
 }
 
+static int fold_card(struct nk_context *context,void *opaque,const WenaCard *card)
+{
+    nk_layout_row_dynamic(context,24,1);
+    return wena_card_section_toggle(context,(WenaCardSectionControl *)opaque,
+        card->board_id,card->id,"minicard");
+}
+static unsigned int card_extra(struct nk_context *context,void *opaque,const WenaCard *card)
+{
+    (void)card;
+    nk_layout_row_dynamic(context,24,1);
+    nk_label(context,(const char *)opaque,NK_TEXT_LEFT);
+    return 0;
+}
+static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
+{
+    WenaCardSectionControl controls;
+    WenaCardSectionsSnapshot preferences;
+    WenaCardSectionPreference entry;
+    memset(&controls,0,sizeof(controls));
+    memset(&preferences,0,sizeof(preferences));
+    memset(&entry,0,sizeof(entry));
+    strcpy(preferences.board_id,layout->board->id);
+    controls.snapshot=&preferences;
+    layout->card_collapsed=fold_card;layout->card_collapsed_context=&controls;
+    layout->card_badges=card_extra;layout->card_badges_context="Badge preview";
+    layout->card_contents=card_extra;layout->card_contents_context="Expanded preview";
+    render(context,layout,480);
+    assert(visible_text(context,"Badge preview",640,480,NULL));
+    assert(visible_text(context,"Expanded preview",640,480,NULL));
+    click(context,layout,"Collapse");
+    assert(controls.pending&&controls.collapsed&&!strcmp(controls.card_id,layout->cards[0].id));
+    /* Only the first card is in the selected scope for this test. */
+    assert(visible_text(context,"First card",640,480,NULL));
+    assert(visible_text(context,"Open card",640,480,NULL));
+    assert(visible_text(context,"Card menu",640,480,NULL));
+    assert(!visible_text(context,"Badge preview",640,480,NULL));
+    assert(!visible_text(context,"Expanded preview",640,480,NULL));
+    strcpy(entry.card_id,controls.card_id);strcpy(entry.key,controls.key);
+    entry.collapsed=1;entry.version=1;
+    preferences.entries=&entry;preferences.count=1;preferences.capacity=1;
+    controls.pending=0;
+    render(context,layout,480);click(context,layout,"Uncollapse");
+    assert(controls.pending&&!controls.collapsed&&controls.version==1);
+    assert(visible_text(context,"Expanded preview",640,480,NULL));
+    controls.pending=0;controls.readonly=1;
+    render(context,layout,480);click(context,layout,"Uncollapse");assert(!controls.pending);
+    assert(!visible_text(context,"Expanded preview",640,480,NULL));
+    layout->card_collapsed=NULL;layout->card_collapsed_context=NULL;
+    layout->card_badges=NULL;layout->card_contents=NULL;
+}
 int main(void)
 {
     struct nk_context context;
@@ -143,6 +194,9 @@ int main(void)
     layout.lists = lists;
     layout.list_count = 2;
     layout.cards = cards;
+    layout.card_count = 3;
+    layout.card_count = 1;
+    card_folding(&context, &layout);
     layout.card_count = 3;
     /* The original state-free caller also needs full-height list/card geometry. */
     render(&context, &layout, 480.0f);

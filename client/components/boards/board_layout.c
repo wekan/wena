@@ -222,6 +222,7 @@ static void wena_render_cards(struct nk_context *context,
 {
     size_t index;
     unsigned int card_action;
+    int collapsed;
 
     for (index = 0; index < layout->card_count; ++index) {
         const WenaCard *card = &layout->cards[index];
@@ -232,11 +233,13 @@ static void wena_render_cards(struct nk_context *context,
             (layout->card_visible == NULL ||
              layout->card_visible(layout->card_visible_context, card))) {
             card_action = WENA_CARD_BODY_NO_ACTION;
-            if (layout->card_badges != NULL)
+            collapsed = layout->card_collapsed && layout->card_collapsed(context,
+                layout->card_collapsed_context, card);
+            if (!collapsed && layout->card_badges != NULL)
                 card_action = layout->card_badges(context,
                     layout->card_badges_context, card);
             card_action |= wena_card_body_render(context, card);
-            if (layout->card_contents != NULL)
+            if (!collapsed && layout->card_contents != NULL)
                 card_action |= layout->card_contents(context,
                     layout->card_contents_context, card);
             if (layout->card_interaction != NULL &&

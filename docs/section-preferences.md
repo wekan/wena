@@ -34,3 +34,11 @@ Tests use actual SQLite and Nuklear to cover actor isolation, default/no-op/stal
 writes, malformed values, terminal revisions, capacity, rollback, reopen, v7-to-v8
 upgrade rollback and shared state between the two UI locations. Drawing and
 lookups issue no SQL.
+
+Whole-minicard folding reuses this store under the internal `minicard` key.
+WeKan stores that choice separately in `profile.collapsedCards[boardId][cardId]`;
+an eventual import adapter must map that field explicitly. The layout's optional
+fold callback suppresses badge and expanded-content rendering while preserving
+the card title, Open card and Card menu actions. Folding a card cancels its inline
+draft. Actor isolation, revision checks and persistence use the same adapter as
+checklist folds. The board-level option to disable this control remains pending.

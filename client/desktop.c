@@ -79,6 +79,21 @@ static unsigned int desktop_card_contents(struct nk_context *context,
         preview->readonly || preview->error ? NULL : &preview->inline_edit) : WENA_CARD_BODY_NO_ACTION;
 }
 
+static int desktop_card_collapsed(struct nk_context *context,
+    void *opaque, const WenaCard *card)
+{
+    WenaDesktopChecklistPreview *preview;
+    int collapsed;
+    preview = (WenaDesktopChecklistPreview *)opaque;
+    nk_layout_row_dynamic(context, 24.0f, 1);
+    collapsed = wena_card_section_toggle(context, &preview->sections,
+        card->board_id, card->id, "minicard");
+    if (collapsed && preview->inline_edit.action &&
+        !strcmp(preview->inline_edit.card_id, card->id))
+        wena_checklist_inline_cancel(&preview->inline_edit);
+    return collapsed;
+}
+
 #define DESKTOP_ADD_LIST 1u
 #define DESKTOP_ADD_SWIMLANE 2u
 #define DESKTOP_RENAME_BOARD 4u
@@ -426,6 +441,8 @@ int main(int argc, char **argv)
     preview.readonly = smoke;
     layout.card_contents = desktop_card_contents;
     layout.card_contents_context = &preview;
+    layout.card_collapsed = desktop_card_collapsed;
+    layout.card_collapsed_context = &preview;
     layout.card_badges = desktop_card_badges;
     layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;

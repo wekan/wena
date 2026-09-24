@@ -890,4 +890,8 @@ Architecture decisions for this cycle:
     archived-object pruning, capacity handling, and board-switch isolation. Shared
     board-wide lists render in each active swimlane with distinct widget IDs and
     exact card-parent filtering; explicitly scoped lists retain their behavior.
-  - [_] Add card collapse and complete responsive/accessibility/persistence parity.
+  - [x] Persist whole-minicard folds per actor using the shared section control
+    and store; keep title/actions visible and skip badges/expanded contents.
+    Verify real mouse collapse/expand, read-only behavior, actor isolation and reopen.
+  - [_] Add the board option to disable minicard collapse and complete
+    responsive/accessibility/persistence parity.

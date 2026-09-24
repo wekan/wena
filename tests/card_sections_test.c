@@ -94,9 +94,14 @@ int main(int argc,char **argv)
  sprintf(query,"UPDATE actor_card_sections SET version=%lu WHERE actor_id='u' AND section_key='description'",WENA_VERSION_MUTATE_MAX);sql(db,query);
  assert(wena_card_section_save(db,"u","b","c","description",WENA_VERSION_MUTATE_MAX,0));
  assert(!wena_card_section_save(db,"u","b","c","description",WENA_VERSION_READ_MAX,1));
+ assert(wena_card_section_save(db,"v","b","c","minicard",0,1));
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(argv[2],bundle,(size_t)size,hash,&db));
  assert(wena_card_sections_load(db,"u","b",&view));entry=wena_card_sections_find(view,"c","description");version=entry->version;
  assert(!entry->collapsed&&version==WENA_VERSION_READ_MAX&&view->count==128);
+ assert(wena_card_sections_load(db,"v","b",&other));
+ entry=wena_card_sections_find(other,"c","minicard");assert(entry&&entry->collapsed&&entry->version==1);
+ assert(!wena_card_sections_find(view,"c","minicard"));
+ assert(number(db,"SELECT version FROM cards WHERE id='c'")==1);
  assert(wena_sqlite_integrity(db)&&sqlite3_close(db)==SQLITE_OK);
  wena_card_sections_free(view);wena_card_sections_free(other);free(bundle);
  puts("Generic actor/card sections: scope, versions, actor isolation, no-op, rollback, capacity and reopen passed");return 0;
