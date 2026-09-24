@@ -828,7 +828,12 @@ Architecture decisions for this cycle:
             verification. Preserve earlier archives and parent revisions.
             Test stale/scope errors, no-op/replay, partial/late rollback,
             altered child/parent writes, scope isolation and reopening.
-          - [_] Connect the native confirmation UI and atomic cache adapter.
+          - [x] Add the native scoped batch adapter. Capture list/lane
+            revisions in one read transaction; share full-board staging and
+            peer-count publication with lane cascades. Verify failed outputs,
+            stale scopes/revisions, partial/late/staging/commit rollback,
+            no-op/replay, exact refreshed caches and reopening.
+          - [_] Connect the native confirmation UI with current-lane scope.
         - [x] Port ordinary swimlane archive/restore with its card cascade.
           - [x] Add additive schema-v13 swimlane archive state and card archive
             timestamps with exact parent scope and board indexes. Reuse the

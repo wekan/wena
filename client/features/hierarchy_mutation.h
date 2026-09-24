@@ -76,4 +76,13 @@ int wena_hierarchy_mutation_swimlane_restore(void *context,const char *board_id,
 int wena_hierarchy_mutation_swimlane_archive_request(WenaHierarchyMutation *adapter,
     const char *board_id,const char *swimlane_id,unsigned long expected_version,
     unsigned long request_version,int archived);
+/* Empty/NULL lane selects the whole list; otherwise capture both revisions.
+ * Loads preserve outputs on failure; writes share full snapshot staging. */
+int wena_hierarchy_mutation_list_cards_load(void *context,const char *board,
+    const char *list,const char *lane,unsigned long *list_version,unsigned long *lane_version);
+int wena_hierarchy_mutation_list_cards_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const char *list,const char *lane,unsigned long expected,
+    unsigned long lane_version,unsigned long request);
+int wena_hierarchy_mutation_list_cards_archive(void *context,const char *board,
+    const char *list,const char *lane,unsigned long expected,unsigned long lane_version);
 #endif

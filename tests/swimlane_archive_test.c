@@ -178,6 +178,55 @@ static int list_cards(WenaSqlitePersistence *store,const char *form,unsigned lon
  strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");strcpy(c.form_body,form);c.form_body_length=strlen(form);
  return wena_sqlite_persistence_apply(store,&c,&r);
 }
+static void native_list_cards(sqlite3 *db)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaHierarchyMutation adapter;
+ unsigned long list_version,lane_version;size_t peer;sqlite3_int64 keys;int calls;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
+ fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));assert(snapshot&&before&&fresh);
+ sql(db,"UPDATE cards SET archived=0,version=version+1 WHERE id IN ('batch-a','batch-z','batch-other')");
+ assert(wena_sqlite_board_load(db,"b",snapshot));
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ peer=snapshot->card_count;adapter.published_card_count=&peer;
+ list_version=77;lane_version=88;
+ assert(!wena_hierarchy_mutation_list_cards_load(&adapter,"b","batch","foreign",&list_version,&lane_version));
+ assert(list_version==77&&lane_version==88);
+ assert(wena_hierarchy_mutation_list_cards_load(&adapter,"b","batch","t",&list_version,&lane_version));
+ assert(list_version==1&&lane_version==1);
+ memcpy(before,snapshot,sizeof(*before));keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,2,500));
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch",NULL,1,1,500));
+ sql(db,"CREATE TRIGGER native_batch_fail BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,500));
+ sql(db,"DROP TRIGGER native_batch_fail");
+ sql(db,"PRAGMA ignore_check_constraints=ON;INSERT INTO swimlane_colors VALUES('t','b','invalid');PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,500));
+ sql(db,"DELETE FROM swimlane_colors WHERE swimlane_id='t'");
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,500)&&calls==1);
+ sqlite3_commit_hook(db,NULL,NULL);
+ assert(!memcmp(before,snapshot,sizeof(*before))&&peer==snapshot->card_count);
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(before,fresh,sizeof(*fresh)));
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ snapshot->card_count=0;peer=0;
+ assert(wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,500));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(peer==snapshot->card_count&&peer>0);
+ assert(number(db,"SELECT archived FROM cards WHERE id='batch-other'")==0);
+ assert(number(db,"SELECT version FROM cards WHERE id='batch-pre'")==4);
+ memcpy(before,snapshot,sizeof(*before));
+ assert(!wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,500));
+ assert(!memcmp(before,snapshot,sizeof(*before)));
+ assert(wena_hierarchy_mutation_list_cards_archive_request(&adapter,"b","batch","t",1,1,501));
+ assert(!memcmp(before,snapshot,sizeof(*before))&&number(db,"SELECT count(*) FROM idempotency_keys")==keys+1);
+ assert(wena_hierarchy_mutation_list_cards_load(&adapter,"b","batch",NULL,&list_version,&lane_version));
+ assert(list_version==1&&lane_version==0);
+ assert(wena_hierarchy_mutation_list_cards_archive(&adapter,"b","batch","",list_version,lane_version));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==4);
+ assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ free(snapshot);free(before);free(fresh);
+}
 static void list_cards_tests(sqlite3 *db,WenaSqlitePersistence *store)
 {
  const char *scoped="listId=batch&expectedVersion=1&swimlaneId=t&expectedSwimlaneVersion=1";
@@ -276,6 +325,7 @@ int main(int argc,char **argv)
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=0 AND version=5")==2);
  native_archive(db);
  list_cards_tests(db,&store);
+ native_list_cards(db);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==4);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);

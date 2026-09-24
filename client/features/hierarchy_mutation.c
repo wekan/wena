@@ -451,24 +451,32 @@ static int prepare_archive_publish(void *context,sqlite3 *db)
     ArchivePublish *publish;publish=(ArchivePublish*)context;
     return wena_sqlite_board_read_transaction(db,publish->board,publish->snapshot);
 }
-int wena_hierarchy_mutation_swimlane_archive_request(WenaHierarchyMutation *adapter,
-    const char *board,const char *id,unsigned long expected,unsigned long request,int archived)
+static int publish_archive(WenaHierarchyMutation *adapter,const char *board,
+    const WenaDomainCommand *command)
 {
-    WenaDomainCommand command;WenaRegionResponse response;ArchivePublish publish;size_t index;int ok;
-    if(!archive_index(adapter,board,id,1,&index)||!expected||expected>WENA_VERSION_MUTATE_MAX||!request||
-        request>=(unsigned long)LONG_MAX||(archived!=0&&archived!=1)||adapter->persistence.prepare_publish)return 0;
+    WenaRegionResponse response;ArchivePublish publish;int ok;
+    if(adapter->persistence.prepare_publish)return 0;
     publish.snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*publish.snapshot));if(!publish.snapshot)return 0;
-    publish.board=board;memset(&command,0,sizeof(command));command.operation=archived?WENA_DOMAIN_ARCHIVE_SWIMLANE:WENA_DOMAIN_RESTORE_SWIMLANE;
-    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
-    sprintf(command.form_body,"swimlaneId=%s&expectedVersion=%lu",id,expected);command.form_body_length=strlen(command.form_body);
+    publish.board=board;
     adapter->persistence.prepare_publish=prepare_archive_publish;adapter->persistence.publish_context=&publish;
-    ok=wena_sqlite_persistence_apply(&adapter->persistence,&command,&response);
+    ok=wena_sqlite_persistence_apply(&adapter->persistence,command,&response);
     adapter->persistence.prepare_publish=NULL;adapter->persistence.publish_context=NULL;
     if(ok){
         memcpy(adapter->snapshot,publish.snapshot,sizeof(*publish.snapshot));
         if(adapter->published_card_count)*adapter->published_card_count=publish.snapshot->card_count;
     }
     free(publish.snapshot);return ok;
+}
+int wena_hierarchy_mutation_swimlane_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const char *id,unsigned long expected,unsigned long request,int archived)
+{
+    WenaDomainCommand command;size_t index;
+    if(!archive_index(adapter,board,id,1,&index)||!expected||expected>WENA_VERSION_MUTATE_MAX||!request||
+        request>=(unsigned long)LONG_MAX||(archived!=0&&archived!=1))return 0;
+    memset(&command,0,sizeof(command));command.operation=archived?WENA_DOMAIN_ARCHIVE_SWIMLANE:WENA_DOMAIN_RESTORE_SWIMLANE;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    sprintf(command.form_body,"swimlaneId=%s&expectedVersion=%lu",id,expected);command.form_body_length=strlen(command.form_body);
+    return publish_archive(adapter,board,&command);
 }
 int wena_hierarchy_mutation_swimlane_archive(void *context,const char *board,const char *id,unsigned long expected)
 {
@@ -481,4 +489,46 @@ int wena_hierarchy_mutation_swimlane_restore(void *context,const char *board,con
     WenaHierarchyMutation *adapter;size_t index;adapter=(WenaHierarchyMutation*)context;
     if(!archive_index(adapter,board,id,1,&index))return 0;
     return wena_hierarchy_mutation_swimlane_archive_request(adapter,board,id,expected,next_request(adapter,"restore-swimlane"),0);
+}
+
+
+int wena_hierarchy_mutation_list_cards_load(void *context,const char *board,
+    const char *list,const char *lane,unsigned long *list_version,unsigned long *lane_version)
+{
+    WenaHierarchyMutation *adapter;unsigned long l,s;int ok;sqlite3 *db;
+    adapter=(WenaHierarchyMutation*)context;
+    if(!list_version||!lane_version||!selected(adapter,board,WENA_HIERARCHY_LIST,list)||
+        (lane&&lane[0]&&!selected(adapter,board,WENA_HIERARCHY_SWIMLANE,lane)))return 0;
+    db=adapter->persistence.database;l=s=0;
+    if(sqlite3_exec(db,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK)return 0;
+    ok=archive_load(adapter,board,list,&l,0);
+    if(ok&&lane&&lane[0])ok=archive_load(adapter,board,lane,&s,1);
+    if(ok)ok=sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+    if(!ok){(void)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);return 0;}
+    *list_version=l;*lane_version=s;return 1;
+}
+int wena_hierarchy_mutation_list_cards_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const char *list,const char *lane,unsigned long expected,
+    unsigned long lane_version,unsigned long request)
+{
+    WenaDomainCommand command;WenaList *chosen;size_t index;int scoped;scoped=lane&&lane[0];
+    chosen=archive_selection(adapter,board,list);
+    if(!chosen||chosen->archived||!expected||expected>WENA_VERSION_MUTATE_MAX||
+        !request||request>=(unsigned long)LONG_MAX||
+        (scoped?(!lane_version||lane_version>WENA_VERSION_MUTATE_MAX||
+            (!archive_index(adapter,board,lane,1,&index)||adapter->snapshot->swimlanes[index].archived)):lane_version!=0))return 0;
+    memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_ARCHIVE_LIST_CARDS;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    sprintf(command.form_body,"listId=%s&expectedVersion=%lu",list,expected);
+    if(scoped)sprintf(command.form_body+strlen(command.form_body),"&swimlaneId=%s&expectedSwimlaneVersion=%lu",lane,lane_version);
+    command.form_body_length=strlen(command.form_body);
+    return publish_archive(adapter,board,&command);
+}
+int wena_hierarchy_mutation_list_cards_archive(void *context,const char *board,
+    const char *list,const char *lane,unsigned long expected,unsigned long lane_version)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!selected(adapter,board,WENA_HIERARCHY_LIST,list))return 0;
+    return wena_hierarchy_mutation_list_cards_archive_request(adapter,board,list,lane,
+        expected,lane_version,next_request(adapter,"archive-list-cards"));
 }
