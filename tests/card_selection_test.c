@@ -5,7 +5,7 @@
 #include <string.h>
 int main(void)
 {
-    WenaCardSelection *s,*before;WenaCard *cards;size_t i;char id[32];
+    WenaCardSelection *s,*before;WenaCard *cards;size_t i;char id[32];WenaId order[3];
     s=(WenaCardSelection*)malloc(sizeof(*s));before=(WenaCardSelection*)malloc(sizeof(*before));
     cards=(WenaCard*)calloc(WENA_CARD_SELECTION_CAPACITY,sizeof(*cards));assert(s&&before&&cards);
     assert(wena_card_selection_init(s,"b"));
@@ -19,6 +19,26 @@ int main(void)
     assert(wena_card_selection_add(s,cards,5,"list","")&&s->count==2);
     assert(wena_card_selection_toggle(s,cards,5,"a")&&s->count==1&&!strcmp(s->ids[0],"b"));
     assert(wena_card_selection_toggle(s,cards,5,"e")&&s->count==2);
+    strcpy(order[0],"e");strcpy(order[1],"a");strcpy(order[2],"b");
+    assert(wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"e","b")&&s->count==3);
+    assert(!strcmp(s->ids[0],"e")&&!strcmp(s->ids[1],"a")&&!strcmp(s->ids[2],"b"));
+    assert(wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"b","e")&&s->count==3);
+    assert(wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"a","a")&&s->count==1&&!strcmp(s->ids[0],"a"));
+    memcpy(before,s,sizeof(*s));
+    assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"missing","b")&&!memcmp(s,before,sizeof(*s)));
+    assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,0,"a","b")&&!memcmp(s,before,sizeof(*s)));
+    assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,6,"a","b")&&!memcmp(s,before,sizeof(*s)));
+    strcpy(order[0],"c");assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"a","b")&&!memcmp(s,before,sizeof(*s)));
+    strcpy(order[0],"d");assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"a","b")&&!memcmp(s,before,sizeof(*s)));
+    strcpy(order[0],"a");assert(!wena_card_selection_range(s,cards,5,(const WenaId*)order,3,"a","b")&&!memcmp(s,before,sizeof(*s)));
+    /* A filtered display omits a middle card even if its model is active. */
+    strcpy(order[0],"e");strcpy(order[1],"b");
+    assert(wena_card_selection_range(s,cards,5,(const WenaId*)order,2,"e","b")&&s->count==2&&!wena_card_selection_contains(s,"a"));
+    assert(wena_card_selection_range(s,cards,5,(const WenaId*)s->ids,s->count,s->ids[1],s->ids[0])&&s->count==2);
+    /* Restore the preceding toggle fixture for stale-state checks. */
+    wena_card_selection_clear(s);
+    assert(wena_card_selection_toggle(s,cards,5,"b")&&wena_card_selection_toggle(s,cards,5,"e"));
+
     memcpy(before,s,sizeof(*s));
     assert(!wena_card_selection_toggle(s,cards,5,"c")&&!memcmp(before,s,sizeof(*s)));
     assert(!wena_card_selection_toggle(s,cards,5,"d")&&!memcmp(before,s,sizeof(*s)));
@@ -48,6 +68,8 @@ int main(void)
     assert(wena_card_selection_add(s,cards,WENA_CARD_SELECTION_CAPACITY,"list","lane")&&s->count==WENA_CARD_SELECTION_CAPACITY);
     assert(wena_card_selection_toggle(s,cards,WENA_CARD_SELECTION_CAPACITY,"card0")&&s->count==WENA_CARD_SELECTION_CAPACITY-1);
     assert(wena_card_selection_toggle(s,cards,WENA_CARD_SELECTION_CAPACITY,"card0")&&s->count==WENA_CARD_SELECTION_CAPACITY);
+    assert(wena_card_selection_range(s,cards,WENA_CARD_SELECTION_CAPACITY,(const WenaId*)s->ids,s->count,
+        s->ids[s->count-1],s->ids[0])&&s->count==WENA_CARD_SELECTION_CAPACITY);
     assert(wena_card_selection_sync(s,NULL,0)&&!s->count);
     wena_card_selection_clear(s);assert(!s->count&&!strcmp(s->board_id,"b"));
     free(cards);free(before);free(s);puts("Scoped card selection, union, toggle, pruning and capacity passed");return 0;

@@ -72,3 +72,26 @@ int wena_card_selection_toggle(WenaCardSelection *selection,const WenaCard *card
 }
 int wena_card_selection_sync(WenaCardSelection *selection,const WenaCard *cards,size_t count)
 {return update(selection,cards,count,NULL,NULL,NULL);}
+
+
+int wena_card_selection_range(WenaCardSelection *selection,const WenaCard *cards,
+    size_t count,const WenaId *ordered_ids,size_t ordered_count,
+    const char *anchor,const char *target)
+{
+    WenaCardSelection *next;size_t i,j,first,last,swap;
+    if(!valid(selection,cards,count)||!ordered_ids||!ordered_count||ordered_count>count||
+        !wena_model_identifier_valid(anchor)||!wena_model_identifier_valid(target))return 0;
+    first=last=ordered_count;
+    for(i=0;i<ordered_count;++i){
+        if(!wena_model_identifier_valid(ordered_ids[i])||!active(selection,cards,count,ordered_ids[i]))return 0;
+        for(j=0;j<i;++j)if(!strcmp(ordered_ids[i],ordered_ids[j]))return 0;
+        if(!strcmp(ordered_ids[i],anchor))first=i;
+        if(!strcmp(ordered_ids[i],target))last=i;
+    }
+    if(first==ordered_count||last==ordered_count)return 0;
+    if(first>last){swap=first;first=last;last=swap;}
+    next=(WenaCardSelection*)calloc(1,sizeof(*next));if(!next)return 0;
+    strcpy(next->board_id,selection->board_id);
+    for(i=first;i<=last;++i)strcpy(next->ids[next->count++],ordered_ids[i]);
+    memcpy(selection,next,sizeof(*next));free(next);return 1;
+}

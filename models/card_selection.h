@@ -21,4 +21,11 @@ int wena_card_selection_add(WenaCardSelection *selection,const WenaCard *cards,
 int wena_card_selection_toggle(WenaCardSelection *selection,const WenaCard *cards,
     size_t count,const char *id);
 int wena_card_selection_sync(WenaCardSelection *selection,const WenaCard *cards,size_t count);
+/* Replace selection with an inclusive range in an explicit displayed order.
+ * The caller omits filtered/hidden cards. Every ordered ID must resolve to a
+ * unique active card on this board; missing endpoints/corruption fail atomically.
+ * This keeps range logic independent of board layout and filter implementations. */
+int wena_card_selection_range(WenaCardSelection *selection,const WenaCard *cards,
+    size_t count,const WenaId *ordered_ids,size_t ordered_count,
+    const char *anchor,const char *target);
 #endif

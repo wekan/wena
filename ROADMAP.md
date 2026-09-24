@@ -845,6 +845,12 @@ Architecture decisions for this cycle:
             selections. Real input verifies checked/unchecked toggles, no mutation
             while drawing, archived/foreign exclusions and folded-card routing.
           - [_] Add remaining selection highlighting/range-selection parity.
+            - [x] Add a reusable inclusive-range operation over explicit visible
+              card IDs. Replace selection atomically in either direction, keep
+              display order, and reject missing endpoints, duplicate/archived/
+              foreign IDs or invalid caches. Verify filtered gaps, equal endpoints,
+              duplicate titles, aliasing, unchanged failures and full capacity.
+            - [_] Capture visible traversal and connect Shift-click range controls.
           - [_] Connect the shared selection panel to guarded bulk actions.
             - [x] Add an exact-selection archive transaction. A native-only typed
               ID/revision span supports all 2048 cards without widening HTTP
