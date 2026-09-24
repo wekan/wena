@@ -32,4 +32,8 @@ int wena_sqlite_hierarchy_order_add(WenaSha256 *state, const char *id, size_t le
 /* Card-column fingerprint additionally includes each exact persisted position. */
 int wena_sqlite_card_order_add(WenaSha256 *state, const char *id,
     size_t length, unsigned long position);
+/* Native bulk-move fingerprint over the complete bounded board card set,
+ * including scopes, positions, revisions and archive flags. Caller owns a read
+ * or write transaction. Failure preserves the 65-byte output buffer. */
+int wena_sqlite_card_board_order(sqlite3 *database,const char *board,char output[65]);
 #endif

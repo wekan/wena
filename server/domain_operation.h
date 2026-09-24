@@ -51,7 +51,8 @@ typedef enum WenaDomainOperation {
     WENA_DOMAIN_ARCHIVE_LIST_CARDS = 41,
     WENA_DOMAIN_ARCHIVE_SELECTED_CARDS = 42,
     WENA_DOMAIN_ASSIGN_SELECTED_LABEL = 43,
-    WENA_DOMAIN_UNASSIGN_SELECTED_LABEL = 44
+    WENA_DOMAIN_UNASSIGN_SELECTED_LABEL = 44,
+    WENA_DOMAIN_MOVE_SELECTED_CARDS = 45
 } WenaDomainOperation;
 
 /* Native-only bounded batch payload. Storage remains caller-owned for apply.

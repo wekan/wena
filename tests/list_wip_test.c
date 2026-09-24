@@ -178,6 +178,8 @@ static void concurrent_snapshot(sqlite3 *db,const char *path)
 }
 static void batch_guard(sqlite3 *db)
 {
+ WenaSqlitePersistence store;WenaDomainCommand command;WenaRegionResponse response;
+ WenaCardRevision selected[2];char fingerprint[65];
  assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,0));
  sql(db,"BEGIN IMMEDIATE;INSERT INTO boards VALUES('bulk','Bulk',1);"
   "INSERT INTO lists VALUES('bl','bulk','List',0,1);INSERT INTO swimlanes VALUES('bs','bulk','Lane',0,1);"
@@ -205,7 +207,32 @@ static void batch_guard(sqlite3 *db)
  assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",(size_t)-1,0));
  sql(db,"UPDATE list_wip_limits SET enabled=0,soft=0 WHERE list_id='bl'");
  assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",100,0));
- sql(db,"ROLLBACK");
+ sql(db,"INSERT INTO lists VALUES('bin','bulk','Incoming',1,1);"
+  "INSERT INTO cards VALUES('bf','bulk','bs','bin','Incoming three',0,0,1),('bg','bulk','bs','bin','Incoming four',1,0,1);"
+  "UPDATE list_wip_limits SET enabled=1,value=5 WHERE list_id='bl';COMMIT");
+ memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_MOVE_SELECTED_CARDS;command.request_version=9000;
+ strcpy(command.user_id,"u");strcpy(command.route,"/b/bulk/native");
+ strcpy(selected[0].id,"bf");strcpy(selected[1].id,"bg");selected[0].version=selected[1].version=1;
+ command.selected_cards=selected;command.selected_card_count=2;
+ sql(db,"BEGIN");assert(wena_sqlite_card_board_order(db,"bulk",fingerprint));sql(db,"COMMIT");
+ sprintf(command.form_body,"targetListId=bl&targetSwimlaneId=bs&insertPosition=0&expectedBoardOrder=%s",fingerprint);
+ command.form_body_length=strlen(command.form_body);wena_sqlite_persistence_init(&store,db);
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='bin' AND version=1")==2);
+ sql(db,"UPDATE list_wip_limits SET value=6 WHERE list_id='bl';INSERT INTO list_archive_state VALUES('bin','bulk',1,1)");
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ sql(db,"UPDATE list_archive_state SET archived=0 WHERE list_id='bin';CREATE TRIGGER archive_batch_source AFTER UPDATE ON cards WHEN NEW.id='bg' BEGIN UPDATE list_archive_state SET archived=1 WHERE list_id='bin';END");
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT archived FROM list_archive_state WHERE list_id='bin'")==0);
+ sql(db,"DROP TRIGGER archive_batch_source");
+ assert(wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='bl' AND archived=0")==6);
+ sql(db,"UPDATE list_wip_limits SET value=4 WHERE list_id='bl';INSERT INTO swimlanes VALUES('bt','bulk','Another lane',1,1);BEGIN");
+ assert(wena_sqlite_card_board_order(db,"bulk",fingerprint));sql(db,"COMMIT");
+ sprintf(command.form_body,"targetListId=bl&targetSwimlaneId=bt&insertPosition=0&expectedBoardOrder=%s",fingerprint);
+ command.form_body_length=strlen(command.form_body);command.request_version=9001;selected[0].version=selected[1].version=2;
+ assert(wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='bl' AND swimlane_id='bt' AND version=3")==2);
 }
 
 int main(int argc,char **argv)

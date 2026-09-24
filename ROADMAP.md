@@ -930,8 +930,17 @@ Architecture decisions for this cycle:
                 hard-limit excess, invalid scope, arithmetic overflow/underflow
                 and missing transactions. Tests include partially applied batches
                 and archived-card exclusion; movement/archive regressions pass.
-              - [_] Apply selection movement plans through guarded transactions,
-                native cache publication and the shared destination UI.
+              - [x] Apply same-board selection movement in one guarded native
+                transaction. Fingerprint the complete card set (scope, position,
+                revision and archive state), reuse block insertion and collision-
+                safe column writing, and verify the complete result before commit.
+                Preserve untouched source positions, archived siblings and no-op
+                revisions; enforce whole-batch WIP limits and active parents.
+                Test duplicate/stale/missing selections, ordering conflicts,
+                partial/late/commit rollback, altered unrelated rows, replay,
+                same-column/lane changes, full 2048-card moves and reopening.
+              - [_] Add native bulk-move capture/cache publication, shared
+                destination UI and remaining cross-board movement.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

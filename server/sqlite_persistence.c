@@ -11,6 +11,7 @@
 #include "mutations/list_archive.h"
 #include "mutations/checklist_order.h"
 #include "../models/model.h"
+#include "../models/card_order.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -391,6 +392,124 @@ static int write_card_column(sqlite3 *db,const char *board,const char *list,
             rows[index].version+(advance&&!strcmp(rows[index].id,advance)?1ul:0ul);
     free(actual);return ok;
 }
+typedef struct WenaBoardOrderRow {
+    WenaCardOrderRow card;
+    WenaId list,lane;
+} WenaBoardOrderRow;
+static int order_id(sqlite3_stmt *statement,int column,char output[65])
+{
+    const unsigned char *id;int bytes;
+    if(sqlite3_column_type(statement,column)!=SQLITE_TEXT)return 0;
+    id=sqlite3_column_text(statement,column);bytes=sqlite3_column_bytes(statement,column);
+    if(!id||bytes<1||bytes>64||memchr(id,0,(size_t)bytes))return 0;
+    memcpy(output,id,(size_t)bytes);output[bytes]=0;return wena_model_identifier_valid(output);
+}
+static int board_order_read(sqlite3 *db,const char *board,WenaBoardOrderRow **output,size_t *length,char fingerprint[65])
+{
+    sqlite3_stmt *statement;WenaBoardOrderRow *rows,*row;WenaSha256 hash;
+    size_t count,i;int ok,status;char number[64];sqlite3_int64 version;
+    if(!db||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board))return 0;
+    rows=(WenaBoardOrderRow*)calloc(WENA_CARD_ORDER_CAPACITY,sizeof(*rows));if(!rows)return 0;
+    if(sqlite3_prepare_v2(db,"SELECT id,list_id,swimlane_id,position,version,archived FROM cards WHERE board_id=?1 ORDER BY id COLLATE BINARY LIMIT 2049",-1,&statement,NULL)!=SQLITE_OK){free(rows);return 0;}
+    ok=sqlite3_bind_text(statement,1,board,-1,SQLITE_TRANSIENT)==SQLITE_OK;
+    count=0;status=SQLITE_DONE;wena_sha256_init(&hash);
+    while(ok&&(status=sqlite3_step(statement))==SQLITE_ROW){
+        if(count==WENA_CARD_ORDER_CAPACITY){ok=0;break;}row=&rows[count];
+        if(!order_id(statement,0,row->card.id)||!order_id(statement,1,row->list)||!order_id(statement,2,row->lane)||
+            sqlite3_column_type(statement,3)!=SQLITE_INTEGER||sqlite3_column_type(statement,4)!=SQLITE_INTEGER||
+            sqlite3_column_type(statement,5)!=SQLITE_INTEGER){ok=0;break;}
+        row->card.position=sqlite3_column_int64(statement,3);version=sqlite3_column_int64(statement,4);
+        if(row->card.position<0||row->card.position>=LONG_MAX-2048||(double)row->card.position>9007199254740991.0||
+            version<1||version>(sqlite3_int64)WENA_VERSION_READ_MAX||
+            (sqlite3_column_int64(statement,5)!=0&&sqlite3_column_int64(statement,5)!=1)){ok=0;break;}
+        row->card.version=(unsigned long)version;row->card.archived=sqlite3_column_int(statement,5);
+        for(i=0;i<count;++i)if(!strcmp(rows[i].list,row->list)&&!strcmp(rows[i].lane,row->lane)&&rows[i].card.position==row->card.position){ok=0;break;}
+        if(!ok)break;
+        (void)wena_sqlite_card_order_add(&hash,row->card.id,strlen(row->card.id),(unsigned long)row->card.position);
+        (void)wena_sqlite_hierarchy_order_add(&hash,row->list,strlen(row->list));
+        (void)wena_sqlite_hierarchy_order_add(&hash,row->lane,strlen(row->lane));
+        sprintf(number,"/%lu/%d;",row->card.version,row->card.archived);
+        wena_sha256_update(&hash,(const unsigned char*)number,strlen(number));++count;
+    }
+    if(status!=SQLITE_DONE)ok=0;if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
+    if(!ok){free(rows);return 0;}
+    wena_sha256_final_hex(&hash,fingerprint);*output=rows;*length=count;return 1;
+}
+int wena_sqlite_card_board_order(sqlite3 *db,const char *board,char output[65])
+{
+    WenaBoardOrderRow *rows;size_t count;char candidate[65];
+    if(!output||!board_order_read(db,board,&rows,&count,candidate))return 0;
+    free(rows);strcpy(output,candidate);return 1;
+}
+static int move_selected_cards(sqlite3 *db,const WenaDomainCommand *command,const char *board,unsigned long *result_version)
+{
+    WenaBoardOrderRow *before,*after;WenaCardOrderRow *destination;WenaCardOrderSlot *slots;
+    WenaId *selected,*ordered;WenaSha256 hash;char list[65],lane[65],expected[65],actual[65],text[32];
+    size_t count,after_count,dest_count,order_count,i,j,index,incoming;unsigned long target,version;
+    sqlite3_int64 maximum;int ok,same;unsigned char moved[WENA_CARD_ORDER_CAPACITY];
+    before=after=NULL;destination=NULL;slots=NULL;selected=ordered=NULL;ok=0;
+    if(!command->selected_cards||!command->selected_card_count||command->selected_card_count>WENA_CARD_ORDER_CAPACITY||
+        !value(command,"targetListId",list,sizeof(list))||!wena_model_identifier_valid(list)||
+        !value(command,"targetSwimlaneId",lane,sizeof(lane))||!wena_model_identifier_valid(lane)||
+        !value(command,"insertPosition",text,sizeof(text))||!decimal(text,1,WENA_CARD_ORDER_CAPACITY,&target)||
+        !value(command,"expectedBoardOrder",expected,sizeof(expected))||
+        !wena_sqlite_list_active(db,board,list)||!wena_sqlite_swimlane_active(db,board,lane)||
+        !board_order_read(db,board,&before,&count,actual)||strcmp(expected,actual))goto done;
+    selected=(WenaId*)calloc(command->selected_card_count,sizeof(*selected));
+    slots=(WenaCardOrderSlot*)calloc(WENA_CARD_ORDER_CAPACITY,sizeof(*slots));if(!selected||!slots)goto done;
+    memset(moved,0,sizeof(moved));incoming=0;version=0;
+    for(i=0;i<command->selected_card_count;++i){
+        if(!wena_model_identifier_valid(command->selected_cards[i].id)||!command->selected_cards[i].version||
+            command->selected_cards[i].version>WENA_VERSION_MUTATE_MAX)goto done;
+        for(index=0;index<count;++index)if(!strcmp(before[index].card.id,command->selected_cards[i].id))break;
+        if(index==count||moved[index]||before[index].card.archived||before[index].card.version!=command->selected_cards[i].version||
+            !card_parents_active(db,board,before[index].card.id))goto done;
+        moved[index]=1;strcpy(selected[i],before[index].card.id);
+        if(strcmp(before[index].list,list))++incoming;
+        if(before[index].card.version>version)version=before[index].card.version;
+    }
+    /* Reuse the column reader's strict position order and complete fingerprint. */
+    wena_sha256_init(&hash);dest_count=0;
+    for(i=0;i<count;++i)if(!strcmp(before[i].list,list)&&!strcmp(before[i].lane,lane)){
+        index=dest_count;while(index&&slots[index-1].position>(double)before[i].card.position){slots[index]=slots[index-1];--index;}
+        strcpy(slots[index].id,before[i].card.id);slots[index].position=(double)before[i].card.position;
+        slots[index].archived=before[i].card.archived;slots[index].model_index=i;++dest_count;
+    }
+    for(i=0;i<dest_count;++i)(void)wena_sqlite_card_order_add(&hash,slots[i].id,strlen(slots[i].id),(unsigned long)slots[i].position);
+    wena_sha256_final_hex(&hash,expected);
+    if(!card_column(db,board,list,lane,expected,&destination,&after_count)||after_count!=dest_count||
+        !wena_card_order_insert_selection(slots,dest_count,(const WenaId*)selected,command->selected_card_count,(size_t)target,&ordered,&order_count)||
+        !wena_sqlite_list_wip_check_batch(db,board,list,incoming,0))goto done;
+    same=order_count==dest_count;
+    for(i=0;i<order_count&&same;++i)if(strcmp(ordered[i],destination[i].id))same=0;
+    if(same){*result_version=version;ok=2;goto done;}
+    maximum=dest_count?destination[dest_count-1].position:-1;
+    for(i=0;i<command->selected_card_count;++i)
+        if(!move_card(db,list,lane,selected[i],board,command->selected_cards[i].version))goto done;
+    maximum+=(sqlite3_int64)command->selected_card_count;
+    for(i=0;i<order_count;++i){
+        for(j=0;j<count;++j)if(!strcmp(ordered[i],before[j].card.id))break;
+        if(j==count)goto done;
+        destination[i]=before[j].card;if(moved[j])++destination[i].version;
+    }
+    if(!write_card_column(db,board,list,lane,destination,order_count,maximum,NULL)||
+        !wena_sqlite_list_wip_check_batch(db,board,list,incoming,incoming)||
+        !wena_sqlite_list_active(db,board,list)||!wena_sqlite_swimlane_active(db,board,lane))goto done;
+    for(i=0;i<count;++i)if(moved[i]&&(!wena_sqlite_list_active(db,board,before[i].list)||
+        !wena_sqlite_swimlane_active(db,board,before[i].lane)))goto done;
+    for(i=0;i<order_count;++i){
+        for(j=0;j<count;++j)if(!strcmp(ordered[i],before[j].card.id))break;
+        strcpy(before[j].list,list);strcpy(before[j].lane,lane);before[j].card=destination[i];before[j].card.position=(sqlite3_int64)i;
+    }
+    if(!board_order_read(db,board,&after,&after_count,actual)||after_count!=count)goto done;
+    for(i=0;i<count;++i)if(strcmp(before[i].card.id,after[i].card.id)||strcmp(before[i].list,after[i].list)||
+        strcmp(before[i].lane,after[i].lane)||before[i].card.position!=after[i].card.position||
+        before[i].card.version!=after[i].card.version||before[i].card.archived!=after[i].card.archived)goto done;
+    *result_version=version+1;ok=1;
+done:
+    free(before);free(after);free(destination);free(slots);free(selected);free(ordered);return ok;
+}
+
 static int reorder_card(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,const char *card,const char *list,const char *lane,
     unsigned long version,unsigned long target)
@@ -609,10 +728,11 @@ static int checklist_change(sqlite3 *db,const WenaDomainCommand *c,
     *result_version=cv+1;return 1;
 }
 
-static const char *operation_name(WenaDomainOperation operation){if(operation==WENA_DOMAIN_ASSIGN_SELECTED_LABEL)return "assign-selected-label";if(operation==WENA_DOMAIN_UNASSIGN_SELECTED_LABEL)return "unassign-selected-label";if(operation==WENA_DOMAIN_ARCHIVE_SELECTED_CARDS)return "archive-selected-cards";if(operation==WENA_DOMAIN_ARCHIVE_LIST_CARDS)return "archive-list-cards";if(operation==WENA_DOMAIN_ARCHIVE_SWIMLANE)return "archive-swimlane";if(operation==WENA_DOMAIN_RESTORE_SWIMLANE)return "restore-swimlane";if(operation==WENA_DOMAIN_EDIT_LIST_WIP)return "edit-list-wip";if(operation==WENA_DOMAIN_SET_LIST_COLOR)return "set-list-color";if(operation==WENA_DOMAIN_SET_SWIMLANE_COLOR)return "set-swimlane-color";if(operation==WENA_DOMAIN_ARCHIVE_LIST)return "archive-list";if(operation==WENA_DOMAIN_RESTORE_LIST)return "restore-list";if(operation==WENA_DOMAIN_SET_BOARD_PRESENTATION)return "set-board-presentation";if(operation==WENA_DOMAIN_MOVE_CHECKLIST_ITEM)return "move-checklist-item";if(operation==WENA_DOMAIN_MOVE_CHECKLIST)return "move-checklist";if(operation==WENA_DOMAIN_REORDER_CHECKLIST)return "reorder-checklist";if(operation==WENA_DOMAIN_REORDER_CHECKLIST_ITEM)return "reorder-checklist-item";if(operation==WENA_DOMAIN_SET_BOARD_CHECKLIST_COUNT)return "set-board-checklist-count";if(operation==WENA_DOMAIN_ADD_CHECKLIST_ITEMS)return "add-checklist-items";if(operation==WENA_DOMAIN_CREATE_LABEL)return "create-label";if(operation==WENA_DOMAIN_EDIT_LABEL)return "edit-label";if(operation==WENA_DOMAIN_DELETE_LABEL)return "delete-label";if(operation==WENA_DOMAIN_ASSIGN_LABEL)return "assign-label";if(operation==WENA_DOMAIN_UNASSIGN_LABEL)return "unassign-label";if(operation==WENA_DOMAIN_CREATE_CARD)return "create-card";if(operation==WENA_DOMAIN_EDIT_CARD_TITLE)return "edit-card-title";if(operation==WENA_DOMAIN_ARCHIVE_CARD)return "archive-card";if(operation==WENA_DOMAIN_EDIT_BOARD_TITLE)return "edit-board-title";if(operation==WENA_DOMAIN_EDIT_LIST_TITLE)return "edit-list-title";if(operation==WENA_DOMAIN_EDIT_SWIMLANE_TITLE)return "edit-swimlane-title";if(operation==WENA_DOMAIN_MOVE_CARD)return "move-card";if(operation==WENA_DOMAIN_MOVE_LIST)return "move-list";if(operation==WENA_DOMAIN_MOVE_SWIMLANE)return "move-swimlane";if(operation==WENA_DOMAIN_CREATE_LIST)return "create-list";if(operation==WENA_DOMAIN_CREATE_SWIMLANE)return "create-swimlane";if(operation==WENA_DOMAIN_RESTORE_CARD)return "restore-card";if(operation==WENA_DOMAIN_EDIT_CARD_DESCRIPTION)return "edit-card-description";if(operation==WENA_DOMAIN_CREATE_CHECKLIST)return "create-checklist";if(operation==WENA_DOMAIN_RENAME_CHECKLIST)return "rename-checklist";if(operation==WENA_DOMAIN_ADD_CHECKLIST_ITEM)return "add-checklist-item";if(operation==WENA_DOMAIN_RENAME_CHECKLIST_ITEM)return "rename-checklist-item";if(operation==WENA_DOMAIN_SET_CHECKLIST_ITEM_FINISHED)return "set-checklist-item-finished";if(operation==WENA_DOMAIN_SET_CHECKLIST_FLAGS)return "set-checklist-flags";if(operation==WENA_DOMAIN_DELETE_CHECKLIST)return "delete-checklist";if(operation==WENA_DOMAIN_DELETE_CHECKLIST_ITEM)return "delete-checklist-item";return NULL;}
+static const char *operation_name(WenaDomainOperation operation){if(operation==WENA_DOMAIN_MOVE_SELECTED_CARDS)return "move-selected-cards";if(operation==WENA_DOMAIN_ASSIGN_SELECTED_LABEL)return "assign-selected-label";if(operation==WENA_DOMAIN_UNASSIGN_SELECTED_LABEL)return "unassign-selected-label";if(operation==WENA_DOMAIN_ARCHIVE_SELECTED_CARDS)return "archive-selected-cards";if(operation==WENA_DOMAIN_ARCHIVE_LIST_CARDS)return "archive-list-cards";if(operation==WENA_DOMAIN_ARCHIVE_SWIMLANE)return "archive-swimlane";if(operation==WENA_DOMAIN_RESTORE_SWIMLANE)return "restore-swimlane";if(operation==WENA_DOMAIN_EDIT_LIST_WIP)return "edit-list-wip";if(operation==WENA_DOMAIN_SET_LIST_COLOR)return "set-list-color";if(operation==WENA_DOMAIN_SET_SWIMLANE_COLOR)return "set-swimlane-color";if(operation==WENA_DOMAIN_ARCHIVE_LIST)return "archive-list";if(operation==WENA_DOMAIN_RESTORE_LIST)return "restore-list";if(operation==WENA_DOMAIN_SET_BOARD_PRESENTATION)return "set-board-presentation";if(operation==WENA_DOMAIN_MOVE_CHECKLIST_ITEM)return "move-checklist-item";if(operation==WENA_DOMAIN_MOVE_CHECKLIST)return "move-checklist";if(operation==WENA_DOMAIN_REORDER_CHECKLIST)return "reorder-checklist";if(operation==WENA_DOMAIN_REORDER_CHECKLIST_ITEM)return "reorder-checklist-item";if(operation==WENA_DOMAIN_SET_BOARD_CHECKLIST_COUNT)return "set-board-checklist-count";if(operation==WENA_DOMAIN_ADD_CHECKLIST_ITEMS)return "add-checklist-items";if(operation==WENA_DOMAIN_CREATE_LABEL)return "create-label";if(operation==WENA_DOMAIN_EDIT_LABEL)return "edit-label";if(operation==WENA_DOMAIN_DELETE_LABEL)return "delete-label";if(operation==WENA_DOMAIN_ASSIGN_LABEL)return "assign-label";if(operation==WENA_DOMAIN_UNASSIGN_LABEL)return "unassign-label";if(operation==WENA_DOMAIN_CREATE_CARD)return "create-card";if(operation==WENA_DOMAIN_EDIT_CARD_TITLE)return "edit-card-title";if(operation==WENA_DOMAIN_ARCHIVE_CARD)return "archive-card";if(operation==WENA_DOMAIN_EDIT_BOARD_TITLE)return "edit-board-title";if(operation==WENA_DOMAIN_EDIT_LIST_TITLE)return "edit-list-title";if(operation==WENA_DOMAIN_EDIT_SWIMLANE_TITLE)return "edit-swimlane-title";if(operation==WENA_DOMAIN_MOVE_CARD)return "move-card";if(operation==WENA_DOMAIN_MOVE_LIST)return "move-list";if(operation==WENA_DOMAIN_MOVE_SWIMLANE)return "move-swimlane";if(operation==WENA_DOMAIN_CREATE_LIST)return "create-list";if(operation==WENA_DOMAIN_CREATE_SWIMLANE)return "create-swimlane";if(operation==WENA_DOMAIN_RESTORE_CARD)return "restore-card";if(operation==WENA_DOMAIN_EDIT_CARD_DESCRIPTION)return "edit-card-description";if(operation==WENA_DOMAIN_CREATE_CHECKLIST)return "create-checklist";if(operation==WENA_DOMAIN_RENAME_CHECKLIST)return "rename-checklist";if(operation==WENA_DOMAIN_ADD_CHECKLIST_ITEM)return "add-checklist-item";if(operation==WENA_DOMAIN_RENAME_CHECKLIST_ITEM)return "rename-checklist-item";if(operation==WENA_DOMAIN_SET_CHECKLIST_ITEM_FINISHED)return "set-checklist-item-finished";if(operation==WENA_DOMAIN_SET_CHECKLIST_FLAGS)return "set-checklist-flags";if(operation==WENA_DOMAIN_DELETE_CHECKLIST)return "delete-checklist";if(operation==WENA_DOMAIN_DELETE_CHECKLIST_ITEM)return "delete-checklist-item";return NULL;}
 void wena_sqlite_persistence_init(WenaSqlitePersistence *s,sqlite3 *db){if(s){memset(s,0,sizeof(*s));s->database=db;}}
 int wena_sqlite_persistence_apply(void *context,const WenaDomainCommand *c,WenaRegionResponse *r){WenaSqlitePersistence *s=(WenaSqlitePersistence *)context;sqlite3 *db;char board[65],id[65],title[129],expected[32],wire[WENA_REGION_RESPONSE_MAX_BYTES];const char*op;size_t wire_len;unsigned long version;WenaWipLimit wip_result;int unchanged=0;double created_position=0.0;if(s){s->created_card_id[0]=0;s->created_card_position=0.0;s->moved_card_position=0.0;s->created_hierarchy_id[0]=0;s->created_hierarchy_position=0.0;memset(&s->list_wip_result,0,sizeof(s->list_wip_result));}if(!r)return 0;memset(r,0,sizeof(*r));if(!s||!(db=s->database)||!c||!bounded_string(c->route,sizeof(c->route))||!bounded_string(c->user_id,sizeof(c->user_id))||c->request_version==0||c->request_version>(unsigned long)LONG_MAX||c->form_body_length>=sizeof(c->form_body)||!board_id(c->route,board)||(op=operation_name(c->operation))==NULL)return 0;if(sqlite3_exec(db,"BEGIN IMMEDIATE",NULL,NULL,NULL)!=SQLITE_OK)return 0;if(!scalar(db,"SELECT count(*) FROM actors WHERE id=?1",c->user_id,NULL,NULL,0)||scalar(db,"SELECT count(*) FROM idempotency_keys WHERE actor_id=?1 AND route=?2 AND operation=?3 AND request_version=?4",c->user_id,c->route,op,c->request_version))goto bad;
-if(c->operation==WENA_DOMAIN_ASSIGN_SELECTED_LABEL||c->operation==WENA_DOMAIN_UNASSIGN_SELECTED_LABEL){int changed;changed=wena_sqlite_selected_labels_change(db,c,board,&version);if(!changed)goto bad;unchanged=changed==2;strcpy(title,"Selected labels updated");
+if(c->operation==WENA_DOMAIN_MOVE_SELECTED_CARDS){int changed;changed=move_selected_cards(db,c,board,&version);if(!changed)goto bad;unchanged=changed==2;strcpy(title,"Selected cards moved");
+}else if(c->operation==WENA_DOMAIN_ASSIGN_SELECTED_LABEL||c->operation==WENA_DOMAIN_UNASSIGN_SELECTED_LABEL){int changed;changed=wena_sqlite_selected_labels_change(db,c,board,&version);if(!changed)goto bad;unchanged=changed==2;strcpy(title,"Selected labels updated");
 }else if(c->operation==WENA_DOMAIN_ARCHIVE_SELECTED_CARDS){if(!wena_sqlite_selected_cards_archive_change(db,c,board,&version))goto bad;strcpy(title,"Selected cards archived");
 }else if(c->operation==WENA_DOMAIN_ARCHIVE_LIST_CARDS){int changed;changed=wena_sqlite_list_cards_archive_change(db,c,board,&version);if(!changed)goto bad;if(changed==2)unchanged=1;strcpy(title,"List cards archived");
 }else if(c->operation==WENA_DOMAIN_ARCHIVE_SWIMLANE||c->operation==WENA_DOMAIN_RESTORE_SWIMLANE){int changed;changed=wena_sqlite_swimlane_archive_change(db,c,board,&version);if(!changed)goto bad;if(changed==2)unchanged=1;strcpy(title,c->operation==WENA_DOMAIN_ARCHIVE_SWIMLANE?"Swimlane archived":"Swimlane restored");

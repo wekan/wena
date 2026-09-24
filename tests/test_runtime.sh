@@ -8,7 +8,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 target=$(python3 -c "import sys;sys.path.insert(0,'$root_dir/scripts');import wena;print(wena.host_target())")
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/runtime_test.c" "$root_dir/server/runtime.c" \
-  "$root_dir/server/embedded_migration.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/list_state.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \
+  "$root_dir/server/embedded_migration.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/models/card_order.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/list_state.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/server/mutations/board_settings.c" \
   "$root_dir/server/mutations/checklist_batch.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
