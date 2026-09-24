@@ -1,5 +1,4 @@
 #include "sqlite_storage.h"
-#include "list_state.h"
 #include "sqlite_board.h"
 
 #include <stdlib.h>
@@ -74,13 +73,10 @@ static int load_hierarchy(sqlite3 *db, const char *board,
     sqlite3_stmt *statement;
     const char *id, *parent, *title;
     double position;
-    int result, ok,available,archived;
+    int result, ok;
     const char *sql;
     sql = lists ? "SELECT id,board_id,title,position,version FROM lists WHERE board_id=?1 ORDER BY position,id" :
         "SELECT id,board_id,title,position,version FROM swimlanes WHERE board_id=?1 ORDER BY position,id";
-    available=lists?wena_sqlite_list_state_available(db):0;if(available<0)return 0;
-    if(available)sql="SELECT l.id,l.board_id,l.title,l.position,l.version,a.archived,a.archived_at,a.list_id,a.board_id "
-        "FROM lists l LEFT JOIN list_archive_state a ON a.list_id=l.id WHERE l.board_id=?1 ORDER BY l.position,l.id";
     if (!prepare(db, sql, board, &statement)) return 0;
     ok = 1;
     while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
@@ -90,18 +86,10 @@ static int load_hierarchy(sqlite3 *db, const char *board,
         if (!id || !parent || !title || strcmp(parent, board) ||
             !position_column(statement, 3, &position) ||
             !version_column(statement, 4)) { ok = 0; break; }
-        archived=0;
-        if(available&&sqlite3_column_type(statement,7)!=SQLITE_NULL){
-            const char *scope;scope=text_column(statement,8,1);
-            if(!scope||strcmp(scope,board)||sqlite3_column_type(statement,5)!=SQLITE_INTEGER||
-                (sqlite3_column_int64(statement,5)!=0&&sqlite3_column_int64(statement,5)!=1)||
-                sqlite3_column_type(statement,6)!=SQLITE_INTEGER||sqlite3_column_int64(statement,6)<0){ok=0;break;}
-            archived=sqlite3_column_int(statement,5);
-        }
         if (lists) {
             if (s->list_count == WENA_SQLITE_BOARD_MAX_LISTS ||
                 !wena_list_init(&s->lists[s->list_count], id, parent, "", title,
-                    position, archived)) { ok = 0; break; }
+                    position, 0)) { ok = 0; break; }
             ++s->list_count;
         } else {
             if (s->swimlane_count == WENA_SQLITE_BOARD_MAX_SWIMLANES ||
@@ -117,17 +105,18 @@ static int load_hierarchy(sqlite3 *db, const char *board,
 
 /* One bounded query per hierarchy kind; no per-item storage reads. Include
  * mismatched metadata pointing into this board so corruption cannot be hidden.
- * kind: 0 swimlane colors, 1 list colors, 2 list WIP settings. */
+ * kind: 0 swimlane colors, 1 list colors, 2 list WIP settings,
+ * 3 list archive state, 4 swimlane archive state. */
 static int load_metadata(sqlite3 *db,const char *board,WenaSqliteBoardSnapshot *snapshot,int kind)
 {
     sqlite3_stmt *statement;const char *id,*scope,*parent;const unsigned char *text;
     const char *table,*key,*parents,*fields;char query[640],*target;int available,result,ok,bytes,lists,found;
     sqlite3_int64 value,enabled,soft;
     size_t rows,count,i;unsigned char seen[WENA_SQLITE_BOARD_MAX_LISTS+WENA_SQLITE_BOARD_MAX_SWIMLANES];
-    lists=kind!=0;
-    table=kind==2?"list_wip_limits":lists?"list_colors":"swimlane_colors";key=lists?"list_id":"swimlane_id";parents=lists?"lists":"swimlanes";
-    available=wena_sqlite_optional_table(db,table,kind==2?12:11);if(available<=0)return available==0;
-    fields=kind==2?"c.value,c.enabled,c.soft":"c.color,NULL,NULL";
+    lists=kind!=0&&kind!=4;
+    table=kind==4?"swimlane_archive_state":kind==3?"list_archive_state":kind==2?"list_wip_limits":lists?"list_colors":"swimlane_colors";key=lists?"list_id":"swimlane_id";parents=lists?"lists":"swimlanes";
+    available=wena_sqlite_optional_table(db,table,kind==4?13:kind==3?10:kind==2?12:11);if(available<=0)return available==0;
+    fields=kind>=3?"c.archived,c.archived_at,NULL":kind==2?"c.value,c.enabled,c.soft":"c.color,NULL,NULL";
     sprintf(query,"SELECT c.%s,c.board_id,%s,p.board_id FROM %s c LEFT JOIN %s p ON p.id=c.%s WHERE c.board_id=?1 UNION ALL SELECT c.%s,c.board_id,%s,p.board_id FROM %s c JOIN %s p ON p.id=c.%s WHERE p.board_id=?1 AND c.board_id IS NOT ?1",key,fields,table,parents,key,key,fields,table,parents,key);
     if(!prepare(db,query,board,&statement))return 0;
     count=lists?snapshot->list_count:snapshot->swimlane_count;rows=0;ok=1;memset(seen,0,sizeof(seen));
@@ -139,7 +128,12 @@ static int load_metadata(sqlite3 *db,const char *board,WenaSqliteBoardSnapshot *
             if(seen[i])break;
             seen[i]=1;found=1;break;}
         if(!found){ok=0;break;}
-        if(kind==2){
+        if(kind>=3){
+            if(sqlite3_column_type(statement,2)!=SQLITE_INTEGER||sqlite3_column_type(statement,3)!=SQLITE_INTEGER){ok=0;break;}
+            value=sqlite3_column_int64(statement,2);
+            if((value!=0&&value!=1)||sqlite3_column_int64(statement,3)<0){ok=0;break;}
+            if(lists)snapshot->lists[i].archived=(int)value;else snapshot->swimlanes[i].archived=(int)value;
+        }else if(kind==2){
             if(sqlite3_column_type(statement,2)!=SQLITE_INTEGER||
                 sqlite3_column_type(statement,3)!=SQLITE_INTEGER||sqlite3_column_type(statement,4)!=SQLITE_INTEGER){ok=0;break;}
             value=sqlite3_column_int64(statement,2);enabled=sqlite3_column_int64(statement,3);soft=sqlite3_column_int64(statement,4);
@@ -220,7 +214,8 @@ int wena_sqlite_board_load(sqlite3 *db, const char *board,
         return 0;
     }
     ok = load_board(db, board, staged) && load_hierarchy(db, board, staged, 0) &&
-        load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,0) &&
+        load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,3) &&
+        load_metadata(db,board,staged,4) && load_metadata(db,board,staged,0) &&
         load_metadata(db,board,staged,1) && load_metadata(db,board,staged,2) && load_cards(db, board, staged);
     if (ok) ok = sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
     if (ok) memcpy(output, staged, sizeof(*output));

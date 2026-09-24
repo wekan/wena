@@ -1,4 +1,5 @@
 #include "../server/list_state.h"
+#include "../server/sqlite_board.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
@@ -23,6 +24,54 @@ static void original(sqlite3 *db)
  assert(number(db,"SELECT count(*) FROM card_archive_state")==1);
  assert(number(db,"SELECT archived_at FROM card_archive_state WHERE card_id='pre'")==number(db,"SELECT 9000000000000"));
  assert(!number(db,"SELECT count(*) FROM idempotency_keys"));
+}
+static void snapshot_state(sqlite3 *db,int archived,size_t active)
+{
+ WenaSqliteBoardSnapshot *snapshot;size_t i,count;int found;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));assert(snapshot&&wena_sqlite_board_load(db,"b",snapshot));found=0;count=0;
+ for(i=0;i<snapshot->swimlane_count;++i)if(!strcmp(snapshot->swimlanes[i].id,"s")){assert(snapshot->swimlanes[i].archived==archived);found=1;}
+ for(i=0;i<snapshot->card_count;++i)if(!strcmp(snapshot->cards[i].swimlane_id,"s")&&!snapshot->cards[i].archived)++count;
+ assert(found&&count==active);free(snapshot);
+}
+static void rejected_snapshot(sqlite3 *db,const char *query,const char *undo)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));assert(snapshot&&before);
+ assert(wena_sqlite_board_load(db,"b",snapshot));memcpy(before,snapshot,sizeof(*before));
+ sql(db,"PRAGMA foreign_keys=OFF;PRAGMA ignore_check_constraints=ON");sql(db,query);
+ assert(!wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ sql(db,undo);sql(db,"PRAGMA foreign_keys=ON;PRAGMA ignore_check_constraints=OFF");
+ assert(wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));free(snapshot);free(before);
+}
+typedef struct Race {sqlite3 *writer;int fired;} Race;
+static int concurrent_write(unsigned int event,void *context,void *statement,void *text)
+{
+ Race *race;const char *query;(void)text;race=(Race*)context;query=sqlite3_sql((sqlite3_stmt*)statement);
+ if(event==SQLITE_TRACE_STMT&&!race->fired&&query&&strstr(query,"FROM swimlane_archive_state c")){
+  race->fired=1;sql(race->writer,"BEGIN IMMEDIATE;UPDATE swimlane_archive_state SET archived=1 WHERE swimlane_id='s';UPDATE cards SET archived=1 WHERE swimlane_id='s';COMMIT");
+ }
+ return 0;
+}
+static void snapshot_tests(sqlite3 *db,const char *path)
+{
+ Race race;
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET archived=2 WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET archived=0 WHERE swimlane_id='s'");
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET archived=x'31' WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET archived=0 WHERE swimlane_id='s'");
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET archived_at=-1 WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET archived_at=0 WHERE swimlane_id='s'");
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET archived_at=0.5 WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET archived_at=0 WHERE swimlane_id='s'");
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET board_id='other' WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET board_id='b' WHERE swimlane_id='s'");
+ rejected_snapshot(db,"UPDATE swimlane_archive_state SET board_id=x'62' WHERE swimlane_id='s'","UPDATE swimlane_archive_state SET board_id='b' WHERE swimlane_id='s'");
+ rejected_snapshot(db,"INSERT INTO swimlane_archive_state VALUES('missing','b',1,123)","DELETE FROM swimlane_archive_state WHERE swimlane_id='missing'");
+ rejected_snapshot(db,"INSERT INTO swimlane_archive_state VALUES('foreign','b',1,123)","DELETE FROM swimlane_archive_state WHERE swimlane_id='foreign'");
+ rejected_snapshot(db,"INSERT INTO list_archive_state VALUES('missing','b',1,123)","DELETE FROM list_archive_state WHERE list_id='missing'");
+ rejected_snapshot(db,"ALTER TABLE swimlane_archive_state RENAME TO saved_lanes","ALTER TABLE saved_lanes RENAME TO swimlane_archive_state");
+ rejected_snapshot(db,"ALTER TABLE swimlane_archive_state RENAME TO saved_lanes;CREATE VIEW swimlane_archive_state AS SELECT * FROM saved_lanes","DROP VIEW swimlane_archive_state;ALTER TABLE saved_lanes RENAME TO swimlane_archive_state");
+ sql(db,"PRAGMA journal_mode=WAL");assert(sqlite3_open(path,&race.writer)==SQLITE_OK);race.fired=0;
+ assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,concurrent_write,&race)==SQLITE_OK);
+ snapshot_state(db,0,2);assert(race.fired);assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ snapshot_state(db,1,0);
+ sql(race.writer,"BEGIN IMMEDIATE;UPDATE swimlane_archive_state SET archived=0 WHERE swimlane_id='s';UPDATE cards SET archived=0 WHERE id IN ('a','z');COMMIT");
+ assert(sqlite3_close(race.writer)==SQLITE_OK);snapshot_state(db,0,2);
 }
 int main(int argc,char **argv)
 {
@@ -49,7 +98,7 @@ int main(int argc,char **argv)
  sql(db,"DELETE FROM actors");assert(!change(&store,"s",1,1,1));sql(db,"INSERT INTO actors VALUES('u','User',1)");
  sql(db,"PRAGMA query_only=ON");assert(!change(&store,"s",1,1,1));sql(db,"PRAGMA query_only=OFF");
  for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){sql(db,triggers[i]);assert(!change(&store,"s",1,1,1));sql(db,"DROP TRIGGER failure");original(db);}
- assert(change(&store,"s",1,1,1));assert(wena_sqlite_swimlane_state_read(db,"b","s",2,&archived,&at)&&archived);prior=at;
+ assert(change(&store,"s",1,1,1));assert(wena_sqlite_swimlane_state_read(db,"b","s",2,&archived,&at)&&archived);prior=at;snapshot_state(db,1,0);
  assert(at>number(db,"SELECT archived_at FROM card_archive_state WHERE card_id='pre'"));
  assert(number(db,"SELECT count(*) FROM card_archive_state WHERE card_id IN ('a','z') AND archived_at>(SELECT archived_at FROM swimlane_archive_state WHERE swimlane_id='s')")==2);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=1")==3);
@@ -58,7 +107,7 @@ int main(int argc,char **argv)
  sql(db,"INSERT INTO list_wip_limits VALUES('l','b',2,1,0)");assert(!change(&store,"s",2,1,0));
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=1")==3&&number(db,"SELECT version FROM swimlanes WHERE id='s'")==2);
  sql(db,"UPDATE list_wip_limits SET soft=1");assert(change(&store,"s",2,1,0));
- assert(wena_sqlite_swimlane_state_read(db,"b","s",3,&archived,&at)&&!archived&&at==prior);
+ assert(wena_sqlite_swimlane_state_read(db,"b","s",3,&archived,&at)&&!archived&&at==prior);snapshot_state(db,0,2);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=0 AND version=3")==2);
  assert(number(db,"SELECT archived FROM cards WHERE id='pre'")==1&&number(db,"SELECT version FROM cards WHERE id='pre'")==7);
  assert(number(db,"SELECT version FROM lists WHERE id='l'")==1);
@@ -75,6 +124,7 @@ int main(int argc,char **argv)
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(wena_sqlite_swimlane_state_read(db,"b","s",5,&archived,&at)&&!archived);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=0 AND version=5")==2);
+ snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
  assert(!change(&store,"empty",3,4,1));assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='empty' AND archived=0 AND version=1")==2049);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);sql(db,"DELETE FROM cards WHERE swimlane_id='empty'");

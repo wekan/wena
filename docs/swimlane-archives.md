@@ -60,5 +60,13 @@ File-backed tests cover pre-archived cards, timestamp separation, repeated
 archive/restore, empty lanes, unknown legacy times, stale/scope/replay failures,
 ignored writes, altered/relocated cards, a second-card failure, late rollback,
 multi-card WIP rejection/retry, excess capacity, corruption and reopening.
-Snapshot loading, destination checks, native cascade publication and the shared
-menu/archive-browser integration remain open roadmap items.
+Atomic board snapshots now load list and swimlane archive flags through the same
+bounded metadata loader as colors and WIP settings. It validates table presence,
+IDs, exact scope, parents, duplicate rows, flags and timestamps, including
+orphaned metadata claiming the board. Legacy missing tables retain active
+defaults; missing modern tables or replacement views fail without changing
+the prior snapshot. Child cards remain in the snapshot with their archive flags.
+Concurrent WAL tests change lane/card flags together between reader statements
+and verify that snapshots never combine their before and after states.
+Destination checks, native cascade publication and the shared menu/archive
+browser integration remain open roadmap items.

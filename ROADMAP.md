@@ -838,8 +838,13 @@ Architecture decisions for this cycle:
             tick, retain unknown legacy archives, and verify complete results.
             Test no-op/replay, capacity, partial/late rollback, WIP restore
             failure, ignored/altered writes, corrupt metadata and reopening.
-          - [_] Load archived lane state in atomic snapshots and guard native
-            destinations; publish the cascade through the hierarchy adapter.
+          - [x] Load archived lane state in atomic snapshots. List/lane archive
+            metadata shares the bounded color/WIP loader, rejecting orphaned,
+            wrong-board and malformed rows without changing prior outputs.
+            Verify legacy defaults, retained children, missing tables/views and
+            consistent lane/card state during concurrent WAL writes.
+          - [_] Guard native destinations and publish the cascade through the
+            hierarchy adapter.
           - [_] Reuse the native menu and paginated archive browser for lanes,
             with real input, stale-state, rollback, WIP and reopen coverage.
         - [x] Port list work-in-progress limits using shared rules.
