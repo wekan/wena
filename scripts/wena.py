@@ -253,6 +253,7 @@ TEST_SUITES = (
     ('sqlite-backup', 'test_sqlite_backup.sh', 'Sqlite backup regression checks'),
     ('sqlite-restore', 'test_sqlite_restore.sh', 'Sqlite restore regression checks'),
     ('admin-storage', 'test_admin_storage.sh', 'Admin storage regression checks'),
+    ('sjson', 'test_sjson.sh', 'Shared typed FerretDB SJSON validation with exact integers and ordered fields'),
     ('json-document', 'test_json_document.sh', 'Bounded shared JSON reader preserving numeric precision and object order'),
     ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
     ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),

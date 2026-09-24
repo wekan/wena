@@ -919,7 +919,11 @@ Architecture decisions for this cycle:
       exact numeric lexemes and object order, reuse UTF-8 decoding, reject duplicate
       decoded keys and malformed scalar Unicode, and publish snapshots atomically.
       Test byte/depth/node limits and a byte-mutation corpus under ASan/UBSan.
-    - [_] Implement SJSON schema/type validation, typed codec writes, owner locking,
+    - [x] Validate canonical pinned SJSON schemas and all 13 BSON types in one
+      reusable read-only snapshot. Preserve exact integer/date/timestamp numbers,
+      nested field order, binary subtype and regex options; reject range/type/schema
+      mismatches before publication. Verify C89 and sanitizer byte-mutation tests.
+    - [_] Implement typed codec writes, owner locking,
       verified backup and copied-WeKan round trips before direct replacement.
 - [_] Using Nuklear GUI components, create same UI layout
   - [x] Establish MIT-licensed SVG source artwork/theme tokens and conversion to

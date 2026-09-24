@@ -40,6 +40,10 @@ and doubles additionally support the schema-disambiguated string `NaN`.
 `imports/json/document` now supplies a shared bounded syntax reader that preserves
 those exact number lexemes and object order, decodes scalar UTF-8/JSON escapes and
 rejects duplicate decoded names. Fast C89 and ASan/UBSan tests pass. This is a
-prerequisite, not SJSON type validation or write compatibility. Schema/type range
-checks, typed mutations, concurrent-owner locking and copied-WeKan round trips
-remain required before enabling direct replacement.
+syntax foundation. `imports/ferretdb/sjson` builds an owned typed snapshot over it,
+validating all 13 BSON types, exact integer ranges, base64/subtypes, ObjectIDs,
+regex metadata, nested array descriptors and ordered object fields before publication.
+It accepts canonical descriptors only (irrelevant metadata fields are rejected),
+retains the pinned decoder's JSON-null override and rejects double overflow.
+Neither reader changes the database. Typed writes, concurrent-owner locking and
+copied-WeKan round trips remain required before enabling direct replacement.
