@@ -50,7 +50,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/imports/i18n/catalog.c" \
   "$root_dir/imports/i18n/ui_catalog.c" "$root_dir/imports/i18n/locale.c" \
   "$root_dir/imports/i18n/language.c" \
-  "$root_dir/server/sqlite_directory.c" "$root_dir/server/sqlite_board.c" "$root_dir/server/sqlite_storage.c" \
+  "$root_dir/server/sqlite_directory.c" "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_storage.c" \
   "$root_dir/server/sqlite_workspace.c" \
   "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/list_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" \

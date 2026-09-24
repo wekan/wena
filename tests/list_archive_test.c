@@ -15,6 +15,25 @@ static int change(WenaSqlitePersistence *store,int archived,unsigned long versio
  sprintf(c.form_body,"listId=l&expectedVersion=%lu%s",version,extra?extra:"");c.form_body_length=strlen(c.form_body);
  return wena_sqlite_persistence_apply(store,&c,&r);
 }
+static int operation(WenaSqlitePersistence *store,WenaDomainOperation kind,const char *body)
+{
+ WenaDomainCommand c;WenaRegionResponse r;memset(&c,0,sizeof(c));c.operation=kind;c.request_version=100;
+ strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");strcpy(c.form_body,body);c.form_body_length=strlen(body);
+ return wena_sqlite_persistence_apply(store,&c,&r);
+}
+static void blocked_operations(WenaSqlitePersistence *store)
+{
+ sqlite3_int64 keys;keys=number(store->database,"SELECT count(*) FROM idempotency_keys");
+ assert(!operation(store,WENA_DOMAIN_CREATE_CARD,"title=Blocked&targetListId=l&targetSwimlaneId=s"));
+ assert(!operation(store,WENA_DOMAIN_MOVE_CARD,"cardId=live&expectedVersion=1&targetListId=l&targetSwimlaneId=s"));
+ assert(!operation(store,WENA_DOMAIN_MOVE_CARD,"cardId=live&expectedVersion=1&targetListId=l&targetSwimlaneId=s&insertPosition=0"));
+ assert(!operation(store,WENA_DOMAIN_MOVE_CARD,"cardId=active&expectedVersion=1&targetListId=open&targetSwimlaneId=s"));
+ assert(!operation(store,WENA_DOMAIN_MOVE_CARD,"cardId=active&expectedVersion=1&targetListId=l&targetSwimlaneId=s&targetPosition=0"));
+ assert(!operation(store,WENA_DOMAIN_MOVE_LIST,"listId=l&expectedVersion=4&targetPosition=1"));
+ assert(number(store->database,"SELECT count(*) FROM idempotency_keys")==keys);
+ assert(number(store->database,"SELECT version FROM cards WHERE id='live'")==1);
+ assert(number(store->database,"SELECT version FROM cards WHERE id='active'")==1);
+}
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;
@@ -58,7 +77,17 @@ int main(int argc,char **argv)
  wena_sqlite_persistence_init(&store,db);assert(change(&store,1,3,3,NULL));
  assert(wena_sqlite_board_load(db,"b",after)&&after->lists[0].archived);
  assert(!memcmp(before->cards,after->cards,before->card_count*sizeof(WenaCard)));
+ sql(db,"INSERT INTO lists VALUES('open','b','Open',1,1);INSERT INTO cards VALUES('live','b','s','open','Live',0,0,1)");
+ blocked_operations(&store);
+ assert(operation(&store,WENA_DOMAIN_CREATE_CARD,"title=Legacy"));
+ assert(number(db,"SELECT count(*) FROM cards WHERE title='Legacy' AND list_id='open'")==1);
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='l'")==2);
+ sql(db,"PRAGMA ignore_check_constraints=ON;UPDATE list_archive_state SET archived=2;PRAGMA ignore_check_constraints=OFF");blocked_operations(&store);
+ sql(db,"UPDATE list_archive_state SET archived=1;PRAGMA foreign_keys=OFF;UPDATE list_archive_state SET board_id='other'");blocked_operations(&store);
+ sql(db,"UPDATE list_archive_state SET board_id='b';PRAGMA foreign_keys=ON");
+ assert(wena_sqlite_board_load(db,"b",after));
  memcpy(before,after,sizeof(*before));sql(db,"DROP TABLE list_archive_state");
  assert(!wena_sqlite_board_load(db,"b",after)&&!memcmp(before,after,sizeof(*before)));
+ blocked_operations(&store);
  assert(!change(&store,0,4,4,NULL));sqlite3_close(db);free(before);free(after);free(migration);puts("List archive transactions and snapshots: passed");return 0;
 }

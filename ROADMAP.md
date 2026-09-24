@@ -800,8 +800,12 @@ Architecture decisions for this cycle:
       - [_] Wire ordinary-list archive/restore through native adapters and the
         native menu/archive browser. Ordinary lists preserve card archive flags;
         template-list cascades remain separate until template models are ported.
-        Before exposing controls, reject archived destinations in card
-        creation/movement and validate stored source archive state for reordering.
+      - [x] Share strict database list-state reads across archive mutations and
+        movement eligibility, including legacy schema detection used by snapshots.
+        Reject archived card destinations, hidden card sources and archived list
+        reorder sources inside the transaction; legacy creation chooses an active
+        list. Cover malformed/missing metadata and wrong-board state without
+        changing cards or reserving failed request identities.
       - [x] Retain hidden siblings in the shared native hierarchy move order and
         fingerprints. Reject archived model sources and cancel a drag/panel when
         its source becomes archived. Selector and real mouse tests preserve

@@ -38,5 +38,10 @@ fingerprint. Its numeric selector uses those same ordinals, and rendered drag
 handles retain the original snapshot indices across hidden entries. Archived
 model sources cannot open a move panel; archiving the source during a gesture
 cancels it. Moving an active sibling preserves the hidden list's archive state,
-timestamp and revision. Database archive-state eligibility checks for other
-mutations remain required before exposing native archive controls.
+timestamp and revision. A shared strict database list-state reader now checks
+card creation/movement and list reordering inside their write transaction.
+Archived destinations and sources fail, including requests from stale native
+snapshots. Legacy creation without explicit parents selects an active list;
+explicit parents never silently fall back. Corrupt metadata and missing v10
+tables fail without committing card changes or request identities. Archive
+mutations reuse the reader, and snapshot loading shares its legacy-table check.
