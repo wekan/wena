@@ -1005,6 +1005,19 @@ Architecture decisions for this cycle:
                       Test trigger alterations, partial writes, corruption,
                       commit rollback, reopening, empty catalogues/assignments
                       and the full 128-label capacity.
+                    - [x] Connect native-only cross-board selection transfer to
+                      the guarded domain transaction. Require both complete
+                      board ordering fingerprints/revisions; validate selected
+                      card revisions, parent availability, target capacity and
+                      batch WIP. Reuse block insertion, column writes and the
+                      checklist/label helpers. Preserve descriptions, archive
+                      timestamps and actor preferences; verify exact metadata
+                      across the whole batch and advance each card and both
+                      board revisions once. Tests cover invalid/stale targets,
+                      archived siblings, corruption, cross-card trigger changes,
+                      late/staging/commit rollback, replay, reopening and full
+                      2048-card transfers. Native capture/picker/publication
+                      integration remains open.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

@@ -471,6 +471,118 @@ static void native_selected_move(sqlite3 *db,const char *path)
  free(capture);free(original);free(snapshot);free(before);free(fresh);
 }
 
+static void transfer_command(sqlite3 *db,WenaDomainCommand *c,WenaCardRevision *cards,size_t count,
+ const char *source,const char *target,const char *list,const char *lane,size_t before,unsigned long request)
+{
+ char a[65],b[65];unsigned long av,bv;char query[128];
+ sql(db,"BEGIN");assert(wena_sqlite_card_board_order(db,source,a));assert(wena_sqlite_card_board_order(db,target,b));sql(db,"COMMIT");
+ sprintf(query,"SELECT version FROM boards WHERE id='%s'",source);av=(unsigned long)number(db,query);
+ sprintf(query,"SELECT version FROM boards WHERE id='%s'",target);bv=(unsigned long)number(db,query);
+ memset(c,0,sizeof(*c));c->operation=WENA_DOMAIN_TRANSFER_SELECTED_CARDS;c->request_version=request;
+ strcpy(c->user_id,"u");sprintf(c->route,"/b/%s/native",source);c->selected_cards=cards;c->selected_card_count=count;
+ sprintf(c->form_body,"targetBoardId=%s&targetListId=%s&targetSwimlaneId=%s&insertPosition=%lu&expectedBoardVersion=%lu&expectedTargetBoardVersion=%lu&expectedBoardOrder=%s&expectedTargetBoardOrder=%s",target,list,lane,(unsigned long)before,av,bv,a,b);
+ c->form_body_length=strlen(c->form_body);
+}
+static void transfer_original(sqlite3 *db)
+{
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xs' AND version=1")==3);
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xt' AND version=1")==2);
+ assert(number(db,"SELECT position FROM cards WHERE id='xd0'")==5&&number(db,"SELECT position FROM cards WHERE id='xd1'")==8);
+ assert(number(db,"SELECT count(*) FROM boards WHERE id IN('xs','xt') AND version=1")==2);
+ assert(number(db,"SELECT count(*) FROM card_descriptions WHERE board_id='xs' AND description IN('Description','Other description')")==2);
+ assert(number(db,"SELECT count(*) FROM card_archive_state WHERE board_id='xs' AND archived_at=123")==1);
+ assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='xs' AND version=1 AND hide_all_items=1")==1);
+ assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xs' AND version=1 AND title='Finished' AND is_finished=1")==1);
+ assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='xs'")==3&&number(db,"SELECT count(*) FROM card_labels WHERE board_id='xt'")==0);
+ assert(number(db,"SELECT count(*) FROM actor_card_sections WHERE card_id='xa' AND collapsed=1 AND version=1")==1);
+ assert(number(db,"SELECT count(*) FROM idempotency_keys WHERE operation='transfer-selected-cards'")==0);
+ assert(sqlite3_get_autocommit(db)&&number(db,"PRAGMA defer_foreign_keys")==0);
+}
+static int transfer_reject_publish(void *context,sqlite3 *db){(void)context;(void)db;return 0;}
+static void cross_board_capacity(sqlite3 *db)
+{
+ WenaSqlitePersistence store;WenaDomainCommand c;WenaRegionResponse response;WenaCardRevision *rows;size_t i;
+ sql(db,"INSERT INTO boards VALUES('fs','Full source',1),('ft','Full target',1);"
+ "INSERT INTO lists VALUES('fsl','fs','Source',0,1),('ftl','ft','Target',0,1);"
+ "INSERT INTO swimlanes VALUES('fss','fs','Lane',0,1),('fts','ft','Lane',0,1);"
+ "INSERT INTO cards VALUES('occupied','ft','fts','ftl','Existing',0,0,1)");
+ sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2047) INSERT INTO cards SELECT 'f'||x,'fs','fss','fsl','Full',x,0,1 FROM n");
+ rows=(WenaCardRevision*)calloc(WENA_CARD_ORDER_CAPACITY,sizeof(*rows));assert(rows);
+ for(i=0;i<WENA_CARD_ORDER_CAPACITY;++i){sprintf(rows[i].id,"f%lu",(unsigned long)(WENA_CARD_ORDER_CAPACITY-1-i));rows[i].version=1;}
+ wena_sqlite_persistence_init(&store,db);transfer_command(db,&c,rows,WENA_CARD_ORDER_CAPACITY,"fs","ft","ftl","fts",0,9001);
+ assert(!wena_sqlite_persistence_apply(&store,&c,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='fs' AND version=1")==2048);
+ sql(db,"DELETE FROM cards WHERE id='occupied'");transfer_command(db,&c,rows,WENA_CARD_ORDER_CAPACITY,"fs","ft","ftl","fts",0,9001);
+ assert(wena_sqlite_persistence_apply(&store,&c,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='fs'")==0&&number(db,"SELECT count(*) FROM cards WHERE board_id='ft' AND version=2")==2048);
+ assert(number(db,"SELECT position FROM cards WHERE id='f2047'")==0&&number(db,"SELECT position FROM cards WHERE id='f0'")==2047);
+ free(rows);
+}
+static void cross_board_selected(sqlite3 *db)
+{
+ WenaSqlitePersistence store;WenaDomainCommand command;WenaRegionResponse response;WenaCardRevision rows[2];size_t i;int calls;
+ const char *triggers[]={
+ "CREATE TRIGGER cross_fail BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END",
+ "CREATE TRIGGER cross_fail BEFORE UPDATE OF board_id ON cards WHEN OLD.id='xa' BEGIN SELECT RAISE(IGNORE);END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE checklist_items SET title='Changed' WHERE id='xi';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE card_descriptions SET description='Changed' WHERE card_id='xb';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE labels SET name='Changed' WHERE board_id='xt' AND id='d0';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF version ON boards WHEN NEW.id='xt' BEGIN UPDATE cards SET position=99 WHERE id='xu';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN INSERT INTO list_archive_state VALUES('xsl','xs',1,1);END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE actor_card_sections SET collapsed=0 WHERE card_id='xa';END"
+ };
+ sql(db,"INSERT INTO boards VALUES('xs','Source',1),('xt','Target',1);"
+ "INSERT INTO lists VALUES('xsl','xs','Source',0,1),('xtl','xt','Target',0,1);"
+ "INSERT INTO swimlanes VALUES('xss','xs','Lane',0,1),('xts','xt','Lane',0,1)");
+ sql(db,"INSERT INTO cards VALUES('xa','xs','xss','xsl','Repeated',0,0,1),('xb','xs','xss','xsl','Repeated',1,0,1),"
+ "('xu','xs','xss','xsl','Untouched',2,0,1),('xd0','xt','xts','xtl','Destination',5,0,1),('xd1','xt','xts','xtl','Archived',8,1,1)");
+ sql(db,"INSERT INTO card_descriptions VALUES('xa','xs','Description'),('xb','xs','Other description');INSERT INTO card_archive_state VALUES('xa','xs',123);"
+ "INSERT INTO actor_card_sections VALUES('u','xa','labels',1,1)");
+ sql(db,"INSERT INTO checklists(id,board_id,card_id,title,position,hide_all_items) VALUES('xc','xs','xa','Hidden',7,1);"
+ "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES('xi','xs','xa','xc','Finished',9,1)");
+ sql(db,"INSERT INTO labels VALUES('xs','s0','Match','red',0,1,0,0),('xs','blank','','blue',1,1,0,0),('xt','d0','Match','blue',0,1,0,0),('xt','d1','Match','green',1,1,0,0);"
+ "INSERT INTO card_labels VALUES('xs','xa','s0'),('xs','xa','blank'),('xs','xb','s0')");
+ strcpy(rows[0].id,"xb");rows[0].version=1;strcpy(rows[1].id,"xa");rows[1].version=1;
+ wena_sqlite_persistence_init(&store,db);transfer_command(db,&command,rows,2,"xs","xt","xtl","xts",1,9000);
+ command.selected_card_count=0;assert(!wena_sqlite_persistence_apply(&store,&command,&response));command.selected_card_count=2;
+ strcpy(command.user_id,"missing");assert(!wena_sqlite_persistence_apply(&store,&command,&response));strcpy(command.user_id,"u");
+ strcpy(rows[1].id,"xb");assert(!wena_sqlite_persistence_apply(&store,&command,&response));strcpy(rows[1].id,"xa");
+ rows[1].version=2;assert(!wena_sqlite_persistence_apply(&store,&command,&response));rows[1].version=1;
+ sql(db,"UPDATE cards SET position=6 WHERE id='xd0'");assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE cards SET position=5 WHERE id='xd0'");
+ sql(db,"UPDATE boards SET version=2 WHERE id='xt'");assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE boards SET version=1 WHERE id='xt'");
+ sql(db,"INSERT INTO list_wip_limits VALUES('xtl','xt',2,1,0)");assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE list_wip_limits SET value=3 WHERE list_id='xtl'");
+ sql(db,"INSERT INTO list_archive_state VALUES('xtl','xt',1,1)");assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"DELETE FROM list_archive_state WHERE list_id='xtl'");
+ transfer_original(db);
+ transfer_command(db,&command,rows,2,"xs","xt","xtl","xts",3,9000);assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ transfer_command(db,&command,rows,2,"xs","xt","xsl","xts",1,9000);assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ transfer_command(db,&command,rows,2,"xs","xs","xsl","xss",1,9000);assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ sql(db,"UPDATE cards SET archived=1 WHERE id='xa'");transfer_command(db,&command,rows,2,"xs","xt","xtl","xts",1,9000);
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE cards SET archived=0 WHERE id='xa'");
+ transfer_command(db,&command,rows,2,"xs","xt","xtl","xts",1,9000);
+ sql(db,"PRAGMA foreign_keys=OFF;UPDATE card_descriptions SET board_id='xt' WHERE card_id='xa';PRAGMA foreign_keys=ON");
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE card_descriptions SET board_id='xs' WHERE card_id='xa'");
+ sql(db,"PRAGMA ignore_check_constraints=ON;UPDATE card_descriptions SET description=CAST(description AS BLOB) WHERE card_id='xa';PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"UPDATE card_descriptions SET description='Description' WHERE card_id='xa'");
+ transfer_original(db);
+ for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){
+  sql(db,triggers[i]);assert(!wena_sqlite_persistence_apply(&store,&command,&response));sql(db,"DROP TRIGGER cross_fail");transfer_original(db);
+ }
+ store.prepare_publish=transfer_reject_publish;assert(!wena_sqlite_persistence_apply(&store,&command,&response));store.prepare_publish=NULL;transfer_original(db);
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);assert(!wena_sqlite_persistence_apply(&store,&command,&response)&&calls==1);sqlite3_commit_hook(db,NULL,NULL);transfer_original(db);
+ assert(wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xt' AND version=2")==2&&number(db,"SELECT position FROM cards WHERE id='xb'")==1&&number(db,"SELECT position FROM cards WHERE id='xa'")==2);
+ assert(number(db,"SELECT position FROM cards WHERE id='xd0'")==0&&number(db,"SELECT position FROM cards WHERE id='xd1'")==3&&number(db,"SELECT position FROM cards WHERE id='xu'")==2);
+ assert(number(db,"SELECT count(*) FROM card_descriptions WHERE board_id='xt'")==2&&number(db,"SELECT archived_at FROM card_archive_state WHERE card_id='xa'")==123);
+ assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='xt' AND version=2 AND hide_all_items=1 AND position=7")==1);
+ assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xt' AND version=2 AND is_finished=1 AND position=9")==1);
+ assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='xt' AND label_id IN('d0','d1')")==4);
+ assert(number(db,"SELECT count(*) FROM actor_card_sections WHERE card_id='xa' AND collapsed=1 AND version=1")==1);
+ assert(number(db,"SELECT count(*) FROM boards WHERE id IN('xs','xt') AND version=2")==2);
+ assert(!wena_sqlite_persistence_apply(&store,&command,&response));
+ assert(number(db,"SELECT count(*) FROM idempotency_keys WHERE operation='transfer-selected-cards'")==1);
+ assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0);
+}
+
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -528,9 +640,14 @@ int main(int argc,char **argv)
  selected_archive_tests(db,&store);
  native_selected_archive(db,path);
  native_selected_move(db,path);
+ cross_board_selected(db);
+ cross_board_capacity(db);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==5);
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='ns' AND version=3")==2);
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xt' AND version=2")==2);
+ assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xt' AND version=2")==1);
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='ft' AND version=2")==2048);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
