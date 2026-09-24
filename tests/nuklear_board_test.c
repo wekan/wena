@@ -8,6 +8,7 @@
 #include "../client/components/common/card_section.h"
 
 #include <assert.h>
+#include "../client/components/cards/card_body.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -122,20 +123,30 @@ static unsigned int card_extra(struct nk_context *context,void *opaque,const Wen
     nk_label(context,(const char *)opaque,NK_TEXT_LEFT);
     return 0;
 }
+static unsigned int selection_probe(struct nk_context *context,void *opaque,const WenaCard *card)
+{
+    int *count;(void)context;count=(int*)opaque;assert(!card->archived);++*count;
+    return WENA_CARD_BODY_TOGGLE_SELECTION;
+}
 static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
 {
     WenaCardSectionControl controls;
     WenaCardSectionsSnapshot preferences;
     WenaCardSectionPreference entry;
+    WenaCardInteraction selection_intent,*previous;int probes;
     memset(&controls,0,sizeof(controls));
     memset(&preferences,0,sizeof(preferences));
     memset(&entry,0,sizeof(entry));
+    probes=0;memset(&selection_intent,0,sizeof(selection_intent));
+    previous=layout->card_interaction;layout->card_interaction=&selection_intent;
+    layout->card_selection=selection_probe;layout->card_selection_context=&probes;
     strcpy(preferences.board_id,layout->board->id);
     controls.snapshot=&preferences;
     layout->card_collapsed=fold_card;layout->card_collapsed_context=&controls;
     layout->card_badges=card_extra;layout->card_badges_context="Badge preview";
     layout->card_contents=card_extra;layout->card_contents_context="Expanded preview";
     render(context,layout,480);
+    assert(probes==1&&selection_intent.actions==WENA_CARD_BODY_TOGGLE_SELECTION);
     assert(visible_text(context,"Badge preview",640,480,NULL));
     assert(visible_text(context,"Expanded preview",640,480,NULL));
     click(context,layout,"Collapse");
@@ -144,6 +155,7 @@ static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
     assert(visible_text(context,"First card",640,480,NULL));
     assert(visible_text(context,"Open card",640,480,NULL));
     assert(visible_text(context,"Card menu",640,480,NULL));
+    assert(probes>1&&selection_intent.actions==WENA_CARD_BODY_TOGGLE_SELECTION);
     assert(!visible_text(context,"Badge preview",640,480,NULL));
     assert(!visible_text(context,"Expanded preview",640,480,NULL));
     strcpy(entry.card_id,controls.card_id);strcpy(entry.key,controls.key);
@@ -158,6 +170,7 @@ static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
     assert(!visible_text(context,"Expanded preview",640,480,NULL));
     layout->card_collapsed=NULL;layout->card_collapsed_context=NULL;
     layout->card_badges=NULL;layout->card_contents=NULL;
+    layout->card_selection=NULL;layout->card_selection_context=NULL;layout->card_interaction=previous;
 }
 static void ordinal_probe(struct nk_context *context,void *opaque,const WenaCard *card,size_t ordinal)
 {

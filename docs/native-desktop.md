@@ -52,7 +52,8 @@ in a private staged copy before restore interrupts the running database.
 - List menu → Select all cards in this list opens the shared paginated selection
   panel for the clicked swimlane. Checkboxes toggle exact cards; Select none or
   Turn Multi-Selection off clears the selection. Opening another menu hides the
-  panel while retaining IDs for additive selection. Bulk actions are still pending.
+  panel while retaining IDs for additive selection. Minicard Selected checkboxes
+  toggle the same IDs, including on collapsed cards. Bulk actions are still pending.
 - List menu → Archive all cards in this list opens a confirmation for that
   list in the clicked swimlane. Cancel/Escape discard it; Enter does not archive.
   Previously archived cards and the list/swimlane themselves remain unchanged.

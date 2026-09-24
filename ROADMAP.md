@@ -839,8 +839,13 @@ Architecture decisions for this cycle:
             selection while other menus temporarily hide the panel, and avoid
             replaying opener input into its first frame. Real menu/panel tests
             and desktop startup/smoke checks pass.
-          - [_] Add minicard selection controls/highlighting and connect the
-            shared selection panel to guarded bulk actions.
+          - [x] Add reusable cached minicard selection checkboxes. Board layout
+            emits exact-card intents after rendering, including folded cards;
+            the desktop applies toggles through the same model and prunes stale
+            selections. Real input verifies checked/unchecked toggles, no mutation
+            while drawing, archived/foreign exclusions and folded-card routing.
+          - [_] Add remaining selection highlighting/range-selection parity and
+            connect the shared selection panel to guarded bulk actions.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

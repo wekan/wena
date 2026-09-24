@@ -17,4 +17,7 @@ int wena_card_selection_panel_open(WenaCardSelectionPanel *panel,const WenaCard 
 void wena_card_selection_panel_close(WenaCardSelectionPanel *panel);
 int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectionPanel *panel,
     const WenaCard *cards,size_t count,const char *board,float width,float height);
+/* Reusable cached minicard checkbox; returns a card-body intent, never writes. */
+unsigned int wena_card_selection_control(struct nk_context *context,void *selection,
+    const WenaCard *card);
 #endif

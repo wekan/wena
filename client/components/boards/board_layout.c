@@ -247,6 +247,7 @@ static void wena_render_cards(struct nk_context *context,
                 card_action = layout->card_badges(context,
                     layout->card_badges_context, card);
             card_action |= wena_card_body_render(context, card);
+            if(layout->card_selection)card_action|=layout->card_selection(context,layout->card_selection_context,card);
             if (!collapsed && layout->card_contents != NULL)
                 card_action |= layout->card_contents(context,
                     layout->card_contents_context, card);

@@ -3,6 +3,7 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/card_selection_panel.h"
+#include "../client/components/cards/card_body.h"
 #include "../client/components/boards/board_layout.h"
 #include <assert.h>
 #include <stdio.h>
@@ -63,6 +64,35 @@ static void click(struct nk_context *ctx, WenaCardSelectionPanel *state,
     click_at(ctx, state, layout, label_center(ctx, label));
 }
 
+static unsigned int control_frame(struct nk_context *ctx,WenaCardSelection *selection,const WenaCard *card)
+{
+ unsigned int action;action=0;
+ if(nk_begin(ctx,"Minicard",nk_rect(0,0,320,240),NK_WINDOW_BORDER))
+  action=wena_card_selection_control(ctx,selection,card);
+ nk_end(ctx);return action;
+}
+static void minicard_control(WenaCardSelection *selection,WenaCard *cards)
+{
+ struct nk_context ctx;struct nk_user_font font;struct nk_vec2 point;unsigned int action;int down,round;
+ memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
+ for(round=0;round<2;++round){
+  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);assert(!control_frame(&ctx,selection,&cards[0]));
+  point=label_center(&ctx,"Selected:");action=0;
+  for(down=1;down>=0;--down){
+   nk_clear(&ctx);nk_input_begin(&ctx);nk_input_motion(&ctx,(int)point.x,(int)point.y);
+   nk_input_button(&ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(&ctx);
+   action|=control_frame(&ctx,selection,&cards[0]);
+  }
+  assert(action==WENA_CARD_BODY_TOGGLE_SELECTION&&selection->count==(size_t)round);
+  assert(wena_card_selection_toggle(selection,cards,9,cards[0].id));
+ }
+ assert(!selection->count);
+ nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);
+ assert(!control_frame(&ctx,selection,&cards[6]));
+ nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);
+ assert(!control_frame(&ctx,selection,&cards[7]));
+ nk_free(&ctx);
+}
 int main(void)
 {
  struct nk_context ctx;struct nk_user_font font;WenaBoard board;WenaCard cards[9];
@@ -75,6 +105,7 @@ int main(void)
  assert(wena_card_init(&cards[6],"foreign","other","lane","list","Foreign",6,0));
  assert(wena_card_init(&cards[7],"archived","board","lane","list","Archived",7,1));
  assert(wena_card_init(&cards[8],"outside","board","other","list","Outside",8,0));
+ minicard_control(selection,cards);
  layout.board=&board;layout.cards=cards;layout.card_count=9;
  memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
  assert(wena_card_selection_panel_open(&state,cards,9,"board","list","lane")&&selection->count==6);

@@ -1,4 +1,5 @@
 #include "card_selection_panel.h"
+#include "../components/cards/card_body.h"
 #include "../components/forms/text_form.h"
 #include "../../imports/ui/page_contract.h"
 #include <nuklear.h>
@@ -103,4 +104,16 @@ int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectio
     else if(clear)wena_card_selection_clear(panel->selection);
     else if(all&&!wena_card_selection_add(panel->selection,cards,count,panel->list_id,panel->lane_id))panel->error=1;
     return 1;
+}
+
+
+unsigned int wena_card_selection_control(struct nk_context *context,void *data,const WenaCard *card)
+{
+    WenaCardSelection *selection;int checked;selection=(WenaCardSelection*)data;
+    if(!context||!selection||!card||card->archived||
+        strcmp(selection->board_id,card->board_id))return WENA_CARD_BODY_NO_ACTION;
+    checked=wena_card_selection_contains(selection,card->id);
+    nk_layout_row_dynamic(context,28,1);
+    return nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_SELECTED),&checked)?
+        WENA_CARD_BODY_TOGGLE_SELECTION:WENA_CARD_BODY_NO_ACTION;
 }

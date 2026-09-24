@@ -578,6 +578,7 @@ int main(int argc, char **argv)
             wena_hierarchy_mutation_swimlane_archive);
         wena_hierarchy_title_set_color_adapters(&editors.hierarchy,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
         editors.hierarchy.selection_enabled=1;
+        layout.card_selection=wena_card_selection_control;layout.card_selection_context=selection;
         wena_hierarchy_title_set_list_cards_adapters(&editors.hierarchy,
             wena_hierarchy_mutation_list_cards_load,wena_hierarchy_mutation_list_cards_archive);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
@@ -632,6 +633,7 @@ int main(int argc, char **argv)
         SDL_GetWindowSize(window, &width, &height);
         if (width > 0 && height > 0) {
             opened_panel = DESKTOP_PANEL_NONE;
+            if(selection->count)(void)wena_card_selection_sync(selection,snapshot->cards,snapshot->card_count);
             if (label_view.summary_valid)
                 wena_checklist_inline_sync(&preview.inline_edit, label_view.contents, label_view.settings.show_checklists);
             {
@@ -679,6 +681,8 @@ int main(int argc, char **argv)
                     WENA_CARD_DETAILS_DESCRIPTION | WENA_CARD_DETAILS_CHECKLISTS |
                     WENA_CARD_DETAILS_LABELS)) != 0u)
                 sidebar.visible = 0;
+            if(card_interaction.actions&WENA_CARD_BODY_TOGGLE_SELECTION)
+                (void)wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,card_interaction.card_id);
             if ((list_interaction.actions & WENA_LIST_HEADER_ADD_CARD) != 0u) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_CREATE_CARD);
                 if (wena_card_create_open(&editors.create, &layout, &list_interaction))
