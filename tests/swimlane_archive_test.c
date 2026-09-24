@@ -318,6 +318,72 @@ static void selected_archive_tests(sqlite3 *db,WenaSqlitePersistence *store)
  assert(!selected_archive(store,cards,2,600));++cards[0].version;++cards[1].version;
  assert(!selected_archive(store,cards,2,601));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys+1);
 }
+static int selection_race(unsigned int event,void *context,void *statement,void *text)
+{
+ Race *race;const char *query;(void)text;race=(Race*)context;query=sqlite3_sql((sqlite3_stmt*)statement);
+ if(event==SQLITE_TRACE_STMT&&!race->fired&&query&&strstr(query,"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE id=")){
+  race->fired=1;sql(race->writer,"BEGIN IMMEDIATE;UPDATE cards SET version=version+1 WHERE id IN ('sel-a','sel-z');COMMIT");
+ }
+ return 0;
+}
+static void native_selected_archive(sqlite3 *db,const char *path)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaHierarchyMutation adapter;
+ WenaDomainCardRevision *rows,*saved,original_rows[2];WenaId ids[2];size_t peer;
+ sqlite3_int64 keys;int calls;Race race;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
+ fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));assert(snapshot&&before&&fresh);
+ sql(db,"UPDATE cards SET archived=0,version=version+1 WHERE id IN ('sel-a','sel-z')");
+ assert(wena_sqlite_board_load(db,"b",snapshot));assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ peer=snapshot->card_count;adapter.published_card_count=&peer;rows=NULL;
+ strcpy(ids[0],"sel-a");strcpy(ids[1],"sel-z");
+ assert(sqlite3_open(path,&race.writer)==SQLITE_OK);race.fired=0;
+ assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,selection_race,&race)==SQLITE_OK);
+ assert(wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows));
+ assert(rows&&rows[0].version==3&&rows[1].version==4&&!strcmp(rows[0].id,"sel-a")&&!strcmp(rows[1].id,"sel-z"));
+ assert(race.fired);assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ assert(number(db,"SELECT version FROM cards WHERE id='sel-a'")==4&&number(db,"SELECT version FROM cards WHERE id='sel-z'")==5);
+ assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800));
+ sql(race.writer,"UPDATE cards SET version=version-1 WHERE id IN ('sel-a','sel-z')");
+ assert(sqlite3_close(race.writer)==SQLITE_OK);
+ saved=rows;memcpy(original_rows,rows,sizeof(original_rows));
+ strcpy(adapter.actor_id,"missing");
+ assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows));
+ strcpy(adapter.actor_id,"u");strcpy(ids[1],"sel-a");
+ assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows));
+ strcpy(ids[1],"sel-foreign");assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows));
+ strcpy(ids[1],"batch-pre");assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows));
+ strcpy(ids[1],"sel-z");
+ assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"other",(const WenaId*)ids,2,&rows));
+ assert(rows==saved&&!memcmp(rows,original_rows,sizeof(original_rows)));
+ memcpy(before,snapshot,sizeof(*before));keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ ++rows[1].version;assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800));--rows[1].version;
+ sql(db,"CREATE TRIGGER native_selected_fail BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800));
+ sql(db,"DROP TRIGGER native_selected_fail");
+ sql(db,"PRAGMA ignore_check_constraints=ON;INSERT INTO swimlane_colors VALUES('t','b','invalid');PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800));
+ sql(db,"DELETE FROM swimlane_colors WHERE swimlane_id='t'");
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);
+ assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800)&&calls==1);
+ sqlite3_commit_hook(db,NULL,NULL);
+ assert(!memcmp(before,snapshot,sizeof(*before))&&peer==snapshot->card_count&&!memcmp(rows,original_rows,sizeof(original_rows)));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(before,fresh,sizeof(*fresh)));
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ snapshot->card_count=0;peer=0;
+ assert(wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(peer==snapshot->card_count&&peer>0&&!memcmp(rows,original_rows,sizeof(original_rows)));
+ memcpy(before,snapshot,sizeof(*before));
+ assert(!wena_hierarchy_mutation_selected_cards_archive_request(&adapter,"b",rows,2,800)&&!memcmp(before,snapshot,sizeof(*before)));
+ assert(!wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,2,&rows)&&rows==saved);
+ strcpy(ids[0],"sel-other");
+ assert(wena_hierarchy_mutation_selected_cards_load(&adapter,"b",(const WenaId*)ids,1,&rows));
+ assert(wena_hierarchy_mutation_selected_cards_archive(&adapter,"b",rows,1));
+ assert(number(db,"SELECT archived FROM cards WHERE id='sel-other'")==1);
+ assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ free(rows);free(snapshot);free(before);free(fresh);
+}
 static void full_selection(sqlite3 *db,WenaSqlitePersistence *store)
 {
  WenaDomainCardRevision *cards;size_t i;
@@ -383,6 +449,7 @@ int main(int argc,char **argv)
  list_cards_tests(db,&store);
  native_list_cards(db);
  selected_archive_tests(db,&store);
+ native_selected_archive(db,path);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==5);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);

@@ -161,6 +161,14 @@ static int selected_card_read(sqlite3 *db,const char *board,const char *id,Archi
         card_row(db,board,s,card)&&sqlite3_step(s)==SQLITE_DONE;
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;return ok;
 }
+int wena_sqlite_card_archive_version(sqlite3 *db,const char *board,const char *id,unsigned long *version)
+{
+    ArchiveCard card;
+    if(!db||!version||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board)||
+        !wena_model_identifier_valid(id)||!selected_card_read(db,board,id,&card)||
+        card.archived||card.version>WENA_VERSION_MUTATE_MAX)return 0;
+    *version=card.version;return 1;
+}
 int wena_sqlite_selected_cards_archive_change(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,unsigned long *result_version)
 {

@@ -1,4 +1,5 @@
 #include "../../server/mutations/list_wip.h"
+#include "../../server/mutations/swimlane_archive.h"
 #include "../../server/mutations/hierarchy_colors.h"
 #include "../../server/list_state.h"
 #include "hierarchy_mutation.h"
@@ -531,4 +532,53 @@ int wena_hierarchy_mutation_list_cards_archive(void *context,const char *board,
     if(!selected(adapter,board,WENA_HIERARCHY_LIST,list))return 0;
     return wena_hierarchy_mutation_list_cards_archive_request(adapter,board,list,lane,
         expected,lane_version,next_request(adapter,"archive-list-cards"));
+}
+
+
+int wena_hierarchy_mutation_selected_cards_load(void *context,const char *board,
+    const WenaId *ids,size_t count,WenaDomainCardRevision **output)
+{
+    WenaHierarchyMutation *adapter;WenaDomainCardRevision *rows;sqlite3_stmt *statement;
+    sqlite3 *db;size_t i,j;int ok;
+    adapter=(WenaHierarchyMutation*)context;
+    if(!output||!ids||!count||count>WENA_DOMAIN_CARD_BATCH_CAPACITY||
+        !selected(adapter,board,WENA_HIERARCHY_BOARD,board))return 0;
+    for(i=0;i<count;++i){
+        if(!wena_model_identifier_valid(ids[i]))return 0;
+        for(j=0;j<i;++j)if(!strcmp(ids[i],ids[j]))return 0;
+    }
+    rows=(WenaDomainCardRevision*)calloc(count,sizeof(*rows));if(!rows)return 0;
+    db=adapter->persistence.database;
+    if(sqlite3_exec(db,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK){free(rows);return 0;}
+    ok=sqlite3_prepare_v2(db,"SELECT 1 FROM actors WHERE id=?1",-1,&statement,NULL)==SQLITE_OK;
+    if(ok){
+        ok=sqlite3_bind_text(statement,1,adapter->actor_id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+            sqlite3_step(statement)==SQLITE_ROW&&sqlite3_step(statement)==SQLITE_DONE;
+        if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
+    }
+    for(i=0;ok&&i<count;++i){
+        strcpy(rows[i].id,ids[i]);ok=wena_sqlite_card_archive_version(db,board,ids[i],&rows[i].version);
+    }
+    if(ok)ok=sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+    if(!ok){(void)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);free(rows);return 0;}
+    free(*output);*output=rows;return 1;
+}
+int wena_hierarchy_mutation_selected_cards_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const WenaDomainCardRevision *cards,size_t count,unsigned long request)
+{
+    WenaDomainCommand command;
+    if(!selected(adapter,board,WENA_HIERARCHY_BOARD,board)||!cards||!count||
+        count>WENA_DOMAIN_CARD_BATCH_CAPACITY||!request||request>=(unsigned long)LONG_MAX)return 0;
+    memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_ARCHIVE_SELECTED_CARDS;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    command.selected_cards=cards;command.selected_card_count=count;
+    return publish_archive(adapter,board,&command);
+}
+int wena_hierarchy_mutation_selected_cards_archive(void *context,const char *board,
+    const WenaDomainCardRevision *cards,size_t count)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!selected(adapter,board,WENA_HIERARCHY_BOARD,board))return 0;
+    return wena_hierarchy_mutation_selected_cards_archive_request(adapter,board,cards,count,
+        next_request(adapter,"archive-selected-cards"));
 }

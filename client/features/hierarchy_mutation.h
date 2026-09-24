@@ -85,4 +85,13 @@ int wena_hierarchy_mutation_list_cards_archive_request(WenaHierarchyMutation *ad
     unsigned long lane_version,unsigned long request);
 int wena_hierarchy_mutation_list_cards_archive(void *context,const char *board,
     const char *list,const char *lane,unsigned long expected,unsigned long lane_version);
+/* Capture one read snapshot of exact selected IDs/revisions. Initialize *output
+ * to NULL; successful load replaces/frees prior storage, failure preserves it.
+ * Caller frees captured rows. Writes never modify the captured selection. */
+int wena_hierarchy_mutation_selected_cards_load(void *context,const char *board,
+    const WenaId *ids,size_t count,WenaDomainCardRevision **output);
+int wena_hierarchy_mutation_selected_cards_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const WenaDomainCardRevision *cards,size_t count,unsigned long request);
+int wena_hierarchy_mutation_selected_cards_archive(void *context,const char *board,
+    const WenaDomainCardRevision *cards,size_t count);
 #endif

@@ -853,7 +853,12 @@ Architecture decisions for this cycle:
               Test stale/duplicate/archived/missing/foreign cards, scope changes,
               partial/late/commit rollback, replay, preserved unselected cards,
               reopening and the complete selection capacity.
-            - [_] Capture native selection revisions and publish committed caches.
+            - [x] Capture native selection revisions and publish committed caches.
+              Reuse strict active-card/parent metadata reads in one transaction
+              and the shared archive publication helper. Preserve failed output
+              buffers, captured rows and full display caches. Verify concurrent
+              WAL snapshots, stale/foreign/duplicate/archived inputs, staging/
+              commit/late rollback, replay, peer counts and database equality.
             - [_] Add the panel archive confirmation and preserve failed selection.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
