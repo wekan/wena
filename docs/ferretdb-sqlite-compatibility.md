@@ -26,3 +26,20 @@ busy lock, or integrity failure must leave the database byte-for-byte unchanged.
 Migration is forward-only with an atomic rollback and recovery marker; restore uses
 the already verified stop/swap/reopen/rollback lifecycle. Direct replacement remains
 blocked until SJSON codec parity and a real copied-WeKan write/round-trip suite pass.
+
+## Codec foundation
+
+Pinned `internal/handler/sjson/sjson.go`, `schema.go`, `document.go`, `array.go`
+and the scalar modules establish that `$s.p` contains field descriptors and `$s.$k`
+preserves field order. Arrays carry one descriptor per element. Signed 64-bit
+values and unsigned 64-bit timestamps are JSON numbers, so converting all numbers
+to floating point would lose information. Dates are signed epoch milliseconds;
+ObjectIDs are 24 hexadecimal characters, binary values use base64 plus a subtype,
+and doubles additionally support the schema-disambiguated string `NaN`.
+
+`imports/json/document` now supplies a shared bounded syntax reader that preserves
+those exact number lexemes and object order, decodes scalar UTF-8/JSON escapes and
+rejects duplicate decoded names. Fast C89 and ASan/UBSan tests pass. This is a
+prerequisite, not SJSON type validation or write compatibility. Schema/type range
+checks, typed mutations, concurrent-owner locking and copied-WeKan round trips
+remain required before enabling direct replacement.

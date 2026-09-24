@@ -914,7 +914,13 @@ Architecture decisions for this cycle:
       `indexFormat:2` (not Wena's relational schema). Add a strict-C89 read-only probe
       for absolute paths, quick integrity, metadata JSON, required collection mappings,
       physical column shape and zero header versions. Unknown/corrupt/missing layouts
-      fail closed; all write, locking, codec, backup and migration work remains blocked.
+      fail closed; direct writes remain blocked on codec/locking/round-trip parity.
+    - [x] Add a shared bounded C89 JSON reader for SJSON/import adapters. Preserve
+      exact numeric lexemes and object order, reuse UTF-8 decoding, reject duplicate
+      decoded keys and malformed scalar Unicode, and publish snapshots atomically.
+      Test byte/depth/node limits and a byte-mutation corpus under ASan/UBSan.
+    - [_] Implement SJSON schema/type validation, typed codec writes, owner locking,
+      verified backup and copied-WeKan round trips before direct replacement.
 - [_] Using Nuklear GUI components, create same UI layout
   - [x] Establish MIT-licensed SVG source artwork/theme tokens and conversion to
     compact C89 native vector commands. Integrate a scale-aware board pictogram,

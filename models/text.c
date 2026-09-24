@@ -1,12 +1,13 @@
 #include "text.h"
 
 /* Shared strict scalar decoder, originally in checklist_item_titles.c. */
-static int decode(const char *text, size_t length, size_t *offset,
+int wena_text_utf8_next(const char *text, size_t length, size_t *offset,
                   unsigned long *codepoint)
 {
     unsigned char lead, byte;
     unsigned long value, minimum;
     size_t remaining, i;
+    if (!text || !offset || !codepoint || *offset>=length) return 0;
     lead = (unsigned char)text[*offset];
     if (lead > 0 && lead < 128) {
         *codepoint = lead; ++*offset; return 1;
@@ -47,7 +48,7 @@ int wena_model_text_trim_bounds(const char *input, size_t length,
     offset = 0; first = length; last = 0;
     while (offset < length) {
         before = offset;
-        if (!decode(input, length, &offset, &cp)) return 0;
+        if (!wena_text_utf8_next(input, length, &offset, &cp)) return 0;
         if (!whitespace(cp)) {
             if (first == length) first = before;
             last = offset;
