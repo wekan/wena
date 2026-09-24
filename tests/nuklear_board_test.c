@@ -1,3 +1,4 @@
+#include "../client/components/common/color_heading.h"
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_IMPLEMENTATION
@@ -209,6 +210,46 @@ static void hierarchy_handles(struct nk_context *ctx,WenaBoardLayout *layout)
     assert(!wena_board_is_collapsed(&collapse,"board",WENA_COLLAPSE_SWIMLANE,"first"));
     layout->collapse=NULL;layout->list_drag_handle=NULL;layout->swimlane_drag_handle=NULL;
 }
+static int same_rgb(struct nk_color a,const unsigned char b[3])
+{return a.r==b[0]&&a.g==b[1]&&a.b==b[2]&&a.a==255;}
+static void colored_headings(void)
+{
+    struct nk_context context;struct nk_user_font font;struct nk_style before;
+    const WenaColorContract *colors;const char *color;size_t count,i;int scale,heading,following,filled;
+    unsigned char bg[3],fg[3];const struct nk_command *command;
+    colors=wena_colors(&count);
+    for(scale=1;scale<=2;++scale){
+        memset(&font,0,sizeof(font));font.height=13.0f*(float)scale;font.width=text_width;
+        assert(nk_init_default(&context,&font));
+        for(i=0;i<count+3;++i){
+            color=i<count?colors[i].name:i==count?"#123AbC":i==count+1?"":"not-a-color";
+            nk_clear(&context);nk_input_begin(&context);nk_input_end(&context);
+            assert(nk_begin(&context,"Colored headings",nk_rect(0,0,500.0f*(float)scale,300.0f*(float)scale),NK_WINDOW_BORDER));
+            nk_layout_row_dynamic(&context,30.0f*(float)scale,1);before=context.style;
+            wena_color_heading(&context,"Heading label",color,(int)(i%2));
+            assert(!memcmp(&context.style,&before,sizeof(before)));
+            nk_label(&context,"Following",NK_TEXT_LEFT);nk_end(&context);
+            if(i<=count){assert(wena_color_rgb(color,bg)&&wena_color_foreground(color,fg));}
+            else{bg[0]=before.window.background.r;bg[1]=before.window.background.g;bg[2]=before.window.background.b;
+                fg[0]=before.text.color.r;fg[1]=before.text.color.g;fg[2]=before.text.color.b;}
+            heading=following=filled=0;
+            nk_foreach(command,&context){
+                if(command->type==NK_COMMAND_RECT_FILLED){const struct nk_command_rect_filled *rect;
+                    rect=(const struct nk_command_rect_filled*)command;
+                    if(same_rgb(rect->color,bg)&&rect->w>100&&rect->h>20)filled=1;}
+                if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
+                    if(text->length==13&&!memcmp(text->string,"Heading label",13)){
+                        assert(same_rgb(text->background,bg)&&same_rgb(text->foreground,fg));++heading;}
+                    if(text->length==9&&!memcmp(text->string,"Following",9)){
+                        assert(!memcmp(&text->background,&before.window.background,sizeof(text->background))&&
+                            !memcmp(&text->foreground,&before.text.color,sizeof(text->foreground)));++following;}}
+            }
+            assert(heading==1&&following==1);if(i<=count)assert(filled);
+        }
+        nk_free(&context);
+    }
+}
+
 int main(void)
 {
     struct nk_context context;
@@ -227,6 +268,7 @@ int main(void)
     struct nk_vec2 first;
     struct nk_vec2 second;
 
+    colored_headings();
     memset(&font, 0, sizeof(font));
     font.height = 14.0f;
     font.width = text_width;
@@ -266,6 +308,7 @@ int main(void)
     wrapped_title(&context, cards[0].title);
     assert(visible_text(&context, "Open card", 640.0f, 480.0f, NULL));
     strcpy(cards[0].title, "First card");
+    strcpy(lists[0].color,"red");strcpy(lanes[0].color,"#123AbC");
     strcpy(lists[0].title, "A long list title also has its own full width above the action buttons");
     render(&context, &layout, 480.0f);
     wrapped_title(&context, lists[0].title);

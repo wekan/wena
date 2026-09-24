@@ -1,3 +1,4 @@
+#include "../common/color_heading.h"
 #include "board_layout.h"
 #include "board_header.h"
 #include "../../../imports/ui/page_contract.h"
@@ -384,7 +385,7 @@ int wena_board_layout_render(struct nk_context *context,
                                     "", swimlane->id)) {
             nk_layout_row_dynamic(context, 26.0f,
                 layout->swimlane_interaction == NULL ? 1 : 2);
-            nk_label(context, swimlane->title, NK_TEXT_LEFT);
+            wena_color_heading(context,swimlane->title,swimlane->color,0);
             if (layout->swimlane_interaction != NULL &&
                 nk_button_label(context, wena_ui_control_text(WENA_UI_RENAME_SWIMLANE))) {
                 layout->swimlane_interaction->actions = WENA_SWIMLANE_EDIT_TITLE;

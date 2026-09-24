@@ -29,8 +29,7 @@ advance only the parent revision, verify the resulting scope/color/version, and
 roll back ignored or altered writes. Archived lists reject edits. Both hierarchy
 types are tested across palette/hex values, malformed forms, unknown actors,
 wrong scope, replay, stale revisions, read-only databases, corruption and reopen.
-No HTTP route is added. Native header/editor integration remains open in
-ROADMAP.md.
+No HTTP route is added. Native editor integration remains open in ROADMAP.md.
 
 List/swimlane models carry the stored color with an empty default. The board
 loader reads both extensions in its existing atomic snapshot transaction, with
@@ -49,6 +48,13 @@ a reload or allocation. Shorter replacements and clearing match freshly loaded
 snapshots byte for byte. Tests cover wrong scope/actors, duplicate and archived
 model selections, archived persisted lists, stale/replayed requests, no-ops,
 late rollback, corrupt stored types and aliased cache input.
+
+List and swimlane titles use one colored-heading renderer. Stored colors fill
+the heading cell and use the shared black/white contrast calculation; empty or
+invalid values retain the active theme. List titles keep their wrapped layout.
+All temporary style changes are restored before the next widget. Real Nuklear
+command tests cover every named color, custom hex, default/invalid colors, full
+background painting, following-widget isolation and 1x/2x font scale.
 
 Strict result readers check SQLite types before requesting text conversion.
 SQLite documents that conversion can invalidate later type inspection; BLOB

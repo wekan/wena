@@ -848,7 +848,11 @@ Architecture decisions for this cycle:
           hex case, shorter replacements and clearing. Verify scope, actors,
           archived/duplicate model selections, stale versions, no-op, replay,
           late rollback, corrupt data and equality with a fresh snapshot.
-        - [_] Connect colored headers and shared native color forms.
+        - [x] Render list/swimlane titles through one colored-heading component.
+          Preserve theme defaults and following widgets, paint the full heading
+          cell, and reuse palette/hex contrast. Real Nuklear commands verify all
+          palette colors, custom/invalid/default values, wrapping and 1x/2x scale.
+        - [_] Connect shared native color forms to hierarchy menus.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the
