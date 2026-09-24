@@ -38,7 +38,7 @@ for both whole-checklist and item moves. Page reads and selected-card snapshot
 reads happen outside drawing. Exact board/card IDs disambiguate duplicate titles;
 stale page revisions reject before confirmation. Twenty focused suites and chooser,
 directory-reader and directory-picker ASan/UBSan checks pass. Arbitrary insertion
-points and full drag/drop parity remain open.
+points in drag/drop and full visual parity remain open.
 
 Latest integrated validation: 135 host-independent native suites passed, zero
 failed or skipped, after cross-board chooser integration. All four localhost
@@ -107,6 +107,12 @@ press and commits once after release; drawing stays SQL-free. Eleven focused
 suites pass, including desktop and hierarchy movement. Hierarchy-drag and real
 board-layout sanitizer checks cover rollback, source/sibling changes, cancellation,
 repeated list identities and collapsed-lane control visibility.
+Transfer forms now optionally choose an exact insertion ordinal through a shared
+bounded numeric control. Both moves use the existing collision-safe order writer,
+with one revision advance for the moved row and changed siblings. Default append
+behavior remains compatible. Sixteen focused suites and insertion/order/chooser
+sanitizers pass. Numeric controls keep Save/Cancel geometry stable when destination
+selection becomes invalid and avoid a second popup in the same form.
 See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally
@@ -862,6 +868,11 @@ Architecture decisions for this cycle:
       - [x] Reuse a paginated board/card destination chooser for explicit cross-board
         checklist/item moves, with scoped snapshots, stale selection rejection,
         cancellation, atomic rollback and SQL-free directory rendering.
+      - [x] Add explicit insertion ordinals to checklist/item transfer forms using
+        one bounded position control and the existing collision-safe order writer.
+        Preserve default append behavior, advance moved rows only once and guard
+        changing sibling versions, terminal positions, rollback and exact scope.
+        Fifteen backend combinations and real UI controls pass, including sanitizers.
       - [_] Finish arbitrary insertion-point/cross-board drag movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical

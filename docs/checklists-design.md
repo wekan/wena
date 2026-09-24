@@ -190,14 +190,11 @@ must not execute deletion. Other entities' canonical no-undo warnings are not
 reused because they make unrelated claims about attachments, activity history,
 boards or accounts. No separately maintained translation wording is introduced.
 
-The current native display-settings editor exposes hide-checked and hide-all
-flags. The model/SQLite adapter also stores a nullable per-checklist minicard
-visibility override and resolves inherited board defaults, but native card
-canvases do not yet render checklist contents. An inactive minicard visibility
-selector is therefore omitted from this editor; saving its visible settings
-preserves the existing stored override. Model/persistence support alone does
-not establish native minicard display parity. Canonical Default/Yes/No and
-Show-on-Minicard contract keys may remain available for future implemented UI.
+The native display-settings editor exposes hide-checked, hide-all and inherited
+or explicit minicard visibility. Board settings control the inherited default.
+The shared cached checklist projection renders visible contents in minicards;
+opened-card and minicard controls share guarded mutations and actor section
+preferences. See `checklist-summary.md` and `section-preferences.md`.
 
 ## Local cross-board transfer
 
@@ -231,3 +228,28 @@ versions; idle frames and failed saves never refresh them implicitly.
 real Nuklear/SQLite fixture, including pagination, archived-card exclusion, stale
 listings, stale confirmation, cancellation, late rollback and successful moves.
 Hosts without a directory provider retain the existing source-board selector.
+
+## Exact transfer positions
+
+`insert_at_position=1` on a typed transfer supplies `target_position` as a
+zero-based ordinal in the destination collection after inserting the moved row.
+The default remains append with existing position gaps preserved. Explicit
+positions reserve an unused position, then reuse the same two-pass staging and
+compaction writer as same-parent reordering. This works even when a destination
+sibling occupies the maximum stored position. The transferred row already had
+its revision advanced; compaction advances only other rows whose positions change.
+Terminal changing sibling revisions reject the complete transaction.
+
+Both native transfer forms share `components/forms/position_input`: a bounded
+Nuklear numeric property displaying one-based positions, enabled by the canonical
+manual-order checkbox. It emits no database access. The destination snapshot owns
+all rows needed to determine the legal range. Both control rows keep their geometry
+when a destination becomes invalid, so a pending mouse release cannot move from
+Save to another action. The numeric property avoids a second combo popup in this
+form, which caused trailing controls to disappear in real-Nuklear regression
+experiments with the pinned header. No dependency or license change was needed.
+
+`test_checklist_insert.sh` runs start/middle/end insertion for checklist and item
+transfers on same/different boards, plus same-card item transfer. The real chooser
+test operates the numeric increment control, including its upper bound, and saves
+both kinds with terminal-position destination siblings.

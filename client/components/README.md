@@ -116,3 +116,8 @@ order validator or persistence path. A press captures an exact entity and emits 
 read that the host processes after drawing; release emits one guarded mutation.
 The board layout reports original list/lane ordinals, including repeated views of
 board-wide lists. Folded lanes keep their drag and Uncollapse controls visible.
+
+`forms/position_input` renders a bounded one-based numeric property while keeping
+zero-based ordinals in model intents. Its disabled state consumes the same row.
+Checklist and item transfer forms reuse it with a range derived from their captured
+destination snapshots, so validation cannot silently move the confirmation buttons.

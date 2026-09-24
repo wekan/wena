@@ -67,6 +67,7 @@ void nk_layout_row_end(struct nk_context *context);
 void nk_label(struct nk_context *context, const char *text, int alignment);
 /* Fake records semantic text; real Nuklear suites verify actual wrapping. */
 #define nk_label_wrap(context, text) nk_label(context, text, NK_TEXT_LEFT)
+int nk_property_int(struct nk_context*,const char*,int,int*,int,int,float);
 int nk_checkbox_label(struct nk_context *context, const char *title, int *active);
 int nk_button_label(struct nk_context *context, const char *title);
 int nk_group_begin(struct nk_context *context, const char *title,

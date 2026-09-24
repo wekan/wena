@@ -303,6 +303,9 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             edit->expected_target_card_version > WENA_VERSION_MUTATE_MAX ||
             !edit->expected_target_checklist_version ||
             edit->expected_target_checklist_version > WENA_VERSION_MUTATE_MAX) return 0;
+        if ((edit->insert_at_position!=0 && edit->insert_at_position!=1) ||
+            (edit->insert_at_position && edit->target_position>=
+                (edit->action==WENA_CHECKLIST_MOVE_ITEM ? WENA_CARD_CHECKLIST_ITEM_CAPACITY : WENA_CARD_CHECKLIST_CAPACITY))) return 0;
         command.request_version = request_version;
         strcpy(command.user_id, adapter->actor_id);
         strcpy(command.route, adapter->route);
@@ -318,6 +321,8 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             strcat(command.form_body, "&targetBoardId=");
             strcat(command.form_body, edit->target_board_id);
         }
+        if (edit->insert_at_position)
+            sprintf(command.form_body+strlen(command.form_body),"&targetPosition=%lu",edit->target_position);
         command.form_body_length = strlen(command.form_body);
         return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
     }
@@ -327,6 +332,9 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             !strcmp(card_id, edit->target_card_id) ||
             !edit->expected_target_card_version ||
             edit->expected_target_card_version > WENA_VERSION_MUTATE_MAX) return 0;
+        if ((edit->insert_at_position!=0 && edit->insert_at_position!=1) ||
+            (edit->insert_at_position && edit->target_position>=
+                (edit->action==WENA_CHECKLIST_MOVE_ITEM ? WENA_CARD_CHECKLIST_ITEM_CAPACITY : WENA_CARD_CHECKLIST_CAPACITY))) return 0;
         command.request_version = request_version;
         strcpy(command.user_id, adapter->actor_id);
         strcpy(command.route, adapter->route);
@@ -339,6 +347,8 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             strcat(command.form_body, "&targetBoardId=");
             strcat(command.form_body, edit->target_board_id);
         }
+        if (edit->insert_at_position)
+            sprintf(command.form_body+strlen(command.form_body),"&targetPosition=%lu",edit->target_position);
         command.form_body_length = strlen(command.form_body);
         return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
     }

@@ -67,6 +67,23 @@ static void choose(struct nk_context *ctx,WenaChecklistsState *state,WenaCard *c
  assert(wena_checklists_poll_destination(state)==1);frame(ctx,state,card);
  assert(!strcmp(state->target_board_id,"x")&&!strcmp(state->target_card_id,"a4"));
  if(item){click(ctx,state,card,"Checklist");frame(ctx,state,card);click(ctx,state,card,"Target tasks [dest]");frame(ctx,state,card);}
+ click(ctx,state,card,"Your Manual Order");frame(ctx,state,card);
+ assert(state->insert_at_position&&state->order_count==2);
+ if(item){
+  const struct nk_command *command;struct nk_vec2 point;int down;point=nk_vec2(0,0);
+  nk_foreach(command,ctx)if(command->type==NK_COMMAND_TRIANGLE_FILLED){
+   const struct nk_command_triangle_filled *triangle;triangle=(const struct nk_command_triangle_filled*)command;
+   point=nk_vec2((triangle->a.x+triangle->b.x+triangle->c.x)/3.0f,(triangle->a.y+triangle->b.y+triangle->c.y)/3.0f);
+  }
+  assert(point.x>0);
+  for(down=1;down>=0;--down){nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
+   nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);render(ctx,state,card);}
+  frame(ctx,state,card);assert(state->order_position==1);
+  /* Increment at the upper bound stays at the final legal insertion slot. */
+  for(down=1;down>=0;--down){nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
+   nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);render(ctx,state,card);}
+  frame(ctx,state,card);assert(state->order_position==1);
+ }
 }
 int main(int argc,char **argv)
 {
@@ -81,8 +98,8 @@ int main(int argc,char **argv)
  "INSERT INTO lists VALUES('l','b','List',0,1),('xl','x','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1),('xs','x','Lane',0,1);"
  "INSERT INTO cards VALUES('src','b','s','l','Source card',0,0,1),('archived','x','xs','xl','Hidden',99,1,1)");
  for(i=0;i<5;++i){sprintf(query,"INSERT INTO cards VALUES('a%d','x','xs','xl','%s',%d,0,1)",i,i==4?"Destination":"Shared title",i);sql(db,query);}
- sql(db,"INSERT INTO checklists(id,board_id,card_id,title,position) VALUES('cl','b','src','Tasks',0),('dest','x','a4','Target tasks',0);"
- "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES('i','b','src','cl','Completed',19,1)");
+ sql(db,"INSERT INTO checklists(id,board_id,card_id,title,position) VALUES('cl','b','src','Tasks',0),('dest','x','a4','Target tasks',2147483647);"
+ "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES('i','b','src','cl','Completed',19,1),('kept','x','a4','dest','Kept',2147483647,0)");
  assert(wena_card_init(&card,"src","b","s","l","Source card",0,0));
  assert(wena_checklist_mutation_init(&mutation,db,"u","b"));
  assert(wena_sqlite_directory_reader_init(&reader,db,"u"));
@@ -110,6 +127,10 @@ int main(int argc,char **argv)
  assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0);
  assert(number(db,"SELECT version FROM cards WHERE id='a4'")==3);
  assert(number(db,"SELECT version FROM cards WHERE id='src'")==2);
+ if(item){assert(number(db,"SELECT position FROM checklist_items WHERE id='i'")==1);
+  assert(number(db,"SELECT position FROM checklist_items WHERE id='kept'")==0);}
+ else{assert(number(db,"SELECT position FROM checklists WHERE id='cl'")==0);
+  assert(number(db,"SELECT position FROM checklists WHERE id='dest'")==1);}
  before=statements;frame(&ctx,&state,&card);assert(!wena_checklists_poll_destination(&state)&&statements==before);
  wena_checklists_close(&state);assert(!chooser.picker.open);nk_free(&ctx);assert(sqlite3_close(db)==SQLITE_OK);
  }

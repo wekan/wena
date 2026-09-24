@@ -163,3 +163,12 @@ int nk_input_is_key_pressed(const struct nk_input *input, enum nk_keys key)
 
 int nk_checkbox_label(struct nk_context *context,const char *title,int *active)
 { if(nk_button_label(context,title)){*active=!*active;return 1;}return 0;}
+
+int nk_property_int(struct nk_context *context,const char *name,int minimum,
+    int *value,int maximum,int step,float increment)
+{
+    (void)context;(void)name;(void)step;(void)increment;
+    if (*value<minimum) *value=minimum;
+    if (*value>maximum) *value=maximum;
+    return 0;
+}

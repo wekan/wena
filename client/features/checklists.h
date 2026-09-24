@@ -22,6 +22,7 @@ typedef struct WenaChecklistsState {
     int length;
     int order_position;
     int order_count;
+    int insert_at_position;
     WenaId board_id;
     WenaId card_id;
     WenaId checklist_id;

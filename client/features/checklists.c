@@ -1,6 +1,7 @@
 #include "checklists.h"
 #include "checklists/entry_form.h"
 #include "../components/forms/text_form.h"
+#include "../components/forms/position_input.h"
 #include "../../imports/ui/page_contract.h"
 #include "../../models/checklist_item_titles.h"
 #include <nuklear.h>
@@ -17,6 +18,9 @@ static void clear_destination(WenaChecklistsState *state)
     state->target_card_version = 0;
     state->target_checklist_id[0] = 0;
     state->target_checklist_version = 0;
+    state->insert_at_position = 0;
+    state->order_position = 0;
+    state->order_count = 0;
 }
 
 static int is_transfer(WenaChecklistAction action)
@@ -200,7 +204,7 @@ static void submit_edit(WenaChecklistsState *state)
     WenaChecklistEdit mutation;
     char parsed[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
     size_t count;
-    if (is_ordering(state->action) && (state->order_position < 0 ||
+    if ((is_ordering(state->action) || (is_transfer(state->action) && state->insert_at_position)) && (state->order_position < 0 ||
         state->order_position >= state->order_count)) {
         state->error = 1;
         return;
@@ -264,7 +268,9 @@ static void submit_edit(WenaChecklistsState *state)
         WENA_CHECKLIST_SET_FLAGS || state->action == WENA_CHECKLIST_ADD_ITEMS ||
         is_deletion(state->action) || is_ordering(state->action) ||
         is_transfer(state->action)) ? NULL : parsed[0];
-    if (is_ordering(state->action)) mutation.target_position = (unsigned long)state->order_position;
+    if (is_ordering(state->action) || (is_transfer(state->action) && state->insert_at_position))
+        mutation.target_position = (unsigned long)state->order_position;
+    if (is_transfer(state->action)) mutation.insert_at_position = state->insert_at_position;
     if (state->action == WENA_CHECKLIST_ADD_ITEMS) {
         mutation.batch_text = state->input;
         mutation.batch_length = (size_t)state->length;
@@ -371,10 +377,8 @@ static void move_destination(struct nk_context *context, WenaChecklistsState *st
         strcpy(state->target_board_id, target->board_id);
         strcpy(state->target_card_id, target->card_id);
         state->target_card_version = target->card_version;
-        if (state->action == WENA_CHECKLIST_MOVE_ITEM) {
-            state->target_snapshot = target;
-            target = NULL;
-        }
+        state->target_snapshot = target;
+        target = NULL;
     } else state->error = 1;
     free(target);
     return;
@@ -408,8 +412,7 @@ int wena_checklists_poll_destination(WenaChecklistsState *state)
     strcpy(state->target_board_id,target->board_id);
     strcpy(state->target_card_id,target->card_id);
     state->target_card_version=target->card_version;
-    if (state->action==WENA_CHECKLIST_MOVE_ITEM) state->target_snapshot=target;
-    else free(target);
+    state->target_snapshot=target;
     state->error=0;return 1;
 }
 
@@ -473,11 +476,35 @@ static void move_checklist_destination(struct nk_context *context, WenaChecklist
     if (changed < 0 || (size_t)changed > count) {
         state->error = 1; changed = 0;
     }
+    if (changed!=selected) {state->insert_at_position=0;state->order_position=0;}
     state->target_checklist_id[0] = 0; state->target_checklist_version = 0;
     if (changed) {
         strcpy(state->target_checklist_id, choices.lists[changed - 1]->id);
         state->target_checklist_version = choices.versions[changed - 1];
     }
+}
+
+static void transfer_order(struct nk_context *context,WenaChecklistsState *state)
+{
+    size_t count,index;
+    int available;
+    available=state->target_snapshot && (state->action!=WENA_CHECKLIST_MOVE_ITEM ||
+        state->target_checklist_id[0]);
+    count=0;
+    if (available) {
+        if (state->action==WENA_CHECKLIST_MOVE) count=state->target_snapshot->checklist_count;
+        else for(index=0;index<state->target_snapshot->item_count;++index)
+            if (!strcmp(state->target_snapshot->items[index].checklist_id,state->target_checklist_id)) ++count;
+    }
+    state->order_count=(int)count+1;
+    if (state->order_position<0 || state->order_position>=state->order_count) state->order_position=0;
+    /* Keep confirmation at the same location when a selected card disappears,
+     * and use the bounded numeric control rather than a second popup selector. */
+    nk_layout_row_dynamic(context,28,1);
+    if (available) nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER),&state->insert_at_position);
+    else nk_label(context,wena_ui_text(WENA_UI_TEXT_MANUAL_ORDER),NK_TEXT_LEFT);
+    state->order_position=wena_position_input(context,state->order_position,
+        state->order_count,available && state->insert_at_position);
 }
 
 static void minicard_choice(void *unused, int index, const char **label)
@@ -557,6 +584,7 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                 else move_destination(context, state, cards, card_count);
                 if (state->action == WENA_CHECKLIST_MOVE_ITEM)
                     move_checklist_destination(context, state);
+                transfer_order(context,state);
                 /* A selector or Enter never confirms a transfer. */
             }
             else if (is_ordering(state->action)) {

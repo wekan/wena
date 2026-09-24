@@ -170,7 +170,7 @@ done:
 
 static int write_order(sqlite3 *db, const char *board, const char *card,
     const char *checklist, int items, ChecklistOrderRow *rows, size_t count,
-    size_t source, size_t target)
+    size_t source, size_t target, const char *advanced)
 {
     ChecklistOrderRow moved;
     sqlite3_stmt *statement;
@@ -196,7 +196,7 @@ static int write_order(sqlite3 *db, const char *board, const char *card,
     /* All changing row versions must remain readable before any staging write. */
     for (index = 0; index < count; ++index)
         if (rows[index].position != (unsigned long)index &&
-            rows[index].version > WENA_VERSION_MUTATE_MAX) return 0;
+            (!advanced || strcmp(rows[index].id,advanced)) && rows[index].version > WENA_VERSION_MUTATE_MAX) return 0;
     for (phase = 0; phase < 2; ++phase) {
         if (items) query = phase ?
             "UPDATE checklist_items SET position=?5,version=version+?7,updated_at="
@@ -216,7 +216,8 @@ static int write_order(sqlite3 *db, const char *board, const char *card,
         /* In the final pass position i is never above stage+i, so ascending
          * writes also work when the free block overlaps final ordinals. */
         for (index = 0; index < count && valid; ++index) {
-            changed = rows[index].position != (unsigned long)index;
+            changed = rows[index].position != (unsigned long)index &&
+                (!advanced || strcmp(rows[index].id,advanced));
             valid = sqlite3_bind_text(statement, 4, rows[index].id, -1,
                 SQLITE_TRANSIENT) == SQLITE_OK &&
                 sqlite3_bind_int64(statement, 5, (sqlite3_int64)(phase ?
@@ -281,7 +282,7 @@ int wena_sqlite_checklist_order(sqlite3 *db, const WenaDomainCommand *command,
     if (selected == count || (items && rows[selected].version != item_version)) goto done;
     if (selected == (size_t)target) { *result_version = card_version; result = 2; goto done; }
     if (!write_order(db, board, card, checklist, items, rows, count, selected,
-        (size_t)target)) goto done;
+        (size_t)target, NULL)) goto done;
     if (items) {
         if (!prepare(db, "UPDATE checklists SET version=version+1,updated_at="
             "max(updated_at,CAST(strftime('%s','now') AS INTEGER)*1000) WHERE "
@@ -357,6 +358,47 @@ static int advance_transfer_cards(sqlite3 *db, const char *board, const char *ca
     return advance_card(db, target_board, target, target_version);
 }
 
+/* Existing callers append without compacting. Explicit ordinals reserve any
+ * free position first, then use the shared collision-safe ordering writer. */
+static int transfer_position(const WenaDomainCommand *command,
+    const ChecklistOrderRow *rows,size_t count,unsigned long *position,
+    size_t *ordinal,int *inserting)
+{
+    char number[32];
+    unsigned long target;
+    size_t index;
+    *inserting=wena_mutation_has_value(command,"targetPosition");
+    *ordinal=count;*position=0;
+    if (!*inserting) {
+        if (count) {
+            if (rows[count-1].position==WENA_CHECKLIST_POSITION_MAX) return 0;
+            *position=rows[count-1].position+1UL;
+        }
+        return 1;
+    }
+    if (!wena_mutation_text(command,"targetPosition",number,sizeof(number),0) ||
+        !wena_mutation_decimal(number,1,(unsigned long)count,&target)) return 0;
+    *ordinal=(size_t)target;
+    for(index=0;index<count;++index) {
+        if (rows[index].position>*position) break;
+        if (rows[index].position==*position) ++*position;
+    }
+    return *position<=WENA_CHECKLIST_POSITION_MAX;
+}
+
+static int insert_transfer(sqlite3 *db,const char *board,const char *card,
+    const char *checklist,int items,ChecklistOrderRow *rows,size_t count,
+    const char *moved,size_t target)
+{
+    size_t source;
+    if (target>=count) return 0;
+    for(source=0;source<count;++source) if (!strcmp(rows[source].id,moved)) break;
+    /* Transfer already advanced the moved row. Siblings whose positions change
+     * advance once; temporary staging never changes revisions or timestamps. */
+    return source<count && write_order(db,board,card,checklist,items,rows,count,
+        source,target,moved);
+}
+
 static int move_row(sqlite3 *db, const char *query, const char *board,
     const char *card, const char *checklist, const char *target, const char *id,
     unsigned long version, unsigned long position, const char *target_board)
@@ -380,8 +422,8 @@ int wena_sqlite_checklist_move(sqlite3 *db, const WenaDomainCommand *command,
     char card[65], target[65], checklist[65], number[32], target_board[WENA_ID_CAPACITY];
     unsigned long card_version, target_version, checklist_version, stored, position;
     ChecklistOrderRow *children, lists[WENA_CHECKLIST_MAX_PER_CARD];
-    size_t count, total, list_count, index, expected_total, expected_lists;
-    int valid;
+    size_t count, total, list_count, index, expected_total, expected_lists, ordinal;
+    int valid, inserting;
     if (!db || !command || !result_version || sqlite3_get_autocommit(db) ||
         command->operation != WENA_DOMAIN_MOVE_CHECKLIST ||
         !wena_model_identifier_valid(board) ||
@@ -412,11 +454,7 @@ int wena_sqlite_checklist_move(sqlite3 *db, const WenaDomainCommand *command,
         count > WENA_CHECKLIST_MAX_ITEMS - total) goto done;
     expected_total = total + count;
     expected_lists = list_count + 1u;
-    position = 0;
-    if (list_count) {
-        if (lists[list_count - 1].position == WENA_CHECKLIST_POSITION_MAX) goto done;
-        position = lists[list_count - 1].position + 1UL;
-    }
+    if (!transfer_position(command,lists,list_count,&position,&ordinal,&inserting)) goto done;
     for (index = 0; index < count; ++index)
         if (children[index].version > WENA_VERSION_MUTATE_MAX) goto done;
     /* The immutable v3 composite FK includes card_id. Defer enforcement only
@@ -442,6 +480,13 @@ int wena_sqlite_checklist_move(sqlite3 *db, const WenaDomainCommand *command,
     if (!read_card_order(db, target_board, target, checklist, 0, lists, &list_count, &stored,
         &total) || stored != checklist_version + 1UL ||
         total != expected_total || list_count != expected_lists) goto done;
+    if (inserting) {
+        if (!insert_transfer(db,target_board,target,checklist,0,lists,list_count,checklist,ordinal) ||
+            !read_card_order(db,target_board,target,checklist,0,lists,&list_count,&stored,&total) ||
+            list_count!=expected_lists || total!=expected_total || stored!=checklist_version+1UL ||
+            strcmp(lists[ordinal].id,checklist) || lists[ordinal].position!=(unsigned long)ordinal)
+            goto done;
+    }
     valid = advance_transfer_cards(db, board, card, card_version,
         target_board, target, target_version);
     if (valid) *result_version = card_version + 1UL;
@@ -480,8 +525,8 @@ int wena_sqlite_checklist_item_move(sqlite3 *db, const WenaDomainCommand *comman
     unsigned long cv, tv, kv, dv, iv, stored, position;
     ChecklistOrderRow *rows;
     size_t count, source_count, source_total, destination_count, destination_total;
-    size_t index, total;
-    int same_card, valid;
+    size_t index, total, ordinal;
+    int same_card, valid, inserting;
     sqlite3_stmt *statement;
     if (!db || !command || !result_version || sqlite3_get_autocommit(db) ||
         command->operation != WENA_DOMAIN_MOVE_CHECKLIST_ITEM ||
@@ -515,11 +560,7 @@ int wena_sqlite_checklist_item_move(sqlite3 *db, const WenaDomainCommand *comman
     if (!read_card_order(db, target_board, target, destination, 1, rows, &destination_count,
         &stored, &destination_total) || stored != dv ||
         (!same_card && destination_total == WENA_CHECKLIST_MAX_ITEMS)) goto done;
-    position = 0;
-    if (destination_count) {
-        if (rows[destination_count - 1].position == WENA_CHECKLIST_POSITION_MAX) goto done;
-        position = rows[destination_count - 1].position + 1UL;
-    }
+    if (!transfer_position(command,rows,destination_count,&position,&ordinal,&inserting)) goto done;
     /* Existing destination parents satisfy the immutable composite FK in the
      * same UPDATE. No deferred constraint or temporary detach is necessary. */
     if (!prepare(db, "UPDATE checklist_items SET board_id=?9,card_id=?4,checklist_id=?5,"
@@ -551,6 +592,14 @@ int wena_sqlite_checklist_item_move(sqlite3 *db, const WenaDomainCommand *comman
         if (!strcmp(rows[index].id, item)) break;
     if (index == count || rows[index].version != iv + 1UL ||
         rows[index].position != position) goto done;
+    if (inserting) {
+        if (!insert_transfer(db,target_board,target,destination,1,rows,count,item,ordinal) ||
+            !read_card_order(db,target_board,target,destination,1,rows,&count,&stored,&total) ||
+            count!=destination_count+1u || stored!=dv+1UL ||
+            total!=destination_total+(same_card?0u:1u) || strcmp(rows[ordinal].id,item) ||
+            rows[ordinal].position!=(unsigned long)ordinal || rows[ordinal].version!=iv+1UL)
+            goto done;
+    }
     valid = advance_transfer_cards(db, board, card, cv, target_board, target, tv);
     if (valid) *result_version = cv + 1UL;
 done:
