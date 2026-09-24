@@ -2,6 +2,7 @@
 #define WENA_SERVER_SQLITE_PERSISTENCE_H
 #include "domain_operation.h"
 #include "sha256.h"
+#include "../models/wip_limit.h"
 #include <sqlite3.h>
 typedef struct WenaSqlitePersistence {
     sqlite3 *database;
@@ -14,6 +15,8 @@ typedef struct WenaSqlitePersistence {
     /* Committed list/swimlane creation only; empty on failure/other calls. */
     char created_hierarchy_id[65];
     double created_hierarchy_position;
+    /* Exact committed WIP edit, including no-op; zero on failure/other calls. */
+    WenaWipLimit list_wip_result;
 } WenaSqlitePersistence;
 void wena_sqlite_persistence_init(WenaSqlitePersistence *store, sqlite3 *database);
 int wena_sqlite_persistence_apply(void *context, const WenaDomainCommand *command,

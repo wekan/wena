@@ -1,3 +1,4 @@
+#include "../../server/mutations/list_wip.h"
 #include "../../server/mutations/hierarchy_colors.h"
 #include "../../server/list_state.h"
 #include "hierarchy_mutation.h"
@@ -391,4 +392,50 @@ int wena_hierarchy_mutation_color_save(void *context,const char *board,
     if(!color_selection(adapter,board,kind,id))return 0;
     return wena_hierarchy_mutation_color_save_request(adapter,board,kind,id,expected,
         next_request(adapter,kind==WENA_HIERARCHY_LIST?"set-list-color":"set-swimlane-color"),color);
+}
+
+int wena_hierarchy_mutation_wip_load(void *context,const char *board,const char *id,
+    WenaWipLimit *limit,size_t *count,unsigned long *version)
+{
+    WenaHierarchyMutation *adapter;WenaList *list;WenaWipLimit stored;size_t total;
+    unsigned long current;sqlite3 *db;int ok;
+    adapter=(WenaHierarchyMutation*)context;list=archive_selection(adapter,board,id);
+    if(!list||list->archived||!limit||!count||!version)return 0;
+    db=adapter->persistence.database;
+    if(!sqlite3_get_autocommit(db)||sqlite3_exec(db,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK)return 0;
+    ok=wena_hierarchy_mutation_archive_load(adapter,board,id,&current)&&
+        wena_sqlite_list_wip_read(db,board,id,current,&stored)&&wena_sqlite_list_wip_count(db,board,id,&total);
+    if(ok)ok=sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+    if(!ok){(void)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);return 0;}
+    *limit=stored;*count=total;*version=current;return 1;
+}
+int wena_hierarchy_mutation_wip_save_request(WenaHierarchyMutation *adapter,
+    const char *board,const char *id,unsigned long expected,unsigned long request,
+    WenaWipEdit edit,size_t value)
+{
+    WenaList *list;WenaDomainCommand command;WenaRegionResponse response;const char *action;
+    list=archive_selection(adapter,board,id);
+    if(!list||list->archived||!expected||expected>WENA_VERSION_MUTATE_MAX||!request||request>=(unsigned long)LONG_MAX)return 0;
+    if(edit==WENA_WIP_APPLY_VALUE){if(value<1||value>99)return 0;action="value";}
+    else if(edit==WENA_WIP_TOGGLE_ENABLED)action="enabled";
+    else if(edit==WENA_WIP_TOGGLE_SOFT)action="soft";
+    else return 0;
+    memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_EDIT_LIST_WIP;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    sprintf(command.form_body,"listId=%s&expectedVersion=%lu&action=%s",id,expected,action);
+    if(edit==WENA_WIP_APPLY_VALUE)sprintf(command.form_body+strlen(command.form_body),"&value=%lu",(unsigned long)value);
+    command.form_body_length=strlen(command.form_body);
+    if(!wena_sqlite_persistence_apply(&adapter->persistence,&command,&response))return 0;
+    /* Exact transaction result: toggles may adjust to a count newer than cache. */
+    list->wip_limit.value=adapter->persistence.list_wip_result.value;
+    list->wip_limit.enabled=adapter->persistence.list_wip_result.enabled;
+    list->wip_limit.soft=adapter->persistence.list_wip_result.soft;return 1;
+}
+int wena_hierarchy_mutation_wip_save(void *context,const char *board,const char *id,
+    unsigned long expected,WenaWipEdit edit,size_t value)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!archive_selection(adapter,board,id))return 0;
+    return wena_hierarchy_mutation_wip_save_request(adapter,board,id,expected,
+        next_request(adapter,"edit-list-wip"),edit,value);
 }

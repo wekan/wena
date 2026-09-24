@@ -841,7 +841,11 @@ Architecture decisions for this cycle:
             defaults and archived-list settings; reject corrupt types/scope,
             missing tables and views without changing the previous snapshot.
             Verify concurrent WAL writes cannot mix board and WIP states.
-          - [_] Publish committed settings through the native hierarchy adapter.
+          - [x] Reuse the native hierarchy adapter for WIP loads/edits. Load
+            settings/count/revision together; publish the exact transaction
+            result without a post-commit query, including no-ops and automatic
+            count adjustments. Test stale caches, scope, duplicate/archived
+            models, replay, rollback and equivalence with a fresh snapshot.
           - [_] Reuse the rule for card creation, restoration and movement.
           - [_] Connect the native list limit editor and header warnings with
             real input, rollback, stale revision and reopen tests.

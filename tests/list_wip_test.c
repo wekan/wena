@@ -1,6 +1,7 @@
 #include "../server/mutations/list_wip.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
+#include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
 #include <stdio.h>
@@ -38,6 +39,59 @@ static void bad_snapshot(sqlite3 *db,const char *query,const char *undo)
  assert(!wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));
  sql(db,undo);sql(db,"PRAGMA foreign_keys=ON;PRAGMA ignore_check_constraints=OFF");
  assert(wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));free(snapshot);free(before);
+}
+static void native_adapter(sqlite3 *db)
+{
+ WenaHierarchyMutation adapter;WenaSqliteBoardSnapshot *snapshot,*before;
+ WenaWipLimit limit,sentinel;size_t count,i,index;unsigned long version;sqlite3_int64 keys;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));assert(snapshot&&before);
+ assert(wena_sqlite_board_load(db,"b",snapshot));memcpy(before,snapshot,sizeof(*before));
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ index=0;for(i=0;i<snapshot->list_count;++i)if(!strcmp(snapshot->lists[i].id,"l"))index=i;
+ assert(wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(limit.value==102&&limit.enabled&&!limit.soft&&count==102&&version==8);
+ memset(&limit,42,sizeof(limit));memcpy(&sentinel,&limit,sizeof(limit));count=777;version=888;
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"other","l",&limit,&count,&version));
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"b","missing",&limit,&count,&version));
+ strcpy(adapter.actor_id,"unknown");
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_TOGGLE_SOFT,0));strcpy(adapter.actor_id,"u");
+ snapshot->lists[index].archived=1;
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_TOGGLE_SOFT,0));memcpy(snapshot,before,sizeof(*before));
+ snapshot->lists[snapshot->list_count++]=snapshot->lists[index];
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_TOGGLE_SOFT,0));memcpy(snapshot,before,sizeof(*before));
+ sql(db,"UPDATE list_archive_state SET archived=1");
+ assert(!wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_TOGGLE_SOFT,0));sql(db,"UPDATE list_archive_state SET archived=0");
+ assert(!memcmp(&limit,&sentinel,sizeof(limit))&&count==777&&version==888);
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",7,WENA_WIP_TOGGLE_SOFT,0));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_APPLY_VALUE,100));
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,(WenaWipEdit)99,0));
+ sql(db,"CREATE TRIGGER native_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_wip_save(&adapter,"b","l",8,WENA_WIP_TOGGLE_SOFT,0));sql(db,"DROP TRIGGER native_late");
+ assert(!adapter.persistence.list_wip_result.value&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ assert(wena_hierarchy_mutation_wip_save_request(&adapter,"b","l",8,1000,WENA_WIP_TOGGLE_SOFT,0));
+ assert(snapshot->lists[index].wip_limit.soft);
+ assert(!wena_hierarchy_mutation_wip_save_request(&adapter,"b","l",9,1000,WENA_WIP_TOGGLE_SOFT,0));
+ assert(!adapter.persistence.list_wip_result.value&&snapshot->lists[index].wip_limit.soft);
+ assert(wena_hierarchy_mutation_wip_save(&adapter,"b","l",9,WENA_WIP_APPLY_VALUE,1));
+ assert(snapshot->lists[index].wip_limit.value==1);
+ /* Cached cards are deliberately stale; the database count governs toggling. */
+ count=snapshot->card_count;snapshot->card_count=0;
+ assert(wena_hierarchy_mutation_wip_save(&adapter,"b","l",10,WENA_WIP_TOGGLE_SOFT,0));snapshot->card_count=count;
+ assert(snapshot->lists[index].wip_limit.value==102&&!snapshot->lists[index].wip_limit.soft);
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ /* A valid same-value edit publishes its transaction result as well. */
+ assert(wena_hierarchy_mutation_wip_save(&adapter,"b","empty",1,WENA_WIP_APPLY_VALUE,1));
+ assert(adapter.persistence.list_wip_result.value==1&&!adapter.persistence.list_wip_result.enabled);
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ assert(wena_sqlite_board_load(db,"b",before)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ assert(wena_hierarchy_mutation_wip_load(&adapter,"b","l",&limit,&count,&version));
+ assert(limit.value==102&&!limit.soft&&count==102&&version==11);
+ assert(!wena_sqlite_persistence_apply(&adapter.persistence,NULL,NULL)&&!adapter.persistence.list_wip_result.value);
+ free(snapshot);free(before);
 }
 typedef struct ConcurrentWrite {sqlite3 *writer;int fired;} ConcurrentWrite;
 static int concurrent_write(unsigned int event,void *context,void *statement,void *text)
@@ -138,9 +192,10 @@ int main(int argc,char **argv)
  bad_snapshot(db,"ALTER TABLE list_wip_limits RENAME TO saved_wip","ALTER TABLE saved_wip RENAME TO list_wip_limits");
  bad_snapshot(db,"ALTER TABLE list_wip_limits RENAME TO saved_wip;CREATE VIEW list_wip_limits AS SELECT * FROM saved_wip","DROP VIEW list_wip_limits;ALTER TABLE saved_wip RENAME TO list_wip_limits");
  concurrent_snapshot(db,path);
- sql(db,"DROP TABLE list_wip_limits");assert(!change(&store,"l",8,8,"action=enabled"));
+ native_adapter(db);
+ sql(db,"DROP TABLE list_wip_limits");assert(!change(&store,"l",11,1003,"action=enabled"));
  sql(db,"CREATE VIEW list_wip_limits AS SELECT 'l' AS list_id,'b' AS board_id,1 AS value,0 AS enabled,0 AS soft");
- assert(!change(&store,"l",8,8,"action=enabled"));assert(!wena_sqlite_list_wip_read(db,"b","l",8,&limit));
+ assert(!change(&store,"l",11,1003,"action=enabled"));assert(!wena_sqlite_list_wip_read(db,"b","l",11,&limit));
  assert(sqlite3_close(db)==SQLITE_OK);free(migration);
  puts("List WIP persistence: shared rules, counts, scope, no-op, replay, corruption, rollback and reopen passed");return 0;
 }

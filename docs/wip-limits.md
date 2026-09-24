@@ -46,6 +46,17 @@ Invalid integer types/ranges and cross-board metadata leave the prior complete
 snapshot unchanged. A concurrent WAL writer changes board and WIP data between
 reader statements; tests verify each snapshot contains only one database state.
 
+WIP callbacks reuse the native hierarchy adapter and its existing list selection
+and request identity helpers. Loads read authoritative settings, active count and
+revision inside one transaction; failures preserve all outputs. Edits publish
+the exact result captured by the persistence transaction after commit, without
+a second query or allocation. This includes no-op results and values raised to
+the database count when the cached cards are stale. Result fields are cleared
+for each persistence call, including failures and unrelated operations.
+Tests cover actor/scope loss, stale versions, duplicate/archived models,
+archived persisted lists, invalid values, replay, late rollback and byte-for-byte
+cache equivalence with a fresh snapshot.
+
 The port follows the original WeKan source:
 
 - `client/components/lists/listBody.js`: hard limits use all active cards in a

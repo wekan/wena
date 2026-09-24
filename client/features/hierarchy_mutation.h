@@ -53,4 +53,13 @@ int wena_hierarchy_mutation_color_save(void *context,const char *board_id,
 int wena_hierarchy_mutation_color_save_request(WenaHierarchyMutation *adapter,
     const char *board_id,WenaHierarchyKind kind,const char *target_id,
     unsigned long expected_version,unsigned long request_version,const char *color);
+/* WIP loads return one read snapshot of settings, active count and revision.
+ * Writes publish only exact committed settings; failed outputs/cache survive. */
+int wena_hierarchy_mutation_wip_load(void *context,const char *board_id,const char *list_id,
+    WenaWipLimit *limit,size_t *count,unsigned long *version);
+int wena_hierarchy_mutation_wip_save(void *context,const char *board_id,const char *list_id,
+    unsigned long expected_version,WenaWipEdit edit,size_t value);
+int wena_hierarchy_mutation_wip_save_request(WenaHierarchyMutation *adapter,
+    const char *board_id,const char *list_id,unsigned long expected_version,
+    unsigned long request_version,WenaWipEdit edit,size_t value);
 #endif

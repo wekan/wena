@@ -53,11 +53,11 @@ int wena_sqlite_list_wip_count(sqlite3 *db,const char *board,const char *list,si
 static int same(const WenaWipLimit *a,const WenaWipLimit *b)
 {return a->value==b->value&&a->enabled==b->enabled&&a->soft==b->soft;}
 int wena_sqlite_list_wip_change(sqlite3 *db,const WenaDomainCommand *command,
-    const char *board,unsigned long *result_version)
+    const char *board,unsigned long *result_version,WenaWipLimit *result_limit)
 {
     char list[WENA_ID_CAPACITY],text[32],action[16];unsigned long expected,value;
     WenaWipLimit before,desired,after;WenaWipEdit edit;size_t count,post_count;sqlite3_stmt *s;int ok;
-    if(!db||!command||!result_version||sqlite3_get_autocommit(db)||
+    if(!db||!command||!result_version||!result_limit||sqlite3_get_autocommit(db)||
         command->operation!=WENA_DOMAIN_EDIT_LIST_WIP||!wena_model_identifier_valid(board)||
         !wena_mutation_text(command,"listId",list,sizeof(list),0)||!wena_model_identifier_valid(list)||
         !wena_mutation_text(command,"expectedVersion",text,sizeof(text),0)||
@@ -72,7 +72,7 @@ int wena_sqlite_list_wip_change(sqlite3 *db,const WenaDomainCommand *command,
     else return 0;
     if(!wena_sqlite_list_active(db,board,list)||!wena_sqlite_list_wip_read(db,board,list,expected,&before)||
         !wena_sqlite_list_wip_count(db,board,list,&count)||!wena_wip_edit(&before,edit,(size_t)value,count,&desired))return 0;
-    if(same(&before,&desired)){*result_version=expected;return 2;}
+    if(same(&before,&desired)){*result_version=expected;*result_limit=desired;return 2;}
     if(sqlite3_prepare_v2(db,"INSERT INTO list_wip_limits(list_id,board_id,value,enabled,soft) VALUES(?1,?2,?3,?4,?5) "
         "ON CONFLICT(list_id) DO UPDATE SET value=excluded.value,enabled=excluded.enabled,soft=excluded.soft "
         "WHERE list_wip_limits.board_id=excluded.board_id",-1,&s,NULL)!=SQLITE_OK)return 0;
@@ -86,5 +86,5 @@ int wena_sqlite_list_wip_change(sqlite3 *db,const WenaDomainCommand *command,
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
     if(!ok||!wena_sqlite_list_wip_read(db,board,list,expected+1,&after)||!same(&after,&desired)||
         !wena_sqlite_list_active(db,board,list)||!wena_sqlite_list_wip_count(db,board,list,&post_count)||post_count!=count)return 0;
-    *result_version=expected+1;return 1;
+    *result_version=expected+1;*result_limit=after;return 1;
 }
