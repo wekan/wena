@@ -272,6 +272,62 @@ static void list_cards_tests(sqlite3 *db,WenaSqlitePersistence *store)
  assert(number(db,"SELECT version FROM swimlanes WHERE id='t'")==1);
  assert(list_cards(store,all,302));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys+2);
 }
+static int selected_archive(WenaSqlitePersistence *store,const WenaDomainCardRevision *cards,size_t count,unsigned long request)
+{
+ WenaDomainCommand c;WenaRegionResponse r;memset(&c,0,sizeof(c));
+ c.operation=WENA_DOMAIN_ARCHIVE_SELECTED_CARDS;c.request_version=request;
+ strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");c.selected_cards=cards;c.selected_card_count=count;
+ return wena_sqlite_persistence_apply(store,&c,&r);
+}
+static void selected_archive_tests(sqlite3 *db,WenaSqlitePersistence *store)
+{
+ WenaDomainCardRevision cards[2];sqlite3_int64 keys;size_t i;int calls;
+ const char *triggers[]={
+ "CREATE TRIGGER selected_fail BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END",
+ "CREATE TRIGGER selected_fail BEFORE UPDATE ON cards WHEN OLD.id='sel-z' BEGIN SELECT RAISE(ABORT,'second');END",
+ "CREATE TRIGGER selected_fail AFTER UPDATE ON cards WHEN NEW.id='sel-z' BEGIN UPDATE cards SET archived=0 WHERE id='sel-a';END",
+ "CREATE TRIGGER selected_fail AFTER UPDATE ON cards WHEN NEW.id='sel-z' BEGIN UPDATE cards SET swimlane_id='empty' WHERE id='sel-a';END"};
+ sql(db,"INSERT INTO cards VALUES('sel-a','b','t','batch','Same',7,0,1),('sel-z','b','empty','l','Same',3000,0,2),('sel-other','b','t','l','Same',10,0,1)");
+ sql(db,"INSERT INTO lists VALUES('foreign-list','other','Foreign',0,1);INSERT INTO cards VALUES('sel-foreign','other','foreign','foreign-list','Foreign',0,0,1)");
+ memset(cards,0,sizeof(cards));strcpy(cards[0].id,"sel-a");cards[0].version=1;strcpy(cards[1].id,"sel-z");cards[1].version=2;
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ assert(!selected_archive(store,NULL,2,600));assert(!selected_archive(store,cards,0,600));
+ assert(!selected_archive(store,cards,WENA_DOMAIN_CARD_BATCH_CAPACITY+1,600));
+ cards[1].version=1;assert(!selected_archive(store,cards,2,600));cards[1].version=2;
+ strcpy(cards[1].id,"sel-a");cards[1].version=1;assert(!selected_archive(store,cards,2,600));
+ strcpy(cards[1].id,"missing");assert(!selected_archive(store,cards,2,600));
+ strcpy(cards[1].id,"sel-foreign");assert(!selected_archive(store,cards,2,600));
+ strcpy(cards[1].id,"bad/id");assert(!selected_archive(store,cards,2,600));
+ strcpy(cards[1].id,"batch-pre");cards[1].version=4;assert(!selected_archive(store,cards,2,600));
+ strcpy(cards[1].id,"sel-z");cards[1].version=2;
+ sql(db,"PRAGMA query_only=ON");assert(!selected_archive(store,cards,2,600));sql(db,"PRAGMA query_only=OFF");
+ for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){
+  sql(db,triggers[i]);assert(!selected_archive(store,cards,2,600));sql(db,"DROP TRIGGER selected_fail");
+  assert(number(db,"SELECT count(*) FROM cards WHERE id IN ('sel-a','sel-z') AND archived=0")==2);
+  assert(number(db,"SELECT version FROM cards WHERE id='sel-a'")==1&&number(db,"SELECT version FROM cards WHERE id='sel-z'")==2);
+  assert(number(db,"SELECT count(*) FROM card_archive_state WHERE card_id IN ('sel-a','sel-z')")==0);
+  assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ }
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);
+ assert(!selected_archive(store,cards,2,600)&&calls==1);sqlite3_commit_hook(db,NULL,NULL);
+ assert(number(db,"SELECT count(*) FROM cards WHERE id IN ('sel-a','sel-z') AND archived=0")==2);
+ assert(selected_archive(store,cards,2,600));
+ assert(number(db,"SELECT count(*) FROM cards WHERE id IN ('sel-a','sel-z') AND archived=1")==2);
+ assert(number(db,"SELECT archived FROM cards WHERE id='sel-other'")==0);
+ assert(number(db,"SELECT position FROM cards WHERE id='sel-a'")==7&&number(db,"SELECT position FROM cards WHERE id='sel-z'")==3000);
+ assert(!selected_archive(store,cards,2,600));++cards[0].version;++cards[1].version;
+ assert(!selected_archive(store,cards,2,601));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys+1);
+}
+static void full_selection(sqlite3 *db,WenaSqlitePersistence *store)
+{
+ WenaDomainCardRevision *cards;size_t i;
+ cards=(WenaDomainCardRevision*)calloc(WENA_DOMAIN_CARD_BATCH_CAPACITY,sizeof(*cards));assert(cards);
+ for(i=0;i<WENA_DOMAIN_CARD_BATCH_CAPACITY;++i){sprintf(cards[i].id,"bulk%lu",(unsigned long)i);cards[i].version=1;}
+ assert(selected_archive(store,cards,WENA_DOMAIN_CARD_BATCH_CAPACITY,700));
+ assert(number(db,"SELECT count(*) FROM cards WHERE id GLOB 'bulk*' AND archived=1")==2048);
+ assert(number(db,"SELECT count(*) FROM cards WHERE id GLOB 'bulk*' AND archived=0")==1);
+ free(cards);sql(db,"DELETE FROM card_archive_state WHERE card_id GLOB 'bulk*'");
+}
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -326,14 +382,15 @@ int main(int argc,char **argv)
  native_archive(db);
  list_cards_tests(db,&store);
  native_list_cards(db);
+ selected_archive_tests(db,&store);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
- assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==4);
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==5);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
  assert(!list_cards(&store,"listId=l&expectedVersion=1",400));
  assert(!change(&store,"empty",3,4,1));assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='empty' AND archived=0 AND version=1")==2049);
- assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);sql(db,"DELETE FROM cards WHERE swimlane_id='empty' AND id GLOB 'bulk*'");
+ assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);full_selection(db,&store);sql(db,"DELETE FROM cards WHERE swimlane_id='empty' AND id GLOB 'bulk*'");
  sql(db,"DROP TABLE swimlane_archive_state");assert(!change(&store,"s",9,4,1));
  sql(db,"CREATE VIEW swimlane_archive_state AS SELECT 's' AS swimlane_id,'b' AS board_id,0 AS archived,0 AS archived_at");assert(!change(&store,"s",9,4,1));
  assert(sqlite3_close(db)==SQLITE_OK);free(migration);

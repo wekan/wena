@@ -844,8 +844,17 @@ Architecture decisions for this cycle:
             the desktop applies toggles through the same model and prunes stale
             selections. Real input verifies checked/unchecked toggles, no mutation
             while drawing, archived/foreign exclusions and folded-card routing.
-          - [_] Add remaining selection highlighting/range-selection parity and
-            connect the shared selection panel to guarded bulk actions.
+          - [_] Add remaining selection highlighting/range-selection parity.
+          - [_] Connect the shared selection panel to guarded bulk actions.
+            - [x] Add an exact-selection archive transaction. A native-only typed
+              ID/revision span supports all 2048 cards without widening HTTP
+              forms or routes. Validate every selected card before writes and
+              reuse cascade row readers, archive writers and final verification.
+              Test stale/duplicate/archived/missing/foreign cards, scope changes,
+              partial/late/commit rollback, replay, preserved unselected cards,
+              reopening and the complete selection capacity.
+            - [_] Capture native selection revisions and publish committed caches.
+            - [_] Add the panel archive confirmation and preserve failed selection.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

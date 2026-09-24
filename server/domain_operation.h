@@ -47,9 +47,17 @@ typedef enum WenaDomainOperation {
     WENA_DOMAIN_EDIT_LIST_WIP = 38,
     WENA_DOMAIN_ARCHIVE_SWIMLANE = 39,
     WENA_DOMAIN_RESTORE_SWIMLANE = 40,
-    WENA_DOMAIN_ARCHIVE_LIST_CARDS = 41
+    WENA_DOMAIN_ARCHIVE_LIST_CARDS = 41,
+    WENA_DOMAIN_ARCHIVE_SELECTED_CARDS = 42
 } WenaDomainOperation;
 
+/* Native-only bounded batch payload. Storage remains caller-owned for apply.
+ * HTTP dispatch never populates this span or exposes its operation. */
+#define WENA_DOMAIN_CARD_BATCH_CAPACITY 2048u
+typedef struct WenaDomainCardRevision {
+    char id[65];
+    unsigned long version;
+} WenaDomainCardRevision;
 typedef struct WenaDomainCommand {
     WenaDomainOperation operation;
     unsigned long request_version;
@@ -57,6 +65,8 @@ typedef struct WenaDomainCommand {
     char route[257];
     char form_body[WENA_DOMAIN_BODY_CAPACITY];
     size_t form_body_length;
+    const WenaDomainCardRevision *selected_cards;
+    size_t selected_card_count;
 } WenaDomainCommand;
 
 typedef int (*WenaDomainApply)(void *context, const WenaDomainCommand *command,

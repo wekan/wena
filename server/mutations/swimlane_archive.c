@@ -20,23 +20,29 @@ static int id_column(sqlite3_stmt *s,int column,char id[WENA_ID_CAPACITY])
     if(!text||bytes<1||bytes>=WENA_ID_CAPACITY||memchr(text,0,(size_t)bytes))return 0;
     memcpy(id,text,(size_t)bytes);id[bytes]=0;return wena_model_identifier_valid(id);
 }
+static int card_row(sqlite3 *db,const char *board,sqlite3_stmt *s,ArchiveCard *card)
+{
+    WenaId scope;sqlite3_int64 version,at;int archived;
+    if(!id_column(s,0,card->id)||!id_column(s,1,scope)||strcmp(scope,board)||
+        !id_column(s,2,card->list)||!id_column(s,4,card->lane)||sqlite3_column_type(s,3)!=SQLITE_INTEGER)return 0;
+    version=sqlite3_column_int64(s,3);
+    if(version<1||version>(sqlite3_int64)WENA_VERSION_READ_MAX||
+        !wena_sqlite_list_state_read(db,board,card->list,0,&archived,&at)||
+        !wena_sqlite_swimlane_state_read(db,board,card->lane,0,&archived,&at)||
+        !wena_sqlite_card_archive_read(db,board,card->id,(unsigned long)version,&card->archived,&card->at))return 0;
+    card->version=(unsigned long)version;return 1;
+}
 static int cards_read(sqlite3 *db,const char *board,const char *lane,const char *list,ArchiveCard *cards,size_t *count)
 {
-    sqlite3_stmt *s;const char *query;size_t used;int ok,rc;WenaId scope;sqlite3_int64 version,at;int archived;
+    sqlite3_stmt *s;const char *query;size_t used;int ok,rc;
     query=list?"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE list_id=?1 AND (?2='' OR swimlane_id=?2) ORDER BY id":
         "SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE swimlane_id=?1 ORDER BY id";
     if(sqlite3_prepare_v2(db,query,-1,&s,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(s,1,list?list:lane,-1,SQLITE_TRANSIENT)==SQLITE_OK;
     if(ok&&list)ok=sqlite3_bind_text(s,2,lane?lane:"",-1,SQLITE_TRANSIENT)==SQLITE_OK;used=0;rc=SQLITE_ERROR;
     while(ok&&(rc=sqlite3_step(s))==SQLITE_ROW){
-        if(used==WENA_CARD_ORDER_CAPACITY||!id_column(s,0,cards[used].id)||!id_column(s,1,scope)||strcmp(scope,board)||
-            !id_column(s,2,cards[used].list)||!id_column(s,4,cards[used].lane)||sqlite3_column_type(s,3)!=SQLITE_INTEGER){ok=0;break;}
-        version=sqlite3_column_int64(s,3);
-        if(version<1||version>(sqlite3_int64)WENA_VERSION_READ_MAX||
-            !wena_sqlite_list_state_read(db,board,cards[used].list,0,&archived,&at)||
-            !wena_sqlite_swimlane_state_read(db,board,cards[used].lane,0,&archived,&at)||
-            !wena_sqlite_card_archive_read(db,board,cards[used].id,(unsigned long)version,&cards[used].archived,&cards[used].at)){ok=0;break;}
-        cards[used].version=(unsigned long)version;++used;
+        if(used==WENA_CARD_ORDER_CAPACITY||!card_row(db,board,s,&cards[used])){ok=0;break;}
+        ++used;
     }
     if(rc!=SQLITE_DONE)ok=0;if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
     if(ok)*count=used;return ok;
@@ -142,6 +148,47 @@ int wena_sqlite_list_cards_archive_change(sqlite3 *db,const WenaDomainCommand *c
         !cards_read(db,board,lane,list,verify,&final_count)||count!=final_count)goto done;
     if(!cards_equal(cards,verify,count))goto done;
     *result_version=expected;ok=changed?1:2;
+done:
+    free(cards);free(verify);return ok;
+}
+
+
+static int selected_card_read(sqlite3 *db,const char *board,const char *id,ArchiveCard *card)
+{
+    sqlite3_stmt *s;int ok;
+    if(sqlite3_prepare_v2(db,"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE id=?1",-1,&s,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(s)==SQLITE_ROW&&
+        card_row(db,board,s,card)&&sqlite3_step(s)==SQLITE_DONE;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;return ok;
+}
+int wena_sqlite_selected_cards_archive_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version)
+{
+    ArchiveCard *cards,*verify;size_t count,i,j;int ok,archived;unsigned long version;
+    if(!db||!command||!result_version||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board)||
+        command->operation!=WENA_DOMAIN_ARCHIVE_SELECTED_CARDS||!command->selected_cards||
+        !command->selected_card_count||command->selected_card_count>WENA_DOMAIN_CARD_BATCH_CAPACITY)return 0;
+    count=command->selected_card_count;
+    for(i=0;i<count;++i){
+        if(!wena_model_identifier_valid(command->selected_cards[i].id)||!command->selected_cards[i].version||
+            command->selected_cards[i].version>WENA_VERSION_MUTATE_MAX)return 0;
+        for(j=0;j<i;++j)if(!strcmp(command->selected_cards[i].id,command->selected_cards[j].id))return 0;
+    }
+    cards=(ArchiveCard*)calloc(count,sizeof(*cards));verify=(ArchiveCard*)calloc(count,sizeof(*verify));
+    if(!cards||!verify){free(cards);free(verify);return 0;}
+    ok=0;version=0;
+    /* Validate the complete exact selection before changing its first card. */
+    for(i=0;i<count;++i)if(!selected_card_read(db,board,command->selected_cards[i].id,&cards[i])||
+        cards[i].archived||cards[i].version!=command->selected_cards[i].version)goto done;
+    for(i=0;i<count;++i){
+        if(!wena_sqlite_card_archive_change(db,board,cards[i].id,cards[i].version,1,0))goto done;
+        ++cards[i].version;cards[i].archived=1;
+        if(cards[i].version>version)version=cards[i].version;
+        if(!wena_sqlite_card_archive_read(db,board,cards[i].id,cards[i].version,&archived,&cards[i].at))goto done;
+    }
+    for(i=0;i<count;++i)if(!selected_card_read(db,board,cards[i].id,&verify[i]))goto done;
+    if(!cards_equal(cards,verify,count))goto done;
+    *result_version=version;ok=1;
 done:
     free(cards);free(verify);return ok;
 }

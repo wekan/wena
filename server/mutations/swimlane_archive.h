@@ -7,4 +7,6 @@ int wena_sqlite_swimlane_archive_change(sqlite3 *db,const WenaDomainCommand *com
     const char *board,unsigned long *result_version);
 int wena_sqlite_list_cards_archive_change(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,unsigned long *result_version);
+int wena_sqlite_selected_cards_archive_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version);
 #endif
