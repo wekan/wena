@@ -110,7 +110,7 @@ not a mockup or evidence of complete WeKan theme parity. It verifies the integra
 light default, complete control labels and separated title rows. The lower lane
 continues below the scrollable viewport.
 
-![Native desktop after integration](images/native-desktop-session-02.png)
+![Native desktop after integration](images/native-desktop-session-02.svg)
 
 ## Remaining boundary
 

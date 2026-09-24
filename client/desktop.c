@@ -1,6 +1,8 @@
 /* MIT-licensed local desktop entrypoint. The local OS user supplies a trusted
  * actor identity; this is not a remote authentication or board-sharing API. */
 #include <SDL2/SDL.h>
+#include "platform/svg.h"
+#include "components/boards/board_header.h"
 #include "platform/sdl_nuklear.h"
 #include "platform/theme.h"
 #include "platform/dependencies.h"
@@ -467,6 +469,7 @@ int main(int argc, char **argv)
     nk_sdl_font_stash_end();
     nk_style_set_font(context, &font->handle);
     if (!wena_native_theme_apply(context)) goto cleanup;
+    wena_board_header_set_title_renderer(wena_svg_board_title);
     SDL_StartTextInput();
     running = 1; frames = 0;
     while (running) {

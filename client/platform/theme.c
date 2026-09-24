@@ -1,4 +1,5 @@
 #include "theme.h"
+#include "svg_theme_data.h"
 
 #include "../../imports/ui/page_contract.h"
 
@@ -44,12 +45,12 @@ int wena_native_theme_apply(struct nk_context *context)
     struct nk_color accent, ink, paper, panel, navy, border;
     int i;
     if (context == NULL ||
-        !wena_native_theme_color("belize", &accent) ||
-        !wena_native_theme_color("dark", &ink) ||
-        !wena_native_theme_color("white", &paper) ||
-        !wena_native_theme_color("cleanlight", &panel) ||
-        !wena_native_theme_color("midnight", &navy) ||
-        !wena_native_theme_color("gray", &border)) return 0;
+        !wena_native_theme_color(WENA_SVG_THEME_ACCENT, &accent) ||
+        !wena_native_theme_color(WENA_SVG_THEME_INK, &ink) ||
+        !wena_native_theme_color(WENA_SVG_THEME_PAPER, &paper) ||
+        !wena_native_theme_color(WENA_SVG_THEME_PANEL, &panel) ||
+        !wena_native_theme_color(WENA_SVG_THEME_NAVY, &navy) ||
+        !wena_native_theme_color(WENA_SVG_THEME_BORDER, &border)) return 0;
     /* The pinned WeKan boardColors.css supplies the blue accent and pale
        selected surface. White controls and dark text remain legible inside
        Nuklear's shared window/group background model. */
@@ -91,9 +92,9 @@ int wena_native_theme_apply(struct nk_context *context)
     context->style.selectable.text_normal_active = paper;
     context->style.selectable.text_hover_active = paper;
     context->style.selectable.text_pressed_active = paper;
-    context->style.window.padding = nk_vec2(8, 8);
-    context->style.window.group_padding = nk_vec2(8, 8);
-    context->style.window.spacing = nk_vec2(6, 6);
-    context->style.button.padding = nk_vec2(6, 4);
+    context->style.window.padding = nk_vec2(WENA_SVG_THEME_WINDOW_PADDING_X, WENA_SVG_THEME_WINDOW_PADDING_Y);
+    context->style.window.group_padding = nk_vec2(WENA_SVG_THEME_GROUP_PADDING_X, WENA_SVG_THEME_GROUP_PADDING_Y);
+    context->style.window.spacing = nk_vec2(WENA_SVG_THEME_SPACING_X, WENA_SVG_THEME_SPACING_Y);
+    context->style.button.padding = nk_vec2(WENA_SVG_THEME_BUTTON_PADDING_X, WENA_SVG_THEME_BUTTON_PADDING_Y);
     return 1;
 }

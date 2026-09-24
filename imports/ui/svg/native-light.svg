@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 48">
+  <!-- SPDX-License-Identifier: MIT. Semantic swatches use canonical WeKan colors.
+       Invisible measurement rectangles are logical layout units, not pixels. -->
+  <rect id="accent" data-color="belize" x="0" y="0" width="24" height="24" fill="#2980b9"/>
+  <rect id="ink" data-color="dark" x="24" y="0" width="24" height="24" fill="#333333"/>
+  <rect id="paper" data-color="white" x="48" y="0" width="24" height="24" fill="#ffffff"/>
+  <rect id="panel" data-color="cleanlight" x="72" y="0" width="24" height="24" fill="#e8f3fa"/>
+  <rect id="navy" data-color="midnight" x="96" y="0" width="24" height="24" fill="#2c3e50"/>
+  <rect id="border" data-color="gray" x="120" y="0" width="24" height="24" fill="#808080"/>
+  <rect id="window-padding" x="0" y="32" width="8" height="8" fill="none"/>
+  <rect id="group-padding" x="24" y="32" width="8" height="8" fill="none"/>
+  <rect id="spacing" x="48" y="32" width="6" height="6" fill="none"/>
+  <rect id="button-padding" x="72" y="32" width="6" height="4" fill="none"/>
+</svg>

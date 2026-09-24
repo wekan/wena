@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: MIT. Generated from native-light.svg. */
+#define WENA_SVG_THEME_ACCENT "belize"
+#define WENA_SVG_THEME_INK "dark"
+#define WENA_SVG_THEME_PAPER "white"
+#define WENA_SVG_THEME_PANEL "cleanlight"
+#define WENA_SVG_THEME_NAVY "midnight"
+#define WENA_SVG_THEME_BORDER "gray"
+#define WENA_SVG_THEME_WINDOW_PADDING_X 8.0f
+#define WENA_SVG_THEME_WINDOW_PADDING_Y 8.0f
+#define WENA_SVG_THEME_GROUP_PADDING_X 8.0f
+#define WENA_SVG_THEME_GROUP_PADDING_Y 8.0f
+#define WENA_SVG_THEME_SPACING_X 6.0f
+#define WENA_SVG_THEME_SPACING_Y 6.0f
+#define WENA_SVG_THEME_BUTTON_PADDING_X 6.0f
+#define WENA_SVG_THEME_BUTTON_PADDING_Y 4.0f

@@ -3,6 +3,13 @@
 
 #include <nuklear.h>
 
+static WenaBoardTitleRenderer title_renderer;
+
+void wena_board_header_set_title_renderer(WenaBoardTitleRenderer renderer)
+{
+    title_renderer = renderer;
+}
+
 unsigned int wena_board_header_render(struct nk_context *context,
                                       const WenaBoard *board)
 {
@@ -14,7 +21,8 @@ unsigned int wena_board_header_render(struct nk_context *context,
     action = WENA_BOARD_HEADER_NO_ACTION;
     nk_layout_row_begin(context, NK_DYNAMIC, 34.0f, 2);
     nk_layout_row_push(context, 0.78f);
-    nk_label(context, board->title, NK_TEXT_LEFT);
+    if (title_renderer) title_renderer(context, board->title);
+    else nk_label(context, board->title, NK_TEXT_LEFT);
     nk_layout_row_push(context, 0.22f);
     if (nk_button_label(context, wena_ui_control_text(WENA_UI_BOARD_MENU))) {
         action |= WENA_BOARD_HEADER_OPEN_MENU;

@@ -8,6 +8,7 @@ if [ "$#" -ne 1 ]; then
 fi
 command -v sdl2-config >/dev/null 2>&1 || { echo "SDL2 development files required" >&2; exit 1; }
 python3 "$root_dir/scripts/check_dependencies.py" > /dev/null
+python3 "$root_dir/scripts/compile_svg.py" --check
 python3 "$root_dir/scripts/verify_migrations.py"
 python3 "$root_dir/scripts/verify_i18n_catalog.py"
 python3 "$root_dir/scripts/generate_ui_i18n.py" --check
@@ -17,7 +18,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/imports/preferences/collapse.c" \
   "$root_dir/client/platform/font.c" \
-  "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
+  "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" \
   "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \

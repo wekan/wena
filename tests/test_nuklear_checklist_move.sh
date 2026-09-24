@@ -5,7 +5,7 @@ test_dir="${TMPDIR:-/tmp}/wena-nuklear-checklist-move-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
-  -I"$root_dir/third_party/nuklear" \
+  -isystem "$root_dir/third_party/nuklear" \
   "$root_dir/tests/nuklear_checklist_move_test.c" \
   "$root_dir/client/features/card_details.c" \
   "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklist_store.c" \

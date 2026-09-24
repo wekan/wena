@@ -26,21 +26,31 @@ capacity/position limits, stale/invalid scope, replay, late rollback and reopen
 have fast SQLite and real Nuklear/SQLite regression coverage. Individual item
 transfer, cross-board transfer and expanded minicard contents remain open.
 
-Validation: 19 related native suites passed; the new transfer suites and existing
-ordering suite also passed ASan/UBSan (leak detection disabled on macOS). Local
+Validation: 24 focused native suites passed in 5.50 seconds, with zero failures
+or skips; SVG, both new transfer suites and the existing ordering suite passed
+ASan/UBSan (leak detection disabled on macOS). Local
 Apple Clang validation uses a temporary compiler wrapper for Homebrew SQLite
 3.53.4 headers/libraries and the pinned Nuklear header's C23-offset diagnostic.
-The desktop builds with Homebrew include paths and Darwin feature declarations;
-its macOS headless startup test currently fails with “Unable to open the local
-Wena desktop”. This is not a claim of desktop SDL workflow validation on macOS.
+The desktop builds with Homebrew include paths and Darwin feature declarations.
+The macOS executable-path bug discovered by startup validation is fixed; startup,
+reopen, initialization, long paths and negative-input desktop checks pass. Linux
+LD_PRELOAD event injection is not applicable on macOS.
 
-Next: SVG is the authoritative format for UI artwork, theme assets and scaling.
+SVG is the authoritative format for UI artwork, theme assets and scaling.
 Generate required platform representations from compact vectors rather than
 embedding multiple raster sizes. Conversion/rendering code must be MIT or other
 copyfree-compatible licensed code; no GPL dependency. Keep editable live text,
 input behavior, layout and canonical theme colors, with HTML4 ASCII fallbacks.
+The first MIT SVG-to-C89 path is integrated: SVG native-light theme tokens and
+board artwork compile to compact vectors, without an XML parser or raster size
+variants in the executable. Real Nuklear tests cover scale/aspect/theme color and
+invalid-command rejection. Both first-party PNG documentation captures are now
+standalone SVG paths with exact RGBA-hash regression checks. Their larger vector
+files remain documentation only. The compiler deliberately supports only bounded
+rectangles/circles/lines; future complex artwork requires reviewed extensions.
+See `imports/ui/svg/README.md`. Full UI/theme/responsive parity remains open.
 
-## Paused checkpoint (resume here)
+## Earlier checkpoint (2026-09-19; historical)
 
 **Current continuation (2026-09-11).** Labels/card assignments, atomic checklist
 batch input, same-card checklist/item reordering, compact count presentation and
@@ -744,6 +754,13 @@ Architecture decisions for this cycle:
       physical column shape and zero header versions. Unknown/corrupt/missing layouts
       fail closed; all write, locking, codec, backup and migration work remains blocked.
 - [_] Using Nuklear GUI components, create same UI layout
+  - [x] Establish MIT-licensed SVG source artwork/theme tokens and conversion to
+    compact C89 native vector commands. Integrate a scale-aware board pictogram,
+    preserve live text/canonical colors, reject unsupported SVG, and test real
+    Nuklear 1x/2x/4x geometry plus exact documentation-image conversion.
+  - [_] Extend SVG primitive coverage as component artwork is ported; keep every
+    first-party asset vector-authored and generate platform representations without
+    embedding multiple raster sizes. No GPL SVG rendering dependency.
   - [_] Theme the Native Nuklear GUI and Legacy HTML4 from one semantic token catalog
     to match current Meteor 3 WeKan for identical data, route, viewport and state.
     Capture ground-truth screenshots for every current theme and meaningful responsive,

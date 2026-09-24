@@ -1,0 +1,14 @@
+{
+  "native-checklists-session-03.svg": {
+    "width": 1024,
+    "height": 720,
+    "png_sha256": "9575858753490e2c3229f5a4f24d985e1cdce56e7b1711c8f34ba6987179bf4a",
+    "rgba_sha256": "bd916b725d8bc38e4099440ea7493a8d43a876ea309f53aedb2d3e78abb545aa"
+  },
+  "native-desktop-session-02.svg": {
+    "width": 1024,
+    "height": 720,
+    "png_sha256": "20a731d4df874417da5438e77cf0a0f27b5b81fa3f270e8cd9055b7e3ca53118",
+    "rgba_sha256": "98a2a1e676b0bd9d3e4724d54b5d3856dbeb2b583fdc0e65f62d4e63f67dc32f"
+  }
+}

@@ -36,11 +36,22 @@ remote synchronization and GUI cross-platform packaging remain open. Direct
 Meteor/FerretDB format migration is not implemented. See
 [native desktop details](docs/native-desktop.md) for supported behavior and limits.
 
+## SVG artwork and themes
+
+UI artwork and native theme tokens use [MIT-licensed SVG sources](imports/ui/svg/README.md).
+The desktop converts these at build time to compact C89 geometry and draws them
+at the required scale through Nuklear. It does not bundle multiple raster sizes
+or an SVG/XML runtime library. The initial native theme and board pictogram use
+this path; complete theme/responsive parity remains in the roadmap.
+
 ## Tests and existing target builds
 
 ```sh
 ./build.sh tests all
 ./build.sh tests --list
+./build.sh tests svg
+./build.sh tests checklist-move
+./build.sh tests nuklear-checklist-move
 ./build.sh tests card-editor-sqlite
 ./build.sh tests nuklear-editor
 ./build.sh tests sanitizers

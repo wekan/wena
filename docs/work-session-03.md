@@ -155,7 +155,7 @@ item title and marked it complete. The resulting application capture confirms
 readable controls, the accented glyph and derived progress; it is not a mockup
 or evidence of full responsive/theme parity.
 
-![Integrated native checklist panel](images/native-checklists-session-03.png)
+![Integrated native checklist panel](images/native-checklists-session-03.svg)
 
 ## Remaining work
 
