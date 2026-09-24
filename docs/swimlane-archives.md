@@ -22,8 +22,24 @@ restrictions, downgrade rejection and reopening. Injected failures at each table
 each index, migration bookkeeping and commit leave no v13 objects and allow a
 retry. Registry and embedding checks pin the complete schema bundle.
 
-This step provides storage only. Individual card timestamp writes, guarded lane
-cascades, snapshot loading, destination checks, native cache publication and the
-shared menu/archive-browser integration remain open roadmap items. Cascade tests
-must distinguish pre-archived cards from cards archived by the lane operation,
-including timestamp ties, repeated archive/restore, rollback and WIP limits.
+Individual card archive/restore now uses a shared strict state reader/writer
+inside the existing actor/revision/request transaction. Archive stamps a positive
+time greater than the prior timestamp, including re-archive within one clock tick
+or when the stored time is ahead of the clock. Restore retains the timestamp;
+restoring a legacy card without metadata does not invent one. A timestamp floor
+allows a later lane cascade to stamp cards after its own archive time. Integer
+overflow fails without a write. Pre-v13 databases retain flag-only behavior;
+missing modern tables and replacement views fail closed.
+
+Post-write validation verifies card revision, archive flag and exact timestamp
+before commit. Failed reads preserve outputs, and native caches change only
+after commit. File-backed tests cover scope/type corruption, ignored/altered
+writes, identity rollback, repeated archive/restore, a future timestamp floor,
+overflow, unchanged failed cache state and reopening. Existing legacy card
+archive/restore suites continue to exercise their original v1 schema.
+
+Guarded lane cascades, snapshot loading, destination checks, native cascade
+publication and the shared menu/archive-browser integration remain open roadmap
+items. Cascade tests must distinguish pre-archived cards from cards archived by
+the lane operation, including timestamp ties, repeated archive/restore, rollback
+and WIP limits.

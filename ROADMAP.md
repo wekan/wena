@@ -827,8 +827,13 @@ Architecture decisions for this cycle:
             migration harness for every v1–v12 upgrade, preserved cards and
             settings, strict constraints, failed table/index/commit rollback,
             downgrade rejection and reopening.
-          - [_] Persist individual card archive timestamps and transactional
-            lane cascades, preserving cards archived before the lane operation.
+          - [x] Persist individual card archive timestamps through a shared
+            strict reader/writer inside the guarded transaction. Retain times
+            on restore, advance them on re-archive and support a cascade time
+            floor. Verify legacy behavior, overflow, corrupt scope/types,
+            ignored/altered writes, late rollback, native cache and reopening.
+          - [_] Implement transactional lane cascades, preserving cards archived
+            before the lane operation.
           - [_] Load archived lane state in atomic snapshots and guard native
             destinations; publish the cascade through the hierarchy adapter.
           - [_] Reuse the native menu and paginated archive browser for lanes,

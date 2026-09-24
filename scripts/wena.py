@@ -248,6 +248,7 @@ TEST_SUITES = (
     ('hierarchy-colors', 'test_hierarchy_colors.sh', 'Shared guarded list/swimlane colors, scope, versions, replay, corruption and rollback'),
     ('list-wip', 'test_list_wip.sh', 'Guarded list WIP settings, active counts, replay and rollback'),
     ('list-archive', 'test_list_archive.sh', 'Guarded list archive/restore and atomic archived-list board snapshots'),
+    ('card-archive-state', 'test_card_archive_state.sh', 'Guarded card archive timestamps, legacy restore, monotonicity and rollback'),
     ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
     ('sqlite-hardening', 'test_sqlite_hardening.sh', 'Defensive SQLite connection settings and untrusted schema refusal'),
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
