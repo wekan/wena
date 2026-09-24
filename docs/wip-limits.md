@@ -2,7 +2,7 @@
 
 `models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
 limits and future lane/group limits. It has no database or UI dependencies.
-Guarded setting writes are implemented. Snapshot loading, card mutation
+Guarded setting writes and snapshot loading are implemented. Card mutation
 enforcement and native UI integration remain open roadmap steps; stored limits
 do not yet restrict card actions in the application.
 
@@ -36,6 +36,15 @@ settings, changed counts and late identity failures roll back. File-backed
 tests also cover invalid/duplicate form fields, stale revisions, wrong scope,
 unknown actors, read-only storage, replay, corruption, automatic count
 adjustment above 99 and reopening.
+
+Each native list now carries its WIP settings, defaulting to value 1, disabled,
+hard. Snapshot loading shares the hierarchy metadata loader with list/swimlane
+colors: one query per metadata kind, bounded by the loaded parents, with common
+scope, duplicate, orphan and ID checks. Settings for archived lists are retained.
+Pre-v12 databases use defaults; modern missing tables or views fail closed.
+Invalid integer types/ranges and cross-board metadata leave the prior complete
+snapshot unchanged. A concurrent WAL writer changes board and WIP data between
+reader statements; tests verify each snapshot contains only one database state.
 
 The port follows the original WeKan source:
 

@@ -1,5 +1,6 @@
 #include "../server/mutations/list_wip.h"
 #include "../server/sqlite_persistence.h"
+#include "../server/sqlite_board.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
 #include <stdio.h>
@@ -17,7 +18,52 @@ static int change(WenaSqlitePersistence *store,const char *id,unsigned long vers
  c.form_body_length=strlen(c.form_body);return wena_sqlite_persistence_apply(store,&c,&r);
 }
 static void read_settings(sqlite3 *db,unsigned long version,size_t value,int enabled,int soft)
-{WenaWipLimit limit;assert(wena_sqlite_list_wip_read(db,"b","l",version,&limit));assert(limit.value==value&&limit.enabled==enabled&&limit.soft==soft);}
+{
+ WenaWipLimit limit;WenaSqliteBoardSnapshot *snapshot;size_t i;int found;
+ assert(wena_sqlite_list_wip_read(db,"b","l",version,&limit));assert(limit.value==value&&limit.enabled==enabled&&limit.soft==soft);
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));assert(snapshot&&wena_sqlite_board_load(db,"b",snapshot));found=0;
+ for(i=0;i<snapshot->list_count;++i){
+  limit=snapshot->lists[i].wip_limit;
+  if(!strcmp(snapshot->lists[i].id,"l")){assert(limit.value==value&&limit.enabled==enabled&&limit.soft==soft);found=1;}
+  else assert(limit.value==1&&!limit.enabled&&!limit.soft);
+ }
+ assert(found);free(snapshot);
+}
+static void bad_snapshot(sqlite3 *db,const char *query,const char *undo)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));assert(snapshot&&before);
+ assert(wena_sqlite_board_load(db,"b",snapshot));memcpy(before,snapshot,sizeof(*snapshot));
+ sql(db,"PRAGMA foreign_keys=OFF;PRAGMA ignore_check_constraints=ON");sql(db,query);
+ assert(!wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ sql(db,undo);sql(db,"PRAGMA foreign_keys=ON;PRAGMA ignore_check_constraints=OFF");
+ assert(wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));free(snapshot);free(before);
+}
+typedef struct ConcurrentWrite {sqlite3 *writer;int fired;} ConcurrentWrite;
+static int concurrent_write(unsigned int event,void *context,void *statement,void *text)
+{
+ ConcurrentWrite *write;const char *query;(void)text;
+ write=(ConcurrentWrite*)context;query=sqlite3_sql((sqlite3_stmt*)statement);
+ if(event==SQLITE_TRACE_STMT&&!write->fired&&query&&strstr(query,"FROM list_wip_limits c")){
+  write->fired=1;sql(write->writer,"BEGIN IMMEDIATE;UPDATE boards SET title='After' WHERE id='b';UPDATE list_wip_limits SET value=103;COMMIT");
+ }
+ return 0;
+}
+static void concurrent_snapshot(sqlite3 *db,const char *path)
+{
+ ConcurrentWrite write;WenaSqliteBoardSnapshot *snapshot;size_t i;
+ sql(db,"PRAGMA journal_mode=WAL");assert(sqlite3_open(path,&write.writer)==SQLITE_OK);write.fired=0;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));assert(snapshot);
+ assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,concurrent_write,&write)==SQLITE_OK);
+ assert(wena_sqlite_board_load(db,"b",snapshot)&&write.fired);
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ assert(!strcmp(snapshot->board.title,"Board"));
+ for(i=0;i<snapshot->list_count;++i)if(!strcmp(snapshot->lists[i].id,"l"))assert(snapshot->lists[i].wip_limit.value==102);
+ assert(wena_sqlite_board_load(db,"b",snapshot)&&!strcmp(snapshot->board.title,"After"));
+ for(i=0;i<snapshot->list_count;++i)if(!strcmp(snapshot->lists[i].id,"l"))assert(snapshot->lists[i].wip_limit.value==103);
+ sql(write.writer,"BEGIN IMMEDIATE;UPDATE boards SET title='Board' WHERE id='b';UPDATE list_wip_limits SET value=102;COMMIT");
+ assert(sqlite3_close(write.writer)==SQLITE_OK);free(snapshot);
+}
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024],q[512];
@@ -78,6 +124,20 @@ int main(int argc,char **argv)
  /* A full list may already contain more than the input control's maximum. */
  sql(db,"BEGIN");for(i=0;i<100;++i){sprintf(q,"INSERT INTO cards VALUES('extra%lu','b','s','l','Card',%lu,0,1)",(unsigned long)i,(unsigned long)i+2);sql(db,q);}sql(db,"COMMIT");
  assert(change(&store,"l",7,7,"action=enabled"));read_settings(db,8,102,1,0);
+ bad_snapshot(db,"UPDATE list_wip_limits SET value=0","UPDATE list_wip_limits SET value=102");
+ bad_snapshot(db,"UPDATE list_wip_limits SET value=2147483648","UPDATE list_wip_limits SET value=102");
+ bad_snapshot(db,"UPDATE list_wip_limits SET value=0.5","UPDATE list_wip_limits SET value=102");
+ bad_snapshot(db,"UPDATE list_wip_limits SET value=x'31'","UPDATE list_wip_limits SET value=102");
+ bad_snapshot(db,"UPDATE list_wip_limits SET enabled=4294967296","UPDATE list_wip_limits SET enabled=1");
+ bad_snapshot(db,"UPDATE list_wip_limits SET soft=-1","UPDATE list_wip_limits SET soft=0");
+ bad_snapshot(db,"UPDATE list_wip_limits SET board_id='other'","UPDATE list_wip_limits SET board_id='b'");
+ bad_snapshot(db,"UPDATE list_wip_limits SET board_id=x'62'","UPDATE list_wip_limits SET board_id='b'");
+ bad_snapshot(db,"INSERT INTO list_wip_limits VALUES('orphan','b',1,0,0)","DELETE FROM list_wip_limits WHERE list_id='orphan'");
+ bad_snapshot(db,"INSERT INTO list_wip_limits VALUES('foreign','b',1,0,0)","DELETE FROM list_wip_limits WHERE list_id='foreign'");
+ sql(db,"UPDATE list_archive_state SET archived=1");read_settings(db,8,102,1,0);sql(db,"UPDATE list_archive_state SET archived=0");
+ bad_snapshot(db,"ALTER TABLE list_wip_limits RENAME TO saved_wip","ALTER TABLE saved_wip RENAME TO list_wip_limits");
+ bad_snapshot(db,"ALTER TABLE list_wip_limits RENAME TO saved_wip;CREATE VIEW list_wip_limits AS SELECT * FROM saved_wip","DROP VIEW list_wip_limits;ALTER TABLE saved_wip RENAME TO list_wip_limits");
+ concurrent_snapshot(db,path);
  sql(db,"DROP TABLE list_wip_limits");assert(!change(&store,"l",8,8,"action=enabled"));
  sql(db,"CREATE VIEW list_wip_limits AS SELECT 'l' AS list_id,'b' AS board_id,1 AS value,0 AS enabled,0 AS soft");
  assert(!change(&store,"l",8,8,"action=enabled"));assert(!wena_sqlite_list_wip_read(db,"b","l",8,&limit));

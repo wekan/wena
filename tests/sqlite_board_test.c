@@ -88,6 +88,8 @@ int main(int argc, char **argv)
         "INSERT INTO cards VALUES('foreign-card','b2','foreign-lane','foreign-list','Other',0,0,1);");
     memset(out, 0xa5, sizeof(*out));
     assert(wena_sqlite_board_load(db, "b1", out));
+    for (i = 0; i < out->list_count; ++i)
+        assert(out->lists[i].wip_limit.value == 1 && !out->lists[i].wip_limit.enabled && !out->lists[i].wip_limit.soft);
     assert(!strcmp(out->board.id, "b1") && !strcmp(out->board.title, "Board"));
     assert(out->swimlane_count == 2 && out->list_count == 2 && out->card_count == 2);
     assert(!strcmp(out->swimlanes[0].id, "s1") && !strcmp(out->lists[0].id, "l1"));

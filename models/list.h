@@ -3,6 +3,7 @@
 
 #include "model.h"
 #include "color.h"
+#include "wip_limit.h"
 
 typedef struct WenaList {
     WenaId id;
@@ -15,6 +16,8 @@ typedef struct WenaList {
     int archived;
     /* Empty uses the theme default; otherwise canonical item color or #RRGGBB. */
     char color[WENA_COLOR_CAPACITY];
+    /* Defaults to value 1, disabled, hard. */
+    WenaWipLimit wip_limit;
 } WenaList;
 
 int wena_list_init(WenaList *list, const char *id, const char *board_id,

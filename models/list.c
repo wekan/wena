@@ -19,6 +19,7 @@ int wena_list_init(WenaList *list, const char *id, const char *board_id,
         memset(list, 0, sizeof(*list));
         return 0;
     }
+    list->wip_limit.value = 1;
     list->sort = sort;
     list->archived = archived != 0;
     return 1;
