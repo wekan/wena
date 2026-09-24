@@ -914,6 +914,17 @@ Architecture decisions for this cycle:
                 cover paging, failed capture, Enter without writes, cancellation,
                 mixed add/remove, stale revisions, late rollback/retry and cache
                 equality. Other bulk member/move actions remain open.
+              - [x] Add a shared pure-C89 block-insertion planner over complete
+                destination order snapshots. Preserve supplied selection order,
+                remove existing destination members before insertion and retain
+                untouched/archived siblings at original-boundary destinations.
+                Share position validation with single-card order capture; reject
+                duplicates, invalid positions, archived selected slots and excess
+                capacity atomically. Test every subset/boundary of a small column,
+                incoming cards, empty destinations, aliasing and full capacity;
+                focused movement suites and sanitizers pass.
+              - [_] Apply selection movement plans through guarded transactions,
+                native cache publication and the shared destination UI.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

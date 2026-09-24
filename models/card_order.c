@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int position_valid(double position)
+{
+    return position>=0&&position<(double)(LONG_MAX-2048)&&position<=9007199254740991.0&&
+        (double)(long)position==position;
+}
 static int same_column(const WenaCard *card,const char *board,const char *list,
     const char *lane)
 {
@@ -35,9 +40,7 @@ int wena_card_order_capture(const WenaCard *cards,size_t card_count,
     for (i=0;i<card_count;++i) {
         card=&cards[i];
         if (!same_column(card,board,list,lane)) continue;
-        if (!(card->sort>=0 && card->sort<(double)(LONG_MAX-2048) &&
-              card->sort<=9007199254740991.0) ||
-            (double)(long)card->sort!=card->sort ||
+        if (!position_valid(card->sort) ||
             (card->archived!=0 && card->archived!=1) ||
             !wena_model_identifier_valid(card->id)) goto bad;
         strcpy(candidate[count].id,card->id);
@@ -81,4 +84,35 @@ int wena_card_order_current(const WenaCardOrderSlot *slots,size_t slot_count,
         seen[low]=1;++count;
     }
     return count==slot_count;
+}
+
+int wena_card_order_insert_selection(const WenaCardOrderSlot *slots,size_t slot_count,
+    const WenaId *selected,size_t selected_count,size_t before,
+    WenaId **ordered,size_t *ordered_count)
+{
+    unsigned char moving[WENA_CARD_ORDER_CAPACITY];
+    WenaId *candidate;size_t i,j,count,out;
+    if(!ordered||!ordered_count||(!slots&&slot_count)||slot_count>WENA_CARD_ORDER_CAPACITY||
+        !selected||!selected_count||selected_count>WENA_CARD_ORDER_CAPACITY||before>slot_count)return 0;
+    for(i=0;i<selected_count;++i){
+        if(!wena_model_identifier_valid(selected[i]))return 0;
+        for(j=0;j<i;++j)if(!strcmp(selected[i],selected[j]))return 0;
+    }
+    memset(moving,0,sizeof(moving));count=selected_count;
+    for(i=0;i<slot_count;++i){
+        if(!wena_model_identifier_valid(slots[i].id)||!position_valid(slots[i].position)||
+            (slots[i].archived!=0&&slots[i].archived!=1)||
+            (i&&slots[i-1].position>=slots[i].position))return 0;
+        for(j=0;j<i;++j)if(!strcmp(slots[i].id,slots[j].id))return 0;
+        for(j=0;j<selected_count;++j)if(!strcmp(slots[i].id,selected[j])){moving[i]=1;break;}
+        if(moving[i]){if(slots[i].archived)return 0;}
+        else if(++count>WENA_CARD_ORDER_CAPACITY)return 0;
+    }
+    candidate=(WenaId*)calloc(count,sizeof(*candidate));if(!candidate)return 0;
+    out=0;
+    for(i=0;i<=slot_count;++i){
+        if(i==before)for(j=0;j<selected_count;++j)strcpy(candidate[out++],selected[j]);
+        if(i<slot_count&&!moving[i])strcpy(candidate[out++],slots[i].id);
+    }
+    free(*ordered);*ordered=candidate;*ordered_count=count;return 1;
 }
