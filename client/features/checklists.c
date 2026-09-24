@@ -78,11 +78,14 @@ static void begin_edit(WenaChecklistsState *state, WenaChecklistAction action, s
     state->checklist_version = 0;
     state->item_version = 0;
     state->is_finished = 0;
+    state->target_card_id[0] = 0;
+    state->target_card_version = 0;
     if (action != WENA_CHECKLIST_CREATE) {
         strcpy(state->checklist_id, state->snapshot->checklists[list_index].id);
         state->checklist_version = state->snapshot->checklist_versions[list_index];
     }
-    if (action == WENA_CHECKLIST_RENAME || action == WENA_CHECKLIST_REORDER) strcpy(state->input,
+    if (action == WENA_CHECKLIST_RENAME || action == WENA_CHECKLIST_REORDER ||
+        action == WENA_CHECKLIST_MOVE) strcpy(state->input,
         state->snapshot->checklists[list_index].title);
     if (action == WENA_CHECKLIST_RENAME_ITEM || action == WENA_CHECKLIST_SET_FINISHED ||
         action == WENA_CHECKLIST_REORDER_ITEM) {
@@ -182,6 +185,12 @@ static void submit_edit(WenaChecklistsState *state)
         state->error = 1;
         return;
     }
+    if (state->action == WENA_CHECKLIST_MOVE &&
+        (!wena_model_identifier_valid(state->target_card_id) ||
+         !state->target_card_version)) {
+        state->error = 1;
+        return;
+    }
     if (state->action == WENA_CHECKLIST_SET_FLAGS && ((state->hide_checked_items != 0 &&
         state->hide_checked_items != 1) || (state->hide_all_items != 0 && state->hide_all_items
         != 1))) {
@@ -198,6 +207,7 @@ static void submit_edit(WenaChecklistsState *state)
         }
     }
     else if (!is_deletion(state->action) && !is_ordering(state->action) &&
+        state->action != WENA_CHECKLIST_MOVE &&
         state->action != WENA_CHECKLIST_SET_FINISHED &&
         state->action != WENA_CHECKLIST_SET_FLAGS) {
         if (state->length < 0 || !wena_model_title_valid(state->input, (size_t) state->length,
@@ -225,12 +235,15 @@ static void submit_edit(WenaChecklistsState *state)
     /* The adapter consumes these borrowed pointers during this call only. */
     mutation.title = (state->action == WENA_CHECKLIST_SET_FINISHED || state->action ==
         WENA_CHECKLIST_SET_FLAGS || state->action == WENA_CHECKLIST_ADD_ITEMS ||
-        is_deletion(state->action) || is_ordering(state->action)) ? NULL : parsed[0];
+        is_deletion(state->action) || is_ordering(state->action) ||
+        state->action == WENA_CHECKLIST_MOVE) ? NULL : parsed[0];
     if (is_ordering(state->action)) mutation.target_position = (unsigned long)state->order_position;
     if (state->action == WENA_CHECKLIST_ADD_ITEMS) {
         mutation.batch_text = state->input;
         mutation.batch_length = (size_t)state->length;
     }
+    mutation.target_card_id = state->target_card_id;
+    mutation.expected_target_card_version = state->target_card_version;
     mutation.is_finished = state->is_finished;
     mutation.hide_checked_items = state->hide_checked_items;
     mutation.hide_all_items = state->hide_all_items;
@@ -266,6 +279,75 @@ static int progress_for(const WenaChecklistSnapshot *snapshot, size_t index,
     valid = wena_checklist_progress(&snapshot->checklists[index], items, count, progress);
     free(items);
     return valid;
+}
+
+/* Match the desktop's bounded card snapshot. Labels include stable IDs so two
+ * identically titled cards cannot cause an ambiguous destination choice. */
+#define MOVE_CARD_CAPACITY 2048u
+typedef struct ChecklistMoveChoices {
+    const WenaCard *cards[MOVE_CARD_CAPACITY];
+    char label[WENA_TITLE_CAPACITY + WENA_ID_CAPACITY + 4u];
+} ChecklistMoveChoices;
+
+static void move_card_label(void *context, int index, const char **label)
+{
+    ChecklistMoveChoices *choices;
+    choices = (ChecklistMoveChoices *)context;
+    if (!index) { *label = wena_ui_text(WENA_UI_TEXT_CARDS); return; }
+    sprintf(choices->label, "%s [%s]", choices->cards[index - 1]->title,
+        choices->cards[index - 1]->id);
+    *label = choices->label;
+}
+
+static void move_destination(struct nk_context *context, WenaChecklistsState *state,
+    const WenaCard *cards, size_t card_count)
+{
+    ChecklistMoveChoices choices;
+    WenaChecklistSnapshot *target;
+    size_t index, previous, count;
+    int selected, changed;
+    count = 0; selected = 0;
+    if (!cards || card_count > MOVE_CARD_CAPACITY) goto invalid;
+    for (index = 0; index < card_count; ++index) {
+        if (cards[index].archived || strcmp(cards[index].board_id, state->board_id) ||
+            !strcmp(cards[index].id, state->card_id)) continue;
+        if (!wena_model_identifier_valid(cards[index].id) ||
+            !wena_model_title_string_valid(cards[index].title, sizeof(cards[index].title)))
+            goto invalid;
+        for (previous = 0; previous < count; ++previous)
+            if (!strcmp(choices.cards[previous]->id, cards[index].id)) goto invalid;
+        choices.cards[count++] = &cards[index];
+        if (!strcmp(state->target_card_id, cards[index].id)) selected = (int)count;
+    }
+    if (!selected) {
+        state->target_card_id[0] = 0;
+        state->target_card_version = 0;
+    }
+    changed = nk_combo_callback(context, move_card_label, &choices, selected,
+        (int)count + 1, 24, nk_vec2(360, 220));
+    if (changed == selected) return;
+    state->target_card_id[0] = 0;
+    state->target_card_version = 0;
+    state->error = 0;
+    if (!changed) return;
+    if (changed < 1 || (size_t)changed > count) goto invalid;
+    target = (WenaChecklistSnapshot *)calloc(1, sizeof(*target));
+    if (!target) goto invalid;
+    /* Read only when the user chooses a destination, never in idle frames.
+     * Save must use this captured revision, not a silently refreshed one. */
+    if (state->load && state->load(state->context, state->board_id,
+        choices.cards[changed - 1]->id, target) &&
+        wena_checklist_snapshot_valid(target, state->board_id,
+            choices.cards[changed - 1]->id)) {
+        strcpy(state->target_card_id, target->card_id);
+        state->target_card_version = target->card_version;
+    } else state->error = 1;
+    free(target);
+    return;
+invalid:
+    state->target_card_id[0] = 0;
+    state->target_card_version = 0;
+    state->error = 1;
 }
 
 int wena_checklists_render(struct nk_context *context, WenaChecklistsState *state,
@@ -330,6 +412,11 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                             state->checklist_id) == 0)
                             nk_label_wrap(context, state->snapshot->items[item_index].title);
                 }
+            }
+            else if (state->action == WENA_CHECKLIST_MOVE) {
+                nk_label_wrap(context, state->input);
+                move_destination(context, state, cards, card_count);
+                /* A selector or Enter never confirms a transfer. */
             }
             else if (is_ordering(state->action)) {
                 nk_label_wrap(context, state->input);
@@ -405,6 +492,15 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                 }
                 if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_MOVE_SELECTION))) {
                     begin_order(state);
+                    submit = 0;
+                }
+                if (state->action == WENA_CHECKLIST_RENAME &&
+                    nk_button_label(context, wena_ui_text(WENA_UI_TEXT_MOVE_CHECKLIST))) {
+                    for (list_index = 0; list_index < state->snapshot->checklist_count; ++list_index)
+                        if (!strcmp(state->snapshot->checklists[list_index].id,
+                            state->checklist_id)) break;
+                    if (list_index < state->snapshot->checklist_count)
+                        begin_edit(state, WENA_CHECKLIST_MOVE, list_index, 0);
                     submit = 0;
                 }
             }

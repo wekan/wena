@@ -15,7 +15,8 @@ typedef enum WenaChecklistAction {
     WENA_CHECKLIST_DELETE_ITEM = 8,
     WENA_CHECKLIST_ADD_ITEMS = 9,
     WENA_CHECKLIST_REORDER = 10,
-    WENA_CHECKLIST_REORDER_ITEM = 11
+    WENA_CHECKLIST_REORDER_ITEM = 11,
+    WENA_CHECKLIST_MOVE = 12
 } WenaChecklistAction;
 typedef struct WenaChecklistEdit {
     WenaChecklistAction action;
@@ -34,6 +35,9 @@ typedef struct WenaChecklistEdit {
     size_t batch_length;
     /* Zero-based destination ordinal for same-card ordering only. */
     unsigned long target_position;
+    /* MOVE appends the whole checklist to a different active same-board card. */
+    const char *target_card_id;
+    unsigned long expected_target_card_version;
 } WenaChecklistEdit;
 typedef struct WenaChecklistSnapshot {
     WenaId board_id;

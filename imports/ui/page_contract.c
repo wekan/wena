@@ -60,7 +60,8 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_CARDS, "cards", "Cards"},
     {WENA_UI_TEXT_CHECKLIST_SPLIT_LINES, "newlineBecomesNewChecklistItem", "Each line of text becomes one of the checklist items"},
     {WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD, "checklist-count-on-minicard", "Checklist item count (0/0) on minicard"},
-    {WENA_UI_TEXT_MOVE_SELECTION, "move-selection", "Move selection"}
+    {WENA_UI_TEXT_MOVE_SELECTION, "move-selection", "Move selection"},
+    {WENA_UI_TEXT_MOVE_CHECKLIST, "moveChecklist", "Move Checklist"}
 };
 
 void wena_ui_set_translator(WenaUiTranslator translator, void *context)

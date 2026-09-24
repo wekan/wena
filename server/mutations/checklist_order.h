@@ -7,4 +7,8 @@
 int wena_sqlite_checklist_order(sqlite3 *database,
     const WenaDomainCommand *command, const char *board_id,
     unsigned long *result_version);
+/* Whole-checklist transfer, including every child, appends within the board. */
+int wena_sqlite_checklist_move(sqlite3 *database,
+    const WenaDomainCommand *command, const char *board_id,
+    unsigned long *result_version);
 #endif

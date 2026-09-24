@@ -59,6 +59,13 @@ in a private staged copy before restore interrupts the running database.
   A list/item Rename/Edit form also offers Delete, followed by a separate explicit
   confirmation. A whole-list confirmation includes its children. Deletion is
   permanent; Cancel/Escape cancel and Enter cannot confirm.
+- From checklist Rename, choose Move Checklist and an active destination card
+  on the same board. Titles include IDs to distinguish identically named cards.
+  Save appends the checklist with all children, including hidden/completed items.
+  Both cards' captured versions must still match; Cancel/Escape write nothing.
+  Destination selection loads once; idle drawing does not issue SQL. A destination
+  already at 64 checklists, above the combined 1024-item limit, or with its last
+  checklist at the maximum position is rejected without changes.
 - Select a language in the toolbar. Labels change immediately; the selection
   persists in `DATABASE_PATH.language`. `--language LOCALE` overrides a saved
   selection; otherwise the OS locale is used on first launch. The preference is
@@ -106,12 +113,13 @@ gates. Missing files, malformed records, unknown scope and invalid artifact
 payloads fail closed. Identifiers use bounded ASCII letters, digits, underscore
 and hyphen. Do not expose this command as a remote launch service.
 
-Activities, members and labels still have scaffold sidebar content. Comments,
+Activities and members still have scaffold sidebar content. Labels and card
+assignments have native editors and cached board badges. Comments,
 attachments, due dates, membership/authentication, native drag/drop, import/export
-and remote REST are unfinished. Checklist reordering, cross-card movement
-and atomic batch entry are also open. Minicard visibility overrides are preserved
-in storage, but their native board presentation and board default are not wired;
-the local settings panel offers only the working hide-checked/hide-all controls.
+and remote REST are unfinished. Checklist/item same-card reordering, atomic batch entry and whole-checklist
+same-board transfer are implemented. Cross-board checklist and cross-card item
+transfer remain open. Compact counts have a default-off board setting; expanded
+minicard contents are not yet rendered. Stored visibility overrides are preserved.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded
 Apache-2.0 Roboto asset covers selected Latin, Greek and Cyrillic glyphs. Full

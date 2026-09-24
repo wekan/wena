@@ -22,7 +22,8 @@ database, actor and board arguments.
 
 The desktop supports creating cards, lists and swimlanes; editing their titles;
 renaming the board; reordering lists and swimlanes; moving, archiving and restoring
-cards; editing card descriptions and checklists with confirmed deletion;
+cards; editing card descriptions and checklists with confirmed deletion and
+whole-checklist transfers between active cards on the same board;
 filtering card titles; and
 remembering collapsed lists and swimlanes per local actor and board. Changes use guarded SQLite transactions and survive reopening.
 The language selector changes canonical WeKan labels immediately and remembers

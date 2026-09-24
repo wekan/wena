@@ -15,6 +15,31 @@
 
 # Roadmap
 
+## Current continuation (2026-09-24)
+
+Whole-checklist transfer to another active card on the same board is implemented.
+The native Rename form offers Move Checklist, an exact-ID destination selector,
+and explicit Save/Cancel. One guarded transaction moves every child, including
+hidden/completed items, checks both card revisions, preserves content/flags/item
+positions, appends the checklist and advances changed revisions. Empty targets,
+capacity/position limits, stale/invalid scope, replay, late rollback and reopen
+have fast SQLite and real Nuklear/SQLite regression coverage. Individual item
+transfer, cross-board transfer and expanded minicard contents remain open.
+
+Validation: 19 related native suites passed; the new transfer suites and existing
+ordering suite also passed ASan/UBSan (leak detection disabled on macOS). Local
+Apple Clang validation uses a temporary compiler wrapper for Homebrew SQLite
+3.53.4 headers/libraries and the pinned Nuklear header's C23-offset diagnostic.
+The desktop builds with Homebrew include paths and Darwin feature declarations;
+its macOS headless startup test currently fails with “Unable to open the local
+Wena desktop”. This is not a claim of desktop SDL workflow validation on macOS.
+
+Next: SVG is the authoritative format for UI artwork, theme assets and scaling.
+Generate required platform representations from compact vectors rather than
+embedding multiple raster sizes. Conversion/rendering code must be MIT or other
+copyfree-compatible licensed code; no GPL dependency. Keep editable live text,
+input behavior, layout and canonical theme colors, with HTML4 ASCII fallbacks.
+
 ## Paused checkpoint (resume here)
 
 **Current continuation (2026-09-11).** Labels/card assignments, atomic checklist
@@ -676,8 +701,12 @@ Architecture decisions for this cycle:
         default-false extension row; a complete bounded summary is loaded only
         after writes or explicit refresh, never during drawing. Empty lists show
         0/0 and their badge opens the exact card checklist panel.
-      - [_] Finish expanded native minicard checklist presentation and cross-card
-        checklist/item movement. Stored inherit/false/true semantics and compact
+      - [x] Move whole checklists between active cards on the same board through
+        a native destination selector and guarded SQLite transaction. Preserve
+        children/flags/positions, check both card revisions, and cover cancel,
+        scope, capacity, stale/replay/rollback, failed-refresh recovery and reopen.
+      - [_] Finish expanded native minicard checklist presentation, cross-board
+        checklist movement and cross-card item movement. Stored inherit/false/true semantics and compact
         default-off counts are implemented; draggable/expanded contents are not.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical

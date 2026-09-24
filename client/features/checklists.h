@@ -24,6 +24,8 @@ typedef struct WenaChecklistsState {
     WenaId card_id;
     WenaId checklist_id;
     WenaId item_id;
+    WenaId target_card_id;
+    unsigned long target_card_version;
     WenaChecklistAction action;
     unsigned long card_version;
     unsigned long checklist_version;

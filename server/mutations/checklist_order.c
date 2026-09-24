@@ -93,7 +93,7 @@ static int prepare(sqlite3 *db, const char *query, const char *board,
 
 static int read_card_order(sqlite3 *db, const char *board, const char *card,
     const char *checklist, int items, ChecklistOrderRow *rows, size_t *count,
-    unsigned long *checklist_version)
+    unsigned long *checklist_version, size_t *item_total)
 {
     ChecklistOrderRow lists[WENA_CHECKLIST_MAX_PER_CARD];
     sqlite3_stmt *statement;
@@ -124,7 +124,7 @@ static int read_card_order(sqlite3 *db, const char *board, const char *card,
         ++list_count;
         if (!strcmp(id, checklist)) *checklist_version = version;
     }
-    if (step != SQLITE_DONE || !*checklist_version) goto done;
+    if (step != SQLITE_DONE || (*checklist && !*checklist_version)) goto done;
     if (sqlite3_finalize(statement) != SQLITE_OK) return 0;
     statement = NULL;
     /* Stream the complete card item collection, including scope-corrupt
@@ -132,7 +132,8 @@ static int read_card_order(sqlite3 *db, const char *board, const char *card,
      * checklist's rows need storage for item ordering. */
     if (!prepare(db, "SELECT id,board_id,card_id,checklist_id,position,version,title,"
         "is_finished,created_at,updated_at FROM "
-        "checklist_items WHERE card_id=?2 OR checklist_id=?3 ORDER BY "
+        "checklist_items WHERE card_id=?2 OR checklist_id=?3 OR checklist_id IN "
+        "(SELECT id FROM checklists WHERE card_id=?2) ORDER BY "
         "checklist_id,position,id", board, card, checklist, &statement)) return 0;
     total = 0; previous_parent[0] = 0; previous_position = 0;
     while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
@@ -160,6 +161,7 @@ static int read_card_order(sqlite3 *db, const char *board, const char *card,
     if (!items) {
         memcpy(rows, lists, list_count * sizeof(*rows)); *count = list_count;
     }
+    if (item_total) *item_total = total;
     valid = 1;
 done:
     if (statement && sqlite3_finalize(statement) != SQLITE_OK) valid = 0;
@@ -272,7 +274,7 @@ int wena_sqlite_checklist_order(sqlite3 *db, const WenaDomainCommand *command,
     if (!rows) return 0;
     result = 0;
     if (!read_card_order(db, board, card, checklist, items, rows, &count,
-        &stored_version) || stored_version != checklist_version || target >= count)
+        &stored_version, NULL) || stored_version != checklist_version || target >= count)
         goto done;
     for (selected = 0; selected < count; ++selected)
         if (!strcmp(rows[selected].id, items ? item : checklist)) break;
@@ -299,4 +301,116 @@ int wena_sqlite_checklist_order(sqlite3 *db, const WenaDomainCommand *command,
 done:
     free(rows);
     return result;
+}
+
+static int card_revision(sqlite3 *db, const char *board, const char *card,
+    unsigned long expected)
+{
+    sqlite3_stmt *statement;
+    unsigned long version;
+    int valid;
+    if (!prepare(db, "SELECT version FROM cards WHERE board_id=?1 AND id=?2 "
+        "AND archived=0 AND ?3=''", board, card, "", &statement)) return 0;
+    valid = sqlite3_step(statement) == SQLITE_ROW &&
+        integer(statement, 0, WENA_VERSION_READ_MAX, &version) && version == expected &&
+        sqlite3_step(statement) == SQLITE_DONE;
+    if (sqlite3_finalize(statement) != SQLITE_OK) valid = 0;
+    return valid;
+}
+
+static int move_row(sqlite3 *db, const char *query, const char *board,
+    const char *card, const char *checklist, const char *target, const char *id,
+    unsigned long version, unsigned long position)
+{
+    sqlite3_stmt *statement;
+    int valid;
+    if (!prepare(db, query, board, card, checklist, &statement)) return 0;
+    valid = sqlite3_bind_text(statement, 4, target, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(statement, 5, id, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 6, (sqlite3_int64)version) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 7, (sqlite3_int64)position) == SQLITE_OK &&
+        sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(db) == 1;
+    if (sqlite3_finalize(statement) != SQLITE_OK) valid = 0;
+    return valid;
+}
+
+int wena_sqlite_checklist_move(sqlite3 *db, const WenaDomainCommand *command,
+    const char *board, unsigned long *result_version)
+{
+    char card[65], target[65], checklist[65], number[32];
+    unsigned long card_version, target_version, checklist_version, stored, position;
+    ChecklistOrderRow *children, lists[WENA_CHECKLIST_MAX_PER_CARD];
+    size_t count, total, list_count, index, expected_total, expected_lists;
+    int valid;
+    sqlite3_stmt *statement;
+    if (!db || !command || !result_version || sqlite3_get_autocommit(db) ||
+        command->operation != WENA_DOMAIN_MOVE_CHECKLIST ||
+        !wena_model_identifier_valid(board) ||
+        !wena_mutation_text(command, "cardId", card, sizeof(card), 0) ||
+        !wena_model_identifier_valid(card) ||
+        !wena_mutation_text(command, "targetCardId", target, sizeof(target), 0) ||
+        !wena_model_identifier_valid(target) || !strcmp(card, target) ||
+        !wena_mutation_text(command, "checklistId", checklist, sizeof(checklist), 0) ||
+        !wena_model_identifier_valid(checklist) ||
+        !wena_mutation_text(command, "expectedVersion", number, sizeof(number), 0) ||
+        !wena_mutation_decimal(number, 0, WENA_VERSION_MUTATE_MAX, &card_version) ||
+        !wena_mutation_text(command, "expectedTargetVersion", number, sizeof(number), 0) ||
+        !wena_mutation_decimal(number, 0, WENA_VERSION_MUTATE_MAX, &target_version) ||
+        !wena_mutation_text(command, "expectedChecklistVersion", number, sizeof(number), 0) ||
+        !wena_mutation_decimal(number, 0, WENA_VERSION_MUTATE_MAX, &checklist_version) ||
+        !card_revision(db, board, card, card_version) ||
+        !card_revision(db, board, target, target_version)) return 0;
+    children = (ChecklistOrderRow *)calloc(WENA_CHECKLIST_MAX_ITEMS, sizeof(*children));
+    if (!children) return 0;
+    valid = 0;
+    /* Validate both complete collections before writes. Include children whose
+     * card_id was corrupted away from the selected checklist's source card. */
+    if (!read_card_order(db, board, card, checklist, 1, children, &count, &stored,
+            NULL) || stored != checklist_version ||
+        !read_card_order(db, board, target, "", 0, lists, &list_count, &stored, &total) ||
+        list_count >= WENA_CHECKLIST_MAX_PER_CARD ||
+        count > WENA_CHECKLIST_MAX_ITEMS - total) goto done;
+    expected_total = total + count;
+    expected_lists = list_count + 1u;
+    position = 0;
+    if (list_count) {
+        if (lists[list_count - 1].position == WENA_CHECKLIST_POSITION_MAX) goto done;
+        position = lists[list_count - 1].position + 1UL;
+    }
+    for (index = 0; index < count; ++index)
+        if (children[index].version > WENA_VERSION_MUTATE_MAX) goto done;
+    /* The immutable v3 composite FK includes card_id. Defer enforcement only
+     * within the caller-owned transaction, update parent and all children, then
+     * let COMMIT check it. COMMIT/ROLLBACK reset defer_foreign_keys automatically.
+     * No schema rewrite, delete/reinsert or disabled FK enforcement is needed. */
+    if (sqlite3_exec(db, "PRAGMA defer_foreign_keys=ON", NULL, NULL, NULL) != SQLITE_OK)
+        goto done;
+    if (!move_row(db, "UPDATE checklists SET card_id=?4,position=?7,version=version+1,"
+        "updated_at=max(updated_at,CAST(strftime('%s','now') AS INTEGER)*1000) "
+        "WHERE board_id=?1 AND card_id=?2 AND id=?3 AND id=?5 AND version=?6",
+        board, card, checklist, target, checklist, checklist_version, position)) goto done;
+    for (index = 0; index < count; ++index) {
+        if (!move_row(db, "UPDATE checklist_items SET card_id=?4,version=version+1,"
+            "updated_at=max(updated_at,CAST(strftime('%s','now') AS INTEGER)*1000) "
+            "WHERE board_id=?1 AND card_id=?2 AND checklist_id=?3 AND id=?5 "
+            "AND version=?6 AND position=?7", board, card, checklist, target,
+            children[index].id, children[index].version, children[index].position)) goto done;
+    }
+    /* Revalidate the changed collection even on a caller connection without FK
+     * enforcement. Exact row updates reject ignored children; this read also
+     * refuses a trigger leaving a child in the source or a malformed destination. */
+    if (!read_card_order(db, board, target, checklist, 0, lists, &list_count, &stored,
+        &total) || stored != checklist_version + 1UL ||
+        total != expected_total || list_count != expected_lists) goto done;
+    if (!prepare(db, "UPDATE cards SET version=version+1 WHERE board_id=?1 AND "
+        "((id=?2 AND version=?4) OR (id=?3 AND version=?5)) AND archived=0",
+        board, card, target, &statement)) goto done;
+    valid = sqlite3_bind_int64(statement, 4, (sqlite3_int64)card_version) == SQLITE_OK &&
+        sqlite3_bind_int64(statement, 5, (sqlite3_int64)target_version) == SQLITE_OK &&
+        sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(db) == 2;
+    if (sqlite3_finalize(statement) != SQLITE_OK) valid = 0;
+    if (valid) *result_version = card_version + 1UL;
+done:
+    free(children);
+    return valid;
 }
