@@ -50,4 +50,8 @@ int wena_board_presentation_settings_save_display(void *context,const char *boar
     unsigned long expected_board_version,int show_checklist_count,int show_checklists);
 int wena_board_presentation_settings_save_all(void *context,const char *board_id,
     unsigned long version,int count,int contents,int collapse);
+int wena_board_presentation_selected_labels_load(void *context,const char *board,
+    const WenaId *ids,size_t count,WenaLabelSelectionSnapshot **output);
+int wena_board_presentation_selected_labels_save(void *context,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign);
 #endif

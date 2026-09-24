@@ -1,5 +1,6 @@
 #include "../client/features/card_archives.h"
 #include "../client/features/card_selection_panel.h"
+#include "../client/features/labels/mutation.h"
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_IMPLEMENTATION
@@ -321,6 +322,54 @@ static void selection_click(struct nk_context *ctx,WenaCardSelectionPanel *panel
   if(panel->visible)assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
  }
 }
+typedef struct LabelUiAdapter {WenaLabelMutation mutation;WenaLabelBoardSnapshot *badges;} LabelUiAdapter;
+static int label_ui_load(void *data,const char *board,const WenaId *ids,size_t count,WenaLabelSelectionSnapshot **out)
+{LabelUiAdapter *adapter;adapter=(LabelUiAdapter*)data;return wena_label_mutation_selected_load(&adapter->mutation,board,ids,count,out);}
+static int label_ui_save(void *data,const char *board,const WenaLabelSelectionSnapshot *selection,const char *label,int assign)
+{LabelUiAdapter *adapter;adapter=(LabelUiAdapter*)data;return wena_label_mutation_selected_save(&adapter->mutation,board,selection,label,assign,adapter->badges);}
+static void selection_labels(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot,sqlite3 *db)
+{
+    LabelUiAdapter adapter;WenaLabelBoardSnapshot *before,*fresh;int i;char query[256];
+    assert(wena_label_mutation_init(&adapter.mutation,db,"actor","board"));
+    adapter.badges=wena_label_board_snapshot_create();before=wena_label_board_snapshot_create();fresh=wena_label_board_snapshot_create();assert(adapter.badges&&before&&fresh);
+    for(i=0;i<6;++i){sprintf(query,"INSERT INTO labels VALUES('board','label%d','Label %d','blue',%d,1,0,0)",i,i,i);execute(db,query);}
+    execute(db,"INSERT INTO card_labels VALUES('board','outside','label5')");
+    assert(wena_label_mutation_load_board(&adapter.mutation,"board",adapter.badges));*before=*adapter.badges;
+    wena_card_selection_panel_set_labels(panel,label_ui_load,label_ui_save,&adapter);
+    assert(wena_card_selection_panel_open(panel,snapshot->cards,snapshot->card_count,"board","list",NULL));
+    selection_frame(ctx,panel,snapshot);
+    strcpy(adapter.mutation.actor_id,"missing");selection_click(ctx,panel,snapshot,"Labels");
+    assert(panel->archive_error&&!panel->labels&&panel->selection->count==4);strcpy(adapter.mutation.actor_id,"actor");
+    selection_click(ctx,panel,snapshot,"Labels");assert(panel->labels&&panel->labels->assigned_counts[5]==1);
+    selection_click(ctx,panel,snapshot,"Next Page");assert(panel->table.page==1);
+    selection_click(ctx,panel,snapshot,"Label 5 [label5]");assert(panel->selected_label==6);
+    nk_clear(ctx);nk_input_begin(ctx);nk_input_key(ctx,NK_KEY_ENTER,1);nk_input_end(ctx);
+    assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
+    assert(!memcmp(adapter.badges,before,sizeof(*before))&&panel->labels);
+    nk_clear(ctx);nk_input_begin(ctx);nk_input_key(ctx,NK_KEY_ENTER,0);nk_input_end(ctx);
+    assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
+    selection_click(ctx,panel,snapshot,"Cancel");assert(!panel->labels&&panel->selection->count==4);
+    selection_click(ctx,panel,snapshot,"Labels");selection_click(ctx,panel,snapshot,"Next Page");selection_click(ctx,panel,snapshot,"Label 5 [label5]");
+    execute(db,"CREATE TRIGGER fail_label_selection BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+    selection_click(ctx,panel,snapshot,"Add label");assert(panel->archive_error&&panel->labels&&!memcmp(adapter.badges,before,sizeof(*before)));
+    execute(db,"DROP TRIGGER fail_label_selection");
+    selection_click(ctx,panel,snapshot,"Add label");assert(!panel->labels&&!panel->archive_error&&panel->visible&&panel->selection->count==4);
+    assert(adapter.badges->catalogue.assigned_card_counts[5]==4);
+    assert(wena_label_mutation_load_board(&adapter.mutation,"board",fresh)&&!memcmp(fresh,adapter.badges,sizeof(*fresh)));
+    selection_click(ctx,panel,snapshot,"Labels");selection_click(ctx,panel,snapshot,"Next Page");selection_click(ctx,panel,snapshot,"Label 5 [label5]");
+    execute(db,"UPDATE cards SET version=version+1 WHERE id='outside'");
+    selection_click(ctx,panel,snapshot,"Remove Label");assert(panel->archive_error&&panel->labels&&adapter.badges->catalogue.assigned_card_counts[5]==4);
+    selection_click(ctx,panel,snapshot,"Cancel");selection_click(ctx,panel,snapshot,"Labels");selection_click(ctx,panel,snapshot,"Next Page");selection_click(ctx,panel,snapshot,"Label 5 [label5]");
+    selection_click(ctx,panel,snapshot,"Remove Label");assert(!panel->labels&&panel->selection->count==4&&adapter.badges->catalogue.assigned_card_counts[5]==0);
+    selection_click(ctx,panel,snapshot,"Labels");
+    nk_clear(ctx);nk_input_begin(ctx);nk_input_key(ctx,NK_KEY_TEXT_RESET_MODE,1);nk_input_end(ctx);
+    assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
+    assert(!panel->labels&&panel->visible&&panel->selection->count==4);
+    nk_clear(ctx);nk_input_begin(ctx);nk_input_key(ctx,NK_KEY_TEXT_RESET_MODE,0);nk_input_end(ctx);
+    wena_card_selection_panel_set_labels(panel,NULL,NULL,NULL);
+    free(adapter.badges);free(before);free(fresh);
+}
+
 int main(int argc, char **argv)
 {
     unsigned char migration[65536];
@@ -611,6 +660,7 @@ int main(int argc, char **argv)
         assert(selection->count==4&&wena_card_selection_contains(selection,"outside"));
         frame(&context,&state,&layout);assert(!state.requested_action);
         wena_hierarchy_title_close(&state);
+        selection_labels(&context,&panel,snapshot,database);
         wena_card_selection_panel_set_archive(&panel,wena_hierarchy_mutation_selected_cards_load,
             wena_hierarchy_mutation_selected_cards_archive,&adapter);
         assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"board","list",NULL));

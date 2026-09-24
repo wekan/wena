@@ -2,9 +2,12 @@
 #define WENA_CARD_SELECTION_PANEL_H
 #include "../../models/card_selection.h"
 #include "../../models/card_revision.h"
+#include "labels/store.h"
 #include "../components/common/paginated_table.h"
 typedef int (*WenaSelectionCapture)(void *,const char *,const WenaId *,size_t,WenaCardRevision **);
 typedef int (*WenaSelectionArchive)(void *,const char *,const WenaCardRevision *,size_t);
+typedef int (*WenaSelectionLabelsLoad)(void *,const char *,const WenaId *,size_t,WenaLabelSelectionSnapshot **);
+typedef int (*WenaSelectionLabelsSave)(void *,const char *,const WenaLabelSelectionSnapshot *,const char *,int);
 typedef struct WenaCardSelectionPanel {
     WenaCardSelection *selection;
     WenaTableState table;
@@ -15,6 +18,11 @@ typedef struct WenaCardSelectionPanel {
     WenaSelectionCapture capture;
     WenaSelectionArchive archive;
     void *archive_context;
+    WenaLabelSelectionSnapshot *labels;
+    size_t selected_label;
+    WenaSelectionLabelsLoad labels_load;
+    WenaSelectionLabelsSave labels_save;
+    void *labels_context;
 } WenaCardSelectionPanel;
 /* Non-owning selection storage must outlive the panel. Opening unions the
  * scoped active cards into selection; failed opens preserve both objects. */
@@ -25,6 +33,8 @@ int wena_card_selection_panel_open(WenaCardSelectionPanel *panel,const WenaCard 
 void wena_card_selection_panel_hide(WenaCardSelectionPanel *panel);
 void wena_card_selection_panel_set_archive(WenaCardSelectionPanel *panel,
     WenaSelectionCapture capture,WenaSelectionArchive archive,void *context);
+void wena_card_selection_panel_set_labels(WenaCardSelectionPanel *panel,
+    WenaSelectionLabelsLoad load,WenaSelectionLabelsSave save,void *context);
 /* Closing/disabling selection clears its IDs. */
 void wena_card_selection_panel_close(WenaCardSelectionPanel *panel);
 int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectionPanel *panel,

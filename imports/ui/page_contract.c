@@ -31,6 +31,7 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_REFRESH, "refresh", "Refresh"},
     {WENA_UI_TEXT_ADD_MEMBER, "add-members", "Add member"},
     {WENA_UI_TEXT_ADD_LABEL, "add-label", "Add label"},
+    {WENA_UI_TEXT_REMOVE_LABEL, "remove-label", "Remove Label"},
     {WENA_UI_TEXT_RESTORE, "restore", "Restore selected"},
     {WENA_UI_TEXT_LANGUAGE, "language", "Language"},
     {WENA_UI_TEXT_SWIMLANE, "swimlane", "Swimlane"},

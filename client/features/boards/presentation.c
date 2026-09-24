@@ -163,3 +163,20 @@ int wena_board_presentation_settings_save_all(void *context,const char *board_id
         &view->settings_mutation,board_id,version,count,contents,collapse)) return 0;
     view->summary_valid=0;view->summary_pending=1;return 1;
 }
+
+int wena_board_presentation_selected_labels_load(void *context,const char *board,
+    const WenaId *ids,size_t count,WenaLabelSelectionSnapshot **output)
+{
+    WenaBoardPresentation *view;view=(WenaBoardPresentation*)context;
+    return initialized(view)&&wena_label_mutation_selected_load(&view->mutation,board,ids,count,output);
+}
+int wena_board_presentation_selected_labels_save(void *context,const char *board,
+    const WenaLabelSelectionSnapshot *selection,const char *label,int assign)
+{
+    WenaBoardPresentation *view;view=(WenaBoardPresentation*)context;
+    if(!initialized(view)||!wena_label_mutation_selected_save(&view->mutation,board,selection,label,assign,view->badges))return 0;
+    view->valid=1;view->error=0;view->refresh_pending=0;
+    view->observed_changes=sqlite3_total_changes64(view->mutation.persistence.database);
+    view->summary_valid=0;view->summary_pending=1;view->sections_valid=0;view->sections_pending=1;
+    return 1;
+}

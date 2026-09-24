@@ -904,7 +904,16 @@ Architecture decisions for this cycle:
                 numbering with existing label adapters. Verify mixed membership,
                 stale/replayed commands, late/commit/staging rollback, no-op
                 publication, concurrent WAL snapshots and reopening.
-              - [_] Connect native label batches to the shared selection panel.
+              - [x] Connect native label batches to the shared selection panel.
+                Reuse paginated rows and colored label badges with exact IDs and
+                assignment counts. Explicit translated Add/Remove actions handle
+                mixed membership; capture once, preserve failures for retry and
+                keep selected cards after successful edits or Cancel/Escape.
+                Publish committed badges through the presentation adapter and
+                refresh dependent revision caches. Real Nuklear/SQLite tests
+                cover paging, failed capture, Enter without writes, cancellation,
+                mixed add/remove, stale revisions, late rollback/retry and cache
+                equality. Other bulk member/move actions remain open.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

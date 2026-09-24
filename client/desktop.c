@@ -581,6 +581,8 @@ int main(int argc, char **argv)
         wena_hierarchy_title_set_color_adapters(&editors.hierarchy,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
         wena_card_selection_panel_set_archive(&editors.selection,
             wena_hierarchy_mutation_selected_cards_load,wena_hierarchy_mutation_selected_cards_archive,&hierarchy_mutation);
+        wena_card_selection_panel_set_labels(&editors.selection,wena_board_presentation_selected_labels_load,
+            wena_board_presentation_selected_labels_save,&label_view);
         editors.hierarchy.selection_enabled=1;
         layout.card_selected=wena_card_selection_selected;layout.card_selected_context=selection;
         layout.card_selection=wena_card_selection_traversal_control;layout.card_selection_context=selection_traversal;

@@ -1,4 +1,5 @@
 #include "card_selection_panel.h"
+#include "labels/component.h"
 #include "../components/cards/card_body.h"
 #include "../components/forms/text_form.h"
 #include "../../imports/ui/page_contract.h"
@@ -53,7 +54,7 @@ void wena_card_selection_panel_init(WenaCardSelectionPanel *panel,WenaCardSelect
     memset(panel,0,sizeof(*panel));panel->selection=selection;(void)wena_table_init(&panel->table,4);
 }
 static void cancel_capture(WenaCardSelectionPanel *panel)
-{free(panel->captured);panel->captured=NULL;panel->captured_count=0;panel->archive_error=0;panel->table.page=0;}
+{free(panel->labels);panel->labels=NULL;panel->selected_label=0;free(panel->captured);panel->captured=NULL;panel->captured_count=0;panel->archive_error=0;panel->table.page=0;}
 void wena_card_selection_panel_hide(WenaCardSelectionPanel *panel)
 {if(panel){cancel_capture(panel);panel->visible=0;}}
 void wena_card_selection_panel_set_archive(WenaCardSelectionPanel *panel,
@@ -61,6 +62,30 @@ void wena_card_selection_panel_set_archive(WenaCardSelectionPanel *panel,
 {
     if(!panel)return;
     wena_card_selection_panel_hide(panel);panel->capture=capture;panel->archive=archive;panel->archive_context=context;
+}
+void wena_card_selection_panel_set_labels(WenaCardSelectionPanel *panel,
+    WenaSelectionLabelsLoad load,WenaSelectionLabelsSave save,void *context)
+{
+    if(!panel)return;
+    wena_card_selection_panel_hide(panel);panel->labels_load=load;panel->labels_save=save;panel->labels_context=context;
+}
+static int labels_match(const WenaCardSelectionPanel *panel)
+{
+    size_t i;
+    if(!wena_label_selection_snapshot_valid(panel->labels,panel->selection->board_id)||
+        panel->labels->card_count!=panel->selection->count)return 0;
+    for(i=0;i<panel->selection->count;++i)
+        if(strcmp(panel->labels->cards[i].id,panel->selection->ids[i]))return 0;
+    return 1;
+}
+static unsigned int render_label_row(struct nk_context *context,void *data,size_t row)
+{
+    WenaCardSelectionPanel *panel;const WenaLabel *label;char text[WENA_LABEL_NAME_CAPACITY+WENA_ID_CAPACITY+8];
+    char count[48];int clicked;panel=(WenaCardSelectionPanel*)data;
+    label=&panel->labels->catalogue.labels[row];sprintf(text,"%s [%s]",label->name,label->id);
+    clicked=wena_label_badge_render(context,text,label->color);
+    sprintf(count,"%lu / %lu",(unsigned long)panel->labels->assigned_counts[row],(unsigned long)panel->labels->card_count);
+    nk_label(context,count,NK_TEXT_LEFT);return clicked?1u:0u;
 }
 static int capture_matches(const WenaCardSelectionPanel *panel)
 {
@@ -94,20 +119,20 @@ int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectio
     const WenaCard *cards,size_t count,const char *board,float width,float height)
 {
     SelectionRows rows;WenaTableView view;WenaTableResult result;size_t i,total;
-    const WenaCard *card;char selected[32];int clear,all,close,archive,confirm,cancel;
+    const WenaCard *card;char selected[32],chosen[WENA_LABEL_NAME_CAPACITY+WENA_ID_CAPACITY+8];int clear,all,close,archive,confirm,cancel,labels,assign,remove;
     if(!panel||!panel->visible||!panel->selection)return 0;
     if(!wena_model_identifier_valid(board)||strcmp(panel->selection->board_id,board)){
         wena_card_selection_panel_close(panel);return 0;
     }
     if(!context||width<=0||height<=0)return 0;
-    panel->error=!titles_valid(cards,count)||(panel->captured?!capture_matches(panel):!wena_card_selection_sync(panel->selection,cards,count));
-    rows.panel=panel;rows.cards=cards;rows.count=count;clear=all=close=archive=confirm=cancel=0;total=0;
+    panel->error=!titles_valid(cards,count)||(panel->labels?!labels_match(panel):panel->captured?!capture_matches(panel):!wena_card_selection_sync(panel->selection,cards,count));
+    rows.panel=panel;rows.cards=cards;rows.count=count;clear=all=close=archive=confirm=cancel=labels=assign=remove=0;total=0;
     if(panel->captured)total=panel->captured_count;
     else if(!panel->error)for(i=0;i<count;++i)if(in_scope(&rows,i))++total;
     if(nk_begin_titled(context,"Card selection",wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION),
         nk_rect(width*0.2f,0,width*0.8f,height),NK_WINDOW_BORDER)){
         if(wena_text_form_keys(context,0u)&WENA_TEXT_FORM_CANCEL){
-            nk_end(context);if(panel->captured)cancel_capture(panel);else wena_card_selection_panel_close(panel);return 1;
+            nk_end(context);if(panel->captured||panel->labels)cancel_capture(panel);else wena_card_selection_panel_close(panel);return 1;
         }
         nk_layout_row_dynamic(context,28,2);
         nk_label(context,wena_ui_text(WENA_UI_TEXT_CARDS),NK_TEXT_LEFT);
@@ -116,23 +141,43 @@ int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectio
         memset(&view,0,sizeof(view));view.row_count=total;view.column_count=1;view.row_height=28;
         view.empty_text=wena_ui_text(WENA_UI_TEXT_NO_ITEMS);
         view.error_text=panel->error?wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED):NULL;
-        view.render_row=render_row;view.context=&rows;result=wena_table_render(context,&panel->table,&view);
+        view.render_row=render_row;view.context=&rows;
+        if(panel->labels){view.row_count=panel->labels->catalogue.label_count;view.column_count=2;view.render_row=render_label_row;view.context=panel;}
+        result=wena_table_render(context,&panel->table,&view);
         if(result.action&&!panel->error){
-            card=row_card(&rows,result.row);
-            if(!card||!wena_card_selection_toggle(panel->selection,cards,count,card->id))panel->error=1;
+            if(panel->labels)panel->selected_label=result.row+1;
+            else{card=row_card(&rows,result.row);
+                if(!card||!wena_card_selection_toggle(panel->selection,cards,count,card->id))panel->error=1;}
         }
-        if(!panel->error&&!panel->captured){
+        if(!panel->error&&!panel->captured&&!panel->labels){
             nk_layout_row_dynamic(context,28,2);
             all=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_SELECT_ALL));
             clear=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_SELECT_NONE));
         }
-        if(panel->captured){
+        if(panel->labels){
+            if(!panel->error&&panel->selected_label&&panel->selected_label<=panel->labels->catalogue.label_count){
+                i=panel->selected_label-1;
+                nk_layout_row_dynamic(context,28,1);
+                sprintf(chosen,"%s [%s]",panel->labels->catalogue.labels[i].name,panel->labels->catalogue.labels[i].id);
+                (void)wena_label_badge_render(context,chosen,panel->labels->catalogue.labels[i].color);
+                nk_layout_row_dynamic(context,28,2);
+                if(panel->labels->assigned_counts[i]<panel->labels->card_count)
+                    assign=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_ADD_LABEL));
+                else nk_label(context,wena_ui_text(WENA_UI_TEXT_ADD_LABEL),NK_TEXT_LEFT);
+                if(panel->labels->assigned_counts[i])remove=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_REMOVE_LABEL));
+                else nk_label(context,wena_ui_text(WENA_UI_TEXT_REMOVE_LABEL),NK_TEXT_LEFT);
+            }
+            nk_layout_row_dynamic(context,28,1);cancel=nk_button_label(context,wena_ui_control_text(WENA_UI_CANCEL));
+        }else if(panel->captured){
             nk_layout_row_dynamic(context,28,2);
             if(!panel->error)confirm=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_MOVE_TO_ARCHIVE));
             else nk_label(context,wena_ui_text(WENA_UI_TEXT_MOVE_TO_ARCHIVE),NK_TEXT_LEFT);
             cancel=nk_button_label(context,wena_ui_control_text(WENA_UI_CANCEL));
         }else if(!panel->error&&panel->selection->count&&panel->capture&&panel->archive){
             nk_layout_row_dynamic(context,28,1);archive=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_ARCHIVE_SELECTION));
+        }
+        if(!panel->error&&!panel->captured&&!panel->labels&&panel->selection->count&&panel->labels_load&&panel->labels_save){
+            nk_layout_row_dynamic(context,28,1);labels=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_LABELS));
         }
         if(panel->archive_error){nk_layout_row_dynamic(context,48,1);nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));}
         nk_layout_row_dynamic(context,28,1);
@@ -141,7 +186,17 @@ int wena_card_selection_panel_render(struct nk_context *context,WenaCardSelectio
     nk_end(context);
     if(close)wena_card_selection_panel_close(panel);
     else if(cancel)cancel_capture(panel);
-    else if(confirm){
+    else if(labels){
+        if(panel->labels_load(panel->labels_context,board,(const WenaId*)panel->selection->ids,panel->selection->count,&panel->labels)){
+            panel->table.page=0;panel->selected_label=0;panel->archive_error=0;
+            if(!labels_match(panel)){cancel_capture(panel);panel->archive_error=1;}
+        }else panel->archive_error=1;
+    }else if(assign||remove){
+        if(panel->labels_save&&labels_match(panel)&&panel->selected_label&&panel->selected_label<=panel->labels->catalogue.label_count&&
+            panel->labels_save(panel->labels_context,board,panel->labels,
+                panel->labels->catalogue.labels[panel->selected_label-1].id,assign))cancel_capture(panel);
+        else panel->archive_error=1;
+    }else if(confirm){
         if(capture_matches(panel)&&panel->archive&&panel->archive(panel->archive_context,board,panel->captured,panel->captured_count))
             wena_card_selection_panel_close(panel);
         else panel->archive_error=1;

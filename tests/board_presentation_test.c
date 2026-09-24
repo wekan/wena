@@ -146,6 +146,21 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_labels_save(&view,"b","c",&label_edit));assert(wena_board_presentation_poll(&view));
     bits=wena_label_board_assignments(view.badges,"b","c");assert(bits && (bits[0]&1));
     quiet(database,&view,&work,1);
+    {
+        WenaLabelSelectionSnapshot *capture;WenaId ids[1];WenaLabelBoardSnapshot *prior;
+        capture=NULL;strcpy(ids[0],"c");prior=wena_label_board_snapshot_create();assert(prior);*prior=*view.badges;
+        assert(wena_board_presentation_selected_labels_load(&view,"b",(const WenaId*)ids,1,&capture));
+        sql(database,"CREATE TRIGGER fail_selection_labels BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+        assert(!wena_board_presentation_selected_labels_save(&view,"b",capture,capture->catalogue.labels[0].id,0));
+        assert(!memcmp(view.badges,prior,sizeof(*prior)));sql(database,"DROP TRIGGER fail_selection_labels");
+        assert(wena_board_presentation_selected_labels_save(&view,"b",capture,capture->catalogue.labels[0].id,0));
+        assert(view.valid&&!view.refresh_pending&&view.summary_pending&&view.sections_pending);
+        assert(!view.badges->catalogue.assigned_card_counts[0]);assert(wena_board_presentation_poll(&view));
+        assert(wena_board_presentation_selected_labels_load(&view,"b",(const WenaId*)ids,1,&capture));
+        assert(wena_board_presentation_selected_labels_save(&view,"b",capture,capture->catalogue.labels[0].id,1));
+        assert(view.badges->catalogue.assigned_card_counts[0]==1&&wena_board_presentation_poll(&view));
+        free(capture);free(prior);quiet(database,&view,&work,1);
+    }
     /* Enabling loads counts; subsequent checklist writes are detected cheaply. */
     assert(wena_board_presentation_settings_load(&view,"b",&settings));
     assert(wena_board_presentation_settings_save(&view,"b",settings.board_version,1));

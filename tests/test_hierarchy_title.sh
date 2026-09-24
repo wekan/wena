@@ -7,7 +7,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
   "$root_dir/tests/hierarchy_title_test.c" \
-  "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/card_archives.c" "$root_dir/client/features/card_selection_panel.c" "$root_dir/models/card_selection.c" "$root_dir/client/components/common/paginated_table.c" \
+  "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/card_archives.c" "$root_dir/client/features/card_selection_panel.c" "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" "$root_dir/models/card_selection.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/features/hierarchy_mutation.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
