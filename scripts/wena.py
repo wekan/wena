@@ -178,6 +178,7 @@ TEST_SUITES = (
     ('checklist-badges', 'test_checklist_badges.sh', 'Pure opt-in checklist count badges with empty progress, scope and click routing'),
     ('nuklear-checklist-order', 'test_nuklear_checklist_order.sh', 'Real Nuklear checklist and item ordering forms, bounds and cancellation'),
     ('checklist-order', 'test_checklist_order.sh', 'Guarded checklist and child ordering with atomic compaction and stale sibling refusal'),
+    ('nuklear-reorder-drag', 'test_nuklear_reorder_drag.sh', 'Shared exact-ID drag reorder control'),
     ('nuklear-paginated-table', 'test_nuklear_paginated_table.sh', 'Reusable paginated table navigation, row intents and bounds'),
     ('nuklear-checklist-contents', 'test_nuklear_checklist_contents.sh', 'Expanded checklist preview visibility and SQL-free rendering'),
     ('checklist-summary', 'test_checklist_summary.sh', 'Bounded board checklist summary projection with exact visibility and terminal revision guards'),
@@ -318,7 +319,7 @@ def test_prerequisite(name):
         return "requires readelf (binutils) for actual ELF runtime requirements"
     if name in {"nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
-    if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+    if name in {"nuklear-reorder-drag", "nuklear-checklist-contents", "nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
         source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))

@@ -34,4 +34,6 @@ int wena_checklist_mutation_complete(WenaChecklistMutation *adapter,
 struct WenaChecklistInlineEdit;
 int wena_checklist_mutation_inline(WenaChecklistMutation *adapter,
     struct WenaChecklistInlineEdit *state);
+struct WenaChecklistDrag;
+int wena_checklist_mutation_drag(WenaChecklistMutation *adapter,struct WenaChecklistDrag *state);
 #endif

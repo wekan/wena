@@ -122,7 +122,13 @@ minicards, built on the general single/multiline text form. The canonical newlin
 toggle preserves incompatible drafts; Enter inserts a line in batch mode and
 only Save submits. Shared parsing enforces eight items, canonical trimming,
 insertion order and atomic failure. Twenty-one focused suites and both entry
-sanitizer suites pass. Drag/drop remains open.
+sanitizer suites pass. A reusable same-collection drag handle now reorders
+minicard checklists and checklist items through their existing guarded mutation.
+It captures a seven-pixel gesture, exact IDs, scope and revision, then consumes
+the intent after drawing. Escape, hidden sources, stale collections, outside drops
+and read-only controls cancel. Hidden siblings retain their true ordinals.
+Twenty-three focused suites, both drag/preview sanitizer suites and desktop checks
+pass. Cross-collection drops and full drag/drop parity remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -815,7 +821,10 @@ Architecture decisions for this cycle:
         single-item creation, with guarded one-shot writes and retained errors.
       - [x] Reuse single/batch checklist entry across opened cards and minicards,
         preserving drafts, canonical parsing and atomic guarded saves.
-      - [_] Finish drag/drop and cross-board checklist/item movement.
+      - [x] Reuse a bounded drag-to-reorder control for minicard checklist titles
+        and items within their sibling collection. Capture exact IDs/revisions;
+        validate hidden sibling ordinals, rollback and consumed intents.
+      - [_] Finish cross-collection drag/drop and cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

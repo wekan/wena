@@ -64,6 +64,7 @@ typedef struct WenaDesktopChecklistPreview {
     WenaChecklistCompletionIntent intent;
     WenaCardSectionControl sections;
     WenaChecklistInlineEdit inline_edit;
+    WenaChecklistDrag drag;
     int readonly;
     int error;
 } WenaDesktopChecklistPreview;
@@ -76,7 +77,7 @@ static unsigned int desktop_card_contents(struct nk_context *context,
     return preview->view->summary_valid ? wena_checklist_contents_render_editable(context,
         preview->view->contents, card, preview->view->settings.show_checklists,
         preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections,
-        preview->readonly || preview->error ? NULL : &preview->inline_edit) : WENA_CARD_BODY_NO_ACTION;
+        preview->readonly || preview->error ? NULL : &preview->inline_edit, preview->readonly || preview->error ? NULL : &preview->drag) : WENA_CARD_BODY_NO_ACTION;
 }
 
 static int desktop_card_collapsed(struct nk_context *context,
@@ -138,7 +139,7 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
             toolbar->labels->refresh_pending = 1;
     }
     if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->labels->sections_error ||
-        toolbar->preview->error || toolbar->preview->sections.error)) {
+        toolbar->preview->error || toolbar->preview->sections.error || toolbar->preview->drag.error)) {
         nk_layout_row_dynamic(context, 22.0f, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 28.0f, 2);
@@ -146,6 +147,7 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
         if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH))) {
             toolbar->labels->summary_pending = 1;
             toolbar->preview->error = 0;
+            toolbar->preview->drag.error = 0;
             toolbar->preview->sections.error = 0;
             toolbar->labels->sections_pending = 1;
         }
@@ -539,6 +541,7 @@ int main(int argc, char **argv)
             opened_panel = DESKTOP_PANEL_NONE;
             if (label_view.summary_valid)
                 wena_checklist_inline_sync(&preview.inline_edit, label_view.contents, label_view.settings.show_checklists);
+            wena_reorder_drag_begin(context, &preview.drag.gesture);
             preview.intent.pending = 0;
             preview.sections.pending = 0;
             preview.sections.snapshot = label_view.sections_valid ? label_view.sections : NULL;
@@ -548,12 +551,14 @@ int main(int argc, char **argv)
             layout.swimlane_count = snapshot->swimlane_count;
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) goto cleanup;
-            if (preview.intent.pending || preview.inline_edit.action) {
+            wena_reorder_drag_end(context, &preview.drag.gesture);
+            if (preview.intent.pending || preview.inline_edit.action || preview.drag.gesture.active || preview.drag.gesture.pending) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
             if (toolbar.filter_changed) {
                 wena_checklist_inline_cancel(&preview.inline_edit);
+                wena_reorder_drag_cancel(&preview.drag.gesture);
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
@@ -698,6 +703,12 @@ int main(int argc, char **argv)
                     snapshot->board.id, (float)width, (float)height);
             if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
                 wena_checklist_inline_cancel(&preview.inline_edit);
+            if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
+                wena_reorder_drag_cancel(&preview.drag.gesture);
+            completion_result = wena_checklist_mutation_drag(&checklist_mutation, &preview.drag);
+            if (completion_result) {
+                label_view.summary_valid = 0;label_view.summary_pending = 1;
+            }
             completion_result = wena_checklist_mutation_inline(&checklist_mutation, &preview.inline_edit);
             if (completion_result) {
                 label_view.summary_valid = 0;

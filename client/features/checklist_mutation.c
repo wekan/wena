@@ -1,4 +1,5 @@
 #include "checklists/inline_edit.h"
+#include "checklists/drag.h"
 #include "checklist_mutation.h"
 #include "../../models/checklist_item_titles.h"
 #include <limits.h>
@@ -490,4 +491,29 @@ int wena_checklist_mutation_inline(WenaChecklistMutation *adapter,WenaChecklistI
     if (!wena_checklist_mutation_save(adapter,state->board_id,state->card_id,&edit)) {state->error=1;return -1;}
     /* Drop the consumed draft before any read, so reload failure cannot replay. */
     memset(state,0,sizeof(*state));return 1;
+}
+
+int wena_checklist_mutation_drag(WenaChecklistMutation *adapter,WenaChecklistDrag *state)
+{
+    WenaChecklistEdit edit;
+    if (!state || !state->gesture.pending) return 0;
+    state->gesture.pending=0;
+    if ((state->action!=WENA_CHECKLIST_REORDER && state->action!=WENA_CHECKLIST_REORDER_ITEM) ||
+        state->gesture.revision!=state->source.card_version ||
+        strcmp(state->gesture.source_id,state->action==WENA_CHECKLIST_REORDER ?
+            state->source.checklist_id : state->source.item_id) ||
+        state->gesture.target_position >= (state->action==WENA_CHECKLIST_REORDER ?
+            WENA_CARD_CHECKLIST_CAPACITY : WENA_CARD_CHECKLIST_ITEM_CAPACITY)) {
+        state->error=1;return -1;
+    }
+    memset(&edit,0,sizeof(edit));edit.action=state->action;
+    edit.checklist_id=state->source.checklist_id;edit.item_id=state->source.item_id;
+    edit.expected_card_version=state->source.card_version;
+    edit.expected_checklist_version=state->source.checklist_version;
+    edit.expected_item_version=state->source.item_version;
+    edit.target_position=(unsigned long)state->gesture.target_position;
+    if (!wena_checklist_mutation_save(adapter,state->source.board_id,state->source.card_id,&edit)) {
+        state->error=1;return -1;
+    }
+    return 1;
 }

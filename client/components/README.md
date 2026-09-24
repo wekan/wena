@@ -43,3 +43,17 @@ rendering: failures retain the draft, successful writes consume it before reload
 entry in both opened cards and minicards. It owns the single/batch toggle and
 parsed item-count preview. Both hosts call the existing canonical title parser
 and atomic checklist mutation; neither duplicates parsing or line-splitting.
+
+`common/reorder_drag.[ch]` is the reusable same-collection drag handle. Wrap
+participating rows in one begin/end pair; provide each row's exact ID, ordinal,
+collection scope and revision. A seven-pixel gesture produces a single source/
+target intent on release. Escape, lost/hidden source rows, outside/cross-scope
+drops, changed revisions and read-only rows cancel. The host owns rendering,
+validation and the post-frame mutation. Its existing explicit Move controls
+remain the keyboard alternative.
+
+The implementation uses the pinned Nuklear input/widget APIs, checked against
+the [upstream input documentation](https://immediate-mode-ui.github.io/Nuklear/Input.html)
+and local clipping/focus implementation; it adds no dependency. Checklist and
+item adapters share this control and the existing guarded reorder transaction.
+Ordinals include hidden siblings, while invisible rows cannot become drop targets.
