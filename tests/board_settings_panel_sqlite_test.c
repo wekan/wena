@@ -56,12 +56,12 @@ static int load(void *context, const char *board, WenaBoardSettingsSnapshot *sna
     return !adapter->fail_load &&
         wena_board_settings_mutation_load(&adapter->mutation, board, snapshot);
 }
-static int save(void *context, const char *board, unsigned long version, int enabled)
+static int save(void *context, const char *board, unsigned long version, int enabled, int contents)
 {
     Adapter *adapter;
     adapter = (Adapter *)context;
     ++adapter->saves;
-    if (!wena_board_settings_mutation_save(&adapter->mutation, board, version, enabled)) return 0;
+    if (!wena_board_settings_mutation_save_display(&adapter->mutation, board, version, enabled, contents)) return 0;
     if (adapter->fail_after_save) adapter->fail_load = 1;
     return 1;
 }
@@ -94,11 +94,13 @@ int main(int argc, char **argv)
     assert(!wena_board_settings_open(&state, "b"));
     schema(database, argv[2]);
     assert(wena_board_settings_open(&state, "b"));
-    assert(!state.show_checklist_count);
+    assert(!state.show_checklist_count && state.show_checklists);
     frame(&state, "Save");
     assert(!state.error && number(database, "SELECT count(*) FROM board_settings") == 0 &&
         number(database, "SELECT count(*) FROM idempotency_keys") == 0 &&
         number(database, "SELECT version FROM boards WHERE id='b'") == 1);
+    frame(&state, "Checklists");assert(!state.show_checklists);
+    frame(&state, "Cancel");assert(wena_board_settings_open(&state, "b") && state.show_checklists);
     frame(&state, "Checklist item count (0/0) on minicard");
     frame(&state, NULL);
     assert(state.show_checklist_count && number(database, "SELECT count(*) FROM board_settings") == 0);
@@ -148,8 +150,8 @@ int main(int argc, char **argv)
     assert(!state.needs_refresh && !state.error && state.snapshot.show_checklist_count &&
         adapter.saves == saves);
     request = (unsigned long)number(database, "SELECT min(request_version) FROM idempotency_keys");
-    assert(request && !wena_board_settings_mutation_save_request(&adapter.mutation,
-        "b", state.snapshot.board_version, 0, request));
+    assert(request && !wena_board_settings_mutation_save_display_request(&adapter.mutation,
+        "b", state.snapshot.board_version, 0, 1, request));
     assert(!wena_board_settings_mutation_save(&adapter.mutation,
         "other", state.snapshot.board_version, 0));
     memset(&context, 0, sizeof(context));
@@ -171,6 +173,13 @@ int main(int argc, char **argv)
     assert(sqlite3_close(database) == SQLITE_OK);
     assert(sqlite3_open(argv[3], &database) == SQLITE_OK);
     assert(wena_board_settings_mutation_init(&adapter.mutation, database, "u", "b"));
+    assert(wena_board_settings_open(&state, "b"));
+    state.show_checklists=0;frame(&state,"Save");assert(!state.error&&!state.snapshot.show_checklists);
+    wena_board_settings_close(&state);assert(sqlite3_close(database)==SQLITE_OK);
+    assert(sqlite3_open(argv[3],&database)==SQLITE_OK);
+    assert(wena_board_settings_mutation_init(&adapter.mutation,database,"u","b"));
+    assert(wena_board_settings_open(&state,"b"));assert(!state.show_checklists);
+    wena_board_settings_close(&state);
     wena_board_settings_init(&state, load, NULL, &adapter);
     assert(wena_board_settings_open(&state, "b") && !state.show_checklist_count);
     frame(&state, "Checklist item count (0/0) on minicard");

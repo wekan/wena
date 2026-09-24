@@ -42,6 +42,57 @@ static void raw(WenaDomainCommand *command,unsigned long version,const char *val
     sprintf(command->form_body,"expectedBoardVersion=%lu&showChecklistCount=%s",version,value);
     command->form_body_length=strlen(command->form_body);
 }
+static void display_settings(sqlite3 *database)
+{
+    WenaBoardSettingsMutation adapter;
+    WenaBoardSettingsSnapshot snapshot,before;
+    WenaDomainCommand command;
+    WenaRegionResponse response;
+    sqlite3_int64 keys;
+    int index;
+    const char *triggers[] = {
+        "CREATE TRIGGER reject_display BEFORE INSERT ON board_minicard_settings BEGIN SELECT RAISE(ABORT,'display'); END",
+        "CREATE TRIGGER reject_display BEFORE INSERT ON board_minicard_settings BEGIN SELECT RAISE(IGNORE); END",
+        "CREATE TRIGGER reject_display AFTER INSERT ON board_minicard_settings BEGIN UPDATE board_settings SET show_checklist_count=0 WHERE board_id='display'; END",
+        "CREATE TRIGGER reject_display BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END"
+    };
+    sql(database,"INSERT INTO boards VALUES('display','Display',1)");
+    assert(wena_board_settings_mutation_init(&adapter,database,"u","display"));
+    assert(wena_board_settings_mutation_load(&adapter,"display",&snapshot));
+    assert(snapshot.show_checklists && !snapshot.show_checklist_count);
+    assert(!wena_board_settings_mutation_save_display(&adapter,"display",1,0,2));
+    assert(!wena_board_settings_mutation_save_display(&adapter,"foreign",1,0,0));
+    raw(&command,1,"1");strcpy(command.route,"/b/display/native");command.operation=WENA_DOMAIN_SET_BOARD_PRESENTATION;
+    assert(!wena_sqlite_persistence_apply(&adapter.persistence,&command,&response));
+    strcat(command.form_body,"&showChecklists=1&showChecklists=0");command.form_body_length=strlen(command.form_body);
+    assert(!wena_sqlite_persistence_apply(&adapter.persistence,&command,&response));
+    keys=number(database,"SELECT count(*) FROM idempotency_keys");
+    for(index=0;index<4;++index) {
+        sql(database,triggers[index]);
+        assert(!wena_board_settings_mutation_save_display(&adapter,"display",1,1,0));
+        sql(database,"DROP TRIGGER reject_display");
+        assert(number(database,"SELECT count(*) FROM board_settings WHERE board_id='display'")==0);
+        assert(number(database,"SELECT count(*) FROM board_minicard_settings WHERE board_id='display'")==0);
+        assert(number(database,"SELECT version FROM boards WHERE id='display'")==1);
+        assert(number(database,"SELECT count(*) FROM idempotency_keys")==keys);
+    }
+    assert(wena_board_settings_mutation_save_display_request(&adapter,"display",1,1,0,100));
+    assert(wena_board_settings_mutation_load(&adapter,"display",&snapshot));
+    assert(snapshot.board_version==2 && snapshot.show_checklist_count && !snapshot.show_checklists);
+    assert(!wena_board_settings_mutation_save_display_request(&adapter,"display",2,0,1,100));
+    assert(!wena_board_settings_mutation_save_display(&adapter,"display",1,0,1));
+    assert(wena_board_settings_mutation_save(&adapter,"display",2,0));
+    assert(wena_board_settings_mutation_load(&adapter,"display",&snapshot));
+    assert(snapshot.board_version==3 && !snapshot.show_checklists && !snapshot.show_checklist_count);
+    keys=number(database,"SELECT count(*) FROM idempotency_keys");
+    assert(wena_board_settings_mutation_save_display(&adapter,"display",3,0,0));
+    assert(number(database,"SELECT count(*) FROM idempotency_keys")==keys);
+    before=snapshot;
+    sql(database,"PRAGMA ignore_check_constraints=ON;UPDATE board_minicard_settings SET show_checklists=2 WHERE board_id='display'");
+    assert(!wena_board_settings_mutation_load(&adapter,"display",&snapshot));assert(!memcmp(&before,&snapshot,sizeof(snapshot)));
+    assert(!wena_board_settings_mutation_save_display(&adapter,"display",3,1,1));
+    sql(database,"UPDATE board_minicard_settings SET show_checklists=0 WHERE board_id='display';PRAGMA ignore_check_constraints=OFF");
+}
 int main(int argc,char **argv)
 {
     sqlite3 *database,*second;
@@ -140,6 +191,7 @@ int main(int argc,char **argv)
     sql(database,"UPDATE board_settings SET show_checklist_count=1.5 WHERE board_id='b'");
     assert(!wena_board_settings_mutation_load(&adapter,"b",&snapshot));assert(!memcmp(&snapshot,&before,sizeof(snapshot)));
     sql(database,"UPDATE board_settings SET show_checklist_count=1 WHERE board_id='b';PRAGMA ignore_check_constraints=OFF");
+    display_settings(database);
     /* Terminal readable version never overflows into an unreadable state. */
     sprintf(query,"UPDATE boards SET version=%lu WHERE id='b'",WENA_VERSION_MUTATE_MAX);sql(database,query);
     assert(wena_board_settings_mutation_load(&adapter,"b",&snapshot));

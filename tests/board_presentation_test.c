@@ -218,6 +218,11 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_settings_load(&view,"b",&settings));assert(!settings.show_checklist_count);
     assert(wena_board_presentation_poll(&view));assert(!view.summary->enabled);
     assert(sqlite3_close(second)==SQLITE_OK);
+    assert(view.settings.show_checklists);
+    assert(wena_board_presentation_settings_save_display(&view,"b",view.settings.board_version,0,0));
+    assert(wena_board_presentation_poll(&view));assert(!view.settings.show_checklists);
+    assert(view.contents && wena_checklist_contents_find(view.contents,"c"));
+    quiet(database,&view,&work,1);
     /* Deletion removes rendered badges and preserves checklist counts on reopen. */
     assert(wena_board_presentation_labels_load(&view,"b","c",labels));
     edit(&label_edit,labels,WENA_LABEL_DELETE,NULL);
@@ -229,7 +234,7 @@ int main(int argc,char **argv)
     assert(!view.badges && !view.summary && !view.contents && !wena_board_presentation_poll(&view));
     assert(sqlite3_close(database)==SQLITE_OK);assert(sqlite3_open(argv[2],&database)==SQLITE_OK);
     assert(wena_board_presentation_init(&view,database,"u","b"));
-    assert(view.valid && view.summary_valid && !view.badges->catalogue.label_count);
+    assert(view.valid && view.summary_valid && !view.badges->catalogue.label_count && !view.settings.show_checklists);
     card=wena_checklist_summary_find(view.summary,"c");assert(card && card->progress.finished==1 && card->progress.total==2);
     wena_board_presentation_close(&view);
     /* Invalid existing actor yields visible errors, resource ownership still safe. */

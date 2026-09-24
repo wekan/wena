@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "schema_version": 6,
+  "schema_version": 7,
   "migrations": [
     {
       "version": 1,
@@ -49,6 +49,14 @@
       "size": 391,
       "bundle_sha256": "3d688bc7af1ec04eef142ac3e50522a0dd4acac1328b38067d19b05909fe3d3a",
       "bundle_size": 7793
+    },
+    {
+      "version": 7,
+      "path": "server/migrations/007_board_minicard_settings.sql",
+      "sha256": "e67771f1a9b59a15e3681a003db247919c26b9fef4c92a4ecf8dae5a8dd29a86",
+      "size": 385,
+      "bundle_sha256": "ea8829086b29ec811f546d128589d363fe337729506de0dedcd304a8b35e0681",
+      "bundle_size": 8178
     }
   ]
 }

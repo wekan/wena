@@ -1,6 +1,6 @@
 # Local desktop
 
-The POSIX desktop uses SDL2, Nuklear and Wena's relational schema-v4 SQLite
+The POSIX desktop uses SDL2, Nuklear and Wena's relational schema-v7 SQLite
 database. Build with a C compiler, SDL2 development files (`sdl2-config`), SQLite
 development files, Python 3 and the pinned Nuklear submodule:
 
@@ -32,7 +32,7 @@ The output embeds and verifies the pinned migration chain and full offline trans
 catalog. SDL2 and SQLite remain shared host dependencies. Cataloged cross-release
 targets still build the earlier bootstrap executable; they do not yet package
 this desktop. Direct Meteor/FerretDB database migration is not implemented.
-Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v4
+Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v7
 chain on storage startup, including smoke mode. A verified old backup is upgraded
 in a private staged copy before restore interrupts the running database.
 
@@ -125,10 +125,10 @@ and remote REST are unfinished. Checklist/item same-card reordering, atomic batc
 same-board transfer and item transfers between checklists on the same board are
 implemented. Cross-board transfer remains open. Compact counts have a default-off
 board setting. Expanded previews show checklist titles and visible items using the
-canonical true default; checklist Actions offers Default, Yes and No overrides.
+canonical true default, configurable in Board Settings; checklist Actions offers
+Default, Yes and No overrides, which take priority over the board preference.
 Hidden/all-completed display flags are respected, and a title click opens the
-card's checklist editor. Board-wide expanded display preferences, inline editing,
-per-user checklist collapse and drag/drop remain open.
+card's checklist editor. Inline editing, per-user checklist collapse and drag/drop remain open.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded
 Apache-2.0 Roboto asset covers selected Latin, Greek and Cyrillic glyphs. Full

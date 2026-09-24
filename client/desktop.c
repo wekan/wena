@@ -66,7 +66,7 @@ static unsigned int desktop_card_contents(struct nk_context *context,
     view = (WenaBoardPresentation *)opaque;
     /* Canonical board default is true; per-checklist overrides take priority. */
     return view->summary_valid ? wena_checklist_contents_render(context,
-        view->contents, card, 1) : WENA_CARD_BODY_NO_ACTION;
+        view->contents, card, view->settings.show_checklists) : WENA_CARD_BODY_NO_ACTION;
 }
 
 #define DESKTOP_ADD_LIST 1u
@@ -437,7 +437,7 @@ int main(int argc, char **argv)
     wena_labels_init(&editors.labels, wena_board_presentation_labels_load,
         smoke ? NULL : wena_board_presentation_labels_save, &label_view);
     wena_board_settings_init(&editors.board_settings, wena_board_presentation_settings_load,
-        smoke ? NULL : wena_board_presentation_settings_save, &label_view);
+        smoke ? NULL : wena_board_presentation_settings_save_display, &label_view);
     if (!smoke) {
         if (!wena_hierarchy_mutation_init(&hierarchy_mutation, database,
             actor_id, board_id, snapshot)) goto cleanup;

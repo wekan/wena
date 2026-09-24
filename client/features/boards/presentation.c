@@ -116,7 +116,8 @@ int wena_board_presentation_settings_load(void *context,const char *board_id,
     loaded=wena_board_settings_mutation_load(&view->settings_mutation,board_id,snapshot);
     if (loaded && (!view->summary_valid ||
         snapshot->board_version!=view->settings.board_version ||
-        snapshot->show_checklist_count!=view->settings.show_checklist_count)) {
+        snapshot->show_checklist_count!=view->settings.show_checklist_count ||
+        snapshot->show_checklists!=view->settings.show_checklists)) {
         view->summary_valid=0;view->summary_pending=1;
     }
     return loaded;
@@ -130,4 +131,14 @@ int wena_board_presentation_settings_save(void *context,const char *board_id,
         &view->settings_mutation,board_id,expected_board_version,show_checklist_count)) return 0;
     view->summary_valid=0;view->summary_pending=1;
     return 1;
+}
+
+int wena_board_presentation_settings_save_display(void *context,const char *board_id,
+    unsigned long version,int count,int contents)
+{
+    WenaBoardPresentation *view;
+    view=(WenaBoardPresentation *)context;
+    if (!initialized(view) || !wena_board_settings_mutation_save_display(
+        &view->settings_mutation,board_id,version,count,contents)) return 0;
+    view->summary_valid=0;view->summary_pending=1;return 1;
 }

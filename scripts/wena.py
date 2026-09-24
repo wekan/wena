@@ -218,6 +218,7 @@ TEST_SUITES = (
     ('sqlite-schema', 'test_sqlite_schema.sh', 'Versioned SQLite schema and migration golden'),
     ('sqlite-schema-v2', 'test_sqlite_schema_v2.sh', 'Atomic description schema and staged backup upgrade'),
     ('sqlite-schema-v3', 'test_sqlite_schema_v3.sh', 'Scoped checklist schema and atomic legacy upgrade'),
+    ('sqlite-schema-v7', 'test_sqlite_schema_v7.sh', 'Additive minicard preferences upgrade and rollback'),
     ('sqlite-schema-v6', 'test_sqlite_schema_v6.sh', 'Default-off board checklist settings schema, atomic upgrades and staged restore'),
     ('sqlite-schema-v5', 'test_sqlite_schema_v5.sh', 'Scoped label catalog and assignment schema with atomic legacy upgrade'),
     ('sqlite-schema-v4', 'test_sqlite_schema_v4.sh', 'Bounded selected-card item queries and indexed schema upgrade'),
@@ -313,7 +314,7 @@ def test_prerequisite(name):
         return "desktop packaging is currently verified only on Linux amd64"
     if name == "desktop-package" and not shutil.which("readelf"):
         return "requires readelf (binutils) for actual ELF runtime requirements"
-    if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
+    if name in {"nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
     if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"

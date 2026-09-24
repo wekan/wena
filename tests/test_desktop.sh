@@ -16,6 +16,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import json
 
 root, directory = map(Path, sys.argv[1:])
 path = directory / 'board.sqlite'
@@ -82,8 +83,9 @@ assert run.returncode == 0, (run.stdout, run.stderr)
 assert 'Wena desktop smoke passed' in run.stdout
 assert domain_content() == before_domain
 with sqlite3.connect(path) as db:
-    assert db.execute('PRAGMA user_version').fetchone() == (6,)
-    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (6,)
+    expected = json.loads((root / "config/migrations-lock.json").read_text())["schema_version"]
+    assert db.execute('PRAGMA user_version').fetchone() == (expected,)
+    assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (expected,)
     assert db.execute('SELECT count(*) FROM card_descriptions').fetchone() == (0,)
 before = content()
 for args in [[], ['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],

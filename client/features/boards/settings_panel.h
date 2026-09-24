@@ -7,13 +7,14 @@ struct nk_context;
 typedef int (*WenaBoardSettingsLoad)(void *context, const char *board_id,
     WenaBoardSettingsSnapshot *snapshot);
 typedef int (*WenaBoardSettingsSave)(void *context, const char *board_id,
-    unsigned long expected_board_version, int show_checklist_count);
+    unsigned long expected_board_version, int show_checklist_count, int show_checklists);
 
 typedef struct WenaBoardSettingsState {
     int visible;
     int error;
     int needs_refresh;
     int show_checklist_count;
+    int show_checklists;
     WenaId board_id;
     WenaBoardSettingsSnapshot snapshot;
     WenaBoardSettingsLoad load;

@@ -15,15 +15,16 @@ static int load(void *context, const char *board, WenaBoardSettingsSnapshot *out
     *out = store;
     return 1;
 }
-static int save(void *context, const char *board, unsigned long version, int enabled)
+static int save(void *context, const char *board, unsigned long version, int enabled, int contents)
 {
     (void)context;
     assert(!strcmp(board, "b"));
     assert(enabled == 0 || enabled == 1);
     ++calls;
     if (fail_save || version != store.board_version) return 0;
-    if (enabled == store.show_checklist_count) return 1;
+    if (enabled == store.show_checklist_count && contents == store.show_checklists) return 1;
     store.show_checklist_count = enabled;
+    store.show_checklists = contents;
     ++store.board_version;
     ++commits;
     if (fail_after_commit) fail_load = 1;
@@ -46,6 +47,7 @@ int main(void)
     memset(&store, 0, sizeof(store));
     strcpy(store.board_id, "b");
     store.board_version = 1;
+    store.show_checklists = 1;
     wena_board_settings_init(&state, load, save, NULL);
     assert(wena_board_settings_open(&state, "b"));
     assert(!state.show_checklist_count);

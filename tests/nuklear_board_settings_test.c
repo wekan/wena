@@ -17,14 +17,15 @@ static int load(void *context, const char *board, WenaBoardSettingsSnapshot *out
     *out = store;
     return 1;
 }
-static int save(void *context, const char *board, unsigned long version, int enabled)
+static int save(void *context, const char *board, unsigned long version, int enabled, int contents)
 {
     (void)context;
     assert(!strcmp(board, "b") && version == store.board_version);
     assert(enabled == 0 || enabled == 1);
     ++calls;
-    if (enabled != store.show_checklist_count) {
+    if (enabled != store.show_checklist_count || contents != store.show_checklists) {
         store.show_checklist_count = enabled;
+        store.show_checklists = contents;
         ++store.board_version;
     }
     if (fail_after_save) fail_load = 1;
@@ -92,6 +93,7 @@ int main(void)
     memset(&store, 0, sizeof(store));
     strcpy(store.board_id, "b");
     store.board_version = 1;
+    store.show_checklists = 1;
     memset(&font, 0, sizeof(font));
     font.height = 13;
     font.width = width;
@@ -148,6 +150,19 @@ int main(void)
     key(&context, &state, NK_KEY_ENTER, 0);
     key(&context, &state, NK_KEY_TEXT_RESET_MODE, 1);
     assert(!state.visible && calls == 3);
+    wena_board_settings_close(&state);
+    key(&context, &state, NK_KEY_TEXT_RESET_MODE, 0);
+    wena_board_settings_init(&state, load, save, NULL);
+    assert(wena_board_settings_open(&state, "b"));
+    key(&context, &state, NK_KEY_ENTER, 0);
+    assert(state.show_checklists && store.show_checklists);
+    click(&context, &state, "Checklists");
+    assert(!state.show_checklists && store.show_checklists && calls == 3);
+    click(&context, &state, "Cancel");assert(store.show_checklists && calls == 3);
+    assert(wena_board_settings_open(&state, "b"));key(&context, &state, NK_KEY_ENTER, 0);
+    click(&context, &state, "Checklists");revision=store.board_version;
+    click(&context, &state, "Save");
+    assert(!state.error && !store.show_checklists && store.board_version==revision+1 && calls==4);
     wena_board_settings_close(&state);
     nk_free(&context);
     puts("Real Nuklear board setting drafts, explicit Save, keyboard and readonly passed");

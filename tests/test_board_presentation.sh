@@ -7,7 +7,7 @@ trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 settings_schema=${WENA_BOARD_SETTINGS_SCHEMA:-$root_dir/server/migrations/006_board_settings.sql}
 cat "$root_dir/server/migrations/001_initial.sql" "$root_dir/server/migrations/002_card_descriptions.sql" \
  "$root_dir/server/migrations/003_checklists.sql" "$root_dir/server/migrations/004_checklist_item_card_order.sql" \
- "$root_dir/server/migrations/005_labels.sql" "$settings_schema" > "$test_dir/schema.sql"
+ "$root_dir/server/migrations/005_labels.sql" "$settings_schema" "$root_dir/server/migrations/007_board_minicard_settings.sql" > "$test_dir/schema.sql"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
  "$root_dir/tests/board_presentation_test.c" "$root_dir/client/features/boards/presentation.c" \
  "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \

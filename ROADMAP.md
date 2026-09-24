@@ -31,8 +31,9 @@ once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
 Cross-board transfer and full inline minicard editing remain open.
 
-Latest integrated validation: 125 native suites passed, zero failed or skipped,
-plus all four localhost HTTP/runtime suites passed outside the sandbox (129 total).
+Latest integrated validation: 126 native suites passed, zero failed or skipped,
+plus all four localhost HTTP/runtime suites passed outside the sandbox (130 total;
+runtime rerun after schema-v7).
 The sandbox itself denies loopback bind with EPERM; no listener implementation
 change was needed. Fixed a macOS unused-variable build error in OS entropy and a
 reference inventory scanner that wrongly excluded checkouts beneath `.tools`.
@@ -89,7 +90,11 @@ controls, independent of compact counts. Explicit checklist Yes/No overrides tak
 priority over the canonical true default; Default restores inheritance. Titles
 open the exact card checklist editor. Real Nuklear/SQLite tests cover visibility,
 hidden/completed children, cancellation, reopen and zero-SQL idle frames; targeted
-sanitizers pass. Board-wide expanded display settings, inline editing/completion,
+sanitizers pass. Schema-v7 adds the canonical default-on board display preference;
+its shared settings panel saves both display booleans atomically, with one board
+revision change. Immutable v1-v6 migrations remain unchanged. Upgrade, scope,
+stale/replay/no-op, trigger rollback, real Nuklear controls and reopen tests pass.
+Inline editing/completion,
 per-user checklist collapse and drag/drop remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
@@ -770,7 +775,10 @@ Architecture decisions for this cycle:
       - [x] Render cached expanded native checklist previews and expose explicit
         inherit/hide/show overrides. Respect hidden/completed-item flags, keep
         count visibility independent and open the exact card editor on title click.
-      - [_] Finish expanded minicard board settings, inline editing/completion,
+      - [x] Persist the default-on expanded checklist board preference with an
+        additive schema-v7 extension. Save both display preferences atomically
+        through shared boolean storage and one settings panel; preserve overrides.
+      - [_] Finish expanded minicard inline editing/completion,
         per-user collapse, drag/drop and cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
