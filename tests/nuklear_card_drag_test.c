@@ -12,9 +12,9 @@
 typedef struct Fixture {
  struct nk_context ctx;
  struct nk_user_font font;
- struct nk_vec2 points[2],destination;
+ struct nk_vec2 points[3],destination;
  WenaList destination_list;WenaSwimlane destination_lane;
- int offer_destination,destination_seen;
+ int offer_destination,offer_insert,deny_insert,destination_seen,insert_seen;
  sqlite3 *db;
  WenaSqliteBoardSnapshot *board;
  WenaCardMutation mutation;
@@ -58,15 +58,24 @@ static void frame(Fixture *f,int x,int y,int down)
    }
    ++ordinal;
   }
+  if(f->offer_insert){
+   ordinal=0;
+   for(i=0;i<4;++i){const WenaCard *card;card=&f->board->cards[i];
+    if(strcmp(card->list_id,"l2"))continue;
+    if(!card->archived){++visible;wena_card_drag_handle(&f->ctx,&f->drag,f->board->cards,4,card,ordinal,f->versions[i],!f->deny_insert);}
+    ++ordinal;
+   }
+  }
   if(f->offer_destination)wena_card_drag_destination(&f->ctx,&f->drag,&f->destination_list,&f->destination_lane);
  }
  nk_end(&f->ctx);wena_card_drag_end(&f->ctx,&f->drag);
- point=0;f->destination_seen=0;
+ point=0;f->destination_seen=0;f->insert_seen=0;
  nk_foreach(command,&f->ctx)if(command->type==NK_COMMAND_TEXT){
   const struct nk_command_text *text;text=(const struct nk_command_text *)command;
   if(text->length==14&&!memcmp(text->string,"Move selection",14)){
-   assert(point<2);f->points[point++]=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
+   assert(point<3);f->points[point++]=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
   }
+  if(text->length==13&&!memcmp(text->string,"Destination 2",13)){f->insert_seen=1;f->destination=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);}
   if(text->length==11&&!memcmp(text->string,"Destination",11)){f->destination_seen=1;f->destination=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);}
  }
  assert(point==visible);
@@ -88,6 +97,55 @@ static void column_drop(Fixture *f)
  frame(f,(int)f->destination.x,(int)f->destination.y,0);
  assert(f->drag.gesture.pending&&f->drag.transfer);
 }
+static void insertion_drop(Fixture *f)
+{
+ struct nk_vec2 source;
+ frame(f,0,0,0);source=f->points[0];
+ frame(f,(int)source.x,(int)source.y,1);assert(f->drag.gesture.active&&f->insert_seen);
+ frame(f,(int)source.x+8,(int)source.y,1);
+ frame(f,(int)f->destination.x,(int)f->destination.y,0);
+ assert(f->drag.gesture.pending&&f->drag.inserting&&f->drag.gesture.target_position==1);
+ assert(!strcmp(f->drag.gesture.target_id,"other"));
+}
+static void insertions(Fixture *f)
+{
+ WenaCard before[4];int test;
+ f->offer_insert=1;
+ sql(f->db,"UPDATE cards SET position=5,title='Same title' WHERE id='other';UPDATE cards SET list_id='l2',position=0 WHERE id='c1'");
+ refresh(f);frame(f,0,0,0);
+ frame(f,(int)f->points[0].x,(int)f->points[0].y,1);assert(f->insert_seen);
+ f->deny_insert=1;
+ frame(f,(int)f->destination.x,(int)f->destination.y,0);
+ assert(!f->insert_seen&&!f->drag.gesture.pending&&!f->drag.order);
+ f->deny_insert=0;
+ for(test=0;test<4;++test){
+  refresh(f);f->drag.error=0;statements=0;
+  assert(sqlite3_trace_v2(f->db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
+  insertion_drop(f);assert(!statements);
+  assert(sqlite3_trace_v2(f->db,0,NULL,NULL)==SQLITE_OK);
+  memcpy(before,f->board->cards,sizeof(before));
+  if(test==0){sql(f->db,"CREATE TRIGGER reject_insertion BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");}
+  if(test==1){sql(f->db,"UPDATE cards SET position=6 WHERE id='other'");}
+  if(test==2){size_t i;for(i=0;i<4;++i)if(!strcmp(f->board->cards[i].id,"other"))f->board->cards[i].sort=6;memcpy(before,f->board->cards,sizeof(before));}
+  if(test<3){
+   assert(wena_card_drag_apply(&f->drag,&f->mutation)==-1&&f->drag.error);
+   assert(!memcmp(before,f->board->cards,sizeof(before))&&!f->drag.destination_order);
+   assert(!wena_card_drag_apply(&f->drag,&f->mutation));
+  }else{
+   assert(wena_card_drag_apply(&f->drag,&f->mutation)==1&&!f->drag.destination_order);
+   assert(number(f->db,"SELECT position FROM cards WHERE id='c0'")==1);
+   assert(number(f->db,"SELECT position FROM cards WHERE id='other'")==2);
+   assert(number(f->db,"SELECT version FROM cards WHERE id='c0'")==2);
+   assert(number(f->db,"SELECT position FROM cards WHERE id='c1'")==0);
+   assert(!wena_card_drag_apply(&f->drag,&f->mutation));
+  }
+  if(test==0)sql(f->db,"DROP TRIGGER reject_insertion");
+  if(test==1)sql(f->db,"UPDATE cards SET position=5 WHERE id='other'");
+ }
+ f->offer_insert=0;
+ sql(f->db,"DELETE FROM cards;DELETE FROM idempotency_keys;INSERT INTO cards VALUES('c0','b','s','l1','Same title',0,0,1),('c1','b','s','l1','Archived',3,1,1),('c2','b','s','l1','Same title',8,0,1),('other','b','s','l2','Other',0,0,1)");
+ refresh(f);
+}
 int main(int argc,char **argv)
 {
  Fixture f;FILE *file;unsigned char *schema;long size;WenaCard before[4];
@@ -100,6 +158,7 @@ int main(int argc,char **argv)
  sql(f.db,"INSERT INTO cards VALUES('c0','b','s','l1','Same title',0,0,1),('c1','b','s','l1','Archived',3,1,1),('c2','b','s','l1','Same title',8,0,1),('other','b','s','l2','Other',0,0,1)");
  f.board=(WenaSqliteBoardSnapshot *)calloc(1,sizeof(*f.board));assert(f.board);refresh(&f);
  f.font.height=13;f.font.width=width;assert(nk_init_default(&f.ctx,&f.font));
+ insertions(&f);statements=0;
  assert(sqlite3_trace_v2(f.db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
  drag(&f,0,1);assert(!statements&&!strcmp(f.drag.gesture.source_id,"c0")&&f.drag.gesture.target_position==2);
  assert(sqlite3_trace_v2(f.db,0,NULL,NULL)==SQLITE_OK);

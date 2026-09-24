@@ -7,16 +7,18 @@
 #include "../components/common/reorder_drag.h"
 typedef struct WenaCardDrag {
     WenaReorderDrag gesture;
-    WenaCardOrderSlot *order;
-    size_t order_count;
+    WenaCardOrderSlot *order,*destination_order;
+    size_t order_count,destination_count;
     WenaId board_id,list_id,swimlane_id;
     WenaId target_list_id,target_swimlane_id;
-    int transfer;
+    int transfer,inserting;
     int error;
 } WenaCardDrag;
 void wena_card_drag_cancel(WenaCardDrag *state);
 void wena_card_drag_begin(struct nk_context *context,WenaCardDrag *state,
     const WenaCard *cards,size_t count,unsigned long source_revision);
+/* Active gestures offer an exact insertion target before visible cards in
+ * other columns. Rendering captures only model data; apply performs the write. */
 void wena_card_drag_handle(struct nk_context *context,WenaCardDrag *state,
     const WenaCard *cards,size_t count,const WenaCard *card,size_t ordinal,
     unsigned long card_revision,int enabled);

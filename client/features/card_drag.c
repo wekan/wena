@@ -9,7 +9,8 @@ void wena_card_drag_cancel(WenaCardDrag *state)
 {
     if (!state) return;
     free(state->order);state->order=NULL;state->order_count=0;
-    wena_reorder_drag_cancel(&state->gesture);state->transfer=0;
+    free(state->destination_order);state->destination_order=NULL;state->destination_count=0;
+    wena_reorder_drag_cancel(&state->gesture);state->transfer=0;state->inserting=0;
 }
 void wena_card_drag_begin(struct nk_context *context,WenaCardDrag *state,
     const WenaCard *cards,size_t count,unsigned long source_revision)
@@ -20,6 +21,29 @@ void wena_card_drag_begin(struct nk_context *context,WenaCardDrag *state,
             state->board_id,state->list_id,state->swimlane_id)))
         wena_card_drag_cancel(state);
     wena_reorder_drag_begin(context,&state->gesture);
+}
+static void insert_before(struct nk_context *context,WenaCardDrag *state,
+    const WenaCard *cards,size_t count,const WenaCard *card,size_t ordinal)
+{
+    char scope[WENA_REORDER_SCOPE_CAPACITY],label[256];const char *text;
+    if(!state->gesture.active||state->gesture.pending||state->error||
+        strcmp(card->board_id,state->board_id)||
+        (!strcmp(card->list_id,state->list_id)&&!strcmp(card->swimlane_id,state->swimlane_id))||
+        ordinal>=WENA_CARD_ORDER_CAPACITY)return;
+    sprintf(scope,"card:%s/%s/%s",state->board_id,card->list_id,card->swimlane_id);
+    text=wena_ui_text(WENA_UI_TEXT_MOVE_DESTINATION);
+    if(strlen(text)+32>=sizeof(label))return;
+    sprintf(label,"%s %lu",text,(unsigned long)ordinal+1);
+    nk_layout_row_dynamic(context,28,1);
+    if(wena_reorder_drag_drop(context,&state->gesture,scope,card->id,label,1)){
+        if(!wena_card_order_capture(cards,count,state->board_id,card->list_id,card->swimlane_id,
+            &state->destination_order,&state->destination_count)||ordinal>=state->destination_count||
+            strcmp(state->destination_order[ordinal].id,card->id)){
+            wena_card_drag_cancel(state);state->error=1;return;
+        }
+        strcpy(state->target_list_id,card->list_id);strcpy(state->target_swimlane_id,card->swimlane_id);
+        state->gesture.target_position=ordinal;state->transfer=1;state->inserting=1;
+    }
 }
 void wena_card_drag_handle(struct nk_context *context,WenaCardDrag *state,
     const WenaCard *cards,size_t count,const WenaCard *card,size_t ordinal,
@@ -32,6 +56,7 @@ void wena_card_drag_handle(struct nk_context *context,WenaCardDrag *state,
         !wena_model_identifier_valid(card->list_id) ||
         !wena_model_identifier_valid(card->swimlane_id)) return;
     sprintf(scope,"card:%s/%s/%s",card->board_id,card->list_id,card->swimlane_id);
+    if(enabled&&!state->error&&card_revision>0)insert_before(context,state,cards,count,card,ordinal);
     revision=state->gesture.active ? state->gesture.revision : card_revision;
     nk_layout_row_dynamic(context,24,1);
     if (wena_reorder_drag_handle(context,&state->gesture,scope,revision,card->id,
@@ -39,7 +64,8 @@ void wena_card_drag_handle(struct nk_context *context,WenaCardDrag *state,
         strcpy(state->board_id,card->board_id);strcpy(state->list_id,card->list_id);
         strcpy(state->swimlane_id,card->swimlane_id);
         if (!wena_card_order_capture(cards,count,state->board_id,state->list_id,
-            state->swimlane_id,&state->order,&state->order_count)) {
+            state->swimlane_id,&state->order,&state->order_count) || ordinal>=state->order_count ||
+            strcmp(state->order[ordinal].id,card->id)) {
             wena_card_drag_cancel(state);state->error=1;
         }
     }
@@ -83,11 +109,20 @@ int wena_card_drag_apply(WenaCardDrag *state,WenaCardMutation *adapter)
         if (valid) {
             sprintf(scope,"card:%s/%s/%s",state->board_id,
                 state->target_list_id,state->target_swimlane_id);
-            valid=!strcmp(scope,state->gesture.target_scope) &&
-                !strcmp(state->gesture.target_id,state->target_list_id);
+            valid=!strcmp(scope,state->gesture.target_scope);
         }
-        if (valid) valid=wena_card_mutation_move(adapter,state->board_id,state->gesture.source_id,
-                state->gesture.revision,state->target_list_id,state->target_swimlane_id);
+        if(valid&&state->inserting){
+            valid=state->destination_order&&state->gesture.target_position<state->destination_count&&
+                !strcmp(state->destination_order[state->gesture.target_position].id,state->gesture.target_id)&&
+                wena_card_order_current(state->destination_order,state->destination_count,
+                    adapter->cards,adapter->card_count,state->board_id,state->target_list_id,state->target_swimlane_id)&&
+                wena_card_mutation_insert(adapter,state->board_id,state->gesture.source_id,state->gesture.revision,
+                    state->target_list_id,state->target_swimlane_id,(unsigned long)state->gesture.target_position);
+        }else if(valid){
+            valid=!strcmp(state->gesture.target_id,state->target_list_id)&&
+                wena_card_mutation_move(adapter,state->board_id,state->gesture.source_id,
+                    state->gesture.revision,state->target_list_id,state->target_swimlane_id);
+        }
     } else if (valid) {
         valid=state->gesture.target_position<state->order_count &&
             !strcmp(state->order[state->gesture.target_position].id,state->gesture.target_id) &&
