@@ -108,12 +108,13 @@ static int reject_commit(void *context)
 static void native_archive(sqlite3 *db)
 {
  WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaHierarchyMutation adapter;
- unsigned long version;sqlite3_int64 keys;int calls;size_t i;
+ unsigned long version;sqlite3_int64 keys;int calls;size_t i,peer_count;
  snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));
  before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
  fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));assert(snapshot&&before&&fresh);
  assert(wena_sqlite_board_load(db,"b",snapshot));
  assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ peer_count=snapshot->card_count;adapter.published_card_count=&peer_count;
  version=77;assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"other","s",&version)&&version==77);
  assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","missing",&version)&&version==77);
  strcpy(adapter.actor_id,"missing");assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==77);
@@ -139,6 +140,7 @@ static void native_archive(sqlite3 *db)
  assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1)&&calls==1);
  sqlite3_commit_hook(db,NULL,NULL);
  assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ assert(peer_count==snapshot->card_count);
  assert(!memcmp(before,snapshot,sizeof(*before)));
  assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(before,fresh,sizeof(*fresh)));
  assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
@@ -147,9 +149,10 @@ static void native_archive(sqlite3 *db)
  sql(db,"DROP TRIGGER native_failure");
  assert(!memcmp(before,snapshot,sizeof(*before)));
  /* Publish every child, including cards absent from a stale display cache. */
- snapshot->card_count=0;
+ snapshot->card_count=0;peer_count=0;
  assert(wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1));
  assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(peer_count==snapshot->card_count&&peer_count>0);
  assert(wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==6);
  for(i=0;i<snapshot->card_count;++i)if(!strcmp(snapshot->cards[i].swimlane_id,"s"))assert(snapshot->cards[i].archived);
  memcpy(before,snapshot,sizeof(*before));
@@ -165,6 +168,7 @@ static void native_archive(sqlite3 *db)
  assert(wena_hierarchy_mutation_swimlane_restore(&adapter,"b","s",8));
  assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
  assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ assert(peer_count==snapshot->card_count);
  free(snapshot);free(before);free(fresh);
 }
 int main(int argc,char **argv)

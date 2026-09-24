@@ -25,6 +25,8 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_LANGUAGE, "language", "Language"},
     {WENA_UI_TEXT_SWIMLANE, "swimlane", "Swimlane"},
     {WENA_UI_TEXT_LISTS, "lists", "Lists"},
+    {WENA_UI_TEXT_SWIMLANES, "swimlanes", "Swimlanes"},
+    {WENA_UI_TEXT_NO_ARCHIVED_SWIMLANES, "no-archived-swimlanes", "No swimlanes in Archive."},
     {WENA_UI_TEXT_NO_ARCHIVED_LISTS, "no-archived-lists", "No lists in Archive."},
     {WENA_UI_TEXT_EDIT_WIP_LIMIT, "edit-wip-limit", "Edit WIP Limit"},
     {WENA_UI_TEXT_ENABLE_WIP_LIMIT, "enable-wip-limit", "Enable WIP Limit"},
@@ -140,7 +142,8 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_EDIT_LABEL, "editLabelPopup-title", "Change Label", "[E]", "GET", "open-edit-label", 38u},
     {WENA_UI_OPEN_DELETE_LABEL, "delete", "Delete", "[X]", "GET", "open-delete-label", 39u},
     {WENA_UI_CREATE_LABEL, "create", "Create", "[+]", "GET", "create-local-label", 40u},
-    {WENA_UI_ARCHIVE_LIST, "archive-list", "Move List to Archive", "[A]", "GET", "archive-list-editor", 41u}
+    {WENA_UI_ARCHIVE_LIST, "archive-list", "Move List to Archive", "[A]", "GET", "archive-list-editor", 41u},
+    {WENA_UI_ARCHIVE_SWIMLANE, "archive-swimlane", "Move Swimlane to Archive", "[A]", "GET", "archive-swimlane-editor", 42u}
 };
 
 static const WenaUiPageContract pages[] = {

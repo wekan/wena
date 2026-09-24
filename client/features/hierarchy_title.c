@@ -63,7 +63,7 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     state->save_title = save;
     state->context = context;
     state->create_title = NULL;
-    state->archive = NULL;
+    memset(state->archives,0,sizeof(state->archives));
     state->load_color = NULL;state->save_color = NULL;
     state->load_wip=NULL;state->save_wip=NULL;
 }
@@ -78,9 +78,17 @@ void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
 
 void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyArchive archive)
+{wena_hierarchy_title_set_archive_provider(state,WENA_HIERARCHY_LIST,archive);}
+void wena_hierarchy_title_set_archive_provider(WenaHierarchyTitleState *state,
+    WenaHierarchyKind kind,WenaHierarchyArchive archive)
 {
-    if(!state)return;
-    wena_hierarchy_title_close(state);state->archive=archive;
+    if(!state||(kind!=WENA_HIERARCHY_LIST&&kind!=WENA_HIERARCHY_SWIMLANE))return;
+    wena_hierarchy_title_close(state);state->archives[kind]=archive;
+}
+static WenaHierarchyArchive archive_provider(const WenaHierarchyTitleState *state)
+{
+    return state->kind==WENA_HIERARCHY_LIST||state->kind==WENA_HIERARCHY_SWIMLANE?
+        state->archives[state->kind]:NULL;
 }
 
 void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
@@ -224,7 +232,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->archive && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (archive_provider(state) && !state->creating ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
@@ -254,9 +262,9 @@ int wena_hierarchy_title_render(struct nk_context *context,
         if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->load_wip&&state->save_wip){
             nk_layout_row_dynamic(context,28,1);wip_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_EDIT_WIP_LIMIT));
         }
-        if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->archive){
+        if(!state->creating&&archive_provider(state)){
             nk_layout_row_dynamic(context,28.0f,1);
-            archive=nk_button_label(context,wena_ui_control_text(WENA_UI_ARCHIVE_LIST));
+            archive=nk_button_label(context,wena_ui_control_text(state->kind==WENA_HIERARCHY_LIST?WENA_UI_ARCHIVE_LIST:WENA_UI_ARCHIVE_SWIMLANE));
         }
         if (state->error) {
             nk_layout_row_dynamic(context, 24.0f, 1);
@@ -285,7 +293,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
         }else state->error=1;
     }
     else if(archive){
-        if(state->archive(state->context,state->board_id,state->target_id,state->title_version))
+        if(archive_provider(state)(state->context,state->board_id,state->target_id,state->title_version))
             wena_hierarchy_title_close(state);
         else state->error=1;
     }

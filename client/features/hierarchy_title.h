@@ -57,7 +57,7 @@ typedef struct WenaHierarchyTitleState {
     WenaHierarchyLoadTitle load_title;
     WenaHierarchySaveTitle save_title;
     WenaHierarchyCreateTitle create_title;
-    WenaHierarchyArchive archive;
+    WenaHierarchyArchive archives[3];
     void *context;
 } WenaHierarchyTitleState;
 
@@ -69,6 +69,8 @@ void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyCreateTitle create);
 void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyArchive archive);
+void wena_hierarchy_title_set_archive_provider(WenaHierarchyTitleState *state,
+    WenaHierarchyKind kind,WenaHierarchyArchive archive);
 void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
     WenaHierarchyLoadTitle load,WenaHierarchySaveTitle save);
 void wena_hierarchy_title_set_wip_adapters(WenaHierarchyTitleState *state,

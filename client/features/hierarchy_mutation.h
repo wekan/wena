@@ -11,6 +11,9 @@ typedef struct WenaHierarchyMutation {
     WenaId board_id;
     char route[257];
     WenaSqliteBoardSnapshot *snapshot;
+    /* Optional peer traversal count, updated with full snapshot publication.
+     * Caller-owned storage must outlive this adapter. */
+    size_t *published_card_count;
 } WenaHierarchyMutation;
 
 /* Caller authenticates actor and authorizes board. No implicit membership grant.

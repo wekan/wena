@@ -566,6 +566,8 @@ int main(int argc, char **argv)
         wena_hierarchy_title_set_create_adapter(&editors.hierarchy,
             wena_hierarchy_mutation_create);
         wena_hierarchy_title_set_archive_adapter(&editors.hierarchy,wena_hierarchy_mutation_archive);
+        wena_hierarchy_title_set_archive_provider(&editors.hierarchy,WENA_HIERARCHY_SWIMLANE,
+            wena_hierarchy_mutation_swimlane_archive);
         wena_hierarchy_title_set_color_adapters(&editors.hierarchy,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
         if (!wena_card_mutation_set_create_cache(&mutation, &snapshot->card_count,
@@ -580,6 +582,10 @@ int main(int argc, char **argv)
                                 wena_card_mutation_restore, &mutation);
         wena_card_archives_set_lists(&editors.archives,wena_hierarchy_mutation_archive_load,
             wena_hierarchy_mutation_restore,&hierarchy_mutation);
+        hierarchy_mutation.published_card_count=&mutation.card_count;
+        wena_card_archives_set_provider(&editors.archives,WENA_ARCHIVE_SWIMLANES,
+            wena_hierarchy_mutation_swimlane_archive_load,
+            wena_hierarchy_mutation_swimlane_restore,&hierarchy_mutation);
         wena_card_details_set_title_adapter(&editors.details, wena_card_mutation_load,
                                             wena_card_mutation_save, &mutation);
         wena_card_details_set_archive_adapter(&editors.details, wena_card_mutation_archive);

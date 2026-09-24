@@ -10,12 +10,19 @@ typedef int (*WenaCardArchivesRestore)(void *context, const char *board_id,
 typedef int (*WenaArchivesLoadVersion)(void *context,const char *board_id,
     const char *item_id,unsigned long *version);
 
+typedef enum WenaArchiveKind {
+    WENA_ARCHIVE_CARDS, WENA_ARCHIVE_LISTS, WENA_ARCHIVE_SWIMLANES,
+    WENA_ARCHIVE_KIND_COUNT
+} WenaArchiveKind;
+typedef struct WenaArchiveProvider {
+    WenaArchivesLoadVersion load;
+    WenaCardArchivesRestore restore;
+    void *context;
+} WenaArchiveProvider;
 typedef struct WenaCardArchivesState {
     WenaTableState table;
-    int lists;
-    WenaArchivesLoadVersion load_list;
-    WenaCardArchivesRestore restore_list;
-    void *list_context;
+    WenaArchiveKind kind;
+    WenaArchiveProvider providers[WENA_ARCHIVE_KIND_COUNT];
     int visible;
     int error;
     WenaId board_id;
@@ -31,6 +38,10 @@ void wena_card_archives_init(WenaCardArchivesState *state,
 /* Optional list provider shares the same paginated selection and restore flow. */
 void wena_card_archives_set_lists(WenaCardArchivesState *state,
     WenaArchivesLoadVersion load,WenaCardArchivesRestore restore,void *context);
+/* Hierarchy categories share one table and version/restore provider contract. */
+void wena_card_archives_set_provider(WenaCardArchivesState *state,
+    WenaArchiveKind kind,WenaArchivesLoadVersion load,
+    WenaCardArchivesRestore restore,void *context);
 void wena_card_archives_close(WenaCardArchivesState *state);
 int wena_card_archives_open(WenaCardArchivesState *state,
     const WenaBoardLayout *layout);

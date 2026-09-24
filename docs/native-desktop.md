@@ -45,7 +45,10 @@ in a private staged copy before restore interrupts the running database.
   Description opens a multiline editor with explicit Save.
 - Add list or swimlane through the toolbar. Rename the board through the toolbar,
   a list through List menu, or a swimlane through its Rename button. Those list
-  and swimlane panels also offer explicit movement to another sibling position.
+  and swimlane panels also offer explicit movement to another sibling position
+  and archiving. Ordinary lane archives cascade to active cards; restore via
+  Archives → Swimlanes preserves earlier card archives and enforces WIP limits.
+  Cards, Lists and Swimlanes use the same paginated table and selection flow.
 - Collapse or expand lists and swimlanes. The desktop remembers collapsed IDs
   in a separate preference file scoped to the exact workspace path, actor and
   board. Invalid or unwritable preferences leave the current session usable;
@@ -170,5 +173,5 @@ Swimlane archive/restore adapters stage a complete board snapshot inside the
 guarded cascade transaction. The normal board loader and this staging path share
 one reader. A read or commit failure leaves the displayed snapshot untouched and
 rolls back the lane, child cards and request identity; successful publication
-needs no further database query. Native lane menu/archive-browser wiring remains
-on the roadmap.
+needs no further database query. The peer card traversal count is published with
+the full snapshot so subsequently added cards remain accessible.

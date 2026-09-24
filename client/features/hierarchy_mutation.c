@@ -464,7 +464,10 @@ int wena_hierarchy_mutation_swimlane_archive_request(WenaHierarchyMutation *adap
     adapter->persistence.prepare_publish=prepare_archive_publish;adapter->persistence.publish_context=&publish;
     ok=wena_sqlite_persistence_apply(&adapter->persistence,&command,&response);
     adapter->persistence.prepare_publish=NULL;adapter->persistence.publish_context=NULL;
-    if(ok)memcpy(adapter->snapshot,publish.snapshot,sizeof(*publish.snapshot));
+    if(ok){
+        memcpy(adapter->snapshot,publish.snapshot,sizeof(*publish.snapshot));
+        if(adapter->published_card_count)*adapter->published_card_count=publish.snapshot->card_count;
+    }
     free(publish.snapshot);return ok;
 }
 int wena_hierarchy_mutation_swimlane_archive(void *context,const char *board,const char *id,unsigned long expected)

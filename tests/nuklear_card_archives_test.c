@@ -13,6 +13,20 @@ static WenaCard cards[6];
 static int reads;
 static WenaList lists[8];
 static int list_reads,list_writes,list_fail;
+static WenaSwimlane lanes[8];
+static int lane_reads,lane_writes,lane_fail;
+static unsigned long lane_version=12;
+static int lane_load(void *context,const char *board,const char *id,unsigned long *version)
+{
+    (void)context;(void)id;assert(!strcmp(board,"board"));++lane_reads;
+    *version=lane_version;return !lane_fail;
+}
+static int lane_restore(void *context,const char *board,const char *id,unsigned long version)
+{
+    (void)context;assert(!strcmp(board,"board")&&!strcmp(id,"two"));
+    if(lane_fail||version!=lane_version)return 0;
+    lanes[5].archived=0;++lane_writes;return 1;
+}
 static int list_load(void *context,const char *board,const char *id,unsigned long *version)
 {
     (void)context;(void)id;assert(!strcmp(board,"board"));++list_reads;
@@ -138,7 +152,7 @@ int main(void)
     assert(wena_card_archives_open(&state,&layout));
     nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
     click(&ctx,&state,&layout,"Lists");
-    assert(state.lists&&state.version==9&&list_reads==1&&!strcmp(state.card_id,"one"));
+    assert(state.kind&&state.version==9&&list_reads==1&&!strcmp(state.card_id,"one"));
     click(&ctx,&state,&layout,"Next Page");
     assert(state.table.page==1&&list_reads==1&&writes==1&&!list_writes);
     click(&ctx,&state,&layout,"Repeated [two]");assert(list_reads==2&&!strcmp(state.card_id,"two"));
@@ -148,8 +162,8 @@ int main(void)
     assert(state.error&&lists[5].archived&&!list_writes&&writes==1);
     list_fail=0;click(&ctx,&state,&layout,"Restore");
     assert(!lists[5].archived&&list_writes==1&&writes==1&&!strcmp(state.card_id,"one"));
-    click(&ctx,&state,&layout,"Cards");assert(!state.lists&&state.version==1&&!state.table.page);
-    list_fail=1;click(&ctx,&state,&layout,"Lists");assert(state.lists&&state.error&&!state.version);
+    click(&ctx,&state,&layout,"Cards");assert(!state.kind&&state.version==1&&!state.table.page);
+    list_fail=1;click(&ctx,&state,&layout,"Lists");assert(state.kind&&state.error&&!state.version);
     click(&ctx,&state,&layout,"Restore");assert(list_writes==1&&writes==1);
     list_fail=0;click(&ctx,&state,&layout,"Cards");click(&ctx,&state,&layout,"Lists");
     click(&ctx,&state,&layout,"Next Page");assert(state.table.page==1);
@@ -157,6 +171,37 @@ int main(void)
     nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
     assert(!state.table.page&&!state.card_id[0]&&!state.version);
     (void)label_center(&ctx,"No lists in Archive.");
+    click(&ctx,&state,&layout,"Cancel");assert(!state.visible);
+    for(i=0;i<6;++i)assert(wena_swimlane_init(&lanes[i],ids[i],"board","Repeated",i,1));
+    assert(wena_swimlane_init(&lanes[6],"active","board","Active",6,0));
+    assert(wena_swimlane_init(&lanes[7],"foreign","other","Foreign",7,1));
+    layout.swimlanes=lanes;layout.swimlane_count=8;
+    wena_card_archives_set_provider(&state,WENA_ARCHIVE_SWIMLANES,lane_load,lane_restore,NULL);
+    assert(wena_card_archives_open(&state,&layout));
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+    click(&ctx,&state,&layout,"Swimlanes");
+    assert(state.kind==WENA_ARCHIVE_SWIMLANES&&state.version==12&&lane_reads==1);
+    click(&ctx,&state,&layout,"Next Page");assert(state.table.page==1&&lane_reads==1);
+    click(&ctx,&state,&layout,"Repeated [two]");
+    assert(!strcmp(state.card_id,"two")&&lane_reads==2);
+    click(&ctx,&state,&layout,"Previous Page");assert(!state.table.page&&lane_reads==2);
+    (void)label_center(&ctx,"Repeated [two]");
+    ++lane_version;click(&ctx,&state,&layout,"Restore");
+    assert(state.error&&lanes[5].archived&&!lane_writes);
+    click(&ctx,&state,&layout,"Lists");assert(state.kind==WENA_ARCHIVE_LISTS&&!state.version);
+    click(&ctx,&state,&layout,"Swimlanes");
+    click(&ctx,&state,&layout,"Next Page");click(&ctx,&state,&layout,"Repeated [two]");
+    lane_fail=1;click(&ctx,&state,&layout,"Restore");
+    assert(state.error&&lanes[5].archived&&!lane_writes);
+    lane_fail=0;click(&ctx,&state,&layout,"Restore");
+    assert(!lanes[5].archived&&lane_writes==1&&list_writes==1&&writes==1);
+    click(&ctx,&state,&layout,"Cards");assert(state.kind==WENA_ARCHIVE_CARDS&&!state.table.page);
+    lane_fail=1;click(&ctx,&state,&layout,"Swimlanes");assert(state.error&&!state.version);
+    click(&ctx,&state,&layout,"Restore");assert(lane_writes==1);
+    for(i=0;i<6;++i)lanes[i].archived=0;
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+    assert(!state.card_id[0]&&!state.version&&!state.table.page);
+    (void)label_center(&ctx,"No swimlanes in Archive.");
     click(&ctx,&state,&layout,"Cancel");assert(!state.visible);
     nk_free(&ctx); puts("Real Nuklear paginated archives, exact selection, restore and cancel passed");
     return 0;
