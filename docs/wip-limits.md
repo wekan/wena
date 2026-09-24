@@ -3,8 +3,8 @@
 `models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
 limits and future lane/group limits. It has no database or UI dependencies.
 Guarded setting writes, snapshot loading and card mutation enforcement are
-implemented. The native limit editor and header warnings remain open roadmap
-steps.
+implemented. The native limit editor is connected; header warnings and creation
+availability remain open roadmap steps.
 
 Schema v12 adds `list_wip_limits`, with one row per list and an exact board/list
 foreign key. Missing rows will use defaults; stored rows default to value 1,
@@ -73,6 +73,18 @@ after freeing capacity, archive/restore transitions, soft/disabled increases,
 already-overfull lists, late rollback and retry. Failed operations preserve
 cached rows, positions, card revisions and request identities. Restoration also
 requires an active parent list, consistent with creation and movement.
+
+The existing hierarchy editor opens the WIP form from the list menu, with the
+same adapter context, selection checks and close/cancel handling. Canonical
+WeKan translations label the menu and enabled/soft controls. The form shows the
+authoritative active count and saved limit. Checking enabled/soft immediately
+saves that toggle and closes on success; failed toggles preserve the previous
+state. Numeric edits require Save and accept only decimal 1–99, with a bounded
+draft that retains overflow for rejection. Enter in the field does not submit.
+Cancel/Escape discard the numeric draft; failed writes keep it and its captured
+revision. Real Nuklear/SQLite tests exercise these controls, automatic count
+adjustment, invalid/over-limit values, late rollback/retry, stale revisions,
+failed loads and persisted settings after reopening.
 
 The port follows the original WeKan source:
 

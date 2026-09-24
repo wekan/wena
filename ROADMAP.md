@@ -852,8 +852,13 @@ Architecture decisions for this cycle:
             moves/reorders and movement out when full. Verify hard rejection,
             soft/disabled acceptance, exact-limit transitions, unchanged failed
             caches/positions/revisions/identities and rollback/retry.
-          - [_] Connect the native list limit editor and header warnings with
-            real input, rollback, stale revision and reopen tests.
+          - [x] Connect the native limit editor through the existing list menu
+            and hierarchy adapter. Use canonical translated controls, bounded
+            numeric drafts and explicit saves; Enter never commits a number.
+            Verify real input, toggles/count adjustment, invalid and below-count
+            values, cancellation, rollback/retry, stale revisions and reopening.
+          - [_] Show list limit status/warnings and creation availability in
+            native headers using the shared rules and unfiltered cached counts.
       - [x] Extract the label palette/custom-hex input into one reusable native
         color form. Share bounded draft validation, named/default colors,
         overflow rejection and preview rendering; keep persistence in callers.

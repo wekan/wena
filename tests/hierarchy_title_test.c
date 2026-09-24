@@ -185,13 +185,13 @@ static void creation_tests(sqlite3 *database, WenaHierarchyMutation *adapter,
     strcpy(snapshot->board.id, "board");
 }
 
-static void color_key(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,enum nk_keys key,int down)
+static void editor_key(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,enum nk_keys key,int down)
 {
  nk_clear(context);nk_input_begin(context);nk_input_key(context,key,down);nk_input_end(context);render(context,state,layout);
 }
-static void color_text(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,const char *text)
+static void editor_text(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,const char *text)
 {
- size_t i;color_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,1);color_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,0);
+ size_t i;editor_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,1);editor_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,0);
  for(i=0;text[i];++i){nk_clear(context);nk_input_begin(context);nk_input_unicode(context,(nk_rune)(unsigned char)text[i]);nk_input_end(context);render(context,state,layout);}
 }
 static void open_color(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,WenaHierarchyKind kind,const char *id)
@@ -214,11 +214,11 @@ static void color_tests(sqlite3 *db,WenaHierarchyMutation *adapter,WenaSqliteBoa
   open_color(context,state,layout,kind,id);click(context,state,layout,"Default");click(context,state,layout,"Save");
   assert(!state->visible&&!cached[0]);
   open_color(context,state,layout,kind,id);point=label_center(context,"Custom color");point.y+=28;click_at(context,state,layout,point);
-  color_text(context,state,layout,"#1234567");assert(state->color_input.color_length==8);
+  editor_text(context,state,layout,"#1234567");assert(state->color_input.color_length==8);
   keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
-  color_key(context,state,layout,NK_KEY_ENTER,1);assert(state->visible&&scalar(db,"SELECT count(*) FROM idempotency_keys")==keys);
-  color_key(context,state,layout,NK_KEY_ENTER,0);click(context,state,layout,"Save");assert(state->error&&state->visible&&!cached[0]);
-  click_at(context,state,layout,point);color_text(context,state,layout,"#123AbC");
+  editor_key(context,state,layout,NK_KEY_ENTER,1);assert(state->visible&&scalar(db,"SELECT count(*) FROM idempotency_keys")==keys);
+  editor_key(context,state,layout,NK_KEY_ENTER,0);click(context,state,layout,"Save");assert(state->error&&state->visible&&!cached[0]);
+  click_at(context,state,layout,point);editor_text(context,state,layout,"#123AbC");
   execute(db,"CREATE TRIGGER color_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
   click(context,state,layout,"Save");assert(state->visible&&state->error&&!cached[0]);execute(db,"DROP TRIGGER color_late");
   click(context,state,layout,"Save");assert(!state->visible&&!strcmp(cached,"#123AbC"));
@@ -226,8 +226,8 @@ static void color_tests(sqlite3 *db,WenaHierarchyMutation *adapter,WenaSqliteBoa
   sprintf(query,"UPDATE %s SET version=version+1 WHERE id='%s'",k?"swimlanes":"lists",id);execute(db,query);
   click(context,state,layout,"Save");assert(state->visible&&state->error&&!strcmp(cached,"#123AbC"));
   click(context,state,layout,"Cancel");open_color(context,state,layout,kind,id);
-  color_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,1);assert(!state->visible);
-  color_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,0);
+  editor_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,1);assert(!state->visible);
+  editor_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,0);
   assert(wena_hierarchy_title_open(state,layout,kind,id));
   memset(state->title_input,'x',sizeof(state->title_input));state->title_length=(int)sizeof(state->title_input);
   frame(context,state,layout);click(context,state,layout,"Select Color");assert(state->editing_color);
@@ -239,6 +239,43 @@ static void color_tests(sqlite3 *db,WenaHierarchyMutation *adapter,WenaSqliteBoa
   assert(state->visible&&!state->editing_color&&state->error);strcpy(adapter->actor_id,"actor");
   click(context,state,layout,"Cancel");
  }
+}
+
+static void open_wip(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout)
+{
+ assert(wena_hierarchy_title_open(state,layout,WENA_HIERARCHY_LIST,"list"));frame(context,state,layout);
+ click(context,state,layout,"Edit WIP Limit");assert(state->visible&&state->editing_wip);frame(context,state,layout);
+}
+static void wip_tests(sqlite3 *db,WenaHierarchyMutation *adapter,WenaSqliteBoardSnapshot *snapshot,
+ struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout)
+{
+ struct nk_vec2 point;int keys;
+ execute(db,"INSERT INTO cards VALUES('wip1','board','lane','list','One',0,0,1),('wip2','board','lane','list','Two',1,0,1),('wip3','board','lane','list','Three',2,0,1)");
+ assert(wena_sqlite_board_load(db,"board",snapshot));
+ wena_hierarchy_title_set_wip_adapters(state,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
+ open_wip(context,state,layout);assert(state->wip_count==3&&state->wip_limit.value==1);
+ click(context,state,layout,"Enable WIP Limit");assert(!state->visible&&snapshot->lists[0].wip_limit.enabled&&snapshot->lists[0].wip_limit.value==3);
+ open_wip(context,state,layout);click(context,state,layout,"Soft WIP Limit");assert(!state->visible&&snapshot->lists[0].wip_limit.soft);
+ open_wip(context,state,layout);point=label_center(context,"Soft WIP Limit");point.y+=32;click_at(context,state,layout,point);
+ editor_text(context,state,layout,"1");click(context,state,layout,"Save");assert(!state->visible&&snapshot->lists[0].wip_limit.value==1);
+ open_wip(context,state,layout);click(context,state,layout,"Soft WIP Limit");assert(!state->visible&&!snapshot->lists[0].wip_limit.soft&&snapshot->lists[0].wip_limit.value==3);
+ open_wip(context,state,layout);point=label_center(context,"Soft WIP Limit");point.y+=32;click_at(context,state,layout,point);
+ editor_text(context,state,layout,"100");assert(state->wip_length==3);keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
+ editor_key(context,state,layout,NK_KEY_ENTER,1);editor_key(context,state,layout,NK_KEY_ENTER,0);
+ assert(state->visible&&scalar(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ click(context,state,layout,"Save");assert(state->visible&&state->error&&snapshot->lists[0].wip_limit.value==3);
+ click_at(context,state,layout,point);editor_text(context,state,layout,"2");click(context,state,layout,"Save");assert(state->visible&&state->error);
+ click_at(context,state,layout,point);editor_text(context,state,layout,"5");
+ execute(db,"CREATE TRIGGER wip_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ click(context,state,layout,"Save");assert(state->visible&&state->error&&snapshot->lists[0].wip_limit.value==3);execute(db,"DROP TRIGGER wip_late");
+ click(context,state,layout,"Save");assert(!state->visible&&snapshot->lists[0].wip_limit.value==5);
+ open_wip(context,state,layout);point=label_center(context,"Soft WIP Limit");point.y+=32;click_at(context,state,layout,point);editor_text(context,state,layout,"9");
+ execute(db,"UPDATE lists SET version=version+1 WHERE id='list'");click(context,state,layout,"Save");assert(state->visible&&state->error&&snapshot->lists[0].wip_limit.value==5);
+ click(context,state,layout,"Cancel");assert(!state->visible);
+ open_wip(context,state,layout);editor_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,1);assert(!state->visible);editor_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,0);
+ assert(wena_hierarchy_title_open(state,layout,WENA_HIERARCHY_LIST,"list"));frame(context,state,layout);
+ strcpy(adapter->actor_id,"missing");click(context,state,layout,"Edit WIP Limit");assert(state->visible&&state->error&&!state->editing_wip);strcpy(adapter->actor_id,"actor");
+ click(context,state,layout,"Cancel");
 }
 
 static void archives_frame(struct nk_context *context,WenaCardArchivesState *state,WenaBoardLayout *layout)
@@ -412,6 +449,7 @@ int main(int argc, char **argv)
     snapshot->lists[0].archived = 0;
     creation_tests(database, &adapter, snapshot, &context, &state, &layout);
     color_tests(database,&adapter,snapshot,&context,&state,&layout);
+    wip_tests(database,&adapter,snapshot,&context,&state,&layout);
     wena_hierarchy_title_set_archive_adapter(&state,wena_hierarchy_mutation_archive);
     assert(wena_hierarchy_title_open(&state,&layout,WENA_HIERARCHY_LIST,"list"));
     frame(&context,&state,&layout);
@@ -445,6 +483,7 @@ int main(int argc, char **argv)
     assert(wena_sqlite_board_load(database, "board", snapshot));
     assert(strcmp(before, snapshot->lists[0].title) == 0);
     assert(snapshot->list_count == 4 && snapshot->swimlane_count == 3);
+    assert(snapshot->lists[0].wip_limit.value==5&&snapshot->lists[0].wip_limit.enabled&&!snapshot->lists[0].wip_limit.soft);
     assert(!strcmp(snapshot->lists[0].color,"#123AbC")&&!strcmp(snapshot->swimlanes[0].color,"#123AbC"));
     assert(sqlite3_close(database) == SQLITE_OK);
     free(snapshot);

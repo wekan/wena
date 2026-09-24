@@ -4,6 +4,7 @@
 
 #include <nuklear.h>
 #include <string.h>
+#include <stdio.h>
 
 static int selected(const WenaBoardLayout *layout, WenaHierarchyKind kind,
                       const char *board, const char *target)
@@ -42,6 +43,7 @@ void wena_hierarchy_title_close(WenaHierarchyTitleState *state)
     state->requested_action = 0u;
     state->creating = 0;
     state->editing_color = 0;
+    state->editing_wip=0;state->wip_length=0;state->wip_value[0]=0;
     memset(&state->color_input,0,sizeof(state->color_input));
     state->error = 0;
     state->title_length = 0;
@@ -63,6 +65,7 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     state->create_title = NULL;
     state->archive = NULL;
     state->load_color = NULL;state->save_color = NULL;
+    state->load_wip=NULL;state->save_wip=NULL;
 }
 
 void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
@@ -85,6 +88,41 @@ void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
 {
     if(!state)return;
     wena_hierarchy_title_close(state);state->load_color=load;state->save_color=save;
+}
+
+void wena_hierarchy_title_set_wip_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadWip load,WenaHierarchySaveWip save)
+{
+    if(!state)return;
+    wena_hierarchy_title_close(state);state->load_wip=load;state->save_wip=save;
+}
+static int render_wip(struct nk_context *context,WenaHierarchyTitleState *state,float width,float height)
+{
+    int save,cancel,enabled,soft,action,i,valid;size_t value;char count[32];
+    save=cancel=0;action=-1;enabled=state->wip_limit.enabled;soft=state->wip_limit.soft;
+    if(nk_begin_titled(context,"List WIP",wena_ui_text(WENA_UI_TEXT_EDIT_WIP_LIMIT),
+        nk_rect(width*0.15f,0,width*0.7f,height<360?height:360),NK_WINDOW_BORDER)){
+        if(wena_title_input_keys(context,0u)&WENA_TITLE_INPUT_CANCEL){nk_end(context);wena_hierarchy_title_close(state);return 1;}
+        nk_layout_row_dynamic(context,28,1);nk_label_wrap(context,state->target_id);
+        sprintf(count,"%lu / %lu",(unsigned long)state->wip_count,(unsigned long)state->wip_limit.value);
+        nk_label(context,count,NK_TEXT_LEFT);
+        if(nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_ENABLE_WIP_LIMIT),&enabled))action=WENA_WIP_TOGGLE_ENABLED;
+        if(nk_checkbox_label(context,wena_ui_text(WENA_UI_TEXT_SOFT_WIP_LIMIT),&soft))action=WENA_WIP_TOGGLE_SOFT;
+        if(state->wip_length<0||state->wip_length>(int)sizeof(state->wip_value)){state->wip_length=0;state->error=1;}
+        nk_edit_string(context,NK_EDIT_FIELD,state->wip_value,&state->wip_length,(int)sizeof(state->wip_value),nk_filter_default);
+        nk_layout_row_dynamic(context,28,2);
+        save=nk_button_label(context,wena_ui_control_text(WENA_UI_SAVE));cancel=nk_button_label(context,wena_ui_control_text(WENA_UI_CANCEL));
+        if(state->error){nk_layout_row_dynamic(context,48,1);nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));}
+    }
+    nk_end(context);
+    if(cancel){wena_hierarchy_title_close(state);return 1;}
+    value=0;valid=1;
+    if(save){action=WENA_WIP_APPLY_VALUE;valid=state->wip_length>0&&state->wip_length<=2;
+        for(i=0;valid&&i<state->wip_length;++i){if(state->wip_value[i]<'0'||state->wip_value[i]>'9')valid=0;else value=value*10+(size_t)(state->wip_value[i]-'0');}
+        if(!value)valid=0;}
+    if(action>=0){if(valid&&state->save_wip&&state->save_wip(state->context,state->board_id,state->target_id,
+        state->title_version,(WenaWipEdit)action,value))wena_hierarchy_title_close(state);else state->error=1;}
+    return 1;
 }
 
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
@@ -166,6 +204,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
     int cancel;
     int archive;
     int color_requested;
+    int wip_requested;
     int save;
     unsigned int edit_keys;
     if (state) state->requested_action = 0u;
@@ -178,13 +217,14 @@ int wena_hierarchy_title_render(struct nk_context *context,
         wena_hierarchy_title_close(state);
         return 0;
     }
+    if(state->editing_wip)return render_wip(context,state,width,height);
     if(state->editing_color)return render_color(context,state,width,height);
-    save = cancel = archive = color_requested = 0;
+    save = cancel = archive = color_requested = wip_requested = 0;
     if (nk_begin_titled(context, "Edit hierarchy title",
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->archive && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->archive && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
@@ -211,6 +251,9 @@ int wena_hierarchy_title_render(struct nk_context *context,
             nk_layout_row_dynamic(context,28.0f,1);
             color_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_SELECT_COLOR));
         }
+        if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->load_wip&&state->save_wip){
+            nk_layout_row_dynamic(context,28,1);wip_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_EDIT_WIP_LIMIT));
+        }
         if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->archive){
             nk_layout_row_dynamic(context,28.0f,1);
             archive=nk_button_label(context,wena_ui_control_text(WENA_UI_ARCHIVE_LIST));
@@ -222,6 +265,16 @@ int wena_hierarchy_title_render(struct nk_context *context,
     }
     nk_end(context);
     if (cancel) wena_hierarchy_title_close(state);
+    else if(wip_requested){
+        WenaWipLimit limit;size_t count;unsigned long version;
+        memset(&limit,0,sizeof(limit));count=0;version=0;
+        if(state->load_wip(state->context,state->board_id,state->target_id,&limit,&count,&version)&&
+            wena_wip_limit_valid(&limit)&&limit.value<=2147483647&&count<=2147483647&&version&&version<=WENA_VERSION_READ_MAX){
+            state->wip_limit=limit;state->wip_count=count;state->title_version=version;
+            sprintf(state->wip_value,"%lu",(unsigned long)limit.value);state->wip_length=(int)strlen(state->wip_value);
+            state->editing_wip=1;state->error=0;
+        }else state->error=1;
+    }
     else if(color_requested){
         char color[WENA_COLOR_CAPACITY];unsigned long version;
         memset(color,0,sizeof(color));version=0;

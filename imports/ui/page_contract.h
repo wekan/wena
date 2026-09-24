@@ -127,7 +127,10 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_LOADING,
     WENA_UI_TEXT_BOARDS,
     WENA_UI_TEXT_LISTS,
-    WENA_UI_TEXT_NO_ARCHIVED_LISTS
+    WENA_UI_TEXT_NO_ARCHIVED_LISTS,
+    WENA_UI_TEXT_EDIT_WIP_LIMIT,
+    WENA_UI_TEXT_ENABLE_WIP_LIMIT,
+    WENA_UI_TEXT_SOFT_WIP_LIMIT
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

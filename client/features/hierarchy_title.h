@@ -24,12 +24,24 @@ typedef int (*WenaHierarchyCreateTitle)(void *context, const char *board_id,
 typedef int (*WenaHierarchyArchive)(void *context,const char *board_id,
     const char *list_id,unsigned long expected_version);
 
+typedef int (*WenaHierarchyLoadWip)(void *context,const char *board_id,const char *list_id,
+    WenaWipLimit *limit,size_t *count,unsigned long *version);
+typedef int (*WenaHierarchySaveWip)(void *context,const char *board_id,const char *list_id,
+    unsigned long expected_version,WenaWipEdit edit,size_t value);
+
 #define WENA_HIERARCHY_TITLE_MOVE 1u
 
 typedef struct WenaHierarchyTitleState {
     unsigned int requested_action;
     int visible;
     int creating;
+    int editing_wip;
+    WenaWipLimit wip_limit;
+    size_t wip_count;
+    char wip_value[12];
+    int wip_length;
+    WenaHierarchyLoadWip load_wip;
+    WenaHierarchySaveWip save_wip;
     int editing_color;
     WenaColorInput color_input;
     WenaHierarchyLoadTitle load_color;
@@ -59,6 +71,8 @@ void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyArchive archive);
 void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
     WenaHierarchyLoadTitle load,WenaHierarchySaveTitle save);
+void wena_hierarchy_title_set_wip_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadWip load,WenaHierarchySaveWip save);
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
     const WenaBoardLayout *layout, WenaHierarchyKind kind);
 /* Opening loads the current persisted title/version. Rendering closes an invalid
