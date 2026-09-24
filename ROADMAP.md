@@ -923,6 +923,13 @@ Architecture decisions for this cycle:
                 capacity atomically. Test every subset/boundary of a small column,
                 incoming cards, empty destinations, aliasing and full capacity;
                 focused movement suites and sanitizers pass.
+              - [x] Generalize the shared SQLite WIP guard to whole incoming
+                batches, with pre-write and already-applied counts evaluated by
+                the same pure rules. Existing single-card callers delegate to it.
+                Preserve within-list changes and soft/disabled limits; reject
+                hard-limit excess, invalid scope, arithmetic overflow/underflow
+                and missing transactions. Tests include partially applied batches
+                and archived-card exclusion; movement/archive regressions pass.
               - [_] Apply selection movement plans through guarded transactions,
                 native cache publication and the shared destination UI.
         - [x] Archive all active cards in a list, scoped to the current lane

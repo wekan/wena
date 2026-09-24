@@ -176,6 +176,38 @@ static void concurrent_snapshot(sqlite3 *db,const char *path)
  sql(write.writer,"BEGIN IMMEDIATE;UPDATE boards SET title='Board' WHERE id='b';UPDATE list_wip_limits SET value=102;COMMIT");
  assert(sqlite3_close(write.writer)==SQLITE_OK);free(snapshot);
 }
+static void batch_guard(sqlite3 *db)
+{
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,0));
+ sql(db,"BEGIN IMMEDIATE;INSERT INTO boards VALUES('bulk','Bulk',1);"
+  "INSERT INTO lists VALUES('bl','bulk','List',0,1);INSERT INTO swimlanes VALUES('bs','bulk','Lane',0,1);"
+  "INSERT INTO cards VALUES('ba','bulk','bs','bl','First',0,0,1),('bb','bulk','bs','bl','Second',1,0,1),('bc','bulk','bs','bl','Archived',2,1,1);"
+  "INSERT INTO list_wip_limits VALUES('bl','bulk',4,1,0)");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",3,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,3));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",3,3));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",(size_t)-1,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"other","bl",2,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","missing",2,0));
+ sql(db,"INSERT INTO cards VALUES('bd','bulk','bs','bl','Incoming one',3,0,1)");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,1));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",3,1));
+ sql(db,"INSERT INTO cards VALUES('be','bulk','bs','bl','Incoming two',4,0,1)");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",2,2));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",3,2));
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",0,0));
+ sql(db,"UPDATE list_wip_limits SET value=2 WHERE list_id='bl'");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",0,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",1,0));
+ sql(db,"UPDATE list_wip_limits SET soft=1 WHERE list_id='bl'");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",100,0));
+ assert(!wena_sqlite_list_wip_check_batch(db,"bulk","bl",(size_t)-1,0));
+ sql(db,"UPDATE list_wip_limits SET enabled=0,soft=0 WHERE list_id='bl'");
+ assert(wena_sqlite_list_wip_check_batch(db,"bulk","bl",100,0));
+ sql(db,"ROLLBACK");
+}
+
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024],q[512];
@@ -252,6 +284,7 @@ int main(int argc,char **argv)
  concurrent_snapshot(db,path);
  native_adapter(db);
  enforce_cards(db);
+ batch_guard(db);
  sql(db,"DROP TABLE list_wip_limits");assert(!change(&store,"l",11,1003,"action=enabled"));
  sql(db,"CREATE VIEW list_wip_limits AS SELECT 'l' AS list_id,'b' AS board_id,1 AS value,0 AS enabled,0 AS soft");
  assert(!change(&store,"l",11,1003,"action=enabled"));assert(!wena_sqlite_list_wip_read(db,"b","l",11,&limit));

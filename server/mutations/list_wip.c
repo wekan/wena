@@ -92,10 +92,16 @@ int wena_sqlite_list_wip_change(sqlite3 *db,const WenaDomainCommand *command,
 int wena_sqlite_list_wip_check(sqlite3 *db,const char *board,const char *list,
     int increase,int applied)
 {
+    if((increase!=0&&increase!=1)||(applied!=0&&applied!=1))return 0;
+    return wena_sqlite_list_wip_check_batch(db,board,list,(size_t)increase,(size_t)applied);
+}
+int wena_sqlite_list_wip_check_batch(sqlite3 *db,const char *board,const char *list,
+    size_t incoming,size_t already_applied)
+{
     sqlite3_stmt *s;sqlite3_int64 version;WenaWipLimit limit;WenaWipDecision decision;
     size_t count;int available,ok;
     if(!db||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board)||!wena_model_identifier_valid(list)||
-        (increase!=0&&increase!=1)||(applied!=0&&applied!=1)||(!increase&&applied))return 0;
+        already_applied>incoming)return 0;
     available=wena_sqlite_optional_table(db,"list_wip_limits",12);if(available<=0)return available==0;
     if(sqlite3_prepare_v2(db,"SELECT version FROM lists WHERE id=?1 AND board_id=?2",-1,&s,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(s,1,list,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(s,2,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
@@ -104,7 +110,7 @@ int wena_sqlite_list_wip_check(sqlite3 *db,const char *board,const char *list,
     if(ok)ok=sqlite3_step(s)==SQLITE_DONE;
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
     if(!ok||!wena_sqlite_list_wip_read(db,board,list,(unsigned long)version,&limit)||
-        !wena_sqlite_list_wip_count(db,board,list,&count)||(applied&&!count))return 0;
-    if(applied)--count;
-    return wena_wip_evaluate(&limit,count,0,(size_t)increase,&decision)&&decision.allowed;
+        !wena_sqlite_list_wip_count(db,board,list,&count)||already_applied>count)return 0;
+    count-=already_applied;
+    return wena_wip_evaluate(&limit,count,0,incoming,&decision)&&decision.allowed;
 }
