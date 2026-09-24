@@ -914,8 +914,18 @@ Architecture decisions for this cycle:
                   output bytes and transaction ownership. Test empty/full sets,
                   corruption, denied reads, input/output aliasing, concurrent WAL
                   changes, read-only connections and reopening.
-                - [_] Add guarded single/bulk assignment operations, consistent
-                  native captures and cross-board member filtering in the transaction.
+                - [x] Add a shared member/assignee write primitive inside the
+                  caller's guarded transaction. Revalidate exact roster/card
+                  snapshots and active parents, reuse the person-set model,
+                  retain position gaps and append safely. Advance only changed
+                  card revisions; preserve no-ops and verify both fields, card
+                  metadata and roster after writes. Tests cover stale captures,
+                  ineligible/departed members, ignored/altered writes, parent
+                  changes, late/commit rollback, terminal revisions, full capacity,
+                  in-place output and reopening. Caller still owns the board
+                  revision, whole-batch verification, idempotency and commit.
+                - [_] Connect guarded single/bulk assignment domain operations,
+                  consistent native captures and transactional cross-board filtering.
                 - [_] Connect shared paginated person controls to card details and
                   multi-selection, showing mixed assignment and publishing caches
                   only after successful commit. Verify real input and rollback.

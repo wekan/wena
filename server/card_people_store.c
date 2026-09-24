@@ -69,13 +69,21 @@ int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,
     strcpy(candidate->card_id,card);q=NULL;
     for(f=0;f<WENA_PERSON_FIELD_COUNT;++f)(void)wena_card_people_init(&candidate->fields[f],board);
     ok=board_version(db,board,&candidate->board_version)&&
-        sqlite3_prepare_v2(db,"SELECT board_id,version,archived FROM cards WHERE id=?1",-1,&q,NULL)==SQLITE_OK;
+        sqlite3_prepare_v2(db,"SELECT board_id,version,archived,list_id,swimlane_id,title,position FROM cards WHERE id=?1",-1,&q,NULL)==SQLITE_OK;
     if(ok)ok=sqlite3_bind_text(q,1,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(q)==SQLITE_ROW;
     if(ok){
         scope=text(q,0,WENA_ID_CAPACITY);
         ok=scope&&!strcmp(scope,board)&&version(q,1,&candidate->card_version)&&sqlite3_column_type(q,2)==SQLITE_INTEGER&&
             (sqlite3_column_int64(q,2)==0||sqlite3_column_int64(q,2)==1);
-        if(ok){candidate->archived=sqlite3_column_int(q,2);ok=sqlite3_step(q)==SQLITE_DONE;}
+        if(ok){
+            const char *list,*lane,*title;
+            list=text(q,3,WENA_ID_CAPACITY);lane=text(q,4,WENA_ID_CAPACITY);title=text(q,5,WENA_TITLE_CAPACITY);
+            ok=wena_model_identifier_valid(list)&&wena_model_identifier_valid(lane)&&
+                wena_model_title_string_valid(title,WENA_TITLE_CAPACITY)&&sqlite3_column_type(q,6)==SQLITE_INTEGER&&
+                sqlite3_column_int64(q,6)>=0;
+            if(ok){strcpy(candidate->list_id,list);strcpy(candidate->swimlane_id,lane);strcpy(candidate->title,title);
+                candidate->position=sqlite3_column_int64(q,6);candidate->archived=sqlite3_column_int(q,2);ok=sqlite3_step(q)==SQLITE_DONE;}
+        }
     }
     if(q&&sqlite3_finalize(q)!=SQLITE_OK)ok=0;q=NULL;
     if(ok)ok=sqlite3_prepare_v2(db,

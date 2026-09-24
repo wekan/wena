@@ -1,0 +1,17 @@
+#ifndef WENA_MUTATION_CARD_PEOPLE_H
+#define WENA_MUTATION_CARD_PEOPLE_H
+#include "../card_people_store.h"
+/* Caller-owned guarded write transaction; 0 failure, 1 changed, 2 no-op.
+ * Revalidate exact roster/card captures and active card parents. Add/remove one
+ * person in either field through the same writer. Preserve order gaps, append
+ * at last position+1, and advance only a changed card's revision. Verify both
+ * fields, card metadata and unchanged roster after writes. Output can alias
+ * expected; it is published only on success and never on failure.
+ * Caller supplies authentication, authorization, idempotency, the final board
+ * revision advance and complete batch verification. Roll back the ENTIRE
+ * transaction after any failure; no partial changes may be committed. Output
+ * remains staged until caller's commit succeeds. */
+int wena_sqlite_card_person_set(sqlite3 *db,const WenaMemberRoster *roster,
+    const WenaCardPeopleSnapshot *expected,int field,const char *actor,int enabled,
+    WenaCardPeopleSnapshot *output);
+#endif

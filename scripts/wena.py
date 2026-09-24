@@ -161,6 +161,7 @@ def tools_menu():
 # One catalog drives listing, named execution and the complete native run.
 # Shell wrappers for capability/schema already include their Python helpers.
 TEST_SUITES = (
+    ('card-people-mutation', 'test_card_people_mutation.sh', 'Shared member/assignee writer, exact snapshot guards, ordering and rollback'),
     ('card-people-store', 'test_card_people_store.sh', 'Strict member rosters and card people snapshots, corruption, WAL consistency and capacity'),
     ('card-people', 'test_card_people.sh', 'Shared member/assignee eligibility, stable set operations and cross-board membership mapping'),
     ('checklist-item-move', 'test_checklist_item_move.sh', 'Guarded checklist item transfer across cards or same-card parents'),

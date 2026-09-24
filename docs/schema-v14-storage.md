@@ -38,6 +38,14 @@ incomplete data, and publish output only after every row validates. They never
 commit, roll back or grant access. Native callers must still stage these outputs
 until their enclosing read transaction commits.
 
-Guarded assignment writes, roster management, transactional transfer filtering,
+`server/mutations/card_people` provides the shared single-row assignment primitive
+for either field. It revalidates the caller's exact captures, checks active card
+parents, applies the shared person-set model, retains order gaps and verifies
+unchanged roster/card metadata and the other field after writing. Only changed
+cards advance revisions. It neither advances the board revision nor commits:
+the enclosing domain operation must authorize the caller, guard replay, verify
+the whole batch, advance the board once and commit or roll everything back.
+
+Domain assignment operations, roster management, transactional transfer filtering,
 native snapshots and paginated person controls remain pending in `ROADMAP.md`.
-Until those operations are implemented, these tables have no automatic writers.
+Until those operations are connected, no application action writes these tables.

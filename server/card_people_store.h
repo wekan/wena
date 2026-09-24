@@ -15,7 +15,9 @@ typedef struct WenaMemberRoster {
     sqlite3_int64 created[WENA_BOARD_MEMBER_CAPACITY],updated[WENA_BOARD_MEMBER_CAPACITY];
 } WenaMemberRoster;
 typedef struct WenaCardPeopleSnapshot {
-    WenaId card_id;
+    WenaId card_id,list_id,swimlane_id;
+    WenaTitle title;
+    sqlite3_int64 position;
     unsigned long board_version,card_version;
     int archived;
     WenaCardPeople fields[WENA_PERSON_FIELD_COUNT];
