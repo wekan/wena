@@ -821,6 +821,15 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
+        - [_] Port card multiselection and its list-menu/sidebar actions.
+          - [x] Add a reusable board-scoped card selection model: additive
+            list/current-lane selection, exact-ID toggles, stable ordering,
+            explicit board reset and stale/archived-card pruning. Validate
+            model/selection IDs, duplicates, flags and capacity atomically;
+            test duplicate titles, foreign boards, malformed inputs, no-ops,
+            removal and the complete 2048-card boundary with sanitizers.
+          - [_] Connect list-menu selection, minicard selection controls and
+            the shared sidebar/table to guarded bulk actions.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

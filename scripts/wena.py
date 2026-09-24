@@ -294,6 +294,7 @@ TEST_SUITES = (
     ('nuklear-card-insert', 'test_nuklear_card_insert.sh', 'Real Move form exact insertion, bounded input and snapshot guards'),
     ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
     ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
+    ('card-selection', 'test_card_selection.sh', 'Shared scoped card multiselection and pruning'),
     ('card-order', 'test_card_order.sh', 'Shared ordered card snapshots and stale detection'),
     ('wip-limit', 'test_wip_limit.sh', 'Shared WIP decisions, editor transitions and arithmetic bounds'),
     ('card-insert', 'test_card_insert.sh', 'Guarded exact-position card insertion across lists and swimlanes'),
