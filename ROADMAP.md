@@ -83,6 +83,13 @@ also pass ASan/UBSan. Ordered-card snapshot capture and stale detection now live
 in a reusable pure model, used by the Move dialog and ready for card dragging;
 archived siblings, exact IDs, numeric bounds and atomic replacement share one
 implementation. Nine existing focused suites and the new model test pass.
+The table also supports a bounded page cache: missing pages render one translated
+loading state and emit a read intent instead of invoking unavailable row data.
+A reusable directory picker and SQLite reader serve both boards and actors,
+fetching at most 32 validated rows with atomic count/page snapshots. The picker
+does no SQL while drawing, selects exact IDs despite duplicate titles and retries
+failed reads only on explicit Refresh. These shared pieces prepare large pickers
+and cross-board destinations; wiring every host view remains open.
 See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally

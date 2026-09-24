@@ -26,7 +26,8 @@ WenaTableResult wena_table_render(struct nk_context *context,
         state->page_size > WENA_TABLE_MAX_PAGE_SIZE || !view->column_count ||
         view->column_count > WENA_TABLE_MAX_COLUMNS ||
         !(view->row_height > 0.0f && view->row_height <= 4096.0f) ||
-        (!view->error_text && view->row_count && !view->render_row)) return result;
+        (view->windowed!=0 && view->windowed!=1) ||
+        (!view->error_text && view->row_count && !view->render_row && !view->windowed)) return result;
     result.valid = 1;
     if (view->error_text) {
         nk_layout_row_dynamic(context, view->row_height, 1);
@@ -57,14 +58,25 @@ WenaTableResult wena_table_render(struct nk_context *context,
         nk_label_wrap(context, view->empty_text ? view->empty_text : wena_ui_text(WENA_UI_TEXT_NO_ITEMS));
         return result;
     }
+    first = state->page * state->page_size;
+    count = view->row_count - first;
+    if (count > state->page_size) count = state->page_size;
+    result.first_row=first;result.row_count=count;
+    if (view->windowed && (first<view->available_first ||
+        first-view->available_first>view->available_count ||
+        count>view->available_count-(first-view->available_first))) {
+        result.needs_rows=1;
+        nk_layout_row_dynamic(context,view->row_height,1);
+        nk_label_wrap(context,view->loading_text ? view->loading_text :
+            wena_ui_text(WENA_UI_TEXT_LOADING));
+        return result;
+    }
+    if (!view->render_row) {result.valid=0;return result;}
     if (view->headings) {
         nk_layout_row_dynamic(context, view->row_height, (int)view->column_count);
         for (column = 0; column < view->column_count; ++column)
             nk_label(context, view->headings[column] ? view->headings[column] : "", NK_TEXT_LEFT);
     }
-    first = state->page * state->page_size;
-    count = view->row_count - first;
-    if (count > state->page_size) count = state->page_size;
     for (offset = 0; offset < count; ++offset) {
         nk_layout_row_dynamic(context, view->row_height, (int)view->column_count);
         action = view->render_row(context, view->context, first + offset);

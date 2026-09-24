@@ -16,12 +16,19 @@ typedef struct WenaTableView {
     const char *const *headings; /* NULL omits the heading row. */
     const char *empty_text;
     const char *error_text; /* Non-NULL hides rows and navigation. */
+    /* Optional bounded page cache. Missing rows report needs_rows and render
+     * one loading message; navigation never calls a missing row adapter. */
+    int windowed;
+    size_t available_first, available_count;
+    const char *loading_text;
     WenaTableRow render_row;
     void *context;
 } WenaTableView;
 typedef struct WenaTableResult {
     int valid;
     int page_changed;
+    int needs_rows;
+    size_t first_row, row_count; /* Requested page range, including while loading. */
     unsigned int action;
     size_t row; /* Defined only when action != 0. Absolute, not page-relative. */
 } WenaTableResult;

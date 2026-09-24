@@ -87,3 +87,18 @@ transaction. Destination list, swimlane and board are captured together; the
 source's title and IDs remain unchanged. A normal card handle in the source
 column retains ordinal-reorder semantics. Archived or mismatched targets do not
 offer a zone.
+
+For data loaded one page at a time, set the table view's `windowed` flag and its
+available absolute range. Navigation reports `needs_rows`, `first_row` and
+`row_count`; missing rows render one translated loading message and cannot emit
+row actions. The owner fetches outside rendering and supplies the resulting page.
+In-memory adapters keep their existing behavior.
+
+`features/directory_picker` uses that same table for board and actor selection.
+It captures exact IDs/revisions, makes one read attempt per requested page and
+requires explicit Refresh after failures. `models/directory` validates published
+page contracts; `server/sqlite_directory` fetches at most 32 rows in stable ID
+order with count and rows in one read transaction. A shared reader adapter serves
+both kinds without duplicated SQL/pagination functions. IDs distinguish duplicate
+titles in the picker. These are trusted local directories, not remote authorization
+or membership checks. Host views own the window, cancellation and selected action.
