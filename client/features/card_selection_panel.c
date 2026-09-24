@@ -213,3 +213,10 @@ int wena_card_selection_traversal_apply(WenaCardSelectionTraversal *state,const 
     else state->anchor[0]='\0';
     return 1;
 }
+
+int wena_card_selection_selected(void *data,const WenaCard *card)
+{
+    WenaCardSelection *selection;selection=(WenaCardSelection*)data;
+    return selection&&card&&!card->archived&&!strcmp(selection->board_id,card->board_id)&&
+        wena_card_selection_contains(selection,card->id);
+}

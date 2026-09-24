@@ -845,6 +845,13 @@ Architecture decisions for this cycle:
             selections. Real input verifies checked/unchecked toggles, no mutation
             while drawing, archived/foreign exclusions and folded-card routing.
           - [_] Add remaining selection highlighting/range-selection parity.
+            - [x] Highlight selected card titles through the shared heading
+              renderer and active selectable theme. Preserve wrapped titles,
+              folded cards, unselected styling and exact cached ID predicates.
+              Reuse SVG-derived theme colors without new artwork; support color,
+              image and nine-slice style items with no persistent style changes.
+              Real renderer tests cover two font scales, wrapping, selection
+              removal, theme backgrounds and unchanged neighboring text.
             - [x] Add a reusable inclusive-range operation over explicit visible
               card IDs. Replace selection atomically in either direction, keep
               display order, and reject missing endpoints, duplicate/archived/

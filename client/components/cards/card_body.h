@@ -16,4 +16,7 @@ struct nk_context;
 unsigned int wena_card_body_render(struct nk_context *context,
                                    const WenaCard *card);
 
+unsigned int wena_card_body_render_selected(struct nk_context *context,
+    const WenaCard *card,int selected);
+
 #endif

@@ -264,6 +264,77 @@ static void colored_headings(void)
     }
 }
 
+static int selected_card(void *data,const WenaCard *card)
+{return !strcmp((const char*)data,card->id);}
+static int folded_card(struct nk_context *ctx,void *data,const WenaCard *card)
+{(void)ctx;(void)data;(void)card;return 1;}
+static void selected_titles(void)
+{
+ struct nk_context ctx;struct nk_user_font font;struct nk_style before;
+ WenaBoard board;WenaSwimlane lane;WenaList list;WenaCard cards[2];WenaBoardLayout layout;
+ const struct nk_command *command;const struct nk_command_text *text;
+ unsigned char bg[3]={12,45,78},fg[3]={240,241,242};int scale,selected,normal,filled;
+ assert(wena_board_init(&board,"b","Board",0));
+ assert(wena_swimlane_init(&lane,"s","b","Lane",0,0));
+ assert(wena_list_init(&list,"l","b","s","List",0,0));
+ assert(wena_card_init(&cards[0],"a","b","s","l","Selected title",0,0));
+ assert(wena_card_init(&cards[1],"z","b","s","l","Normal title",1,0));
+ memset(&layout,0,sizeof(layout));layout.board=&board;layout.swimlanes=&lane;layout.swimlane_count=1;
+ layout.lists=&list;layout.list_count=1;layout.cards=cards;layout.card_count=2;
+ layout.card_selected=selected_card;layout.card_selected_context="a";layout.card_collapsed=folded_card;
+ for(scale=1;scale<=2;++scale){
+  memset(&font,0,sizeof(font));font.height=10.0f*(float)scale;font.width=text_width;
+  assert(nk_init_default(&ctx,&font));
+  ctx.style.selectable.normal_active=nk_style_item_color(nk_rgb(bg[0],bg[1],bg[2]));
+  ctx.style.selectable.text_normal_active=nk_rgb(fg[0],fg[1],fg[2]);before=ctx.style;
+  render(&ctx,&layout,800);assert(!memcmp(&before,&ctx.style,sizeof(before)));
+  selected=normal=filled=0;
+  nk_foreach(command,&ctx){
+   if(command->type==NK_COMMAND_RECT_FILLED){const struct nk_command_rect_filled *rect;
+    rect=(const struct nk_command_rect_filled*)command;if(same_rgb(rect->color,bg))++filled;}
+   if(command->type!=NK_COMMAND_TEXT)continue;text=(const struct nk_command_text*)command;
+   if(text->length==14&&!memcmp(text->string,"Selected title",14)){
+    assert(same_rgb(text->background,bg)&&same_rgb(text->foreground,fg));++selected;}
+   if(text->length==12&&!memcmp(text->string,"Normal title",12)){
+    assert(!memcmp(&text->foreground,&before.text.color,sizeof(text->foreground)));++normal;}
+  }
+  assert(selected==1&&normal==1&&filled==1);
+  layout.card_selected_context="missing";render(&ctx,&layout,800);
+  nk_foreach(command,&ctx)if(command->type==NK_COMMAND_TEXT){text=(const struct nk_command_text*)command;
+   if(text->length==14&&!memcmp(text->string,"Selected title",14))assert(!same_rgb(text->background,bg));}
+  layout.card_selected_context="a";
+  nk_free(&ctx);
+ }
+}
+
+static void selection_heading_styles(void)
+{
+ struct nk_context ctx;struct nk_user_font font;struct nk_style before;
+ const struct nk_command *command;const struct nk_command_text *text;int kind,lines,images;
+ memset(&font,0,sizeof(font));font.height=14;font.width=text_width;
+ assert(nk_init_default(&ctx,&font));
+ for(kind=0;kind<3;++kind){
+  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);
+  assert(nk_begin(&ctx,"Selection heading",nk_rect(0,0,180,400),NK_WINDOW_BORDER));
+  if(kind==0)ctx.style.selectable.normal_active=nk_style_item_color(nk_rgb(11,22,33));
+  else if(kind==1)ctx.style.selectable.normal_active=nk_style_item_image(nk_image_id(7));
+  else ctx.style.selectable.normal_active=nk_style_item_nine_slice(nk_nine_slice_id(7,0,0,0,0));
+  before=ctx.style;nk_layout_row_dynamic(&ctx,160,1);
+  wena_selection_heading(&ctx,"A selected card title that wraps across several lines",1,1);
+  assert(!memcmp(&before,&ctx.style,sizeof(before)));nk_end(&ctx);
+  lines=images=0;
+  nk_foreach(command,&ctx){
+   if(command->type==NK_COMMAND_IMAGE)++images;
+   if(command->type==NK_COMMAND_TEXT){text=(const struct nk_command_text*)command;
+    assert(!memcmp(&text->foreground,&before.selectable.text_normal_active,sizeof(text->foreground)));
+    if(kind)assert(!text->background.a);
+    ++lines;}
+  }
+  assert(lines>1);if(kind)assert(images>0);
+ }
+ nk_free(&ctx);
+}
+
 static int hide_cards(void *context,const WenaCard *card)
 {(void)context;(void)card;return 0;}
 static void wip_click(struct nk_context *context,WenaBoardLayout *layout,const char *label)
@@ -335,6 +406,8 @@ int main(void)
     struct nk_vec2 second;
 
     colored_headings();
+    selected_titles();
+    selection_heading_styles();
     wip_headers();
     memset(&font, 0, sizeof(font));
     font.height = 14.0f;

@@ -87,6 +87,11 @@ static void minicard_control(WenaCardSelection *selection,WenaCard *cards)
   assert(wena_card_selection_toggle(selection,cards,9,cards[0].id));
  }
  assert(!selection->count);
+ assert(!wena_card_selection_selected(selection,&cards[0]));
+ assert(wena_card_selection_toggle(selection,cards,9,cards[0].id));
+ assert(wena_card_selection_selected(selection,&cards[0]));
+ assert(!wena_card_selection_selected(selection,&cards[6])&&!wena_card_selection_selected(selection,&cards[7]));
+ wena_card_selection_clear(selection);
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);
  assert(!control_frame(&ctx,selection,&cards[6]));
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);

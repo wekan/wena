@@ -49,6 +49,9 @@ typedef struct WenaBoardLayout {
     unsigned int (*card_badges)(struct nk_context *context, void *user_data,
                         const WenaCard *card);
     void *card_badges_context;
+    /* Optional cached selection predicate for shared title highlighting. */
+    int (*card_selected)(void *context,const WenaCard *card);
+    void *card_selected_context;
     /* Cached selection control returns an intent; caller applies it after draw. */
     unsigned int (*card_selection)(struct nk_context*,void*,const WenaCard*);
     void *card_selection_context;

@@ -44,6 +44,7 @@ void wena_card_selection_traversal_begin(WenaCardSelectionTraversal *state,WenaC
 unsigned int wena_card_selection_traversal_control(struct nk_context *context,void *state,const WenaCard *card);
 int wena_card_selection_traversal_apply(WenaCardSelectionTraversal *state,const WenaCard *cards,
     size_t count,const char *target,unsigned int action);
+int wena_card_selection_selected(void *selection,const WenaCard *card);
 /* Reusable cached minicard checkbox; returns a card-body intent, never writes. */
 unsigned int wena_card_selection_control(struct nk_context *context,void *selection,
     const WenaCard *card);
