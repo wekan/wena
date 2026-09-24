@@ -2,9 +2,9 @@
 
 `models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
 limits and future lane/group limits. It has no database or UI dependencies.
-Guarded setting writes and snapshot loading are implemented. Card mutation
-enforcement and native UI integration remain open roadmap steps; stored limits
-do not yet restrict card actions in the application.
+Guarded setting writes, snapshot loading and card mutation enforcement are
+implemented. The native limit editor and header warnings remain open roadmap
+steps.
 
 Schema v12 adds `list_wip_limits`, with one row per list and an exact board/list
 foreign key. Missing rows will use defaults; stored rows default to value 1,
@@ -56,6 +56,23 @@ for each persistence call, including failures and unrelated operations.
 Tests cover actor/scope loss, stale versions, duplicate/archived models,
 archived persisted lists, invalid values, replay, late rollback and byte-for-byte
 cache equivalence with a fresh snapshot.
+
+Card create, restore and move operations share one destination-limit check in
+the existing write transaction. Create and restore validate the resulting count
+before commit, rolling back the new active card if it exceeds a hard limit.
+This covers creation with explicit parents and legacy automatic selection.
+Moves check before append, insertion or reordering. Movement within a list,
+including between swimlanes, adds no WIP; moving out remains possible when the
+source is full or overfull. Archived cards do not count. Soft and disabled
+limits permit increases, while malformed modern metadata fails closed.
+Legacy schemas without the WIP table retain unlimited behavior.
+
+File-backed tests cover full-list create/restore/append/insertion rejection,
+same-list lane changes and reorder no-ops, movement out, an exact-limit create
+after freeing capacity, archive/restore transitions, soft/disabled increases,
+already-overfull lists, late rollback and retry. Failed operations preserve
+cached rows, positions, card revisions and request identities. Restoration also
+requires an active parent list, consistent with creation and movement.
 
 The port follows the original WeKan source:
 

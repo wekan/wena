@@ -846,7 +846,12 @@ Architecture decisions for this cycle:
             result without a post-commit query, including no-ops and automatic
             count adjustments. Test stale caches, scope, duplicate/archived
             models, replay, rollback and equivalence with a fresh snapshot.
-          - [_] Reuse the rule for card creation, restoration and movement.
+          - [x] Enforce the shared WIP rule inside card create/restore/move
+            transactions, including legacy automatic destinations and indexed
+            insertion. Count all active cards across swimlanes; allow same-list
+            moves/reorders and movement out when full. Verify hard rejection,
+            soft/disabled acceptance, exact-limit transitions, unchanged failed
+            caches/positions/revisions/identities and rollback/retry.
           - [_] Connect the native list limit editor and header warnings with
             real input, rollback, stale revision and reopen tests.
       - [x] Extract the label palette/custom-hex input into one reusable native

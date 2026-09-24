@@ -2,6 +2,7 @@
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
 #include "../client/features/hierarchy_mutation.h"
+#include "../client/features/card_mutation.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
 #include <stdio.h>
@@ -92,6 +93,63 @@ static void native_adapter(sqlite3 *db)
  assert(limit.value==102&&!limit.soft&&count==102&&version==11);
  assert(!wena_sqlite_persistence_apply(&adapter.persistence,NULL,NULL)&&!adapter.persistence.list_wip_result.value);
  free(snapshot);free(before);
+}
+static void card_change(WenaSqlitePersistence *store,WenaDomainOperation operation,
+    unsigned long request,const char *form,int expected)
+{
+ WenaDomainCommand command;WenaRegionResponse response;WenaSqliteBoardSnapshot *before,*after;sqlite3_int64 keys,versions;
+ memset(&command,0,sizeof(command));command.operation=operation;command.request_version=request;
+ strcpy(command.user_id,"u");strcpy(command.route,"/b/b/native");strcpy(command.form_body,form);command.form_body_length=strlen(form);
+ before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));after=(WenaSqliteBoardSnapshot*)malloc(sizeof(*after));assert(before&&after);
+ assert(wena_sqlite_board_load(store->database,"b",before));keys=number(store->database,"SELECT count(*) FROM idempotency_keys");
+ versions=number(store->database,"SELECT sum(version) FROM cards");
+ assert(wena_sqlite_persistence_apply(store,&command,&response)==expected);
+ if(!expected){assert(wena_sqlite_board_load(store->database,"b",after)&&!memcmp(before,after,sizeof(*before)));
+  assert(number(store->database,"SELECT count(*) FROM idempotency_keys")==keys);
+  assert(number(store->database,"SELECT sum(version) FROM cards")==versions);
+ }
+ free(before);free(after);
+}
+static void enforce_cards(sqlite3 *db)
+{
+ WenaSqlitePersistence store;WenaCardMutation adapter;WenaSqliteBoardSnapshot *snapshot,*copy;size_t count;wena_sqlite_persistence_init(&store,db);
+ sql(db,"INSERT INTO cards VALUES('incoming','b','s','empty','Incoming',0,0,1)");
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));copy=(WenaSqliteBoardSnapshot*)malloc(sizeof(*copy));assert(snapshot&&copy);
+ assert(wena_sqlite_board_load(db,"b",snapshot));memcpy(copy,snapshot,sizeof(*copy));
+ assert(wena_card_mutation_init(&adapter,db,"u","b",snapshot->cards,snapshot->card_count));
+ assert(!wena_card_mutation_insert_request(&adapter,"b","incoming",1,4000,"l","s",0));
+ assert(!memcmp(copy,snapshot,sizeof(*copy)));
+ assert(wena_card_mutation_reorder_request(&adapter,"b","a",7,4000,0));
+ assert(!memcmp(copy,snapshot,sizeof(*copy)));free(snapshot);free(copy);
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5000,"title=New&targetListId=l&targetSwimlaneId=s",0);
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5000,"title=Legacy",0);
+ card_change(&store,WENA_DOMAIN_RESTORE_CARD,5000,"cardId=c&expectedVersion=9",0);
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5000,"cardId=incoming&expectedVersion=1&targetListId=l&targetSwimlaneId=s",0);
+ /* A lane change inside a full list does not increase its WIP count. */
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5000,"cardId=a&expectedVersion=7&targetListId=l&targetSwimlaneId=t",1);
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5001,"cardId=b&expectedVersion=8&targetListId=empty&targetSwimlaneId=t",1);
+ assert(wena_sqlite_list_wip_count(db,"b","l",&count)&&count==101);
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5000,"title=New&targetListId=l&targetSwimlaneId=s",1);
+ assert(wena_sqlite_list_wip_count(db,"b","l",&count)&&count==102);
+ card_change(&store,WENA_DOMAIN_RESTORE_CARD,5000,"cardId=c&expectedVersion=9",0);
+ card_change(&store,WENA_DOMAIN_ARCHIVE_CARD,5000,"cardId=a&expectedVersion=8",1);
+ card_change(&store,WENA_DOMAIN_RESTORE_CARD,5000,"cardId=c&expectedVersion=9",1);
+ assert(wena_sqlite_list_wip_count(db,"b","l",&count)&&count==102);
+ sql(db,"UPDATE list_wip_limits SET soft=1");
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5001,"title=Soft&targetListId=l&targetSwimlaneId=s",1);
+ card_change(&store,WENA_DOMAIN_RESTORE_CARD,5001,"cardId=a&expectedVersion=9",1);
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5002,"cardId=incoming&expectedVersion=1&targetListId=l&targetSwimlaneId=s",1);
+ sql(db,"UPDATE list_wip_limits SET enabled=0,soft=0");
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5002,"title=Disabled&targetListId=l&targetSwimlaneId=s",1);
+ sql(db,"UPDATE list_wip_limits SET enabled=1,value=1");
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5003,"cardId=c&expectedVersion=10&targetListId=l&targetSwimlaneId=t",1);
+ card_change(&store,WENA_DOMAIN_MOVE_CARD,5004,"cardId=a&expectedVersion=10&targetListId=empty&targetSwimlaneId=s",1);
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5003,"title=Overfull&targetListId=l&targetSwimlaneId=s",0);
+ /* A late failure rolls back the inserted card even when the limit allows it. */
+ sql(db,"UPDATE list_wip_limits SET soft=1;CREATE TRIGGER wip_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5003,"title=Late&targetListId=l&targetSwimlaneId=s",0);sql(db,"DROP TRIGGER wip_late");
+ card_change(&store,WENA_DOMAIN_CREATE_CARD,5003,"title=Retry&targetListId=l&targetSwimlaneId=s",1);
+ assert(number(db,"SELECT version FROM lists WHERE id='l'")==11);
 }
 typedef struct ConcurrentWrite {sqlite3 *writer;int fired;} ConcurrentWrite;
 static int concurrent_write(unsigned int event,void *context,void *statement,void *text)
@@ -193,6 +251,7 @@ int main(int argc,char **argv)
  bad_snapshot(db,"ALTER TABLE list_wip_limits RENAME TO saved_wip;CREATE VIEW list_wip_limits AS SELECT * FROM saved_wip","DROP VIEW list_wip_limits;ALTER TABLE saved_wip RENAME TO list_wip_limits");
  concurrent_snapshot(db,path);
  native_adapter(db);
+ enforce_cards(db);
  sql(db,"DROP TABLE list_wip_limits");assert(!change(&store,"l",11,1003,"action=enabled"));
  sql(db,"CREATE VIEW list_wip_limits AS SELECT 'l' AS list_id,'b' AS board_id,1 AS value,0 AS enabled,0 AS soft");
  assert(!change(&store,"l",11,1003,"action=enabled"));assert(!wena_sqlite_list_wip_read(db,"b","l",11,&limit));
