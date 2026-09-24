@@ -44,7 +44,9 @@ typedef enum WenaDomainOperation {
     WENA_DOMAIN_RESTORE_LIST = 35,
     WENA_DOMAIN_SET_LIST_COLOR = 36,
     WENA_DOMAIN_SET_SWIMLANE_COLOR = 37,
-    WENA_DOMAIN_EDIT_LIST_WIP = 38
+    WENA_DOMAIN_EDIT_LIST_WIP = 38,
+    WENA_DOMAIN_ARCHIVE_SWIMLANE = 39,
+    WENA_DOMAIN_RESTORE_SWIMLANE = 40
 } WenaDomainOperation;
 
 typedef struct WenaDomainCommand {

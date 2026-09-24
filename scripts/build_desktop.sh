@@ -52,7 +52,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/imports/i18n/language.c" \
   "$root_dir/server/sqlite_directory.c" "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_storage.c" \
   "$root_dir/server/sqlite_workspace.c" \
-  "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" \
+  "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" \
   "$root_dir/server/mutations/board_settings.c" \
   "$root_dir/server/mutations/checklist_batch.c" \

@@ -1,0 +1,8 @@
+#ifndef WENA_MUTATION_SWIMLANE_ARCHIVE_H
+#define WENA_MUTATION_SWIMLANE_ARCHIVE_H
+#include "common.h"
+#include <sqlite3.h>
+/* Caller owns guarded transaction. 0 failure, 1 changed, 2 unchanged. */
+int wena_sqlite_swimlane_archive_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version);
+#endif

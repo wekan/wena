@@ -38,8 +38,27 @@ writes, identity rollback, repeated archive/restore, a future timestamp floor,
 overflow, unchanged failed cache state and reopening. Existing legacy card
 archive/restore suites continue to exercise their original v1 schema.
 
-Guarded lane cascades, snapshot loading, destination checks, native cascade
-publication and the shared menu/archive-browser integration remain open roadmap
-items. Cascade tests must distinguish pre-archived cards from cards archived by
-the lane operation, including timestamp ties, repeated archive/restore, rollback
-and WIP limits.
+Typed local swimlane archive/restore operations now use the common guarded
+transaction, with exact scope/revision, replay protection and no-op handling.
+The lane reader shares list archive validation and preserves failed outputs.
+The cascade captures all scoped cards before writes, bounded by the same 2048
+card capacity as native ordering. It rejects excess capacity without partial
+changes. Archive chooses a lane timestamp strictly after every existing card
+timestamp, then uses that floor when archiving active cards. This prevents a
+pre-archived card from sharing the new lane timestamp, even within one clock
+tick or with a future stored time.
+
+Restore selects archived cards at/after the lane's known archive time; missing
+times select none. It reuses the card writer and checks each restored card
+against the shared WIP rule. If any restoration exceeds a hard limit, the
+complete transaction rolls back; soft limits allow restoration. Ordinary lists
+and their revisions are retained, including already-archived lists. A final
+read verifies lane state and the full captured card set, revisions, archive
+flags and timestamps before commit. No HTTP route is added.
+
+File-backed tests cover pre-archived cards, timestamp separation, repeated
+archive/restore, empty lanes, unknown legacy times, stale/scope/replay failures,
+ignored writes, altered/relocated cards, a second-card failure, late rollback,
+multi-card WIP rejection/retry, excess capacity, corruption and reopening.
+Snapshot loading, destination checks, native cascade publication and the shared
+menu/archive-browser integration remain open roadmap items.

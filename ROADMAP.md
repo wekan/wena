@@ -832,8 +832,12 @@ Architecture decisions for this cycle:
             on restore, advance them on re-archive and support a cascade time
             floor. Verify legacy behavior, overflow, corrupt scope/types,
             ignored/altered writes, late rollback, native cache and reopening.
-          - [_] Implement transactional lane cascades, preserving cards archived
-            before the lane operation.
+          - [x] Implement transactional lane cascades, preserving cards archived
+            before the lane operation. Reuse shared hierarchy-state reads and
+            card archive/WIP writers; separate timestamps even within one clock
+            tick, retain unknown legacy archives, and verify complete results.
+            Test no-op/replay, capacity, partial/late rollback, WIP restore
+            failure, ignored/altered writes, corrupt metadata and reopening.
           - [_] Load archived lane state in atomic snapshots and guard native
             destinations; publish the cascade through the hierarchy adapter.
           - [_] Reuse the native menu and paginated archive browser for lanes,
