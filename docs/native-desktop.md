@@ -128,7 +128,10 @@ board setting. Expanded previews show checklist titles and visible items using t
 canonical true default, configurable in Board Settings; checklist Actions offers
 Default, Yes and No overrides, which take priority over the board preference.
 Hidden/all-completed display flags are respected, and a title click opens the
-card's checklist editor. Inline editing, per-user checklist collapse and drag/drop remain open.
+card's checklist editor. Preview checkboxes save completion through the same guarded editor mutation.
+A rejected save shows an error and requires Refresh before another preview edit;
+refresh never retries a mutation. Inline title/add editing, per-user checklist
+collapse and drag/drop remain open.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded
 Apache-2.0 Roboto asset covers selected Latin, Greek and Cyrillic glyphs. Full

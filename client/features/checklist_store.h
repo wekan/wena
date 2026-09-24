@@ -42,6 +42,13 @@ typedef struct WenaChecklistEdit {
     const char *target_checklist_id;
     unsigned long expected_target_checklist_version;
 } WenaChecklistEdit;
+/* Owned one-shot UI intent captured from an immutable snapshot. */
+typedef struct WenaChecklistCompletionIntent {
+    int pending;
+    WenaId board_id, card_id, checklist_id, item_id;
+    unsigned long card_version, checklist_version, item_version;
+    int is_finished;
+} WenaChecklistCompletionIntent;
 typedef struct WenaChecklistSnapshot {
     WenaId board_id;
     WenaId card_id;

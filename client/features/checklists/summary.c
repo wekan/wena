@@ -65,7 +65,7 @@ void wena_checklist_contents_free(WenaChecklistBoardContents *contents)
     for (index = 0; index < WENA_SQLITE_BOARD_MAX_CARDS; ++index) {
         list = contents->cards[index];
         while (list) {
-            next = list->next; free(list->items); free(list); list = next;
+            next = list->next; free(list->items); free(list->item_versions); free(list); list = next;
         }
     }
     free(contents);
@@ -91,10 +91,11 @@ static int retain_checklist(WenaChecklistBoardContents *contents, size_t card_in
     *tail = node; return 1;
 }
 static int retain_item(WenaChecklistBoardContents *contents, size_t card_index,
-    const WenaChecklistItem *item)
+    const WenaChecklistItem *item, unsigned long version)
 {
     WenaChecklistContents *list;
     WenaChecklistItem *items;
+    unsigned long *versions;
     size_t capacity;
     if (!contents) return 1;
     list = contents->cards[card_index];
@@ -105,8 +106,12 @@ static int retain_item(WenaChecklistBoardContents *contents, size_t card_index,
         if (capacity > WENA_CHECKLIST_MAX_ITEMS) capacity = WENA_CHECKLIST_MAX_ITEMS;
         items = (WenaChecklistItem *)realloc(list->items, capacity * sizeof(*items));
         if (!items) return 0;
-        list->items = items; list->item_capacity = capacity;
+        list->items = items;
+        versions = (unsigned long *)realloc(list->item_versions, capacity * sizeof(*versions));
+        if (!versions) return 0;
+        list->item_versions = versions; list->item_capacity = capacity;
     }
+    list->item_versions[list->item_count] = version;
     list->items[list->item_count++] = *item; return 1;
 }
 static const char *read_text(sqlite3_stmt *statement, int column, size_t capacity)
@@ -241,7 +246,7 @@ static int load_summary(sqlite3 *database, const char *actor_id,
             !wena_checklist_item_init(&item, id, scope, card_id, parent, title, position, (int)flag)) goto rollback;
         if (previous_card == card && !strcmp(previous_parent, parent) && previous_position >= position) goto rollback;
         previous_card = card; strcpy(previous_parent, parent); previous_position = position;
-        if (!retain_item(contents, (size_t)(card - candidate->cards), &item)) goto rollback;
+        if (!retain_item(contents, (size_t)(card - candidate->cards), &item, version)) goto rollback;
         ++card->progress.total; card->progress.finished += (size_t)flag;
     }
     if (step != SQLITE_DONE) goto rollback;

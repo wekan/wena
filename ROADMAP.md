@@ -94,8 +94,12 @@ sanitizers pass. Schema-v7 adds the canonical default-on board display preferenc
 its shared settings panel saves both display booleans atomically, with one board
 revision change. Immutable v1-v6 migrations remain unchanged. Upgrade, scope,
 stale/replay/no-op, trigger rollback, real Nuklear controls and reopen tests pass.
-Inline editing/completion,
-per-user checklist collapse and drag/drop remain open.
+Inline completion now captures an owned one-shot item intent with all parent/item
+revisions and applies the existing guarded mutation after drawing. Failure clears
+the intent, shows an error and requires explicit Refresh before more preview
+writes; reloads cannot replay it. Eleven focused suites and targeted sanitizers
+pass, plus desktop startup checks. Inline title/add editing, per-user checklist
+collapse and drag/drop remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -778,7 +782,9 @@ Architecture decisions for this cycle:
       - [x] Persist the default-on expanded checklist board preference with an
         additive schema-v7 extension. Save both display preferences atomically
         through shared boolean storage and one settings panel; preserve overrides.
-      - [_] Finish expanded minicard inline editing/completion,
+      - [x] Toggle inline checklist completion using shared guarded mutations,
+        captured exact IDs/revisions, one-shot intents and read-only error recovery.
+      - [_] Finish expanded minicard inline title/add editing,
         per-user collapse, drag/drop and cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical

@@ -46,6 +46,7 @@ typedef struct WenaChecklistContents {
     unsigned long version;
     size_t item_count, item_capacity;
     WenaChecklistItem *items;
+    unsigned long *item_versions;
     struct WenaChecklistContents *next;
 } WenaChecklistContents;
 typedef struct WenaChecklistBoardContents {

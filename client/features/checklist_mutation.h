@@ -27,4 +27,8 @@ int wena_checklist_mutation_save(void *context,const char *board_id,
 int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
     const char *board_id,const char *card_id,const WenaChecklistEdit *edit,
     unsigned long request_version);
+/* Consume once after drawing: 1 saved, 0 no intent, -1 rejected. Failed saves
+ * require refreshing the snapshot; they are never retried by another frame. */
+int wena_checklist_mutation_complete(WenaChecklistMutation *adapter,
+    WenaChecklistCompletionIntent *intent);
 #endif

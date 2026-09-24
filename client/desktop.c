@@ -59,14 +59,21 @@ static unsigned int desktop_card_badges(struct nk_context *context,
     return actions;
 }
 
+typedef struct WenaDesktopChecklistPreview {
+    WenaBoardPresentation *view;
+    WenaChecklistCompletionIntent intent;
+    int readonly;
+    int error;
+} WenaDesktopChecklistPreview;
+
 static unsigned int desktop_card_contents(struct nk_context *context,
     void *opaque, const WenaCard *card)
 {
-    WenaBoardPresentation *view;
-    view = (WenaBoardPresentation *)opaque;
-    /* Canonical board default is true; per-checklist overrides take priority. */
-    return view->summary_valid ? wena_checklist_contents_render(context,
-        view->contents, card, view->settings.show_checklists) : WENA_CARD_BODY_NO_ACTION;
+    WenaDesktopChecklistPreview *preview;
+    preview = (WenaDesktopChecklistPreview *)opaque;
+    return preview->view->summary_valid ? wena_checklist_contents_render_actions(context,
+        preview->view->contents, card, preview->view->settings.show_checklists,
+        preview->readonly || preview->error ? NULL : &preview->intent) : WENA_CARD_BODY_NO_ACTION;
 }
 
 #define DESKTOP_ADD_LIST 1u
@@ -77,6 +84,7 @@ typedef struct WenaDesktopToolbar {
     WenaLanguagePicker *language;
     WenaBoardFilterState *filter;
     WenaBoardPresentation *labels;
+    WenaDesktopChecklistPreview *preview;
     int filter_changed;
     int collapse_error;
     int collapse_retry;
@@ -110,13 +118,15 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
         if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)))
             toolbar->labels->refresh_pending = 1;
     }
-    if (toolbar->labels != NULL && toolbar->labels->summary_error) {
+    if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->preview->error)) {
         nk_layout_row_dynamic(context, 22.0f, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 28.0f, 2);
         nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
-        if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH)))
+        if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH))) {
             toolbar->labels->summary_pending = 1;
+            toolbar->preview->error = 0;
+        }
     }
     if (toolbar->collapse_error) {
         nk_layout_row_dynamic(context, 22.0f, 2);
@@ -269,6 +279,8 @@ int main(int argc, char **argv)
     WenaCardDescriptionMutation description_mutation;
     WenaChecklistMutation checklist_mutation;
     WenaBoardPresentation label_view;
+    WenaDesktopChecklistPreview preview;
+    int completion_result;
     const WenaCard *selected_card;
     WenaListInteraction list_interaction;
     WenaSwimlaneInteraction swimlane_interaction;
@@ -322,6 +334,7 @@ int main(int argc, char **argv)
     snapshot = (WenaSqliteBoardSnapshot *)calloc(1, sizeof(*snapshot));
     if (snapshot == NULL) return 1;
     memset(&layout, 0, sizeof(layout));
+    memset(&preview, 0, sizeof(preview));
     memset(&editors, 0, sizeof(editors));
     memset(&card_interaction, 0, sizeof(card_interaction));
     memset(&list_interaction, 0, sizeof(list_interaction));
@@ -402,8 +415,11 @@ int main(int argc, char **argv)
     toolbar.language = &language_picker;
     toolbar.filter = &filter;
     toolbar.labels = &label_view;
+    toolbar.preview = &preview;
+    preview.view = &label_view;
+    preview.readonly = smoke;
     layout.card_contents = desktop_card_contents;
-    layout.card_contents_context = &label_view;
+    layout.card_contents_context = &preview;
     layout.card_badges = desktop_card_badges;
     layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;
@@ -495,11 +511,16 @@ int main(int argc, char **argv)
         SDL_GetWindowSize(window, &width, &height);
         if (width > 0 && height > 0) {
             opened_panel = DESKTOP_PANEL_NONE;
+            preview.intent.pending = 0;
             layout.card_count = snapshot->card_count;
             layout.list_count = snapshot->list_count;
             layout.swimlane_count = snapshot->swimlane_count;
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) goto cleanup;
+            if (preview.intent.pending) {
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
+                sidebar.visible = 0;
+            }
             if (toolbar.filter_changed) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
@@ -643,6 +664,12 @@ int main(int argc, char **argv)
             if (opened_panel != DESKTOP_PANEL_BOARD_SETTINGS)
                 (void)wena_board_settings_render(context, &editors.board_settings,
                     snapshot->board.id, (float)width, (float)height);
+            completion_result = wena_checklist_mutation_complete(&checklist_mutation, &preview.intent);
+            if (completion_result) {
+                preview.error = completion_result < 0;
+                label_view.summary_valid = 0;
+                label_view.summary_pending = 1;
+            }
             (void)wena_board_presentation_poll(&label_view);
             if (!smoke && collapse_path[0] != '\0' &&
                 (toolbar.collapse_retry ||

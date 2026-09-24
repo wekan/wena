@@ -433,3 +433,20 @@ int wena_checklist_mutation_save(void *context, const char *board_id, const char
     return wena_checklist_mutation_save_request(adapter, board_id, card_id,
         edit, (unsigned long) request_version + 1);
 }
+
+int wena_checklist_mutation_complete(WenaChecklistMutation *adapter,
+    WenaChecklistCompletionIntent *intent)
+{
+    WenaChecklistEdit edit;
+    if (!intent || !intent->pending) return 0;
+    intent->pending = 0;
+    memset(&edit, 0, sizeof(edit));
+    edit.action = WENA_CHECKLIST_SET_FINISHED;
+    edit.checklist_id = intent->checklist_id; edit.item_id = intent->item_id;
+    edit.expected_card_version = intent->card_version;
+    edit.expected_checklist_version = intent->checklist_version;
+    edit.expected_item_version = intent->item_version;
+    edit.is_finished = intent->is_finished;
+    return wena_checklist_mutation_save(adapter, intent->board_id,
+        intent->card_id, &edit) ? 1 : -1;
+}
