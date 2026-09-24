@@ -176,6 +176,21 @@ static const char migration_v10[] =
 "  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n"
 ");\n"
 "CREATE INDEX list_archive_board_idx ON list_archive_state(board_id, archived, list_id);\n";
+static const char migration_v11[] =
+"CREATE TABLE list_colors (\n"
+"  list_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(list_id) = 'text' AND length(CAST(list_id AS BLOB)) BETWEEN 1 AND 64 AND instr(list_id, char(0)) = 0),\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n"
+"  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX list_colors_board_idx ON list_colors(board_id, list_id);\n"
+"CREATE TABLE swimlane_colors (\n"
+"  swimlane_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(swimlane_id) = 'text' AND length(CAST(swimlane_id AS BLOB)) BETWEEN 1 AND 64 AND instr(swimlane_id, char(0)) = 0),\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n"
+"  FOREIGN KEY (board_id, swimlane_id) REFERENCES swimlanes(board_id, id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX swimlane_colors_board_idx ON swimlane_colors(board_id, swimlane_id);\n";
 static const WenaCompiledMigration migrations[] = {
     {1, migration_v1, 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5", 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"},
     {2, migration_v2, 424u, "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83", 2673u, "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919"},
@@ -187,6 +202,7 @@ static const WenaCompiledMigration migrations[] = {
     {8, migration_v8, 843u, "20d32a701cd08e370fd45afda40b1bf3db278feda0266f91546071b175d58cd4", 9021u, "23278383993f7a5b1fe4d0cef413c7a8bcee31e93c18b93c1d2572fc69f5df09"},
     {9, migration_v9, 387u, "e69c2dd37a03beb1c404223e212abe920fa88b9f5aad9fa561ae01ac4a4b6e7d", 9408u, "d33b785da15b151791ec33f7bd4516e3cb82b471fcf5ed943d08b59d10c9b09a"},
     {10, migration_v10, 709u, "569f851244e439b5106cf081ad43a07fb026eed894bef133368ba7cda48bcc1d", 10117u, "36eb52ba96835f1612b8de1175acd83a03c6f92df0576161ff683455a2924373"},
+    {11, migration_v11, 1968u, "9c5a04b32f44bd3327ea08ee4ac21b6ba14c7d28aba3a77ebbf6e09f99146070", 12085u, "c9d3a3c589cd906396377433356dc52a67ac69e6fe7201d3eadb17fd4280576b"},
 };
 static const WenaSchemaObject schema_objects[] = {
     {2, "cards_board_id_unique", "index", "CREATE UNIQUE INDEX cards_board_id_unique ON cards(board_id, id)"},
@@ -204,6 +220,10 @@ static const WenaSchemaObject schema_objects[] = {
     {9, "board_card_collapse_settings", "table", "CREATE TABLE board_card_collapse_settings (\n  board_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  allow_collapse INTEGER NOT NULL DEFAULT 1 CHECK (typeof(allow_collapse) = 'integer' AND allow_collapse IN (0, 1)),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n)"},
     {10, "list_archive_state", "table", "CREATE TABLE list_archive_state (\n  list_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(list_id) = 'text' AND length(CAST(list_id AS BLOB)) BETWEEN 1 AND 64 AND instr(list_id, char(0)) = 0),\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  archived INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived) = 'integer' AND archived IN (0, 1)),\n  archived_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived_at) = 'integer' AND archived_at >= 0),\n  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n)"},
     {10, "list_archive_board_idx", "index", "CREATE INDEX list_archive_board_idx ON list_archive_state(board_id, archived, list_id)"},
+    {11, "list_colors", "table", "CREATE TABLE list_colors (\n  list_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(list_id) = 'text' AND length(CAST(list_id AS BLOB)) BETWEEN 1 AND 64 AND instr(list_id, char(0)) = 0),\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n)"},
+    {11, "list_colors_board_idx", "index", "CREATE INDEX list_colors_board_idx ON list_colors(board_id, list_id)"},
+    {11, "swimlane_colors", "table", "CREATE TABLE swimlane_colors (\n  swimlane_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(swimlane_id) = 'text' AND length(CAST(swimlane_id AS BLOB)) BETWEEN 1 AND 64 AND instr(swimlane_id, char(0)) = 0),\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  color TEXT NOT NULL DEFAULT '' CHECK (typeof(color) = 'text' AND instr(color, char(0)) = 0 AND (color IN ('', 'white', 'green', 'yellow', 'orange', 'red', 'purple', 'blue', 'sky', 'lime', 'pink', 'black', 'silver', 'peachpuff', 'crimson', 'plum', 'darkgreen', 'slateblue', 'magenta', 'gold', 'navy', 'gray', 'saddlebrown', 'paleturquoise', 'mistyrose', 'indigo') OR (length(CAST(color AS BLOB)) = 7 AND substr(color, 1, 1) = '#' AND substr(color, 2) NOT GLOB '*[^0-9a-fA-F]*'))),\n  FOREIGN KEY (board_id, swimlane_id) REFERENCES swimlanes(board_id, id) ON DELETE RESTRICT\n)"},
+    {11, "swimlane_colors_board_idx", "index", "CREATE INDEX swimlane_colors_board_idx ON swimlane_colors(board_id, swimlane_id)"},
 };
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop

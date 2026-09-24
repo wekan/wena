@@ -34,7 +34,7 @@ int main(int argc,char **argv)
  assert(!wena_sqlite_upgrade(db,hash));reject_commit=0;assert(sqlite3_set_authorizer(db,NULL,NULL)==SQLITE_OK);
  assert(wena_sqlite_schema_version(db)==7&&!number(db,"SELECT count(*) FROM sqlite_master WHERE name='actor_card_sections'"));
  assert(sqlite3_close(db)==SQLITE_OK);
- assert(wena_sqlite_open(argv[2],bundle,(size_t)size,hash,&db));assert(wena_sqlite_schema_version(db)==10);
+ assert(wena_sqlite_open(argv[2],bundle,(size_t)size,hash,&db));assert(wena_sqlite_schema_version(db)==11);
  assert(number(db,"SELECT version FROM boards WHERE id='survivor'")==17);
 
  sql(db,"INSERT INTO actors VALUES('u','User',1),('v','Other',1);INSERT INTO boards VALUES('b','Board',1),('other','Other',1);INSERT INTO lists VALUES('l','b','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);INSERT INTO cards VALUES('c','b','s','l','Card',0,0,1),('archived','b','s','l','Archived',1,1,1)");

@@ -828,6 +828,12 @@ Architecture decisions for this cycle:
         real keyboard/mouse behavior and existing label SQLite integration.
       - [_] Reuse the color form for persisted list/swimlane colors and headers,
         matching WeKan's named palette, custom hex and readable text contrast.
+        - [x] Add immutable schema-v11 list/swimlane color tables with scoped
+          foreign keys/indexes and the canonical label-color constraints. Reuse
+          all-prefix migration tests for defaults, named/custom colors, retained
+          hierarchy/card/archive state, downgrade and reopen; inject both-table,
+          both-index, metadata and commit rollback failures.
+        - [_] Load colors, persist guarded edits and connect headers/forms.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the

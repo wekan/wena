@@ -16,13 +16,15 @@ V6_SHA256 = "d4d89950ca938a52ff238ef57b44ee6bc54996c7361a45a1d519183acb3c50ed"
 V7_SHA256 = "e67771f1a9b59a15e3681a003db247919c26b9fef4c92a4ecf8dae5a8dd29a86"
 V8_SHA256 = "20d32a701cd08e370fd45afda40b1bf3db278feda0266f91546071b175d58cd4"
 V9_SHA256 = "e69c2dd37a03beb1c404223e212abe920fa88b9f5aad9fa561ae01ac4a4b6e7d"
+V10_SHA256 = "569f851244e439b5106cf081ad43a07fb026eed894bef133368ba7cda48bcc1d"
 PATHS = ("server/migrations/001_initial.sql", "server/migrations/002_card_descriptions.sql",
          "server/migrations/003_checklists.sql", "server/migrations/004_checklist_item_card_order.sql",
          "server/migrations/005_labels.sql", "server/migrations/006_board_settings.sql",
          "server/migrations/007_board_minicard_settings.sql",
          "server/migrations/008_actor_card_sections.sql",
          "server/migrations/009_board_card_collapse.sql",
-         "server/migrations/010_list_archive_state.sql")
+         "server/migrations/010_list_archive_state.sql",
+         "server/migrations/011_hierarchy_colors.sql")
 HEADER = "server/migrations/compiled_registry.h"
 
 
@@ -46,6 +48,8 @@ def registry(root):
         raise SystemExit("published v8 migration is immutable")
     if hashlib.sha256(programs[8]).hexdigest() != V9_SHA256:
         raise SystemExit("published v9 migration is immutable")
+    if hashlib.sha256(programs[9]).hexdigest() != V10_SHA256:
+        raise SystemExit("published v10 migration is immutable")
     entries = []
     bundle = b""
     for version, (path, program) in enumerate(zip(PATHS, programs), 1):

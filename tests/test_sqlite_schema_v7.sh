@@ -17,11 +17,12 @@ for version in range(1, int(sys.argv[3])+1):
 PY
 archive_flag=
 if [ "$schema_version" = 10 ]; then archive_flag=-DWENA_SETTING_LIST_ARCHIVE; fi
+if [ "$schema_version" = 11 ]; then archive_flag=-DWENA_SETTING_COLORS; fi
 cc $archive_flag "-DWENA_SETTING_SCHEMA_VERSION=$schema_version" \
  "-DWENA_SETTING_TABLE=\"$schema_table\"" "-DWENA_SETTING_COLUMN=\"$schema_column\"" \
  -std=c89 -pedantic-errors -Wall -Wextra -Werror \
  "$root_dir/tests/sqlite_schema_v7_test.c" "$root_dir/server/sqlite_storage.c" \
- "$root_dir/server/sha256.c" -lsqlite3 -o "$test_dir/test"
+ "$root_dir/server/sha256.c" "$root_dir/models/color.c" -lsqlite3 -o "$test_dir/test"
 set --
 version=1
 while [ "$version" -le "$schema_version" ]; do
