@@ -13,6 +13,7 @@
 static unsigned long statements;
 static WenaChecklistCompletionIntent *active_intent;
 static WenaCardSectionControl *active_sections;
+static WenaChecklistInlineEdit *active_edit;
 static int trace(unsigned int kind, void *data, void *query, void *extra)
 {(void)kind;(void)data;(void)query;(void)extra;++statements;return 0;}
 static void sql(sqlite3 *db,const char *query)
@@ -35,7 +36,7 @@ static unsigned int draw(struct nk_context *ctx,WenaChecklistBoardContents *cont
 {
  unsigned int action;action=0;
  if(nk_begin(ctx,"Preview",nk_rect(0,0,600,700),NK_WINDOW_BORDER))
-  action=wena_checklist_contents_render_controls(ctx,contents,card,board_default,active_intent,active_sections);
+  action=wena_checklist_contents_render_editable(ctx,contents,card,board_default,active_intent,active_sections,active_edit);
  nk_end(ctx);return action;
 }
 static void frame(struct nk_context *ctx,WenaChecklistBoardContents *contents,
@@ -85,6 +86,55 @@ static void shared_sections(sqlite3 *db,struct nk_context *ctx,WenaChecklistBoar
  wena_checklists_close(&panel);frame(ctx,*contents,card,1);assert(label(ctx,"[ ] Todo",NULL));
  controls.readonly=1;frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Collapse");assert(!controls.pending);
  active_sections=NULL;wena_card_sections_free(preferences);
+}
+static void inline_forms(sqlite3 *db,struct nk_context *ctx,
+ WenaChecklistBoardContents **contents,WenaChecklistMutation *adapter,WenaCard *card)
+{
+ WenaChecklistInlineEdit edit;const WenaChecklistContents *list;int i;
+ memset(&edit,0,sizeof(edit));active_edit=&edit;
+ frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Rename");
+ assert(edit.action==WENA_CHECKLIST_RENAME&&!strcmp(edit.checklist_id,"inherit"));
+ statements=0;assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
+ frame(ctx,*contents,card,1);assert(label(ctx,"Save",NULL)&&label(ctx,"Cancel",NULL));
+ click_item(ctx,*contents,card,"Cancel");assert(!edit.action&&!statements);
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Rename");
+ strcpy(edit.input,"Renamed");edit.length=7;frame(ctx,*contents,card,1);
+ click_item(ctx,*contents,card,"Save");assert(edit.pending);
+ assert(wena_checklist_mutation_inline(adapter,&edit)==1&&!edit.action);
+ assert(!wena_checklist_mutation_inline(adapter,&edit));
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"c");assert(!strcmp(list->checklist.title,"Renamed"));
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_RENAME_ITEM));
+ strcpy(edit.input,"Changed item");edit.length=12;edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==1);
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"c");assert(!strcmp(list->items[0].title,"Changed item")&&!list->items[0].is_finished);
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_ADD_ITEM));
+ strcpy(edit.input,"  Added  ");edit.length=9;edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==1);
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"c");assert(list->item_count==3&&!strcmp(list->items[2].title,"Added"));
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_RENAME));
+ edit.length=0;edit.pending=1;assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&edit.error&&!edit.pending);
+ for(i=0;i<129;++i)edit.input[i]='a';
+ edit.length=129;edit.pending=1;assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&edit.length==129);
+ strcpy(edit.input,"Retry");edit.length=5;edit.pending=1;
+ sql(db,"CREATE TRIGGER reject_inline BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END");
+ assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&!edit.pending&&edit.action);
+ assert(!wena_checklist_mutation_inline(adapter,&edit));
+ sql(db,"DROP TRIGGER reject_inline");edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==1);
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"c");
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_RENAME));
+ sql(db,"UPDATE cards SET version=version+1 WHERE id='c'");
+ strcpy(edit.input,"Stale");edit.length=5;edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&!edit.pending);
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ wena_checklist_inline_sync(&edit,*contents,1);assert(edit.action);
+ wena_checklist_inline_sync(&edit,*contents,0);assert(!edit.action);
+ active_edit=NULL;
 }
 int main(int argc,char **argv)
 {
@@ -152,6 +202,7 @@ int main(int argc,char **argv)
  sql(db,"UPDATE checklists SET hide_all_items=1 WHERE id='inherit'");assert(wena_checklist_contents_load(db,"u","b",&contents));
  frame(&ctx,contents,&card,1);assert(label(&ctx,"Inherited",NULL)&&!label(&ctx,"[ ] Todo",NULL));
  shared_sections(db,&ctx,&contents,&adapter,&card);
+ inline_forms(db,&ctx,&contents,&adapter,&card);
  sql(db,"UPDATE cards SET archived=1");assert(wena_checklist_contents_load(db,"u","b",&contents));
  frame(&ctx,contents,&card,1);assert(!label(&ctx,"Shown",NULL));
  wena_checklist_contents_free(contents);nk_free(&ctx);assert(sqlite3_close(db)==SQLITE_OK);

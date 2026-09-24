@@ -1,4 +1,5 @@
 #include "card_details.h"
+#include "../components/forms/text_form.h"
 
 #include "../../imports/ui/page_contract.h"
 
@@ -9,11 +10,7 @@
 unsigned int wena_title_input_keys(struct nk_context *context,
                                     unsigned int edit_result)
 {
-    if (context == NULL || !nk_window_has_focus(context)) return 0u;
-    /* The pinned SDL adapter maps Escape to Nuklear's text-reset key. */
-    if (nk_input_is_key_pressed(&context->input, NK_KEY_TEXT_RESET_MODE))
-        return WENA_TITLE_INPUT_CANCEL;
-    return (edit_result & NK_EDIT_COMMITED) != 0u ? WENA_TITLE_INPUT_COMMIT : 0u;
+    return wena_text_form_keys(context, edit_result);
 }
 
 int wena_card_details_title_valid(const char *title, size_t length)

@@ -21,7 +21,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/components/lists/list_header.c" \
   "$root_dir/client/components/cards/card_body.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
-  "$root_dir/client/features/card_details.c" \
+  "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/imports/ui/page_contract.c" \
   "$root_dir/models/checklist.c" \
   "$root_dir/models/checklist_item.c" \

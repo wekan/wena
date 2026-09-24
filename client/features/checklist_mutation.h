@@ -31,4 +31,7 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
  * require refreshing the snapshot; they are never retried by another frame. */
 int wena_checklist_mutation_complete(WenaChecklistMutation *adapter,
     WenaChecklistCompletionIntent *intent);
+struct WenaChecklistInlineEdit;
+int wena_checklist_mutation_inline(WenaChecklistMutation *adapter,
+    struct WenaChecklistInlineEdit *state);
 #endif

@@ -29,3 +29,11 @@ matching WeKan's profile key, so they share state rather than keep separate flag
 The control performs no I/O: the feature consumes a captured preference revision
 after rendering, then refreshes the snapshot. Read-only/error states draw inert
 controls. Reuse this control and `models/card_section` for future card sections.
+
+`forms/text_form.[ch]` supplies a single-line draft editor and Save/Cancel
+controls. Callers own the buffer, byte limit, validation and persistence. Escape
+wins over Enter within the focused host window; the component only reports an
+intent. Existing title editors share its keyboard policy. Checklist previews use
+the same form for list names, item names and item creation, with exact IDs and
+captured revisions carried by `features/checklists/inline_edit`. Submit after
+rendering: failures retain the draft, successful writes consume it before reload.

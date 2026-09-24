@@ -9,7 +9,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
   "$root_dir/tests/nuklear_board_settings_test.c" \
   "$root_dir/client/features/boards/settings_panel.c" \
   "$root_dir/client/features/boards/settings_store.c" \
-  "$root_dir/client/features/card_details.c" \
+  "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/model.c" "$root_dir/models/card.c" \

@@ -29,7 +29,7 @@ and checklist selectors. Save guards both cards, both checklists and the item,
 appends without changing completion, and advances a same-card aggregate only
 once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
-Cross-board transfer and full inline minicard editing remain open.
+Cross-board transfer and minicard drag/drop remain open.
 
 Latest integrated validation: 127 native suites passed, zero failed or skipped,
 plus all four localhost HTTP/runtime suites passed outside the sandbox (131 total;
@@ -103,7 +103,14 @@ preferences with shared model, storage and collapse control. Minicards and the
 opened card share the same checklist key; preferences leave canonical card/board
 revisions unchanged. Nineteen focused suites, section/preview/presentation
 sanitizers and desktop checks pass. See `docs/section-preferences.md`.
-Inline title/add editing and drag/drop remain open.
+Inline checklist/item renaming and single-item creation now share a general
+text form, including the existing title editors' focus/keyboard policy. Rendering
+captures exact IDs/revisions without SQL; submission uses the existing guarded
+mutation after drawing. Validation/stale/transaction failures retain the draft
+without automatic replay; Save is explicit, Cancel discards, and disappeared or
+hidden targets cancel. Real Nuklear/SQLite tests cover clicks, canonical item
+trimming, invalid titles, stale revisions and late transaction rollback.
+Inline batch creation and drag/drop remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -792,8 +799,10 @@ Architecture decisions for this cycle:
         opened cards through reusable card-section preferences and controls.
         Validate actor/card scope, optimistic versions, capacity, rollback, refresh
         and reopen; keep canonical card/board revisions unchanged.
-      - [_] Finish expanded minicard inline title/add editing, drag/drop and
-        cross-board checklist/item movement.
+      - [x] Share a text form for expanded minicard checklist/item rename and
+        single-item creation, with guarded one-shot writes and retained errors.
+      - [_] Finish inline batch creation, drag/drop and cross-board checklist/item
+        movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

@@ -63,6 +63,7 @@ typedef struct WenaDesktopChecklistPreview {
     WenaBoardPresentation *view;
     WenaChecklistCompletionIntent intent;
     WenaCardSectionControl sections;
+    WenaChecklistInlineEdit inline_edit;
     int readonly;
     int error;
 } WenaDesktopChecklistPreview;
@@ -72,9 +73,10 @@ static unsigned int desktop_card_contents(struct nk_context *context,
 {
     WenaDesktopChecklistPreview *preview;
     preview = (WenaDesktopChecklistPreview *)opaque;
-    return preview->view->summary_valid ? wena_checklist_contents_render_controls(context,
+    return preview->view->summary_valid ? wena_checklist_contents_render_editable(context,
         preview->view->contents, card, preview->view->settings.show_checklists,
-        preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections) : WENA_CARD_BODY_NO_ACTION;
+        preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections,
+        preview->readonly || preview->error ? NULL : &preview->inline_edit) : WENA_CARD_BODY_NO_ACTION;
 }
 
 #define DESKTOP_ADD_LIST 1u
@@ -516,6 +518,8 @@ int main(int argc, char **argv)
         SDL_GetWindowSize(window, &width, &height);
         if (width > 0 && height > 0) {
             opened_panel = DESKTOP_PANEL_NONE;
+            if (label_view.summary_valid)
+                wena_checklist_inline_sync(&preview.inline_edit, label_view.contents, label_view.settings.show_checklists);
             preview.intent.pending = 0;
             preview.sections.pending = 0;
             preview.sections.snapshot = label_view.sections_valid ? label_view.sections : NULL;
@@ -525,11 +529,12 @@ int main(int argc, char **argv)
             layout.swimlane_count = snapshot->swimlane_count;
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) goto cleanup;
-            if (preview.intent.pending) {
+            if (preview.intent.pending || preview.inline_edit.action) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
             if (toolbar.filter_changed) {
+                wena_checklist_inline_cancel(&preview.inline_edit);
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
@@ -672,6 +677,13 @@ int main(int argc, char **argv)
             if (opened_panel != DESKTOP_PANEL_BOARD_SETTINGS)
                 (void)wena_board_settings_render(context, &editors.board_settings,
                     snapshot->board.id, (float)width, (float)height);
+            if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
+                wena_checklist_inline_cancel(&preview.inline_edit);
+            completion_result = wena_checklist_mutation_inline(&checklist_mutation, &preview.inline_edit);
+            if (completion_result) {
+                label_view.summary_valid = 0;
+                label_view.summary_pending = 1;
+            }
             completion_result = wena_checklist_mutation_complete(&checklist_mutation, &preview.intent);
             if (completion_result) {
                 preview.error = completion_result < 0;

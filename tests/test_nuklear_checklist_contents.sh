@@ -14,12 +14,13 @@ PY
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
  -isystem "$root_dir/third_party/nuklear" \
  "$root_dir/tests/nuklear_checklist_contents_test.c" \
- "$root_dir/client/components/cards/checklist_contents.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" \
+ "$root_dir/client/features/checklists/inline_edit.c" \
+    "$root_dir/client/components/cards/checklist_contents.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" \
  "$root_dir/client/features/checklists/summary.c" \
  "$root_dir/models/model.c" "$root_dir/models/card.c" \
  "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
  "$root_dir/imports/preferences/sections.c" "$root_dir/client/features/checklists.c" \
- "$root_dir/client/features/card_details.c" "$root_dir/client/components/cards/card_details_canvas.c" \
+ "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" "$root_dir/client/components/cards/card_details_canvas.c" \
  "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" \
  "$root_dir/client/features/checklist_mutation.c" "$root_dir/client/features/checklist_store.c" \
  "$root_dir/imports/ui/page_contract.c" "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/models/text.c" "$root_dir/models/checklist_item_titles.c" \
