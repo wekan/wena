@@ -33,11 +33,17 @@ Cross-board transfer now shares these guarded local persistence operations throu
 an explicit destination-board ID. The same regression bodies run against same-board
 and cross-board fixtures, including capacity, malformed scopes, late rollback,
 replay, reverse transfer and reopen. Ten focused suites and cross-board ASan/UBSan
-checks pass. Cross-board picker integration and full drag/drop parity remain open.
+checks pass. The desktop now uses a shared paginated board/card destination chooser
+for both whole-checklist and item moves. Page reads and selected-card snapshot
+reads happen outside drawing. Exact board/card IDs disambiguate duplicate titles;
+stale page revisions reject before confirmation. Twenty focused suites and chooser,
+directory-reader and directory-picker ASan/UBSan checks pass. Arbitrary insertion
+points and full drag/drop parity remain open.
 
-Latest integrated validation: 131 native suites passed, zero failed or skipped,
-plus all four localhost HTTP/runtime suites passed outside the sandbox (135 total;
-runtime rerun after schema-v9).
+Latest integrated validation: 135 host-independent native suites passed, zero
+failed or skipped, after cross-board chooser integration. All four localhost
+HTTP/runtime suites previously passed outside the sandbox (runtime rerun after
+schema-v9).
 The sandbox itself denies loopback bind with EPERM; no listener implementation
 change was needed. Fixed a macOS unused-variable build error in OS entropy and a
 reference inventory scanner that wrongly excluded checkouts beneath `.tools`.
@@ -89,11 +95,12 @@ archived siblings, exact IDs, numeric bounds and atomic replacement share one
 implementation. Nine existing focused suites and the new model test pass.
 The table also supports a bounded page cache: missing pages render one translated
 loading state and emit a read intent instead of invoking unavailable row data.
-A reusable directory picker and SQLite reader serve both boards and actors,
+A reusable directory picker and SQLite reader serve boards, actors and scoped active cards,
 fetching at most 32 validated rows with atomic count/page snapshots. The picker
 does no SQL while drawing, selects exact IDs despite duplicate titles and retries
-failed reads only on explicit Refresh. These shared pieces prepare large pickers
-and cross-board destinations; wiring every host view remains open.
+failed reads only on explicit Refresh. The board/card destination component reuses
+this picker for cross-board checklist and item transfers in the desktop; wiring
+the other host views remains open.
 See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally
@@ -846,7 +853,10 @@ Architecture decisions for this cycle:
       - [x] Share explicit destination drop zones for whole-checklist transfer to
         another card and item transfer to another checklist on the same board.
         Append through existing guarded transactions with target revisions.
-      - [_] Finish arbitrary insertion-point/cross-board checklist/item movement.
+      - [x] Reuse a paginated board/card destination chooser for explicit cross-board
+        checklist/item moves, with scoped snapshots, stale selection rejection,
+        cancellation, atomic rollback and SQL-free directory rendering.
+      - [_] Finish arbitrary insertion-point/cross-board drag movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

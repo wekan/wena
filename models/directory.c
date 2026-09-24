@@ -3,8 +3,11 @@
 int wena_directory_page_valid(const WenaDirectoryPage *page)
 {
     size_t last,count,index;
-    if (!page || (page->kind!=WENA_DIRECTORY_BOARDS && page->kind!=WENA_DIRECTORY_ACTORS) ||
+    if (!page || (page->kind!=WENA_DIRECTORY_BOARDS && page->kind!=WENA_DIRECTORY_ACTORS &&
+        page->kind!=WENA_DIRECTORY_CARDS) ||
         !page->page_size || page->page_size>WENA_DIRECTORY_PAGE_CAPACITY) return 0;
+    if (page->kind==WENA_DIRECTORY_CARDS ? !wena_model_identifier_valid(page->board_id) :
+        page->board_id[0]!=0) return 0;
     last=page->total ? (page->total-1)/page->page_size : 0;
     if (page->page>last || page->first!=page->page*page->page_size) return 0;
     count=page->total-page->first;

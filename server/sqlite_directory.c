@@ -14,16 +14,18 @@ static const char *text_column(sqlite3_stmt *statement,int column,int id)
          !wena_model_title_valid((const char *)text,(size_t)length,WENA_TITLE_CAPACITY))) return NULL;
     return (const char *)text;
 }
-int wena_sqlite_directory_load(sqlite3 *database,const char *actor,
-    WenaDirectoryKind kind,size_t page,size_t page_size,WenaDirectoryPage *output)
+int wena_sqlite_directory_load_scoped(sqlite3 *database,const char *actor,
+    WenaDirectoryKind kind,const char *board_id,size_t page,size_t page_size,WenaDirectoryPage *output)
 {
     static const char *counts[]={
         "SELECT count(*),EXISTS(SELECT 1 FROM actors WHERE id=?1) FROM boards",
-        "SELECT count(*),EXISTS(SELECT 1 FROM actors WHERE id=?1) FROM actors"
+        "SELECT count(*),EXISTS(SELECT 1 FROM actors WHERE id=?1) FROM actors",
+        "SELECT count(*),EXISTS(SELECT 1 FROM actors WHERE id=?1) AND EXISTS(SELECT 1 FROM boards WHERE id=?2) FROM cards WHERE board_id=?2 AND archived=0"
     };
     static const char *rows[]={
         "SELECT id,title,version FROM boards ORDER BY id LIMIT ?1 OFFSET ?2",
-        "SELECT id,display_name,version FROM actors ORDER BY id LIMIT ?1 OFFSET ?2"
+        "SELECT id,display_name,version FROM actors ORDER BY id LIMIT ?1 OFFSET ?2",
+        "SELECT id,title,version FROM cards WHERE board_id=?3 AND archived=0 ORDER BY id LIMIT ?1 OFFSET ?2"
     };
     WenaDirectoryPage candidate;
     sqlite3_stmt *statement;
@@ -32,13 +34,18 @@ int wena_sqlite_directory_load(sqlite3 *database,const char *actor,
     int valid,step,index;
     const char *id,*title;
     if (!database || !output || !wena_model_identifier_valid(actor) ||
-        (kind!=WENA_DIRECTORY_BOARDS && kind!=WENA_DIRECTORY_ACTORS) ||
+        (kind!=WENA_DIRECTORY_BOARDS && kind!=WENA_DIRECTORY_ACTORS && kind!=WENA_DIRECTORY_CARDS) ||
         !page_size || page_size>WENA_DIRECTORY_PAGE_CAPACITY ||
         !sqlite3_get_autocommit(database)) return 0;
+    if (kind==WENA_DIRECTORY_CARDS ? !wena_model_identifier_valid(board_id) :
+        (board_id && board_id[0])) return 0;
     if (sqlite3_exec(database,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK) return 0;
     memset(&candidate,0,sizeof(candidate));candidate.kind=kind;candidate.page_size=page_size;
+    if (kind==WENA_DIRECTORY_CARDS) strcpy(candidate.board_id,board_id);
     statement=NULL;valid=0;index=(int)kind-1;
     if (sqlite3_prepare_v2(database,counts[index],-1,&statement,NULL)!=SQLITE_OK) goto done;
+    if (kind==WENA_DIRECTORY_CARDS &&
+        sqlite3_bind_text(statement,2,board_id,-1,SQLITE_TRANSIENT)!=SQLITE_OK) goto done;
     if (sqlite3_bind_text(statement,1,actor,-1,SQLITE_TRANSIENT)!=SQLITE_OK ||
         sqlite3_step(statement)!=SQLITE_ROW || sqlite3_column_type(statement,0)!=SQLITE_INTEGER ||
         sqlite3_column_int(statement,1)!=1) goto done;
@@ -54,6 +61,8 @@ int wena_sqlite_directory_load(sqlite3 *database,const char *actor,
     expected=candidate.total-candidate.first;
     if (expected>page_size) expected=page_size;
     if (sqlite3_prepare_v2(database,rows[index],-1,&statement,NULL)!=SQLITE_OK) goto done;
+    if (kind==WENA_DIRECTORY_CARDS &&
+        sqlite3_bind_text(statement,3,board_id,-1,SQLITE_TRANSIENT)!=SQLITE_OK) goto done;
     if (sqlite3_bind_int(statement,1,(int)page_size)!=SQLITE_OK ||
         sqlite3_bind_int64(statement,2,(sqlite3_int64)candidate.first)!=SQLITE_OK) goto done;
     while ((step=sqlite3_step(statement))==SQLITE_ROW) {
@@ -78,17 +87,23 @@ done:
     return 0;
 }
 
+int wena_sqlite_directory_load(sqlite3 *database,const char *actor,
+    WenaDirectoryKind kind,size_t page,size_t page_size,WenaDirectoryPage *output)
+{
+    return wena_sqlite_directory_load_scoped(database,actor,kind,NULL,page,page_size,output);
+}
+
 int wena_sqlite_directory_reader_init(WenaSqliteDirectoryReader *reader,
     sqlite3 *database,const char *actor)
 {
     if (!reader || !database || !wena_model_identifier_valid(actor)) return 0;
     reader->database=database;strcpy(reader->actor,actor);return 1;
 }
-int wena_sqlite_directory_read(void *context,WenaDirectoryKind kind,
+int wena_sqlite_directory_read(void *context,WenaDirectoryKind kind,const char *board_id,
     size_t page,size_t page_size,WenaDirectoryPage *output)
 {
     WenaSqliteDirectoryReader *reader;
     reader=(WenaSqliteDirectoryReader *)context;
-    return reader && wena_sqlite_directory_load(reader->database,reader->actor,
-        kind,page,page_size,output);
+    return reader && wena_sqlite_directory_load_scoped(reader->database,reader->actor,
+        kind,board_id,page,page_size,output);
 }

@@ -23,6 +23,9 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" \
   "$root_dir/client/features/board_filter.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
   "$root_dir/client/features/board.c" "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
+  "$root_dir/client/features/card_destination.c" \
+  "$root_dir/client/features/directory_picker.c" \
+  "$root_dir/models/directory.c" \
   "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklists/entry_form.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" "$root_dir/client/features/checklist_store.c" \
   "$root_dir/client/features/checklist_mutation.c" "$root_dir/client/features/checklists/summary.c" "$root_dir/client/features/checklists/badges.c" \
   "$root_dir/client/features/labels/panel.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/features/labels/badges.c" \
@@ -47,7 +50,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/imports/i18n/catalog.c" \
   "$root_dir/imports/i18n/ui_catalog.c" "$root_dir/imports/i18n/locale.c" \
   "$root_dir/imports/i18n/language.c" \
-  "$root_dir/server/sqlite_board.c" "$root_dir/server/sqlite_storage.c" \
+  "$root_dir/server/sqlite_directory.c" "$root_dir/server/sqlite_board.c" "$root_dir/server/sqlite_storage.c" \
   "$root_dir/server/sqlite_workspace.c" \
   "$root_dir/server/sqlite_persistence.c" \
   "$root_dir/server/mutations/checklist_order.c" \

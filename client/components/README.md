@@ -102,3 +102,10 @@ order with count and rows in one read transaction. A shared reader adapter serve
 both kinds without duplicated SQL/pagination functions. IDs distinguish duplicate
 titles in the picker. These are trusted local directories, not remote authorization
 or membership checks. Host views own the window, cancellation and selected action.
+
+`features/card_destination` reuses a single directory picker to select a board and
+then an active card. It owns no database and emits no writes. The host polls page
+reads outside drawing and owns the chosen card's full snapshot and confirmation.
+The desktop's two checklist transfer forms share this component and require the
+snapshot revision to match the selected row. Directory pages carry the card board
+scope, so a stale or incorrect reader cannot substitute another board's page.

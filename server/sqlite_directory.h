@@ -8,12 +8,15 @@
  * output untouched. Validate rows on the selected page, not the entire catalog. */
 int wena_sqlite_directory_load(sqlite3 *database,const char *actor,
     WenaDirectoryKind kind,size_t page,size_t page_size,WenaDirectoryPage *output);
+int wena_sqlite_directory_load_scoped(sqlite3 *database,const char *actor,
+    WenaDirectoryKind kind,const char *board_id,size_t page,size_t page_size,
+    WenaDirectoryPage *output);
 typedef struct WenaSqliteDirectoryReader {
     sqlite3 *database;
     WenaId actor;
 } WenaSqliteDirectoryReader;
 int wena_sqlite_directory_reader_init(WenaSqliteDirectoryReader *reader,
     sqlite3 *database,const char *actor);
-int wena_sqlite_directory_read(void *context,WenaDirectoryKind kind,
+int wena_sqlite_directory_read(void *context,WenaDirectoryKind kind,const char *board_id,
     size_t page,size_t page_size,WenaDirectoryPage *output);
 #endif

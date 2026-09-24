@@ -41,6 +41,15 @@ int wena_checklist_mutation_init(WenaChecklistMutation *adapter, sqlite3 *databa
     return 1;
 }
 
+int wena_checklist_mutation_load_destination(void *context,const char *board_id,
+    const char *card_id,WenaChecklistSnapshot *snapshot)
+{
+    WenaChecklistMutation scoped,*source;
+    source=(WenaChecklistMutation *)context;
+    return source && wena_checklist_mutation_init(&scoped,source->persistence.database,
+        source->actor_id,board_id) && wena_checklist_mutation_load(&scoped,board_id,card_id,snapshot);
+}
+
 static int read_integer(sqlite3_stmt *statement, int column, unsigned long maximum,
     unsigned long *output)
 {

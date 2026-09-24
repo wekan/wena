@@ -58,6 +58,22 @@ int main(int argc,char **argv)
  assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
  assert(wena_sqlite_directory_load(db,"u",WENA_DIRECTORY_BOARDS,4,16,&page)&&page.total==66&&page.count==2);
  assert(!strcmp(page.rows[1].id,"z"));assert(sqlite3_close(writer)==SQLITE_OK);
+ sql(db,"INSERT INTO lists VALUES('l','b000','List',0,1),('l2','b001','Other',0,1);"
+  "INSERT INTO swimlanes VALUES('s','b000','Lane',0,1),('s2','b001','Other',0,1);"
+  "INSERT INTO cards VALUES('c0','b000','s','l','Shared',0,0,1),('c1','b000','s','l','Shared',1,0,2),"
+  "('hidden','b000','s','l','Archived',2,1,1),('other','b001','s2','l2','Other',0,0,1)");
+ assert(wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"b000",0,1,&page));
+ assert(page.total==2&&page.count==1&&!strcmp(page.board_id,"b000")&&!strcmp(page.rows[0].id,"c0"));
+ assert(wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"b000",(size_t)-1,1,&page));
+ assert(page.page==1&&page.rows[0].version==2&&!strcmp(page.rows[0].id,"c1"));before=page;
+ assert(!wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"missing",0,1,&page)&&!memcmp(&page,&before,sizeof(page)));
+ assert(!wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"",0,1,&page));
+ assert(!wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_BOARDS,"b000",0,1,&page));
+ assert(wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"b002",0,1,&page)&&!page.total);
+ assert(wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"b001",0,1,&page)&&page.total==1&&!strcmp(page.rows[0].id,"other"));
+ before=page;page.board_id[0]=0;assert(!wena_directory_page_valid(&page));page=before;
+ sql(db,"UPDATE cards SET title=CAST(x'C0AF' AS TEXT) WHERE id='c1'");
+ assert(!wena_sqlite_directory_load_scoped(db,"u",WENA_DIRECTORY_CARDS,"b000",1,1,&page)&&!memcmp(&page,&before,sizeof(page)));
  assert(sqlite3_close(db)==SQLITE_OK);
  puts("Shared directory pages: boards/actors, bounds, snapshot consistency, strict rows and atomic failure passed");
  return 0;

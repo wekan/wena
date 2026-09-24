@@ -13,15 +13,28 @@ int wena_directory_picker_init(WenaDirectoryPicker *state,size_t page_size,
 void wena_directory_picker_close(WenaDirectoryPicker *state)
 {
     if (!state) return;
+    state->board_id[0]=0;
     state->open=0;state->loaded=0;state->error=0;state->read_pending=0;state->selection_pending=0;
     memset(&state->selected,0,sizeof(state->selected));
 }
-int wena_directory_picker_open(WenaDirectoryPicker *state,WenaDirectoryKind kind)
+int wena_directory_picker_open_scoped(WenaDirectoryPicker *state,WenaDirectoryKind kind,
+    const char *board_id)
 {
-    if (!state || !state->load || (kind!=WENA_DIRECTORY_BOARDS && kind!=WENA_DIRECTORY_ACTORS)) return 0;
+    WenaId scope;
+    if (!state || !state->load || (kind!=WENA_DIRECTORY_BOARDS && kind!=WENA_DIRECTORY_ACTORS &&
+        kind!=WENA_DIRECTORY_CARDS)) return 0;
+    if (kind==WENA_DIRECTORY_CARDS ? !wena_model_identifier_valid(board_id) :
+        (board_id && board_id[0])) return 0;
+    scope[0]=0;
+    if (kind==WENA_DIRECTORY_CARDS) strcpy(scope,board_id);
     wena_directory_picker_close(state);
+    strcpy(state->board_id,scope);
     state->kind=kind;state->table.page=0;state->open=1;state->read_pending=1;
     return 1;
+}
+int wena_directory_picker_open(WenaDirectoryPicker *state,WenaDirectoryKind kind)
+{
+    return wena_directory_picker_open_scoped(state,kind,NULL);
 }
 int wena_directory_picker_poll(WenaDirectoryPicker *state)
 {
@@ -30,9 +43,9 @@ int wena_directory_picker_poll(WenaDirectoryPicker *state)
     if (!state || !state->open || !state->read_pending) return 0;
     state->read_pending=0;
     memset(&candidate,0,sizeof(candidate));
-    if (!state->load || !state->load(state->context,state->kind,state->table.page,
+    if (!state->load || !state->load(state->context,state->kind,state->board_id,state->table.page,
         state->table.page_size,&candidate) || !wena_directory_page_valid(&candidate) ||
-        candidate.kind!=state->kind || candidate.page_size!=state->table.page_size) {
+        candidate.kind!=state->kind || strcmp(candidate.board_id,state->board_id) || candidate.page_size!=state->table.page_size) {
         state->error=1;return -1;
     }
     last=candidate.total ? (candidate.total-1)/candidate.page_size : 0;

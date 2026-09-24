@@ -219,5 +219,15 @@ This is trusted local persistence. WeKan's `server/models/checklists.js`
 `moveChecklist` checks mutation rights on both source and destination boards and
 moves activity references; its model hooks maintain denormalized board IDs.
 Native remote authorization/activity adapters remain separate roadmap work.
-The current native transfer form still presents same-board destinations; the
-shared directory picker is being connected separately.
+The desktop transfer forms share `features/card_destination`, which uses one
+paginated directory picker for board and active-card selection. A scoped directory
+page records its board ID; a reader returning a different board cannot publish it.
+The panel consumes selected-card intents outside drawing, loads a complete
+snapshot and requires its revision to match the chosen directory row. Changing
+boards or cancelling clears the previous destination. Save uses the captured
+versions; idle frames and failed saves never refresh them implicitly.
+
+`test_nuklear_cross_board_destination.sh` exercises both transfer forms using one
+real Nuklear/SQLite fixture, including pagination, archived-card exclusion, stale
+listings, stale confirmation, cancellation, late rollback and successful moves.
+Hosts without a directory provider retain the existing source-board selector.

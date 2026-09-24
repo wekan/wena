@@ -2,6 +2,7 @@
 #define WENA_CHECKLISTS_H
 
 #include "checklist_store.h"
+#include "card_destination.h"
 #include "card_details.h"
 #include "../components/common/card_section.h"
 #include "../../models/checklist_item_titles.h"
@@ -25,6 +26,7 @@ typedef struct WenaChecklistsState {
     WenaId card_id;
     WenaId checklist_id;
     WenaId item_id;
+    WenaId target_board_id;
     WenaId target_card_id;
     unsigned long target_card_version;
     WenaId target_checklist_id;
@@ -44,6 +46,10 @@ typedef struct WenaChecklistsState {
     char input[WENA_NATIVE_EDIT_CAPACITY(WENA_CHECKLIST_BATCH_MAX_BYTES + 1u)];
     WenaChecklistSnapshot *snapshot;
     WenaCardSectionControl *sections; /* Shared presentation preferences; not owned. */
+    /* Optional shared cross-board chooser and trusted local snapshot reader. */
+    WenaCardDestination *destination;
+    WenaChecklistsLoad load_destination;
+    void *destination_context;
     WenaChecklistsLoad load;
     WenaChecklistsSave save;
     void *context;
@@ -55,6 +61,7 @@ void wena_checklists_init(WenaChecklistsState *state, WenaChecklistsLoad load,
     WenaChecklistsSave save, void *context);
 void wena_checklists_close(WenaChecklistsState *state);
 int wena_checklists_open(WenaChecklistsState *state, const WenaCard *card);
+int wena_checklists_poll_destination(WenaChecklistsState *state);
 int wena_checklists_render(struct nk_context *context, WenaChecklistsState *state,
     const WenaCard *cards, size_t card_count, float width, float height);
 

@@ -11,6 +11,7 @@ typedef struct WenaUiTextContract {
 
 static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_PREVIOUS_PAGE, "previous-page", "Previous Page"},
+    {WENA_UI_TEXT_BOARDS, "boards", "Boards"},
     {WENA_UI_TEXT_LOADING, "loading", "Loading, please wait."},
     {WENA_UI_TEXT_NEXT_PAGE, "next-page", "Next Page"},
     {WENA_UI_TEXT_ACTIVITIES, "activities", "Activities"},

@@ -19,6 +19,7 @@
 #include "features/card_description.h"
 #include "features/card_description_mutation.h"
 #include "features/checklists.h"
+#include "../server/sqlite_directory.h"
 #include "features/checklist_mutation.h"
 #include "features/labels/panel.h"
 #include "features/labels/mutation.h"
@@ -332,6 +333,8 @@ int main(int argc, char **argv)
     WenaCardMutation mutation;
     WenaCardDescriptionMutation description_mutation;
     WenaChecklistMutation checklist_mutation;
+    WenaCardDestination checklist_destination;
+    WenaSqliteDirectoryReader directory_reader;
     WenaBoardPresentation label_view;
     WenaDesktopChecklistPreview preview;
     int completion_result;
@@ -509,6 +512,12 @@ int main(int argc, char **argv)
                                       actor_id, board_id)) goto cleanup;
     wena_checklists_init(&editors.checklists, wena_checklist_mutation_load,
         smoke ? NULL : wena_checklist_mutation_save, &checklist_mutation);
+    if (!wena_sqlite_directory_reader_init(&directory_reader,database,actor_id) ||
+        !wena_card_destination_init(&checklist_destination,4,wena_sqlite_directory_read,&directory_reader))
+        goto cleanup;
+    editors.checklists.destination = &checklist_destination;
+    editors.checklists.load_destination = wena_checklist_mutation_load_destination;
+    editors.checklists.destination_context = &checklist_mutation;
     editors.checklists.sections = &preview.sections;
     if (!wena_board_presentation_init(&label_view, database, actor_id, board_id) ||
         !label_view.valid) goto cleanup;
@@ -739,6 +748,7 @@ int main(int argc, char **argv)
                 (void)wena_checklists_render(context, &editors.checklists,
                     snapshot->cards, snapshot->card_count,
                     (float)width, (float)height);
+            (void)wena_checklists_poll_destination(&editors.checklists);
             if (opened_panel != DESKTOP_PANEL_LABELS)
                 (void)wena_labels_render(context, &editors.labels,
                     snapshot->board.id, snapshot->cards, snapshot->card_count,

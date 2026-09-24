@@ -8,7 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 static unsigned long statements;
-static int deny_reads;
+static int deny_reads,wrong_scope;
+static int load(void *ctx,WenaDirectoryKind kind,const char *board,size_t page,size_t size,WenaDirectoryPage *out)
+{
+ int valid;valid=wena_sqlite_directory_read(ctx,kind,board,page,size,out);
+ if(valid&&wrong_scope)strcpy(out->board_id,"b00");
+ return valid;
+}
 static int trace(unsigned int kind,void *data,void *query,void *extra)
 {(void)kind;(void)data;(void)query;(void)extra;++statements;return 0;}
 static int authorize(void *data,int action,const char *first,const char *second,const char *db,const char *trigger)
@@ -54,7 +60,7 @@ int main(int argc,char **argv)
  sql(db,"INSERT INTO actors VALUES('u','Local user',1),('v','Other user',2)");
  for(i=0;i<17;++i){sprintf(query,"INSERT INTO boards VALUES('b%02d','Board %02d',1)",i,i);sql(db,query);}
  assert(wena_sqlite_directory_reader_init(&reader,db,"u"));
- assert(wena_directory_picker_init(&picker,8,wena_sqlite_directory_read,&reader));
+ assert(wena_directory_picker_init(&picker,8,load,&reader));
  assert(wena_directory_picker_open(&picker,WENA_DIRECTORY_BOARDS));
  memset(&font,0,sizeof(font));font.height=13;font.width=width;assert(nk_init_default(&ctx,&font));
  assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
@@ -83,6 +89,17 @@ int main(int argc,char **argv)
  assert(wena_directory_picker_poll(&picker)==1&&picker.page.count==2);
  before=statements;frame(&ctx,&picker);click(&ctx,&picker,"Other user");
  assert(picker.selection_pending&&!strcmp(picker.selected.id,"v")&&picker.selected.version==2&&statements==before);
+ sql(db,"INSERT INTO lists VALUES('l','b01','List',0,1);INSERT INTO swimlanes VALUES('s','b01','Lane',0,1);"
+  "INSERT INTO cards VALUES('c','b01','s','l','A card',0,0,1)");
+ assert(!wena_directory_picker_open(&picker,WENA_DIRECTORY_CARDS));
+ assert(wena_directory_picker_open_scoped(&picker,WENA_DIRECTORY_CARDS,"b01"));
+ wrong_scope=1;assert(wena_directory_picker_poll(&picker)==-1&&picker.error&&!picker.loaded);
+ frame(&ctx,&picker);click(&ctx,&picker,"Refresh");wrong_scope=0;
+ assert(wena_directory_picker_poll(&picker)==1&&picker.page.count==1);
+ before=statements;frame(&ctx,&picker);click(&ctx,&picker,"A card");
+ assert(picker.selection_pending&&!strcmp(picker.selected.id,"c")&&statements==before);
+ assert(wena_directory_picker_open_scoped(&picker,WENA_DIRECTORY_CARDS,picker.board_id));
+ assert(!strcmp(picker.board_id,"b01")&&wena_directory_picker_poll(&picker)==1);
  wena_directory_picker_close(&picker);assert(!picker.open&&!picker.selection_pending&&!wena_directory_picker_poll(&picker));
  assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
  nk_free(&ctx);assert(sqlite3_close(db)==SQLITE_OK);

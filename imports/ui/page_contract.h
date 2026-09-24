@@ -123,7 +123,8 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_MOVE_DESTINATION,
     WENA_UI_TEXT_PREVIOUS_PAGE,
     WENA_UI_TEXT_NEXT_PAGE,
-    WENA_UI_TEXT_LOADING
+    WENA_UI_TEXT_LOADING,
+    WENA_UI_TEXT_BOARDS
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

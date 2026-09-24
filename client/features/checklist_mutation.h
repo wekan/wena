@@ -16,6 +16,9 @@ int wena_checklist_mutation_init(WenaChecklistMutation *adapter,sqlite3 *databas
 /* Complete active-card snapshot, atomic output; requires schema v3. */
 int wena_checklist_mutation_load(void *context,const char *board_id,
     const char *card_id,WenaChecklistSnapshot *snapshot);
+/* Trusted local destination reader; source-scoped save/load remain unchanged. */
+int wena_checklist_mutation_load_destination(void *context,const char *board_id,
+    const char *card_id,WenaChecklistSnapshot *snapshot);
 /* Every real change increments card.version. Identical values are guarded
  * no-ops without version, timestamp or request writes. Item edits increment their
  * item version; item creation/deletion increments checklist.version.

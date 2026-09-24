@@ -12,6 +12,7 @@ static void clear_destination(WenaChecklistsState *state)
 {
     free(state->target_snapshot);
     state->target_snapshot = NULL;
+    state->target_board_id[0] = 0;
     state->target_card_id[0] = 0;
     state->target_card_version = 0;
     state->target_checklist_id[0] = 0;
@@ -38,6 +39,7 @@ void wena_checklists_close(WenaChecklistsState *state)
 {
     if (state) {
         clear_destination(state);
+        wena_card_destination_close(state->destination);
         free(state->snapshot);
         state->snapshot = NULL;
         state->visible = 0;
@@ -97,6 +99,7 @@ static void begin_edit(WenaChecklistsState *state, WenaChecklistAction action, s
     state->item_version = 0;
     state->is_finished = 0;
     clear_destination(state);
+    wena_card_destination_close(state->destination);
     if (action != WENA_CHECKLIST_CREATE) {
         strcpy(state->checklist_id, state->snapshot->checklists[list_index].id);
         state->checklist_version = state->snapshot->checklist_versions[list_index];
@@ -266,6 +269,7 @@ static void submit_edit(WenaChecklistsState *state)
         mutation.batch_text = state->input;
         mutation.batch_length = (size_t)state->length;
     }
+    mutation.target_board_id = state->target_board_id[0] ? state->target_board_id : NULL;
     mutation.target_card_id = state->target_card_id;
     mutation.expected_target_card_version = state->target_card_version;
     mutation.target_checklist_id = state->target_checklist_id;
@@ -279,6 +283,7 @@ static void submit_edit(WenaChecklistsState *state)
         return;
     }
     clear_destination(state);
+    wena_card_destination_close(state->destination);
     /* A committed write must never be resubmitted when the subsequent read fails. */
     state->action = 0;
     state->needs_refresh = 1;
@@ -363,6 +368,7 @@ static void move_destination(struct nk_context *context, WenaChecklistsState *st
         choices.cards[changed - 1]->id, target) &&
         wena_checklist_snapshot_valid(target, state->board_id,
             choices.cards[changed - 1]->id)) {
+        strcpy(state->target_board_id, target->board_id);
         strcpy(state->target_card_id, target->card_id);
         state->target_card_version = target->card_version;
         if (state->action == WENA_CHECKLIST_MOVE_ITEM) {
@@ -375,6 +381,52 @@ static void move_destination(struct nk_context *context, WenaChecklistsState *st
 invalid:
     clear_destination(state);
     state->error = 1;
+}
+
+int wena_checklists_poll_destination(WenaChecklistsState *state)
+{
+    WenaCardDestination *chooser;
+    WenaChecklistSnapshot *target;
+    int result;
+    if (!state || !state->visible || !is_transfer(state->action) ||
+        !(chooser=state->destination)) return 0;
+    result=wena_card_destination_poll(chooser);
+    if (!chooser->selected) return result;
+    chooser->selected=0;
+    clear_destination(state);
+    if (!state->save || !state->load_destination ||
+        (state->action==WENA_CHECKLIST_MOVE && !strcmp(chooser->card.id,state->card_id))) {
+        state->error=1;return -1;
+    }
+    target=(WenaChecklistSnapshot *)calloc(1,sizeof(*target));
+    if (!target) {state->error=1;return -1;}
+    if (!state->load_destination(state->destination_context,chooser->board_id,
+        chooser->card.id,target) || !wena_checklist_snapshot_valid(target,
+        chooser->board_id,chooser->card.id) || target->card_version!=chooser->card.version) {
+        free(target);state->error=1;return -1;
+    }
+    strcpy(state->target_board_id,target->board_id);
+    strcpy(state->target_card_id,target->card_id);
+    state->target_card_version=target->card_version;
+    if (state->action==WENA_CHECKLIST_MOVE_ITEM) state->target_snapshot=target;
+    else free(target);
+    state->error=0;return 1;
+}
+
+static void paged_destination(struct nk_context *context,WenaChecklistsState *state)
+{
+    WenaCardDestination *chooser;
+    chooser=state->destination;
+    if (!chooser->picker.open && !wena_card_destination_open(chooser,state->board_id)) {
+        state->error=1;return;
+    }
+    /* Changing board or card clears the previously captured destination before
+     * Save can be pressed. Only polling can publish a new complete snapshot. */
+    if (wena_card_destination_render(context,chooser) ||
+        (state->target_board_id[0] && strcmp(state->target_board_id,chooser->board_id)))
+        clear_destination(state);
+    nk_layout_row_dynamic(context,28,1);
+    if (state->target_card_id[0]) nk_label(context,chooser->card.title,NK_TEXT_LEFT);
 }
 
 typedef struct ChecklistDestinationChoices {
@@ -404,7 +456,7 @@ static void move_checklist_destination(struct nk_context *context, WenaChecklist
     /* The owned destination was validated at load and remains immutable while
      * selecting. Do not repeat the quadratic uniqueness checks every frame. */
     if (snapshot->checklist_count > WENA_CARD_CHECKLIST_CAPACITY ||
-        strcmp(snapshot->board_id, state->board_id) ||
+        strcmp(snapshot->board_id, state->target_board_id) ||
         strcmp(snapshot->card_id, state->target_card_id)) {
         clear_destination(state); state->error = 1; return;
     }
@@ -501,7 +553,8 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
             }
             else if (is_transfer(state->action)) {
                 nk_label_wrap(context, state->input);
-                move_destination(context, state, cards, card_count);
+                if (state->destination) paged_destination(context,state);
+                else move_destination(context, state, cards, card_count);
                 if (state->action == WENA_CHECKLIST_MOVE_ITEM)
                     move_checklist_destination(context, state);
                 /* A selector or Enter never confirms a transfer. */
@@ -536,7 +589,7 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                 form = 1;
                 submit = (keys & WENA_TEXT_FORM_SAVE) != 0u;
                 if (keys & WENA_TEXT_FORM_CANCEL) {
-                    clear_destination(state); state->action = 0; state->error = 0; submit = 0;
+                    clear_destination(state); wena_card_destination_close(state->destination); state->action = 0; state->error = 0; submit = 0;
                 }
             }
             if (!form) {
@@ -545,7 +598,7 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                 if (nk_button_label(context, wena_ui_control_text(is_deletion(state->action) ?
                     WENA_UI_CONFIRM_DELETE : WENA_UI_SAVE))) submit = 1;
                 if (nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL))) {
-                    clear_destination(state); state->action = 0; state->error = 0; submit = 0;
+                    clear_destination(state); wena_card_destination_close(state->destination); state->action = 0; state->error = 0; submit = 0;
                 }
             }
             if (state->action == WENA_CHECKLIST_RENAME ||

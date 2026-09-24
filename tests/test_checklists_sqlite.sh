@@ -14,6 +14,9 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/checklists_sqlite_test.c" \
   "$root_dir/tests/fakes/nuklear.c" \
   "$root_dir/client/features/board.c" \
+  "$root_dir/client/features/card_destination.c" \
+  "$root_dir/client/features/directory_picker.c" \
+  "$root_dir/models/directory.c" \
   "$root_dir/client/features/checklists.c" "$root_dir/client/features/checklists/entry_form.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" "$root_dir/client/features/checklist_store.c" \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \
