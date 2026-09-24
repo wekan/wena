@@ -955,6 +955,13 @@ Architecture decisions for this cycle:
                 scoped and board-wide lists, exclusions and explicit repair.
               - [_] Connect bulk moves to the shared destination UI and complete
                 remaining cross-board movement.
+                - [x] Refresh the displayed board and peer card count from the
+                  same read transaction as bulk-move revisions and ordering.
+                  Reuse the shared board reader so destination ordinals cannot
+                  come from an older cache. Publish all outputs only after read
+                  commit. Test stale caches, a concurrent WAL writer, malformed
+                  display metadata and denied read commit; preserve all prior
+                  outputs on failure.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

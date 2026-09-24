@@ -97,7 +97,9 @@ int wena_hierarchy_mutation_selected_cards_archive(void *context,const char *boa
     const WenaDomainCardRevision *cards,size_t count);
 /* Capture immutable selection revisions and complete board ordering in one
  * read transaction. *output starts NULL or owned by this API; success replaces
- * it and failure preserves pointer/bytes. Caller frees on cancellation. */
+ * it and publishes the board/peer cache from that same read snapshot, so a
+ * destination ordinal describes the captured ordering. Failure preserves all
+ * outputs. Caller frees on cancellation. */
 int wena_hierarchy_mutation_selected_move_load(void *context,const char *board,
     const WenaId *ids,size_t count,WenaCardMoveSelection **output);
 int wena_hierarchy_mutation_selected_move_request(WenaHierarchyMutation *adapter,

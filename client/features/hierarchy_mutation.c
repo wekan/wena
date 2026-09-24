@@ -596,17 +596,24 @@ int wena_hierarchy_mutation_selected_cards_archive(void *context,const char *boa
 int wena_hierarchy_mutation_selected_move_load(void *context,const char *board,
     const WenaId *ids,size_t count,WenaCardMoveSelection **output)
 {
-    WenaHierarchyMutation *adapter;WenaCardMoveSelection *candidate;sqlite3 *db;size_t i;int ok;
+    WenaHierarchyMutation *adapter;WenaCardMoveSelection *candidate;WenaSqliteBoardSnapshot *snapshot;
+    sqlite3 *db;size_t i;int ok;
     adapter=(WenaHierarchyMutation*)context;
     if(!output||!selected_ids_valid(adapter,board,ids,count))return 0;
     candidate=(WenaCardMoveSelection*)calloc(1,sizeof(*candidate));if(!candidate)return 0;
+    snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));
+    if(!snapshot){free(candidate);return 0;}
     db=adapter->persistence.database;
-    if(sqlite3_exec(db,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK){free(candidate);return 0;}
+    if(sqlite3_exec(db,"BEGIN",NULL,NULL,NULL)!=SQLITE_OK){free(snapshot);free(candidate);return 0;}
     ok=selected_read_locked(adapter,board,ids,count,candidate->cards);
     for(i=0;ok&&i<count;++i)ok=wena_sqlite_card_parents_active(db,board,ids[i]);
-    if(ok)ok=wena_sqlite_card_board_order(db,board,candidate->fingerprint)&&sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
-    if(!ok){(void)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);free(candidate);return 0;}
-    strcpy(candidate->board_id,board);candidate->count=count;free(*output);*output=candidate;return 1;
+    if(ok)ok=wena_sqlite_card_board_order(db,board,candidate->fingerprint)&&
+        wena_sqlite_board_read_transaction(db,board,snapshot)&&sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+    if(!ok){(void)sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);free(snapshot);free(candidate);return 0;}
+    strcpy(candidate->board_id,board);candidate->count=count;
+    memcpy(adapter->snapshot,snapshot,sizeof(*snapshot));
+    if(adapter->published_card_count)*adapter->published_card_count=snapshot->card_count;
+    free(snapshot);free(*output);*output=candidate;return 1;
 }
 int wena_hierarchy_mutation_selected_move_request(WenaHierarchyMutation *adapter,
     const WenaCardMoveSelection *selection,const char *list,const char *lane,size_t before,unsigned long request)
