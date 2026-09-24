@@ -98,6 +98,15 @@ static void desktop_card_drag(struct nk_context *context,void *opaque,
         !preview->drag.gesture.active);
 }
 
+static void desktop_card_drop(struct nk_context *context,void *opaque,
+    const WenaList *list,const WenaSwimlane *lane)
+{
+    WenaDesktopChecklistPreview *preview;
+    preview=(WenaDesktopChecklistPreview *)opaque;
+    if (!preview->readonly && !preview->error)
+        wena_card_drag_destination(context,&preview->card_drag,list,lane);
+}
+
 static int desktop_card_collapsed(struct nk_context *context,
     void *opaque, const WenaCard *card)
 {
@@ -470,6 +479,8 @@ int main(int argc, char **argv)
     layout.card_collapsed_context = &preview;
     layout.card_drag_handle = desktop_card_drag;
     layout.card_drag_context = &preview;
+    layout.card_drop_target = desktop_card_drop;
+    layout.card_drop_context = &preview;
     layout.card_badges = desktop_card_badges;
     layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;

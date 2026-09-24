@@ -80,3 +80,10 @@ drawing. Errors require explicit Refresh. `features/boards/reload` reloads the
 complete board and synchronizes the registered card-cache count without moving
 its arrays; failed reads preserve the previous models. Hosts cancel drafts before
 reloading. This also recovers from another process changing sibling order.
+
+The same card-drag adapter offers column destination zones, including empty
+columns and another swimlane. They append through the existing card move
+transaction. Destination list, swimlane and board are captured together; the
+source's title and IDs remain unchanged. A normal card handle in the source
+column retains ordinal-reorder semantics. Archived or mismatched targets do not
+offer a zone.

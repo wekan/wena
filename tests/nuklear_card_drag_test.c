@@ -12,7 +12,9 @@
 typedef struct Fixture {
  struct nk_context ctx;
  struct nk_user_font font;
- struct nk_vec2 points[2];
+ struct nk_vec2 points[2],destination;
+ WenaList destination_list;WenaSwimlane destination_lane;
+ int offer_destination,destination_seen;
  sqlite3 *db;
  WenaSqliteBoardSnapshot *board;
  WenaCardMutation mutation;
@@ -37,34 +39,37 @@ static void refresh(Fixture *f)
 }
 static void frame(Fixture *f,int x,int y,int down)
 {
- unsigned long source_revision;size_t i,ordinal,point;
+ unsigned long source_revision;size_t i,ordinal,point,visible;
  const struct nk_command *command;
- source_revision=0;
+ source_revision=0;visible=0;
  for(i=0;i<4;++i)if(!strcmp(f->board->cards[i].id,f->drag.gesture.source_id))source_revision=f->versions[i];
  nk_clear(&f->ctx);nk_input_begin(&f->ctx);nk_input_motion(&f->ctx,x,y);
  nk_input_button(&f->ctx,NK_BUTTON_LEFT,x,y,down);nk_input_end(&f->ctx);
  wena_card_drag_begin(&f->ctx,&f->drag,f->board->cards,4,source_revision);
  if(nk_begin(&f->ctx,"Cards",nk_rect(0,0,500,500),NK_WINDOW_BORDER)){
-  ordinal=0;
+  ordinal=0;visible=0;
   for(i=0;i<4;++i){
    const WenaCard *card;card=&f->board->cards[i];
    if(strcmp(card->list_id,"l1"))continue;
    if(!card->archived){
+    ++visible;
     nk_layout_row_dynamic(&f->ctx,28,1);nk_label(&f->ctx,card->title,NK_TEXT_LEFT);
     wena_card_drag_handle(&f->ctx,&f->drag,f->board->cards,4,card,ordinal,f->versions[i],1);
    }
    ++ordinal;
   }
+  if(f->offer_destination)wena_card_drag_destination(&f->ctx,&f->drag,&f->destination_list,&f->destination_lane);
  }
  nk_end(&f->ctx);wena_card_drag_end(&f->ctx,&f->drag);
- point=0;
+ point=0;f->destination_seen=0;
  nk_foreach(command,&f->ctx)if(command->type==NK_COMMAND_TEXT){
   const struct nk_command_text *text;text=(const struct nk_command_text *)command;
   if(text->length==14&&!memcmp(text->string,"Move selection",14)){
    assert(point<2);f->points[point++]=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
   }
+  if(text->length==11&&!memcmp(text->string,"Destination",11)){f->destination_seen=1;f->destination=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);}
  }
- assert(point==2);
+ assert(point==visible);
 }
 static void drag(Fixture *f,int from,int to)
 {
@@ -73,6 +78,15 @@ static void drag(Fixture *f,int from,int to)
  frame(f,(int)source.x,(int)source.y,1);assert(f->drag.gesture.active&&f->drag.order);
  frame(f,(int)target.x,(int)target.y,1);assert(!f->drag.gesture.pending);
  frame(f,(int)target.x,(int)target.y,0);assert(f->drag.gesture.pending&&!f->drag.gesture.active);
+}
+static void column_drop(Fixture *f)
+{
+ struct nk_vec2 source;
+ frame(f,0,0,0);source=f->points[0];
+ frame(f,(int)source.x,(int)source.y,1);assert(f->drag.gesture.active);
+ frame(f,(int)source.x+8,(int)source.y,1);
+ frame(f,(int)f->destination.x,(int)f->destination.y,0);
+ assert(f->drag.gesture.pending&&f->drag.transfer);
 }
 int main(int argc,char **argv)
 {
@@ -111,12 +125,32 @@ int main(int argc,char **argv)
  frame(&f,(int)f.points[1].x,(int)f.points[1].y,0);
  assert(!f.drag.gesture.pending&&!f.drag.order);
  wena_card_drag_cancel(&f.drag);
+ refresh(&f);f.offer_destination=1;
+ assert(wena_list_init(&f.destination_list,"l2","b","","Other",1,0));
+ assert(wena_swimlane_init(&f.destination_lane,"s","b","Lane",0,0));
+ frame(&f,0,0,0);frame(&f,(int)f.points[0].x,(int)f.points[0].y,1);
+ f.destination_list.archived=1;
+ frame(&f,(int)f.points[0].x+8,(int)f.points[0].y,1);assert(!f.destination_seen);
+ frame(&f,490,490,0);assert(!f.drag.gesture.pending&&!f.drag.order);
+ f.destination_list.archived=0;
+ column_drop(&f);memcpy(before,f.board->cards,sizeof(before));
+ sql(f.db,"CREATE TRIGGER reject_card_drop BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END");
+ assert(wena_card_drag_apply(&f.drag,&f.mutation)==-1&&!memcmp(before,f.board->cards,sizeof(before)));
+ sql(f.db,"DROP TRIGGER reject_card_drop");f.drag.error=0;
+ column_drop(&f);assert(wena_card_drag_apply(&f.drag,&f.mutation)==1);
+ assert(number(f.db,"SELECT list_id='l2' AND swimlane_id='s' AND position=1 FROM cards WHERE id='c0'")==1);
+ assert(!wena_card_drag_apply(&f.drag,&f.mutation));
+ sql(f.db,"INSERT INTO swimlanes VALUES('s2','b','Empty lane',1,1)");
+ refresh(&f);assert(wena_swimlane_init(&f.destination_lane,"s2","b","Empty lane",1,0));
+ column_drop(&f);assert(wena_card_drag_apply(&f.drag,&f.mutation)==1);
+ assert(number(f.db,"SELECT list_id='l2' AND swimlane_id='s2' AND position=0 FROM cards WHERE id='c2'")==1);
+ f.offer_destination=0;
  refresh(&f);memcpy(before,f.board->cards,sizeof(before));
  sql(f.db,"UPDATE cards SET position=0.5 WHERE id='c1'");
  assert(!wena_board_reload(&f.mutation,f.board)&&!memcmp(before,f.board->cards,sizeof(before)));
  sql(f.db,"UPDATE cards SET position=2 WHERE id='c1'");
  assert(wena_card_mutation_set_create_cache(&f.mutation,&f.board->card_count,WENA_SQLITE_BOARD_MAX_CARDS));
- sql(f.db,"INSERT INTO cards VALUES('new','b','s','l2','New',1,0,1)");
+ sql(f.db,"INSERT INTO cards VALUES('new','b','s','l2','New',9,0,1)");
  assert(wena_board_reload(&f.mutation,f.board)&&f.board->card_count==5&&f.mutation.card_count==5);
  assert(f.mutation.cards==f.board->cards&&f.mutation.published_card_count==&f.board->card_count);
  nk_free(&f.ctx);free(f.board);

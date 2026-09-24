@@ -53,6 +53,9 @@ typedef struct WenaBoardLayout {
     void (*card_drag_handle)(struct nk_context *context,void *user_data,
                         const WenaCard *card,size_t ordinal);
     void *card_drag_context;
+    void (*card_drop_target)(struct nk_context *context,void *user_data,
+                        const WenaList *list,const WenaSwimlane *lane);
+    void *card_drop_context;
     /* Optional fold control. The title/actions stay visible; folded cards skip
      * both badge and expanded-content callbacks. No persistence while drawing. */
     int (*card_collapsed)(struct nk_context *context, void *user_data,

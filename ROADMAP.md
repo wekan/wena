@@ -917,7 +917,11 @@ Architecture decisions for this cycle:
     Explicit failed-write Refresh reloads the complete board and registered cache
     count atomically. Validate duplicate titles, rollback, external sibling changes,
     consumed intents and unchanged models on failed reload.
-  - [_] Complete cross-column/card/hierarchy drag movement and visual parity.
+  - [x] Reuse explicit destination zones for card append moves to another column
+    or swimlane, including empty destinations. Preserve source order/revision
+    checks and exact destination scope, reject unavailable targets, and test late
+    rollback plus cache publication with actual Nuklear/SQLite.
+  - [_] Complete arbitrary insertion-point/hierarchy drag movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and

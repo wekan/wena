@@ -224,6 +224,8 @@ static void wena_render_cards(struct nk_context *context,
     unsigned int card_action;
     int collapsed;
 
+    if (layout->card_drop_target)
+        layout->card_drop_target(context, layout->card_drop_context, list, swimlane);
     ordinal = 0;
     for (index = 0; index < layout->card_count; ++index) {
         const WenaCard *card = &layout->cards[index];
