@@ -284,28 +284,23 @@ int wena_sqlite_card_order_add(WenaSha256 *state, const char *id,
 typedef struct WenaCardOrderRow {
     char id[65];
     sqlite3_int64 position;
+    unsigned long version;
+    int archived;
 } WenaCardOrderRow;
 
-/* Indexed movement is deliberately limited to the current column. All cards,
- * including archived cards, participate. A real reorder compacts existing gaps
- * atomically; same-ordinal requests preserve both positions and versions. */
-static int reorder_card(sqlite3 *db,const WenaDomainCommand *command,
-    const char *board,const char *card,const char *list,const char *lane,
-    unsigned long version,unsigned long target)
+/* Shared bounded column reader for reordering and cross-column insertion. */
+static int card_column(sqlite3 *db,const char *board,const char *list,const char *lane,
+    const char *expected,WenaCardOrderRow **output,size_t *length)
 {
-    WenaCardOrderRow *rows,moved;
-    WenaSha256 hash;
-    sqlite3_stmt *statement;
-    const unsigned char *id;
-    sqlite3_int64 position,maximum;
-    char expected[65],actual[65];
-    size_t count,selected,index;
-    int result,bytes,found,ok,phase;
-    if(!value(command,"expectedOrder",expected,sizeof(expected))||strlen(expected)!=64)return 0;
+    WenaCardOrderRow *rows;
+    WenaSha256 hash;sqlite3_stmt *statement;const unsigned char *id;
+    sqlite3_int64 position,maximum;char actual[65];size_t count;
+    int result,bytes,ok;
+    if(!expected||strlen(expected)!=64)return 0;
     rows=(WenaCardOrderRow*)calloc(2048,sizeof(*rows));if(!rows)return 0;
     if(sqlite3_prepare_v2(db,"SELECT id,position,version,archived FROM cards WHERE board_id=?1 AND list_id=?2 AND swimlane_id=?3 ORDER BY position,id LIMIT 2049",-1,&statement,NULL)!=SQLITE_OK){free(rows);return 0;}
     sqlite3_bind_text(statement,1,board,-1,SQLITE_TRANSIENT);sqlite3_bind_text(statement,2,list,-1,SQLITE_TRANSIENT);sqlite3_bind_text(statement,3,lane,-1,SQLITE_TRANSIENT);
-    wena_sha256_init(&hash);count=0;selected=0;found=0;ok=1;maximum=-1;
+    wena_sha256_init(&hash);count=0;ok=1;maximum=-1;
     while((result=sqlite3_step(statement))==SQLITE_ROW){
         if(count>=2048||sqlite3_column_type(statement,0)!=SQLITE_TEXT||sqlite3_column_type(statement,1)!=SQLITE_INTEGER||sqlite3_column_type(statement,2)!=SQLITE_INTEGER||sqlite3_column_int64(statement,2)<=0||sqlite3_column_int64(statement,2)>(sqlite3_int64)WENA_VERSION_READ_MAX||sqlite3_column_type(statement,3)!=SQLITE_INTEGER){ok=0;break;}
         id=sqlite3_column_text(statement,0);bytes=sqlite3_column_bytes(statement,0);position=sqlite3_column_int64(statement,1);
@@ -314,22 +309,25 @@ static int reorder_card(sqlite3 *db,const WenaDomainCommand *command,
             (sqlite3_column_int64(statement,3)!=0&&sqlite3_column_int64(statement,3)!=1)||
             !wena_sqlite_card_order_add(&hash,(const char*)id,(size_t)bytes,(unsigned long)position)){ok=0;break;}
         memcpy(rows[count].id,id,(size_t)bytes);rows[count].id[bytes]=0;rows[count].position=position;maximum=position;
-        if(!strcmp(rows[count].id,card)){
-            if(found||sqlite3_column_type(statement,2)!=SQLITE_INTEGER||sqlite3_column_int64(statement,2)!=(sqlite3_int64)version||sqlite3_column_int(statement,3)!=0){ok=0;break;}
-            selected=count;found=1;
-        }
-        ++count;
+        rows[count].version=(unsigned long)sqlite3_column_int64(statement,2);
+        rows[count].archived=sqlite3_column_int(statement,3);++count;
     }
     if(result!=SQLITE_DONE)ok=0;
-    sqlite3_finalize(statement);
-    if(!ok||!found||target>=(unsigned long)count){free(rows);return 0;}
-    wena_sha256_final_hex(&hash,actual);if(strcmp(expected,actual)){free(rows);return 0;}
-    if(selected==(size_t)target){free(rows);return 2;}
-    moved=rows[selected];
-    if(selected<(size_t)target)memmove(&rows[selected],&rows[selected+1],((size_t)target-selected)*sizeof(*rows));
-    else memmove(&rows[target+1],&rows[target],(selected-(size_t)target)*sizeof(*rows));
-    rows[target]=moved;
-    if(sqlite3_prepare_v2(db,"UPDATE cards SET position=?1,version=version+?6 WHERE id=?2 AND board_id=?3 AND list_id=?4 AND swimlane_id=?5",-1,&statement,NULL)!=SQLITE_OK){free(rows);return 0;}
+    sqlite3_finalize(statement);wena_sha256_final_hex(&hash,actual);
+    if(!ok||strcmp(expected,actual)){free(rows);return 0;}
+    *output=rows;*length=count;return 1;
+}
+
+/* Two passes avoid collisions with existing positions. Only the explicitly
+ * supplied card advances its revision; an inserted card already advanced. */
+static int write_card_column(sqlite3 *db,const char *board,const char *list,
+    const char *lane,const WenaCardOrderRow *rows,size_t count,
+    sqlite3_int64 maximum,const char *advance)
+{
+    sqlite3_stmt *statement;size_t index,actual_count;int ok,phase;
+    WenaSha256 hash;WenaCardOrderRow *actual;char expected[65];
+    if(sqlite3_prepare_v2(db,"UPDATE cards SET position=?1,version=version+?6 WHERE id=?2 AND board_id=?3 AND list_id=?4 AND swimlane_id=?5",-1,&statement,NULL)!=SQLITE_OK)return 0;
+    ok=1;
     for(phase=0;phase<2&&ok;++phase){
         for(index=0;index<count;++index){
             ok=sqlite3_reset(statement)==SQLITE_OK &&
@@ -338,11 +336,82 @@ static int reorder_card(sqlite3 *db,const WenaDomainCommand *command,
                 sqlite3_bind_text(statement,3,board,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
                 sqlite3_bind_text(statement,4,list,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
                 sqlite3_bind_text(statement,5,lane,-1,SQLITE_TRANSIENT)==SQLITE_OK &&
-                sqlite3_bind_int(statement,6,phase&&!strcmp(rows[index].id,card))==SQLITE_OK;
+                sqlite3_bind_int(statement,6,phase&&advance&&!strcmp(rows[index].id,advance))==SQLITE_OK;
             if(!ok||sqlite3_step(statement)!=SQLITE_DONE||sqlite3_changes(db)!=1){ok=0;break;}
         }
     }
-    sqlite3_finalize(statement);free(rows);return ok;
+    sqlite3_finalize(statement);
+    if(!ok)return 0;
+    /* Re-read before commit: triggers must not silently change order, revision,
+     * archive status or scope while the caller prepares its cache publication. */
+    wena_sha256_init(&hash);
+    for(index=0;index<count;++index)
+        if(!wena_sqlite_card_order_add(&hash,rows[index].id,strlen(rows[index].id),(unsigned long)index))return 0;
+    wena_sha256_final_hex(&hash,expected);actual=NULL;
+    if(!card_column(db,board,list,lane,expected,&actual,&actual_count))return 0;
+    ok=actual_count==count;
+    for(index=0;index<count&&ok;++index)
+        ok=actual[index].archived==rows[index].archived&&actual[index].version==
+            rows[index].version+(advance&&!strcmp(rows[index].id,advance)?1ul:0ul);
+    free(actual);return ok;
+}
+static int reorder_card(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,const char *card,const char *list,const char *lane,
+    unsigned long version,unsigned long target)
+{
+    WenaCardOrderRow *rows,moved;char expected[65];size_t count,selected;
+    sqlite3_int64 maximum;int ok;
+    if(!value(command,"expectedOrder",expected,sizeof(expected))||
+        !card_column(db,board,list,lane,expected,&rows,&count))return 0;
+    for(selected=0;selected<count;++selected)if(!strcmp(rows[selected].id,card))break;
+    if(selected==count||rows[selected].version!=version||rows[selected].archived||target>=(unsigned long)count){free(rows);return 0;}
+    if(selected==(size_t)target){free(rows);return 2;}
+    maximum=rows[count-1].position;moved=rows[selected];
+    if(selected<(size_t)target)memmove(&rows[selected],&rows[selected+1],((size_t)target-selected)*sizeof(*rows));
+    else memmove(&rows[target+1],&rows[target],(selected-(size_t)target)*sizeof(*rows));
+    rows[target]=moved;
+    ok=write_card_column(db,board,list,lane,rows,count,maximum,card);free(rows);return ok;
+}
+static int insert_card(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,const char *card,const char *list,const char *lane,
+    unsigned long version,unsigned long target)
+{
+    WenaCardOrderRow *source,*destination,*remaining,moved;
+    WenaSha256 hash;size_t source_count,count,selected,index,after_count,at;
+    char source_list[65],source_lane[65],expected[65];sqlite3_int64 maximum;int ok;
+    source=NULL;destination=NULL;remaining=NULL;ok=0;
+    if(has_value(command,"targetPosition")||
+        !value(command,"sourceListId",source_list,sizeof(source_list))||
+        !value(command,"sourceSwimlaneId",source_lane,sizeof(source_lane))||
+        (!strcmp(list,source_list)&&!strcmp(lane,source_lane))||
+        !value(command,"expectedSourceOrder",expected,sizeof(expected))||
+        !card_column(db,board,source_list,source_lane,expected,&source,&source_count))goto done;
+    for(selected=0;selected<source_count;++selected)if(!strcmp(source[selected].id,card))break;
+    if(selected==source_count||source[selected].version!=version||source[selected].archived||
+        !value(command,"expectedOrder",expected,sizeof(expected))||
+        !card_column(db,board,list,lane,expected,&destination,&count)||count>=2048||target>(unsigned long)count)goto done;
+    maximum=count?destination[count-1].position+1:0;
+    moved=source[selected];moved.position=maximum;++moved.version;
+    memmove(&destination[target+1],&destination[target],(count-(size_t)target)*sizeof(*destination));
+    destination[target]=moved;++count;
+    if(!move_card(db,list,lane,card,board,version)||
+        !write_card_column(db,board,list,lane,destination,count,maximum,NULL))goto done;
+    wena_sha256_init(&hash);
+    for(index=0;index<source_count;++index)if(index!=selected)
+        if(!wena_sqlite_card_order_add(&hash,source[index].id,strlen(source[index].id),
+            (unsigned long)source[index].position))goto done;
+    wena_sha256_final_hex(&hash,expected);
+    if(!card_column(db,board,source_list,source_lane,expected,&remaining,&after_count)||
+        after_count!=source_count-1)goto done;
+    at=0;
+    for(index=0;index<source_count;++index)if(index!=selected){
+        if(remaining[at].version!=source[index].version||
+            remaining[at].archived!=source[index].archived)goto done;
+        ++at;
+    }
+    ok=1;
+ done:
+    free(source);free(destination);free(remaining);return ok;
 }
 
 static int hierarchy_order(sqlite3 *db, const WenaDomainCommand *command,
@@ -523,7 +592,8 @@ strcpy(title,"Description updated");version++;
 }else if(c->operation==WENA_DOMAIN_EDIT_LIST_TITLE){if(!value(c,"listId",id,sizeof(id))||!value(c,"title",title,sizeof(title))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version)||!run(db,"UPDATE lists SET title=?1,version=version+1 WHERE id=?2 AND board_id=?3 AND version=?4",title,id,board,version))goto bad;version++;
 }else if(c->operation==WENA_DOMAIN_EDIT_SWIMLANE_TITLE){if(!value(c,"swimlaneId",id,sizeof(id))||!value(c,"title",title,sizeof(title))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version)||!run(db,"UPDATE swimlanes SET title=?1,version=version+1 WHERE id=?2 AND board_id=?3 AND version=?4",title,id,board,version))goto bad;version++;
 }else if(c->operation==WENA_DOMAIN_MOVE_CARD){char list[65],lane[65];if(!value(c,"cardId",id,sizeof(id))||!value(c,"targetListId",list,sizeof(list))||!value(c,"targetSwimlaneId",lane,sizeof(lane))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version))goto bad;if(!scalar(db,"SELECT count(*) FROM lists WHERE id=?1 AND board_id=?2",list,board,NULL,0)||!scalar(db,"SELECT count(*) FROM swimlanes WHERE id=?1 AND board_id=?2",lane,board,NULL,0))goto bad;
-if(has_value(c,"targetPosition")){char target[32];unsigned long ordinal;int reordered;if(!value(c,"targetPosition",target,sizeof(target))||!decimal(target,1,(unsigned long)LONG_MAX,&ordinal))goto bad;reordered=reorder_card(db,c,board,id,list,lane,version,ordinal);if(!reordered)goto bad;if(reordered==2)unchanged=1;else version++;}
+if(has_value(c,"insertPosition")){char target[32];unsigned long ordinal;if(!value(c,"insertPosition",target,sizeof(target))||!decimal(target,1,(unsigned long)LONG_MAX,&ordinal)||!insert_card(db,c,board,id,list,lane,version,ordinal))goto bad;version++;}
+else if(has_value(c,"targetPosition")){char target[32];unsigned long ordinal;int reordered;if(!value(c,"targetPosition",target,sizeof(target))||!decimal(target,1,(unsigned long)LONG_MAX,&ordinal))goto bad;reordered=reorder_card(db,c,board,id,list,lane,version,ordinal);if(!reordered)goto bad;if(reordered==2)unchanged=1;else version++;}
 else{if(has_value(c,"expectedOrder")||!move_card(db,list,lane,id,board,version))goto bad;version++;}
 if(!card_position(db,id,&created_position))goto bad;
 strcpy(title,"Moved");

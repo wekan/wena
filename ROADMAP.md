@@ -999,7 +999,13 @@ Architecture decisions for this cycle:
     cancellation, collapsed-lane controls and repeated board-wide list identities.
     Real Nuklear/SQLite tests cover both kinds, revisions, sibling fingerprints,
     late rollback, cache publication and no replay; focused suites/sanitizers pass.
-  - [_] Complete arbitrary insertion-point movement and visual parity.
+  - [x] Add guarded cross-column insertion to the shared SQLite card-move
+    transaction. Reuse bounded column reading and collision-safe position writes
+    for same-column reordering and list/swimlane transfers. Check both captured
+    order fingerprints, exact source version, archived slots, capacity and replay;
+    test start/middle/end/empty targets and early/late transaction rollback.
+  - [_] Connect exact cross-column insertion to native move/drag adapters and
+    controls; complete arbitrary insertion-point movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and
