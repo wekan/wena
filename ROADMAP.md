@@ -802,9 +802,13 @@ Architecture decisions for this cycle:
         reject malformed/duplicate model IDs and stale versions, and publish
         only the committed flag without a fallible reload. Verify no-op, replay,
         rollback, exact child-cache preservation and reopening.
-      - [_] Wire ordinary-list archive/restore into the native menu/archive
-        browser. Ordinary lists preserve card archive flags;
-        template-list cascades remain separate until template models are ported.
+      - [x] Wire ordinary-list archive/restore into the native list menu and
+        archive browser. Cards/Lists reuse one paginated selection/restore flow,
+        with category-specific callbacks and translated controls/empty states.
+        Verify real mouse navigation across duplicate titles, no paging reads,
+        category/version isolation, rollback, stale versions, empty results and
+        successful SQLite archive/restore. Ordinary lists preserve card flags.
+        Template-list cascades remain separate until template models are ported.
       - [x] Share strict database list-state reads across archive mutations and
         movement eligibility, including legacy schema detection used by snapshots.
         Reject archived card destinations, hidden card sources and archived list

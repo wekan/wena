@@ -20,6 +20,9 @@ typedef int (*WenaHierarchySaveTitle)(void *context, const char *board_id,
 typedef int (*WenaHierarchyCreateTitle)(void *context, const char *board_id,
     WenaHierarchyKind kind, const char *title);
 
+typedef int (*WenaHierarchyArchive)(void *context,const char *board_id,
+    const char *list_id,unsigned long expected_version);
+
 #define WENA_HIERARCHY_TITLE_MOVE 1u
 
 typedef struct WenaHierarchyTitleState {
@@ -36,6 +39,7 @@ typedef struct WenaHierarchyTitleState {
     WenaHierarchyLoadTitle load_title;
     WenaHierarchySaveTitle save_title;
     WenaHierarchyCreateTitle create_title;
+    WenaHierarchyArchive archive;
     void *context;
 } WenaHierarchyTitleState;
 
@@ -45,6 +49,8 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyLoadTitle load, WenaHierarchySaveTitle save, void *context);
 void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyCreateTitle create);
+void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
+    WenaHierarchyArchive archive);
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
     const WenaBoardLayout *layout, WenaHierarchyKind kind);
 /* Opening loads the current persisted title/version. Rendering closes an invalid

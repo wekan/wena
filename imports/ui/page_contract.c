@@ -24,6 +24,8 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_RESTORE, "restore", "Restore selected"},
     {WENA_UI_TEXT_LANGUAGE, "language", "Language"},
     {WENA_UI_TEXT_SWIMLANE, "swimlane", "Swimlane"},
+    {WENA_UI_TEXT_LISTS, "lists", "Lists"},
+    {WENA_UI_TEXT_NO_ARCHIVED_LISTS, "no-archived-lists", "No lists in Archive."},
     {WENA_UI_TEXT_LIST, "list", "List"},
     {WENA_UI_TEXT_NO_ARCHIVED_CARDS, "no-archived-cards", "No archived cards"},
     {WENA_UI_TEXT_ERROR, "error", "Error"},
@@ -134,7 +136,8 @@ static const WenaUiControlContract controls[] = {
     {WENA_UI_ADD_LABEL, "label-create", "Create Label", "[+]", "GET", "open-create-label", 37u},
     {WENA_UI_EDIT_LABEL, "editLabelPopup-title", "Change Label", "[E]", "GET", "open-edit-label", 38u},
     {WENA_UI_OPEN_DELETE_LABEL, "delete", "Delete", "[X]", "GET", "open-delete-label", 39u},
-    {WENA_UI_CREATE_LABEL, "create", "Create", "[+]", "GET", "create-local-label", 40u}
+    {WENA_UI_CREATE_LABEL, "create", "Create", "[+]", "GET", "create-local-label", 40u},
+    {WENA_UI_ARCHIVE_LIST, "archive-list", "Move List to Archive", "[A]", "GET", "archive-list-editor", 41u}
 };
 
 static const WenaUiPageContract pages[] = {

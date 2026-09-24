@@ -1,3 +1,4 @@
+#include "../client/features/card_archives.h"
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_IMPLEMENTATION
@@ -182,9 +183,23 @@ static void creation_tests(sqlite3 *database, WenaHierarchyMutation *adapter,
     strcpy(snapshot->board.id, "board");
 }
 
+static void archives_frame(struct nk_context *context,WenaCardArchivesState *state,WenaBoardLayout *layout)
+{
+ const struct nk_command *command;
+ assert(wena_card_archives_render(context,state,layout,640,480));
+ nk_foreach(command,context){(void)command;}
+}
+static void archives_click(struct nk_context *context,WenaCardArchivesState *state,WenaBoardLayout *layout,const char *label)
+{
+ struct nk_vec2 point;int down;point=label_center(context,label);
+ for(down=1;down>=0;--down){nk_clear(context);nk_input_begin(context);
+ nk_input_motion(context,(int)point.x,(int)point.y);nk_input_button(context,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);
+ nk_input_end(context);archives_frame(context,state,layout);}
+}
+
 int main(int argc, char **argv)
 {
-    unsigned char migration[8192];
+    unsigned char migration[65536];
     size_t length;
     char hash[65];
     char path[4096];
@@ -195,6 +210,7 @@ int main(int argc, char **argv)
     WenaHierarchyTitleState state;
     WenaBoardLayout layout;
     WenaHierarchyKind kinds[3];
+    WenaCardArchivesState archives;
     const char *ids[3];
     const char *bad_titles[6];
     char title[129];
@@ -337,6 +353,33 @@ int main(int argc, char **argv)
     assert(!state.visible);
     snapshot->lists[0].archived = 0;
     creation_tests(database, &adapter, snapshot, &context, &state, &layout);
+    wena_hierarchy_title_set_archive_adapter(&state,wena_hierarchy_mutation_archive);
+    assert(wena_hierarchy_title_open(&state,&layout,WENA_HIERARCHY_LIST,"list"));
+    frame(&context,&state,&layout);
+    execute(database,"UPDATE lists SET version=version+1 WHERE id='list'");
+    click(&context,&state,&layout,"Move List to Archive");
+    assert(state.visible&&state.error&&!snapshot->lists[0].archived);
+    click(&context,&state,&layout,"Cancel");
+    assert(wena_hierarchy_title_open(&state,&layout,WENA_HIERARCHY_LIST,"list"));
+    frame(&context,&state,&layout);
+    execute(database,"CREATE TRIGGER fail_archive BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+    click(&context,&state,&layout,"Move List to Archive");
+    assert(state.visible&&state.error&&!snapshot->lists[0].archived);
+    execute(database,"DROP TRIGGER fail_archive");
+    click(&context,&state,&layout,"Move List to Archive");
+    assert(!state.visible&&snapshot->lists[0].archived&&!strcmp(before,snapshot->lists[0].title));
+    assert(!wena_hierarchy_title_open(&state,&layout,WENA_HIERARCHY_LIST,"list"));
+    wena_card_archives_init(&archives,NULL,NULL,NULL);
+    wena_card_archives_set_lists(&archives,wena_hierarchy_mutation_archive_load,wena_hierarchy_mutation_restore,&adapter);
+    assert(wena_card_archives_open(&archives,&layout));
+    nk_clear(&context);nk_input_begin(&context);nk_input_end(&context);archives_frame(&context,&archives,&layout);
+    archives_click(&context,&archives,&layout,"Lists");
+    assert(archives.lists&&!strcmp(archives.card_id,"list")&&archives.version);
+    execute(database,"CREATE TRIGGER fail_restore BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+    archives_click(&context,&archives,&layout,"Restore");assert(archives.error&&snapshot->lists[0].archived);
+    execute(database,"DROP TRIGGER fail_restore");
+    archives_click(&context,&archives,&layout,"Restore");assert(!snapshot->lists[0].archived&&!archives.card_id[0]);
+    wena_card_archives_close(&archives);
     nk_free(&context);
     assert(sqlite3_close(database) == SQLITE_OK);
     assert(wena_sqlite_open(path, migration, length, hash, &database));

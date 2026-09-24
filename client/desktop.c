@@ -565,6 +565,7 @@ int main(int argc, char **argv)
             &hierarchy_mutation);
         wena_hierarchy_title_set_create_adapter(&editors.hierarchy,
             wena_hierarchy_mutation_create);
+        wena_hierarchy_title_set_archive_adapter(&editors.hierarchy,wena_hierarchy_mutation_archive);
         if (!wena_card_mutation_set_create_cache(&mutation, &snapshot->card_count,
             WENA_SQLITE_BOARD_MAX_CARDS)) goto cleanup;
         wena_card_create_init(&editors.create, wena_card_mutation_create, &mutation);
@@ -575,6 +576,8 @@ int main(int argc, char **argv)
         wena_card_move_set_insert_adapter(&editors.move,wena_card_mutation_insert);
         wena_card_archives_init(&editors.archives, wena_card_mutation_load_archived,
                                 wena_card_mutation_restore, &mutation);
+        wena_card_archives_set_lists(&editors.archives,wena_hierarchy_mutation_archive_load,
+            wena_hierarchy_mutation_restore,&hierarchy_mutation);
         wena_card_details_set_title_adapter(&editors.details, wena_card_mutation_load,
                                             wena_card_mutation_save, &mutation);
         wena_card_details_set_archive_adapter(&editors.details, wena_card_mutation_archive);

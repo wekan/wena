@@ -47,7 +47,8 @@ typedef enum WenaUiControlId {
     WENA_UI_ADD_LABEL,
     WENA_UI_EDIT_LABEL,
     WENA_UI_OPEN_DELETE_LABEL,
-    WENA_UI_CREATE_LABEL
+    WENA_UI_CREATE_LABEL,
+    WENA_UI_ARCHIVE_LIST
 } WenaUiControlId;
 
 typedef struct WenaUiControlContract {
@@ -124,7 +125,9 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_PREVIOUS_PAGE,
     WENA_UI_TEXT_NEXT_PAGE,
     WENA_UI_TEXT_LOADING,
-    WENA_UI_TEXT_BOARDS
+    WENA_UI_TEXT_BOARDS,
+    WENA_UI_TEXT_LISTS,
+    WENA_UI_TEXT_NO_ARCHIVED_LISTS
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

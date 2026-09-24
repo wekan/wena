@@ -11,6 +11,20 @@
 static int writes;
 static WenaCard cards[6];
 static int reads;
+static WenaList lists[8];
+static int list_reads,list_writes,list_fail;
+static int list_load(void *context,const char *board,const char *id,unsigned long *version)
+{
+    (void)context;(void)id;assert(!strcmp(board,"board"));++list_reads;
+    *version=9;return !list_fail;
+}
+static int list_restore(void *context,const char *board,const char *id,unsigned long version)
+{
+    (void)context;assert(!strcmp(board,"board")&&!strcmp(id,"two")&&version==9);
+    if(list_fail)return 0;
+    lists[5].archived=0;++list_writes;return 1;
+}
+
 static int load(void *context,const char *board,const char *card,char *title,
     size_t capacity,unsigned long *version)
 {
@@ -116,6 +130,34 @@ int main(void)
     assert(state.table.page==0 && !strcmp(state.card_id,"one"));
     click(&ctx,&state,&layout,"Cancel");
     assert(!state.visible && writes==1);
+    for(i=0;i<6;++i)assert(wena_list_init(&lists[i],ids[i],"board","","Repeated",i,1));
+    assert(wena_list_init(&lists[6],"active","board","","Active",6,0));
+    assert(wena_list_init(&lists[7],"foreign","other","","Foreign",7,1));
+    layout.lists=lists;layout.list_count=8;
+    wena_card_archives_set_lists(&state,list_load,list_restore,NULL);
+    assert(wena_card_archives_open(&state,&layout));
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+    click(&ctx,&state,&layout,"Lists");
+    assert(state.lists&&state.version==9&&list_reads==1&&!strcmp(state.card_id,"one"));
+    click(&ctx,&state,&layout,"Next Page");
+    assert(state.table.page==1&&list_reads==1&&writes==1&&!list_writes);
+    click(&ctx,&state,&layout,"Repeated [two]");assert(list_reads==2&&!strcmp(state.card_id,"two"));
+    click(&ctx,&state,&layout,"Previous Page");
+    assert(!state.table.page&&list_reads==2);(void)label_center(&ctx,"Repeated [two]");
+    list_fail=1;click(&ctx,&state,&layout,"Restore");
+    assert(state.error&&lists[5].archived&&!list_writes&&writes==1);
+    list_fail=0;click(&ctx,&state,&layout,"Restore");
+    assert(!lists[5].archived&&list_writes==1&&writes==1&&!strcmp(state.card_id,"one"));
+    click(&ctx,&state,&layout,"Cards");assert(!state.lists&&state.version==1&&!state.table.page);
+    list_fail=1;click(&ctx,&state,&layout,"Lists");assert(state.lists&&state.error&&!state.version);
+    click(&ctx,&state,&layout,"Restore");assert(list_writes==1&&writes==1);
+    list_fail=0;click(&ctx,&state,&layout,"Cards");click(&ctx,&state,&layout,"Lists");
+    click(&ctx,&state,&layout,"Next Page");assert(state.table.page==1);
+    for(i=0;i<6;++i)lists[i].archived=0;
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+    assert(!state.table.page&&!state.card_id[0]&&!state.version);
+    (void)label_center(&ctx,"No lists in Archive.");
+    click(&ctx,&state,&layout,"Cancel");assert(!state.visible);
     nk_free(&ctx); puts("Real Nuklear paginated archives, exact selection, restore and cancel passed");
     return 0;
 }

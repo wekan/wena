@@ -20,8 +20,7 @@ strict scalar checks, cross-board foreign-key rejection, table/index/metadata/
 commit failure rollback, downgrade rejection and reopening. Embedded artifacts
 must contain the newly pinned complete migration bundle. Native snapshot loading
 and guarded archive/restore mutations are now
-implemented. Native menu/archive-browser integration remains open
-in ROADMAP.md.
+implemented, including native list-menu and archive-browser controls.
 
 The typed local archive and restore operations use the same actor, board,
 optimistic version, durable request identity and transaction boundary as other
@@ -54,3 +53,13 @@ publish only the selected list flag after commit, without allocation or reload,
 so child cards and every other cached field remain intact. No-op, replay, stale
 revision, late rollback, wrong scope/actor, corrupt state and reopening are tested
 against the real SQLite transaction and loader.
+
+The list menu exposes the translated archive action through its existing
+hierarchy editor. Failure keeps the editor open; success hides the list without
+changing its stored title or child cards. Archives provides Cards/Lists category
+buttons over one table and selection implementation. Switching category clears
+the old selection/version and page; paging preserves the exact restore target
+without reading storage. The selected category and restore target remain visible.
+List restores use the hierarchy adapter while card restores retain their existing
+adapter. Real mouse tests cover duplicate titles across categories/pages, failed
+loads/restores, shrinking results and an end-to-end SQLite archive/restore flow.
