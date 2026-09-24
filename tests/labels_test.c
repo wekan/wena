@@ -134,6 +134,68 @@ static void color_input_tests(void)
     first.use_custom_color=0;memset(first.color,'x',sizeof(first.color));assert(!wena_color_input_value(&first));
     assert(!wena_color_input_value(NULL));assert(!wena_color_input_set(NULL,"red"));
 }
+static void transfer_mapping(void)
+{
+    WenaLabel source[WENA_BOARD_LABEL_CAPACITY],destination[WENA_BOARD_LABEL_CAPACITY],saved;
+    WenaId assigned[WENA_BOARD_LABEL_CAPACITY];unsigned char mapped[WENA_BOARD_LABEL_CAPACITY],before[WENA_BOARD_LABEL_CAPACITY];
+    size_t i;char id[16],name[32];
+    assert(wena_label_init(&source[0],"s0","source","Priority","red",1));
+    assert(wena_label_init(&source[1],"s1","source","","blue",2));
+    assert(wena_label_init(&source[2],"s2","source","T\303\244rke\303\244","green",5));
+    assert(wena_label_init(&source[3],"s3","source","Unselected","pink",6));
+    assert(wena_label_init(&destination[0],"d0","destination","Priority","blue",0));
+    assert(wena_label_init(&destination[1],"d1","destination","Priority","green",1));
+    assert(wena_label_init(&destination[2],"d2","destination","","blue",2));
+    assert(wena_label_init(&destination[3],"d3","destination","priority","red",3));
+    assert(wena_label_init(&destination[4],"d4","destination","T\303\244rke\303\244","pink",4));
+    assert(wena_label_init(&destination[5],"s0","destination","Unselected","red",5));
+    strcpy(assigned[0],"s2");strcpy(assigned[1],"s1");strcpy(assigned[2],"s0");
+    memset(mapped,0xa5,sizeof(mapped));
+    assert(wena_label_transfer_map(source,4,"source",(const WenaId*)assigned,3,destination,6,"destination",mapped));
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i)assert(mapped[i]==(i==0||i==1||i==4));
+    memcpy(before,mapped,sizeof(mapped));
+#define MAP_FAIL(src,n,board,ids,used,dst,m,target) \
+    assert(!wena_label_transfer_map(src,n,board,ids,used,dst,m,target,mapped)&&!memcmp(mapped,before,sizeof(mapped)))
+    MAP_FAIL(source,4,"source",NULL,1,destination,6,"destination");
+    MAP_FAIL(source,4,"source",(const WenaId*)assigned,5,destination,6,"destination");
+    MAP_FAIL(NULL,1,"source",NULL,0,destination,6,"destination");
+    MAP_FAIL(source,WENA_BOARD_LABEL_CAPACITY+1,"source",NULL,0,destination,6,"destination");
+    MAP_FAIL(source,4,"source",NULL,0,destination,WENA_BOARD_LABEL_CAPACITY+1,"destination");
+    MAP_FAIL(source,4,"source",NULL,0,NULL,1,"destination");
+    MAP_FAIL(source,4,"source",NULL,0,source,4,"source");
+    MAP_FAIL(source,4,"wrong",NULL,0,destination,6,"destination");
+    MAP_FAIL(source,4,"source",NULL,0,destination,6,"wrong");
+    MAP_FAIL(source,4,"bad/id",NULL,0,destination,6,"destination");
+    strcpy(assigned[1],"s2");MAP_FAIL(source,4,"source",(const WenaId*)assigned,3,destination,6,"destination");
+    strcpy(assigned[1],"missing");MAP_FAIL(source,4,"source",(const WenaId*)assigned,3,destination,6,"destination");
+    memset(assigned[1],'x',sizeof(assigned[1]));MAP_FAIL(source,4,"source",(const WenaId*)assigned,3,destination,6,"destination");
+    strcpy(assigned[1],"s1");
+    saved=destination[1];destination[1].position=destination[0].position;
+    MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");destination[1]=saved;
+    strcpy(destination[1].id,destination[0].id);MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");destination[1]=saved;
+    strcpy(destination[1].color,destination[0].color);MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");destination[1]=saved;
+    strcpy(destination[1].color,"invalid");MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");destination[1]=saved;
+    memset(destination[1].name,'x',sizeof(destination[1].name));MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");destination[1]=saved;
+    saved=source[1];strcpy(source[1].board_id,"foreign");MAP_FAIL(source,4,"source",NULL,0,destination,6,"destination");source[1]=saved;
+#undef MAP_FAIL
+    assert(!wena_label_transfer_map(source,4,"source",NULL,0,destination,6,"destination",NULL));
+    assert(wena_label_transfer_map(source,4,"source",NULL,0,destination,6,"destination",mapped));
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i)assert(!mapped[i]);
+    assert(wena_label_transfer_map(source,4,"source",(const WenaId*)assigned,3,NULL,0,"destination",mapped));
+    assert(wena_label_transfer_map(NULL,0,"source",NULL,0,destination,6,"destination",mapped));
+    assert(wena_label_catalogue_valid(NULL,0,"empty"));
+    assert(!wena_label_catalogue_valid(NULL,0,""));
+    /* Every destination label can match; preserve declared order and bound work. */
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i){
+        sprintf(id,"s%lu",(unsigned long)i);sprintf(name,"Label %lu",(unsigned long)i);
+        assert(wena_label_init(&source[i],id,"source",name,"red",(unsigned long)i));strcpy(assigned[i],id);
+        sprintf(id,"d%lu",(unsigned long)i);sprintf(name,"Label %lu",(unsigned long)(WENA_BOARD_LABEL_CAPACITY-1-i));
+        assert(wena_label_init(&destination[i],id,"destination",name,"blue",(unsigned long)i));
+    }
+    assert(wena_label_transfer_map(source,WENA_BOARD_LABEL_CAPACITY,"source",(const WenaId*)assigned,
+        WENA_BOARD_LABEL_CAPACITY,destination,WENA_BOARD_LABEL_CAPACITY,"destination",mapped));
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i)assert(mapped[i]==1);
+}
 int main(void)
 {
     WenaLabelsState state;
@@ -143,6 +205,7 @@ int main(void)
     char long_name[150];
     int before;
     unsigned long revision;
+    transfer_mapping();
     memset(&store, 0, sizeof(store));
     strcpy(store.board_id, "b");
     strcpy(store.card_id, "c");

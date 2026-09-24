@@ -14,14 +14,14 @@ void wena_label_snapshot_free(WenaLabelSnapshot *snapshot)
 int wena_label_snapshot_valid(const WenaLabelSnapshot *snapshot,
     const char *board_id,const char *card_id)
 {
-    size_t i,j;
+    size_t i;
     int card_mode;
     card_mode=card_id && card_id[0];
     if (!snapshot || !wena_model_identifier_valid(board_id) ||
         !wena_model_identifier_valid(snapshot->board_id) ||
         strcmp(snapshot->board_id,board_id) || !snapshot->board_version ||
         snapshot->board_version > WENA_VERSION_READ_MAX ||
-        snapshot->label_count>WENA_BOARD_LABEL_CAPACITY) return 0;
+        !wena_label_catalogue_valid(snapshot->labels,snapshot->label_count,board_id)) return 0;
     if (card_mode) {
         if (!wena_model_identifier_valid(card_id) ||
             !wena_model_identifier_valid(snapshot->card_id) ||
@@ -29,20 +29,12 @@ int wena_label_snapshot_valid(const WenaLabelSnapshot *snapshot,
             snapshot->card_version > WENA_VERSION_READ_MAX) return 0;
     } else if (snapshot->card_id[0] || snapshot->card_version) return 0;
     for (i=0;i<snapshot->label_count;++i) {
-        if (!wena_label_valid(&snapshot->labels[i]) ||
-            strcmp(snapshot->labels[i].board_id,board_id) ||
-            !snapshot->label_versions[i] ||
+        if (!snapshot->label_versions[i] ||
             snapshot->label_versions[i] > WENA_VERSION_READ_MAX ||
             (snapshot->assigned[i]!=0 && snapshot->assigned[i]!=1) ||
             snapshot->assigned_card_counts[i]>(unsigned long)LONG_MAX ||
             (snapshot->assigned[i] && !snapshot->assigned_card_counts[i]) ||
-            (!card_mode && snapshot->assigned[i]) ||
-            (i && snapshot->labels[i-1].position>=snapshot->labels[i].position)) return 0;
-        for (j=0;j<i;++j) {
-            if (!strcmp(snapshot->labels[i].id,snapshot->labels[j].id) ||
-                (!strcmp(snapshot->labels[i].name,snapshot->labels[j].name) &&
-                 !strcmp(snapshot->labels[i].color,snapshot->labels[j].color))) return 0;
-        }
+            (!card_mode && snapshot->assigned[i])) return 0;
     }
     return 1;
 }

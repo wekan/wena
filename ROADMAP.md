@@ -972,6 +972,22 @@ Architecture decisions for this cycle:
                   archived siblings, numeric position input, stale selection or
                   ordering, failed capture, late rollback, retry and reopening.
                 - [_] Complete cross-board card movement.
+                  - [x] Port Cards.move label mapping from the pinned WeKan
+                    models/cards.js into a pure shared model helper: match all
+                    destination labels by exact nonempty assigned source name,
+                    irrespective of color or ID. Reject invalid catalogues and
+                    duplicate/dangling assignments without changing outputs.
+                    Reuse extracted catalogue validation in native label
+                    snapshots. Test empty sets, Unicode/case, differently
+                    colored matches, scope/corruption and the 128-label bound.
+                  - [_] Move card-owned metadata and remapped assignments in
+                    one guarded transaction, then connect a shared board picker
+                    and publish both affected board views consistently.
+                    Reuse the existing checklist transfer's transaction-scoped
+                    [foreign-key deferral](https://www.sqlite.org/pragma.html#pragma_defer_foreign_keys),
+                    keeping enforcement enabled and checking the final relations
+                    before commit. Preserve descriptions, checklists/items,
+                    archive metadata and actor card-section preferences.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse
