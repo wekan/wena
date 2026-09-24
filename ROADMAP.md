@@ -923,8 +923,15 @@ Architecture decisions for this cycle:
       reusable read-only snapshot. Preserve exact integer/date/timestamp numbers,
       nested field order, binary subtype and regex options; reject range/type/schema
       mismatches before publication. Verify C89 and sanitizer byte-mutation tests.
+    - [x] Reuse typed SJSON validation for every mapped collection in a single
+      read-only SQLite transaction, with a caller-set document limit and atomic
+      result publication. Reject altered table shapes, unsupported collection
+      settings, malformed documents and busy databases; verify file bytes unchanged.
     - [_] Implement typed codec writes, owner locking,
       verified backup and copied-WeKan round trips before direct replacement.
+      The previously referenced `state-debug-speed/wekan.sqlite` fixture is absent
+      in this checkout; synthetic codec/storage checks pass, but a real copied
+      WeKan database is still required for end-to-end compatibility verification.
 - [_] Using Nuklear GUI components, create same UI layout
   - [x] Establish MIT-licensed SVG source artwork/theme tokens and conversion to
     compact C89 native vector commands. Integrate a scale-aware board pictogram,

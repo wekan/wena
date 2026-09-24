@@ -47,3 +47,19 @@ It accepts canonical descriptors only (irrelevant metadata fields are rejected),
 retains the pinned decoder's JSON-null override and rejects double overflow.
 Neither reader changes the database. Typed writes, concurrent-owner locking and
 copied-WeKan round trips remain required before enabling direct replacement.
+
+## Bounded read-only scan
+
+`server/ferretdb_scan` reuses the format probe on the same connection and read
+transaction, then validates every mapped collection (including non-board data)
+with the shared typed reader. Physical tables must be STRICT and contain exactly
+one non-null TEXT SJSON column. Table identifiers are quoted with SQLite's `%w`;
+collection settings must identify index format 2. A caller-supplied document
+limit bounds the scan and exceeding it fails without publishing a partial count.
+Only one document snapshot is retained at a time. The scan never opens a writable
+connection and leaves the result unchanged on malformed data, altered schema,
+missing tables or busy/error paths. Synthetic tests compare database bytes before
+and after both successful and failed scans.
+
+The previously observed `state-debug-speed/wekan.sqlite` is absent in the current
+checkout. No real copied-WeKan scan or write round trip is claimed by these tests.
