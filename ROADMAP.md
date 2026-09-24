@@ -831,8 +831,13 @@ Architecture decisions for this cycle:
             strict integer values/flags, disabled hard-limit defaults and a
             board index. Verify every v1–v11 upgrade, retained cards/revisions/
             archives/colors, constraints, rollback and reopening.
-          - [_] Add guarded persistence and atomic snapshot loading; count all
-            active unfiltered cards across the list's swimlanes.
+          - [x] Persist WIP edits through the shared guarded transaction and
+            pure editor rules. Count active unfiltered cards across swimlanes,
+            preserve no-op revisions/identities, reject stale/replayed/scoped
+            and corrupt requests, and verify writes/counts before commit.
+            Cover ignored/altered writes, late rollback and reopening.
+          - [_] Load WIP settings through atomic board snapshots and publish
+            committed settings through the native hierarchy adapter.
           - [_] Reuse the rule for card creation, restoration and movement.
           - [_] Connect the native list limit editor and header warnings with
             real input, rollback, stale revision and reopen tests.

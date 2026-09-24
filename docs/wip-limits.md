@@ -2,8 +2,9 @@
 
 `models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
 limits and future lane/group limits. It has no database or UI dependencies.
-Storage, mutation enforcement and native UI integration remain open roadmap
-steps; adding this component alone does not enforce limits in the application.
+Guarded setting writes are implemented. Snapshot loading, card mutation
+enforcement and native UI integration remain open roadmap steps; stored limits
+do not yet restrict card actions in the application.
 
 Schema v12 adds `list_wip_limits`, with one row per list and an exact board/list
 foreign key. Missing rows will use defaults; stored rows default to value 1,
@@ -18,6 +19,23 @@ parent revisions, archive timestamps and colors, constraints and exact settings
 after reopening. Failures at table/index creation, migration bookkeeping and
 commit leave no v12 objects and permit retry. Downgrades and missing tables are
 rejected; the generated registry and embedding tests pin the complete bundle.
+
+The typed local `EDIT_LIST_WIP` operation reuses the actor/board transaction,
+optimistic list revision and durable request identity. Its `action` selects
+value application, enabled toggle or soft toggle; the shared pure editor rule
+produces the new state. No HTTP route is added. Strict readers check persisted
+types before conversions, exact scope, flags, range and revision. Missing
+settings use defaults; missing v12 tables and replacement views fail closed.
+The active count spans the whole list and rejects malformed card archive flags
+and wrong-board cards. Archived lists reject edits.
+
+Changes advance only the list revision; same-value requests do not create
+settings or reserve an identity. Post-write reads verify settings, revision,
+list activity and unchanged card count before commit. Ignored writes, altered
+settings, changed counts and late identity failures roll back. File-backed
+tests also cover invalid/duplicate form fields, stale revisions, wrong scope,
+unknown actors, read-only storage, replay, corruption, automatic count
+adjustment above 99 and reopening.
 
 The port follows the original WeKan source:
 

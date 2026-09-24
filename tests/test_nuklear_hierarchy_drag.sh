@@ -9,7 +9,7 @@ cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wex
  "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" "$root_dir/client/components/cards/card_details_canvas.c" \
  "$root_dir/client/components/common/reorder_drag.c" "$root_dir/imports/ui/page_contract.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
- "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_archive.c" \
+ "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/server/mutations/board_settings.c" \
   "$root_dir/server/mutations/checklist_batch.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \

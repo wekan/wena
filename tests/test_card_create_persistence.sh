@@ -4,7 +4,7 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-card-create-persistence-test-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror "$root_dir/tests/card_create_persistence_test.c" "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" "$root_dir/models/card.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/list_state.c" "$root_dir/server/mutations/list_archive.c" \
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror "$root_dir/tests/card_create_persistence_test.c" "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" "$root_dir/models/card.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/list_state.c" "$root_dir/server/mutations/list_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
   "$root_dir/server/mutations/board_settings.c" \
   "$root_dir/server/mutations/checklist_batch.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
