@@ -13,6 +13,8 @@ typedef struct Bundle {unsigned char *bytes;size_t length;char hash[65];} Bundle
 #ifdef WENA_SETTING_COLORS
 #include "../models/color.h"
 #define WENA_SETTING_FAILURE_MODES 6
+#elif defined(WENA_SETTING_SWIMLANE_ARCHIVE)
+#define WENA_SETTING_FAILURE_MODES 6
 #elif defined(WENA_SETTING_LIST_ARCHIVE) || defined(WENA_SETTING_WIP)
 #define WENA_SETTING_DEFAULT 0
 #define WENA_SETTING_FAILURE_MODES 4
@@ -24,6 +26,11 @@ static int failure;
 static int authorize(void *data,int action,const char *first,const char *second,
  const char *database,const char *trigger)
 {
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+ if((failure==4&&action==SQLITE_CREATE_TABLE&&first&&!strcmp(first,"card_archive_state"))||
+    (failure==5&&action==SQLITE_CREATE_INDEX&&first&&!strcmp(first,"swimlane_archive_board_idx"))||
+    (failure==6&&action==SQLITE_CREATE_INDEX&&first&&!strcmp(first,"card_archive_board_idx")))return SQLITE_DENY;
+#endif
 #ifdef WENA_SETTING_WIP
  if(failure==4&&action==SQLITE_CREATE_INDEX&&first&&!strcmp(first,"list_wip_limits_board_idx"))return SQLITE_DENY;
 #endif
@@ -101,6 +108,28 @@ static void wip_table(sqlite3 *db)
  assert(number(db,"SELECT archived FROM cards WHERE id='c'")==1);
 }
 #endif
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+static void archive_table(sqlite3 *db,const char *table,const char *key,const char *id,const char *parent,int lane)
+{
+ char q[512];size_t i;const char *bad[]={"NULL","-1","0.5","'bad'","x'31'","1e100"};
+ sprintf(q,"INSERT INTO %s(%s,board_id) VALUES('%s','b')",table,key,id);sql(db,q);
+ sprintf(q,"SELECT archived_at FROM %s",table);assert(number(db,q)==0);
+ for(i=0;i<sizeof(bad)/sizeof(bad[0]);++i){sprintf(q,"UPDATE %s SET archived_at=%s",table,bad[i]);assert(sqlite3_exec(db,q,NULL,NULL,NULL)!=SQLITE_OK);}
+ sprintf(q,"UPDATE %s SET archived_at=1234567890123",table);sql(db,q);
+ sprintf(q,"UPDATE %s SET board_id='other'",table);assert(sqlite3_exec(db,q,NULL,NULL,NULL)!=SQLITE_OK);
+ sprintf(q,"INSERT INTO %s(%s,board_id) VALUES('missing','b')",table,key);assert(sqlite3_exec(db,q,NULL,NULL,NULL)!=SQLITE_OK);
+ sprintf(q,"INSERT INTO %s(%s,board_id) VALUES('%s','b')",table,key,id);assert(sqlite3_exec(db,q,NULL,NULL,NULL)!=SQLITE_OK);
+ sprintf(q,"DELETE FROM %s WHERE id='%s'",parent,id);assert(sqlite3_exec(db,q,NULL,NULL,NULL)!=SQLITE_OK);
+ if(lane){
+  assert(number(db,"SELECT archived FROM swimlane_archive_state")==0);
+  assert(sqlite3_exec(db,"UPDATE swimlane_archive_state SET archived=2",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE swimlane_archive_state SET archived=0.5",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE swimlane_archive_state SET archived=x'31'",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE swimlane_archive_state SET archived=NULL",NULL,NULL,NULL)!=SQLITE_OK);
+  sql(db,"UPDATE swimlane_archive_state SET archived=1");
+ }
+}
+#endif
 int main(int argc,char **argv)
 {
  Bundle bundles[WENA_SETTING_SCHEMA_VERSION];sqlite3 *db;char path[1024];int old,mode;size_t i;
@@ -111,14 +140,17 @@ int main(int argc,char **argv)
   sprintf(path,"%s/from-%d.sqlite",argv[WENA_SETTING_SCHEMA_VERSION+1],old);
   assert(wena_sqlite_open(path,bundles[old-1].bytes,bundles[old-1].length,bundles[old-1].hash,&db));
   sql(db,"INSERT INTO boards VALUES('b','Keep title',42)");
-#if defined(WENA_SETTING_LIST_ARCHIVE) || defined(WENA_SETTING_COLORS) || defined(WENA_SETTING_WIP)
+#if defined(WENA_SETTING_LIST_ARCHIVE) || defined(WENA_SETTING_COLORS) || defined(WENA_SETTING_WIP) || defined(WENA_SETTING_SWIMLANE_ARCHIVE)
   sql(db,"INSERT INTO boards VALUES('other','Other',1);INSERT INTO lists VALUES('l','b','Keep list',0,7);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);INSERT INTO cards VALUES('c','b','s','l','Keep card',0,1,3)");
 #endif
-#if defined(WENA_SETTING_COLORS) || defined(WENA_SETTING_WIP)
+#if defined(WENA_SETTING_COLORS) || defined(WENA_SETTING_WIP) || defined(WENA_SETTING_SWIMLANE_ARCHIVE)
   if(old>=10)sql(db,"INSERT INTO list_archive_state VALUES('l','b',1,123456)");
 #endif
-#ifdef WENA_SETTING_WIP
+#if defined(WENA_SETTING_WIP) || defined(WENA_SETTING_SWIMLANE_ARCHIVE)
   if(old>=11)sql(db,"INSERT INTO list_colors VALUES('l','b','red');INSERT INTO swimlane_colors VALUES('s','b','#123AbC')");
+#endif
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+  if(old>=12)sql(db,"INSERT INTO list_wip_limits VALUES('l','b',5,1,1)");
 #endif
   if(old>=6)sql(db,"INSERT INTO board_settings VALUES('b',1)");
   assert(sqlite3_close(db)==SQLITE_OK);
@@ -126,7 +158,17 @@ int main(int argc,char **argv)
   assert(wena_sqlite_schema_version(db)==WENA_SETTING_SCHEMA_VERSION&&number(db,"SELECT version FROM boards WHERE id='b'")==42);
   assert(number(db,"SELECT count(*) FROM " WENA_SETTING_TABLE "")==0);
   if(old>=6)assert(number(db,"SELECT show_checklist_count FROM board_settings WHERE board_id='b'")==1);
-#ifdef WENA_SETTING_WIP
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+  if(old>=10)assert(number(db,"SELECT archived_at FROM list_archive_state WHERE archived=1")==123456);
+  if(old>=11)assert(number(db,"SELECT count(*) FROM list_colors WHERE color='red'")==1);
+  if(old>=12)assert(number(db,"SELECT count(*) FROM list_wip_limits WHERE value=5 AND enabled=1 AND soft=1")==1);
+  archive_table(db,"swimlane_archive_state","swimlane_id","s","swimlanes",1);
+  archive_table(db,"card_archive_state","card_id","c","cards",0);
+  assert(number(db,"SELECT version FROM lists WHERE id='l'")==7);
+  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==1);
+  assert(number(db,"SELECT version FROM cards WHERE id='c'")==3);
+  assert(number(db,"SELECT archived FROM cards WHERE id='c'")==1);
+#elif defined(WENA_SETTING_WIP)
   if(old>=10)assert(number(db,"SELECT archived_at FROM list_archive_state WHERE archived=1")==123456);
   if(old>=11){
    assert(number(db,"SELECT count(*) FROM list_colors WHERE color='red'")==1);
@@ -170,7 +212,10 @@ int main(int argc,char **argv)
   assert(wena_sqlite_integrity(db)&&sqlite3_close(db)==SQLITE_OK);
   assert(!wena_sqlite_open(path,bundles[old-1].bytes,bundles[old-1].length,bundles[old-1].hash,&db));
   assert(wena_sqlite_open(path,bundles[WENA_SETTING_SCHEMA_VERSION-1].bytes,bundles[WENA_SETTING_SCHEMA_VERSION-1].length,bundles[WENA_SETTING_SCHEMA_VERSION-1].hash,&db));
-#ifdef WENA_SETTING_WIP
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+  assert(number(db,"SELECT count(*) FROM swimlane_archive_state WHERE archived=1 AND archived_at=1234567890123")==1);
+  assert(number(db,"SELECT count(*) FROM card_archive_state WHERE archived_at=1234567890123")==1);
+#elif defined(WENA_SETTING_WIP)
   assert(number(db,"SELECT count(*) FROM list_wip_limits WHERE value=2147483647 AND enabled=1 AND soft=1")==1);
 #elif defined(WENA_SETTING_COLORS)
   assert(number(db,"SELECT count(*) FROM list_colors WHERE color='#aBcD01'")==1);
@@ -188,6 +233,9 @@ int main(int argc,char **argv)
   assert(sqlite3_set_authorizer(db,NULL,NULL)==SQLITE_OK);failure=0;
   assert(sqlite3_get_autocommit(db)&&wena_sqlite_schema_version(db)==WENA_SETTING_SCHEMA_VERSION-1);
   assert(!number(db,"SELECT count(*) FROM sqlite_master WHERE name='" WENA_SETTING_TABLE "'"));
+#ifdef WENA_SETTING_SWIMLANE_ARCHIVE
+  assert(!number(db,"SELECT count(*) FROM sqlite_master WHERE name IN ('card_archive_state','swimlane_archive_board_idx','card_archive_board_idx')"));
+#endif
 #ifdef WENA_SETTING_WIP
   assert(!number(db,"SELECT count(*) FROM sqlite_master WHERE name='list_wip_limits_board_idx'"));
 #endif

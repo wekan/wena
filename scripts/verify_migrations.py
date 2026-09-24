@@ -18,6 +18,7 @@ V8_SHA256 = "20d32a701cd08e370fd45afda40b1bf3db278feda0266f91546071b175d58cd4"
 V9_SHA256 = "e69c2dd37a03beb1c404223e212abe920fa88b9f5aad9fa561ae01ac4a4b6e7d"
 V10_SHA256 = "569f851244e439b5106cf081ad43a07fb026eed894bef133368ba7cda48bcc1d"
 V11_SHA256 = "9c5a04b32f44bd3327ea08ee4ac21b6ba14c7d28aba3a77ebbf6e09f99146070"
+V12_SHA256 = "bc63af91d0a661b9b7ff809af2080a0a28bb55ce92d505a6a7dd383d4ab93543"
 PATHS = ("server/migrations/001_initial.sql", "server/migrations/002_card_descriptions.sql",
          "server/migrations/003_checklists.sql", "server/migrations/004_checklist_item_card_order.sql",
          "server/migrations/005_labels.sql", "server/migrations/006_board_settings.sql",
@@ -26,7 +27,8 @@ PATHS = ("server/migrations/001_initial.sql", "server/migrations/002_card_descri
          "server/migrations/009_board_card_collapse.sql",
          "server/migrations/010_list_archive_state.sql",
          "server/migrations/011_hierarchy_colors.sql",
-         "server/migrations/012_list_wip_limits.sql")
+         "server/migrations/012_list_wip_limits.sql",
+         "server/migrations/013_swimlane_archive_state.sql")
 HEADER = "server/migrations/compiled_registry.h"
 
 
@@ -54,6 +56,8 @@ def registry(root):
         raise SystemExit("published v10 migration is immutable")
     if hashlib.sha256(programs[10]).hexdigest() != V11_SHA256:
         raise SystemExit("published v11 migration is immutable")
+    if hashlib.sha256(programs[11]).hexdigest() != V12_SHA256:
+        raise SystemExit("published v12 migration is immutable")
     entries = []
     bundle = b""
     for version, (path, program) in enumerate(zip(PATHS, programs), 1):

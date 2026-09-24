@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "schema_version": 12,
+  "schema_version": 13,
   "migrations": [
     {
       "version": 1,
@@ -97,6 +97,14 @@
       "size": 782,
       "bundle_sha256": "b16987da81f95a0d18d4e9d5379d56b726110567da7513c20d25cb84ff1216be",
       "bundle_size": 12867
+    },
+    {
+      "version": 13,
+      "path": "server/migrations/013_swimlane_archive_state.sql",
+      "sha256": "b44ea2149d37ceb8b5073703aa91aec4604fa1d4c170be91179abdbf3bc1b0a1",
+      "size": 1362,
+      "bundle_sha256": "d37445208ea3a74827e47156c1281a0454446d0b8dd4b1736c12a764dd8a318f",
+      "bundle_size": 14229
     }
   ]
 }

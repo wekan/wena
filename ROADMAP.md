@@ -821,6 +821,18 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
+        - [_] Port ordinary swimlane archive/restore with its card cascade.
+          - [x] Add additive schema-v13 swimlane archive state and card archive
+            timestamps with exact parent scope and board indexes. Reuse the
+            migration harness for every v1–v12 upgrade, preserved cards and
+            settings, strict constraints, failed table/index/commit rollback,
+            downgrade rejection and reopening.
+          - [_] Persist individual card archive timestamps and transactional
+            lane cascades, preserving cards archived before the lane operation.
+          - [_] Load archived lane state in atomic snapshots and guard native
+            destinations; publish the cascade through the hierarchy adapter.
+          - [_] Reuse the native menu and paginated archive browser for lanes,
+            with real input, stale-state, rollback, WIP and reopen coverage.
         - [x] Port list work-in-progress limits using shared rules.
           - [x] Add pure C89 hard/soft limit decisions and editor transitions.
             Distinguish reached/exceeded, allow non-increasing moves, reject
