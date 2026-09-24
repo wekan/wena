@@ -848,7 +848,12 @@ Architecture decisions for this cycle:
             lanes; reject all-hidden boards without a write. Also guard lane
             reordering and color loads/edits against stale active caches.
             Verify rejected card state/revisions/identities remain unchanged.
-          - [_] Publish the cascade through the native hierarchy adapter.
+          - [x] Publish the cascade through the native hierarchy adapter.
+            Reuse list/lane selection and revision reads, plus a general
+            pre-commit staging hook and transaction-owned board reader.
+            Publish the full verified snapshot only after commit. Test stale
+            caches, prior archives, no-op/replay, staging/commit/late rollback,
+            exact database/cache equality and reopening.
           - [_] Reuse the native menu and paginated archive browser for lanes,
             with real input, stale-state, rollback, WIP and reopen coverage.
         - [x] Port list work-in-progress limits using shared rules.

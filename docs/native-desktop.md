@@ -164,3 +164,11 @@ including mouse-down frames, matching the SDL renderer's lifecycle. Optional
 ASan/UBSan tests default to leak detection; environments that cannot support
 LeakSanitizer may set `ASAN_OPTIONS=detect_leaks=0:halt_on_error=1` and must report
 that limitation. See [latest session report](work-session-03.md).
+
+
+Swimlane archive/restore adapters stage a complete board snapshot inside the
+guarded cascade transaction. The normal board loader and this staging path share
+one reader. A read or commit failure leaves the displayed snapshot untouched and
+rolls back the lane, child cards and request identity; successful publication
+needs no further database query. Native lane menu/archive-browser wiring remains
+on the roadmap.

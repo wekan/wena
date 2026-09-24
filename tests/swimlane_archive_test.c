@@ -1,4 +1,5 @@
 #include "../server/list_state.h"
+#include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_storage.h"
@@ -6,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static void sql(sqlite3 *db,const char *q){assert(sqlite3_exec(db,q,NULL,NULL,NULL)==SQLITE_OK);}
+static void sql(sqlite3 *db,const char *q){int rc;rc=sqlite3_exec(db,q,NULL,NULL,NULL);if(rc!=SQLITE_OK)fprintf(stderr,"%s: %s\n",q,sqlite3_errmsg(db));assert(rc==SQLITE_OK);}
 static sqlite3_int64 number(sqlite3 *db,const char *q)
 {sqlite3_stmt *s;sqlite3_int64 n;assert(sqlite3_prepare_v2(db,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int64(s,0);assert(sqlite3_finalize(s)==SQLITE_OK);return n;}
 static int change(WenaSqlitePersistence *store,const char *lane,unsigned long version,unsigned long request,int archived)
@@ -102,6 +103,70 @@ static void snapshot_tests(sqlite3 *db,const char *path)
  sql(race.writer,"BEGIN IMMEDIATE;UPDATE swimlane_archive_state SET archived=0 WHERE swimlane_id='s';UPDATE cards SET archived=0 WHERE id IN ('a','z');COMMIT");
  assert(sqlite3_close(race.writer)==SQLITE_OK);snapshot_state(db,0,2);
 }
+static int reject_commit(void *context)
+{int *calls;calls=(int*)context;++*calls;return 1;}
+static void native_archive(sqlite3 *db)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaHierarchyMutation adapter;
+ unsigned long version;sqlite3_int64 keys;int calls;size_t i;
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));
+ before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
+ fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));assert(snapshot&&before&&fresh);
+ assert(wena_sqlite_board_load(db,"b",snapshot));
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ version=77;assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"other","s",&version)&&version==77);
+ assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","missing",&version)&&version==77);
+ strcpy(adapter.actor_id,"missing");assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==77);
+ strcpy(adapter.actor_id,"u");
+ assert(wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==5);
+ memcpy(before,snapshot,sizeof(*before));keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ snapshot->swimlanes[0].archived=2;version=77;
+ assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==77);
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1));
+ memcpy(snapshot,before,sizeof(*before));
+ strcpy(snapshot->swimlanes[1].id,snapshot->swimlanes[0].id);
+ assert(!wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==77);
+ memcpy(snapshot,before,sizeof(*before));
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",4,200,1));
+ /* The cascade succeeds, but unrelated corrupt metadata prevents staging.
+  * Its cards, lane revision and request identity must all roll back. */
+ sql(db,"PRAGMA ignore_check_constraints=ON;INSERT INTO swimlane_colors VALUES('t','b','invalid');PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1));
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,0));
+ assert(!memcmp(before,snapshot,sizeof(*before)));
+ sql(db,"DELETE FROM swimlane_colors WHERE swimlane_id='t'");
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1)&&calls==1);
+ sqlite3_commit_hook(db,NULL,NULL);
+ assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ assert(!memcmp(before,snapshot,sizeof(*before)));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(before,fresh,sizeof(*fresh)));
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ sql(db,"CREATE TRIGGER native_failure BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1));
+ sql(db,"DROP TRIGGER native_failure");
+ assert(!memcmp(before,snapshot,sizeof(*before)));
+ /* Publish every child, including cards absent from a stale display cache. */
+ snapshot->card_count=0;
+ assert(wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",5,200,1));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==6);
+ for(i=0;i<snapshot->card_count;++i)if(!strcmp(snapshot->cards[i].swimlane_id,"s"))assert(snapshot->cards[i].archived);
+ memcpy(before,snapshot,sizeof(*before));
+ assert(!wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",6,200,1));
+ assert(!memcmp(before,snapshot,sizeof(*before)));
+ assert(wena_hierarchy_mutation_swimlane_archive_request(&adapter,"b","s",6,201,1));
+ assert(!memcmp(before,snapshot,sizeof(*before))&&number(db,"SELECT count(*) FROM idempotency_keys")==keys+1);
+ assert(wena_hierarchy_mutation_swimlane_restore(&adapter,"b","s",6));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(wena_hierarchy_mutation_swimlane_archive_load(&adapter,"b","s",&version)&&version==7);
+ assert(number(db,"SELECT archived FROM cards WHERE id='pre'")==1);
+ assert(wena_hierarchy_mutation_swimlane_archive(&adapter,"b","s",7));
+ assert(wena_hierarchy_mutation_swimlane_restore(&adapter,"b","s",8));
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+ assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ free(snapshot);free(before);free(fresh);
+}
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -153,12 +218,15 @@ int main(int argc,char **argv)
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(wena_sqlite_swimlane_state_read(db,"b","s",5,&archived,&at)&&!archived);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=0 AND version=5")==2);
+ native_archive(db);
+ assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
+ assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
  assert(!change(&store,"empty",3,4,1));assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='empty' AND archived=0 AND version=1")==2049);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);sql(db,"DELETE FROM cards WHERE swimlane_id='empty'");
- sql(db,"DROP TABLE swimlane_archive_state");assert(!change(&store,"s",5,4,1));
- sql(db,"CREATE VIEW swimlane_archive_state AS SELECT 's' AS swimlane_id,'b' AS board_id,0 AS archived,0 AS archived_at");assert(!change(&store,"s",5,4,1));
+ sql(db,"DROP TABLE swimlane_archive_state");assert(!change(&store,"s",9,4,1));
+ sql(db,"CREATE VIEW swimlane_archive_state AS SELECT 's' AS swimlane_id,'b' AS board_id,0 AS archived,0 AS archived_at");assert(!change(&store,"s",9,4,1));
  assert(sqlite3_close(db)==SQLITE_OK);free(migration);
  puts("Swimlane cascades: timestamp separation, prior archives, WIP rollback, no-op, replay, corruption and reopen passed");return 0;
 }

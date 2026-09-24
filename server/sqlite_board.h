@@ -28,6 +28,11 @@ typedef struct WenaSqliteBoardSnapshot {
  * Owns a consistent read transaction and refuses a caller-owned transaction.
  * Any failure, including capacity exhaustion, leaves output byte-for-byte intact.
  * Does not open/migrate databases, create actors, or grant authorization. */
+/* Read into caller-owned scratch inside an existing transaction. No allocation,
+ * commit or rollback. Failure may partially overwrite scratch; publish it only
+ * after both this read and the surrounding transaction's commit succeed. */
+int wena_sqlite_board_read_transaction(sqlite3 *database,const char *board_id,
+    WenaSqliteBoardSnapshot *scratch);
 int wena_sqlite_board_load(sqlite3 *database, const char *board_id,
                            WenaSqliteBoardSnapshot *output);
 #endif

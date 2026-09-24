@@ -200,6 +200,16 @@ static int load_cards(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *s
     return ok;
 }
 
+int wena_sqlite_board_read_transaction(sqlite3 *db,const char *board,WenaSqliteBoardSnapshot *staged)
+{
+    if(!db||!staged||!wena_model_identifier_valid(board)||sqlite3_get_autocommit(db))return 0;
+    memset(staged,0,sizeof(*staged));
+    return load_board(db, board, staged) && load_hierarchy(db, board, staged, 0) &&
+        load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,3) &&
+        load_metadata(db,board,staged,4) && load_metadata(db,board,staged,0) &&
+        load_metadata(db,board,staged,1) && load_metadata(db,board,staged,2) && load_cards(db, board, staged);
+}
+
 int wena_sqlite_board_load(sqlite3 *db, const char *board,
                            WenaSqliteBoardSnapshot *output)
 {
@@ -213,10 +223,7 @@ int wena_sqlite_board_load(sqlite3 *db, const char *board,
         free(staged);
         return 0;
     }
-    ok = load_board(db, board, staged) && load_hierarchy(db, board, staged, 0) &&
-        load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,3) &&
-        load_metadata(db,board,staged,4) && load_metadata(db,board,staged,0) &&
-        load_metadata(db,board,staged,1) && load_metadata(db,board,staged,2) && load_cards(db, board, staged);
+    ok = wena_sqlite_board_read_transaction(db,board,staged);
     if (ok) ok = sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
     if (ok) memcpy(output, staged, sizeof(*output));
     else (void)sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);

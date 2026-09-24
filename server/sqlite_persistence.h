@@ -6,6 +6,11 @@
 #include <sqlite3.h>
 typedef struct WenaSqlitePersistence {
     sqlite3 *database;
+    /* Optional read-only staging hook, run inside the transaction just before
+     * commit (including no-ops). Failure rolls back; caller publishes staged
+     * data only when apply succeeds. Never commit/rollback from this hook. */
+    int (*prepare_publish)(void *context,sqlite3 *database);
+    void *publish_context;
     /* Result of this call's committed create only; cleared for every apply.
      * Lets native caches publish the exact row without a fallible later query. */
     char created_card_id[65];

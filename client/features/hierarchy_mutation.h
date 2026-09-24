@@ -62,4 +62,15 @@ int wena_hierarchy_mutation_wip_save(void *context,const char *board_id,const ch
 int wena_hierarchy_mutation_wip_save_request(WenaHierarchyMutation *adapter,
     const char *board_id,const char *list_id,unsigned long expected_version,
     unsigned long request_version,WenaWipEdit edit,size_t value);
+/* Lane cascades stage a complete authoritative board before commit and publish
+ * it after success. Any staging/commit failure leaves the entire cache intact. */
+int wena_hierarchy_mutation_swimlane_archive_load(void *context,const char *board_id,
+    const char *swimlane_id,unsigned long *version);
+int wena_hierarchy_mutation_swimlane_archive(void *context,const char *board_id,
+    const char *swimlane_id,unsigned long expected_version);
+int wena_hierarchy_mutation_swimlane_restore(void *context,const char *board_id,
+    const char *swimlane_id,unsigned long expected_version);
+int wena_hierarchy_mutation_swimlane_archive_request(WenaHierarchyMutation *adapter,
+    const char *board_id,const char *swimlane_id,unsigned long expected_version,
+    unsigned long request_version,int archived);
 #endif
