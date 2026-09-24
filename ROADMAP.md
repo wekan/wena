@@ -826,7 +826,7 @@ Architecture decisions for this cycle:
         overflow rejection and preview rendering; keep persistence in callers.
         Verify independent drafts, invalid-set preservation, palette/hex aliases,
         real keyboard/mouse behavior and existing label SQLite integration.
-      - [_] Reuse the color form for persisted list/swimlane colors and headers,
+      - [x] Reuse the color form for persisted list/swimlane colors and headers,
         matching WeKan's named palette, custom hex and readable text contrast.
         - [x] Add immutable schema-v11 list/swimlane color tables with scoped
           foreign keys/indexes and the canonical label-color constraints. Reuse
@@ -852,7 +852,11 @@ Architecture decisions for this cycle:
           Preserve theme defaults and following widgets, paint the full heading
           cell, and reuse palette/hex contrast. Real Nuklear commands verify all
           palette colors, custom/invalid/default values, wrapping and 1x/2x scale.
-        - [_] Connect shared native color forms to hierarchy menus.
+        - [x] Connect one shared color editor to both hierarchy menus, using the
+          existing adapter and palette/custom input. Keep Default, Save, Cancel
+          and Escape behavior consistent; preserve drafts on failure and never
+          submit from Enter in hex input. Real mouse/keyboard SQLite tests cover
+          both kinds, overflow, clear, stale revisions, rollback and failed loads.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the

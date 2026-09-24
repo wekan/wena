@@ -29,7 +29,7 @@ advance only the parent revision, verify the resulting scope/color/version, and
 roll back ignored or altered writes. Archived lists reject edits. Both hierarchy
 types are tested across palette/hex values, malformed forms, unknown actors,
 wrong scope, replay, stale revisions, read-only databases, corruption and reopen.
-No HTTP route is added. Native editor integration remains open in ROADMAP.md.
+No HTTP route is added. Both native hierarchy menus expose the color editor.
 
 List/swimlane models carry the stored color with an empty default. The board
 loader reads both extensions in its existing atomic snapshot transaction, with
@@ -55,6 +55,15 @@ invalid values retain the active theme. List titles keep their wrapped layout.
 All temporary style changes are restored before the next widget. Real Nuklear
 command tests cover every named color, custom hex, default/invalid colors, full
 background painting, following-widget isolation and 1x/2x font scale.
+
+The existing hierarchy editor opens the same color form for lists and swimlanes,
+using the shared palette/custom input and color adapters. The persisted title
+supplies the preview, so an unsaved or overlong title draft cannot be submitted
+as part of a color change. Default clears the stored color; Save commits once;
+Cancel/Escape discard the draft. Enter inside custom hex input does not submit.
+Failed loads keep the menu open, and failed saves retain the selected color and
+captured revision. Real mouse/keyboard SQLite tests cover palette/custom saves,
+clearing, cancellation, overflow, stale revisions, rollback/retry and actor loss.
 
 Strict result readers check SQLite types before requesting text conversion.
 SQLite documents that conversion can invalidate later type inspection; BLOB

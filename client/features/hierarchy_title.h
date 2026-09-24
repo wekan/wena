@@ -3,6 +3,7 @@
 
 #include "../components/boards/board_layout.h"
 #include "card_details.h"
+#include "../components/forms/color_input.h"
 
 typedef enum WenaHierarchyKind {
     WENA_HIERARCHY_BOARD,
@@ -29,11 +30,16 @@ typedef struct WenaHierarchyTitleState {
     unsigned int requested_action;
     int visible;
     int creating;
+    int editing_color;
+    WenaColorInput color_input;
+    WenaHierarchyLoadTitle load_color;
+    WenaHierarchySaveTitle save_color;
     int error;
     int title_length;
     WenaHierarchyKind kind;
     WenaId board_id;
     WenaId target_id;
+    WenaTitle original_title;
     char title_input[WENA_NATIVE_EDIT_CAPACITY(WENA_CARD_DETAILS_TITLE_CAPACITY)];
     unsigned long title_version;
     WenaHierarchyLoadTitle load_title;
@@ -51,6 +57,8 @@ void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyCreateTitle create);
 void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
     WenaHierarchyArchive archive);
+void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadTitle load,WenaHierarchySaveTitle save);
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
     const WenaBoardLayout *layout, WenaHierarchyKind kind);
 /* Opening loads the current persisted title/version. Rendering closes an invalid

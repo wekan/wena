@@ -29,9 +29,11 @@ static float text_width(nk_handle handle, float height,
 static void render(struct nk_context *context, WenaHierarchyTitleState *state,
                     WenaBoardLayout *layout)
 {
+    const struct nk_command *command;
     if (state->visible)
         assert(wena_hierarchy_title_render(context, state, layout, 640.0f, 480.0f));
     assert(context->current == NULL);
+    nk_foreach(command,context){(void)command;}
 }
 
 static void frame(struct nk_context *context, WenaHierarchyTitleState *state,
@@ -181,6 +183,62 @@ static void creation_tests(sqlite3 *database, WenaHierarchyMutation *adapter,
     assert(!wena_hierarchy_title_render(context, state, layout, 640.0f, 480.0f));
     assert(!state->visible);
     strcpy(snapshot->board.id, "board");
+}
+
+static void color_key(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,enum nk_keys key,int down)
+{
+ nk_clear(context);nk_input_begin(context);nk_input_key(context,key,down);nk_input_end(context);render(context,state,layout);
+}
+static void color_text(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,const char *text)
+{
+ size_t i;color_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,1);color_key(context,state,layout,NK_KEY_TEXT_SELECT_ALL,0);
+ for(i=0;text[i];++i){nk_clear(context);nk_input_begin(context);nk_input_unicode(context,(nk_rune)(unsigned char)text[i]);nk_input_end(context);render(context,state,layout);}
+}
+static void open_color(struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout,WenaHierarchyKind kind,const char *id)
+{
+ assert(wena_hierarchy_title_open(state,layout,kind,id));frame(context,state,layout);click(context,state,layout,"Select Color");
+ assert(state->visible&&state->editing_color);frame(context,state,layout);
+}
+static void color_tests(sqlite3 *db,WenaHierarchyMutation *adapter,WenaSqliteBoardSnapshot *snapshot,
+    struct nk_context *context,WenaHierarchyTitleState *state,WenaBoardLayout *layout)
+{
+ int k,keys;WenaHierarchyKind kind;const char *id;char *cached;char query[128];struct nk_vec2 point;
+ wena_hierarchy_title_set_color_adapters(state,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
+ for(k=0;k<2;++k){kind=k?WENA_HIERARCHY_SWIMLANE:WENA_HIERARCHY_LIST;id=k?"lane":"list";
+  cached=k?snapshot->swimlanes[0].color:snapshot->lists[0].color;
+  open_color(context,state,layout,kind,id);click(context,state,layout,"red");click(context,state,layout,"Save");
+  assert(!state->visible&&!strcmp(cached,"red"));
+  keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
+  open_color(context,state,layout,kind,id);click(context,state,layout,"green");click(context,state,layout,"Cancel");
+  assert(!state->visible&&!strcmp(cached,"red")&&scalar(db,"SELECT count(*) FROM idempotency_keys")==keys);
+  open_color(context,state,layout,kind,id);click(context,state,layout,"Default");click(context,state,layout,"Save");
+  assert(!state->visible&&!cached[0]);
+  open_color(context,state,layout,kind,id);point=label_center(context,"Custom color");point.y+=28;click_at(context,state,layout,point);
+  color_text(context,state,layout,"#1234567");assert(state->color_input.color_length==8);
+  keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
+  color_key(context,state,layout,NK_KEY_ENTER,1);assert(state->visible&&scalar(db,"SELECT count(*) FROM idempotency_keys")==keys);
+  color_key(context,state,layout,NK_KEY_ENTER,0);click(context,state,layout,"Save");assert(state->error&&state->visible&&!cached[0]);
+  click_at(context,state,layout,point);color_text(context,state,layout,"#123AbC");
+  execute(db,"CREATE TRIGGER color_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+  click(context,state,layout,"Save");assert(state->visible&&state->error&&!cached[0]);execute(db,"DROP TRIGGER color_late");
+  click(context,state,layout,"Save");assert(!state->visible&&!strcmp(cached,"#123AbC"));
+  open_color(context,state,layout,kind,id);click(context,state,layout,"white");
+  sprintf(query,"UPDATE %s SET version=version+1 WHERE id='%s'",k?"swimlanes":"lists",id);execute(db,query);
+  click(context,state,layout,"Save");assert(state->visible&&state->error&&!strcmp(cached,"#123AbC"));
+  click(context,state,layout,"Cancel");open_color(context,state,layout,kind,id);
+  color_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,1);assert(!state->visible);
+  color_key(context,state,layout,NK_KEY_TEXT_RESET_MODE,0);
+  assert(wena_hierarchy_title_open(state,layout,kind,id));
+  memset(state->title_input,'x',sizeof(state->title_input));state->title_length=(int)sizeof(state->title_input);
+  frame(context,state,layout);click(context,state,layout,"Select Color");assert(state->editing_color);
+  frame(context,state,layout);assert(!strcmp(state->original_title,k?snapshot->swimlanes[0].title:snapshot->lists[0].title));
+  click(context,state,layout,"Cancel");
+  /* A failed read cannot open a color editor or discard the title draft. */
+  assert(wena_hierarchy_title_open(state,layout,kind,id));frame(context,state,layout);
+  strcpy(adapter->actor_id,"missing");click(context,state,layout,"Select Color");
+  assert(state->visible&&!state->editing_color&&state->error);strcpy(adapter->actor_id,"actor");
+  click(context,state,layout,"Cancel");
+ }
 }
 
 static void archives_frame(struct nk_context *context,WenaCardArchivesState *state,WenaBoardLayout *layout)
@@ -353,6 +411,7 @@ int main(int argc, char **argv)
     assert(!state.visible);
     snapshot->lists[0].archived = 0;
     creation_tests(database, &adapter, snapshot, &context, &state, &layout);
+    color_tests(database,&adapter,snapshot,&context,&state,&layout);
     wena_hierarchy_title_set_archive_adapter(&state,wena_hierarchy_mutation_archive);
     assert(wena_hierarchy_title_open(&state,&layout,WENA_HIERARCHY_LIST,"list"));
     frame(&context,&state,&layout);
@@ -386,6 +445,7 @@ int main(int argc, char **argv)
     assert(wena_sqlite_board_load(database, "board", snapshot));
     assert(strcmp(before, snapshot->lists[0].title) == 0);
     assert(snapshot->list_count == 4 && snapshot->swimlane_count == 3);
+    assert(!strcmp(snapshot->lists[0].color,"#123AbC")&&!strcmp(snapshot->swimlanes[0].color,"#123AbC"));
     assert(sqlite3_close(database) == SQLITE_OK);
     free(snapshot);
     puts("hierarchy SQLite title and real Nuklear editor tests passed");

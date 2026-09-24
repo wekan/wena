@@ -15,7 +15,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/fakes/nuklear.c" \
   "$root_dir/client/features/board.c" \
   "$root_dir/client/features/hierarchy_move.c" \
-  "$root_dir/client/features/hierarchy_title.c" \
+  "$root_dir/client/features/hierarchy_title.c" "$root_dir/tests/fakes/labels_component.c" "$root_dir/client/components/forms/color_input.c" \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \

@@ -1,3 +1,4 @@
+#include "labels/component.h"
 #include "hierarchy_title.h"
 #include "../../imports/ui/page_contract.h"
 
@@ -40,10 +41,13 @@ void wena_hierarchy_title_close(WenaHierarchyTitleState *state)
     state->visible = 0;
     state->requested_action = 0u;
     state->creating = 0;
+    state->editing_color = 0;
+    memset(&state->color_input,0,sizeof(state->color_input));
     state->error = 0;
     state->title_length = 0;
     state->board_id[0] = '\0';
     state->target_id[0] = '\0';
+    state->original_title[0] = '\0';
     state->title_input[0] = '\0';
     state->title_version = 0;
 }
@@ -58,6 +62,7 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     state->context = context;
     state->create_title = NULL;
     state->archive = NULL;
+    state->load_color = NULL;state->save_color = NULL;
 }
 
 void wena_hierarchy_title_set_create_adapter(WenaHierarchyTitleState *state,
@@ -73,6 +78,13 @@ void wena_hierarchy_title_set_archive_adapter(WenaHierarchyTitleState *state,
 {
     if(!state)return;
     wena_hierarchy_title_close(state);state->archive=archive;
+}
+
+void wena_hierarchy_title_set_color_adapters(WenaHierarchyTitleState *state,
+    WenaHierarchyLoadTitle load,WenaHierarchySaveTitle save)
+{
+    if(!state)return;
+    wena_hierarchy_title_close(state);state->load_color=load;state->save_color=save;
 }
 
 int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
@@ -114,7 +126,36 @@ int wena_hierarchy_title_open(WenaHierarchyTitleState *state,
         return 0;
     }
     state->title_length = (int)strlen(state->title_input);
+    strcpy(state->original_title,state->title_input);
     state->visible = 1;
+    return 1;
+}
+
+static int render_color(struct nk_context *context,WenaHierarchyTitleState *state,float width,float height)
+{
+    int save,cancel;const char *color;float panel_height;
+    panel_height=height<440.0f?height:440.0f;save=cancel=0;
+    if(nk_begin_titled(context,"Hierarchy color",wena_ui_text(WENA_UI_TEXT_SELECT_COLOR),
+        nk_rect(width*0.15f,0,width*0.7f,panel_height),NK_WINDOW_BORDER)){
+        if(wena_title_input_keys(context,0u)&WENA_TITLE_INPUT_CANCEL){
+            nk_end(context);wena_hierarchy_title_close(state);return 1;}
+        nk_layout_row_dynamic(context,28,1);
+        nk_label_wrap(context,state->target_id);
+        wena_color_input_render(context,&state->color_input,state->original_title,wena_label_badge_render);
+        nk_layout_row_dynamic(context,28,1);
+        if(nk_button_label(context,wena_ui_text(WENA_UI_TEXT_DEFAULT)))
+            (void)wena_color_input_set(&state->color_input,"");
+        nk_layout_row_dynamic(context,28,2);
+        save=nk_button_label(context,wena_ui_control_text(WENA_UI_SAVE));
+        cancel=nk_button_label(context,wena_ui_control_text(WENA_UI_CANCEL));
+        if(state->error){nk_layout_row_dynamic(context,48,1);nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));}
+    }
+    nk_end(context);
+    if(cancel)wena_hierarchy_title_close(state);
+    else if(save){color=wena_color_input_value(&state->color_input);
+        if(color&&state->save_color&&state->save_color(state->context,state->board_id,
+            state->kind,state->target_id,state->title_version,color))wena_hierarchy_title_close(state);
+        else state->error=1;}
     return 1;
 }
 
@@ -124,6 +165,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
 {
     int cancel;
     int archive;
+    int color_requested;
     int save;
     unsigned int edit_keys;
     if (state) state->requested_action = 0u;
@@ -136,12 +178,13 @@ int wena_hierarchy_title_render(struct nk_context *context,
         wena_hierarchy_title_close(state);
         return 0;
     }
-    save = cancel = archive = 0;
+    if(state->editing_color)return render_color(context,state,width,height);
+    save = cancel = archive = color_requested = 0;
     if (nk_begin_titled(context, "Edit hierarchy title",
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, state->archive && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 250.0f : 210.0f),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->archive && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
@@ -164,6 +207,10 @@ int wena_hierarchy_title_render(struct nk_context *context,
                 state->kind == WENA_HIERARCHY_LIST ? WENA_UI_MOVE_LIST_TO :
                 WENA_UI_MOVE_SWIMLANE_TO))) state->requested_action = WENA_HIERARCHY_TITLE_MOVE;
         }
+        if(!state->creating&&state->kind!=WENA_HIERARCHY_BOARD&&state->load_color&&state->save_color){
+            nk_layout_row_dynamic(context,28.0f,1);
+            color_requested=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_SELECT_COLOR));
+        }
         if(!state->creating&&state->kind==WENA_HIERARCHY_LIST&&state->archive){
             nk_layout_row_dynamic(context,28.0f,1);
             archive=nk_button_label(context,wena_ui_control_text(WENA_UI_ARCHIVE_LIST));
@@ -175,6 +222,15 @@ int wena_hierarchy_title_render(struct nk_context *context,
     }
     nk_end(context);
     if (cancel) wena_hierarchy_title_close(state);
+    else if(color_requested){
+        char color[WENA_COLOR_CAPACITY];unsigned long version;
+        memset(color,0,sizeof(color));version=0;
+        if(state->load_color(state->context,state->board_id,state->kind,state->target_id,
+            color,sizeof(color),&version)&&version&&version<=WENA_VERSION_READ_MAX&&
+            memchr(color,0,sizeof(color))&&wena_color_input_set(&state->color_input,color)){
+            state->editing_color=1;state->title_version=version;state->error=0;
+        }else state->error=1;
+    }
     else if(archive){
         if(state->archive(state->context,state->board_id,state->target_id,state->title_version))
             wena_hierarchy_title_close(state);
