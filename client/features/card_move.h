@@ -20,6 +20,8 @@ typedef WenaCardOrderSlot WenaCardMoveSlot;
 typedef struct WenaCardMoveState {
     int visible;
     int error;
+    /* Boards emits an intent consumed by the caller after rendering. */
+    int boards_enabled,boards_requested;
     WenaId board_id;
     WenaId card_id;
     WenaId source_list_id;

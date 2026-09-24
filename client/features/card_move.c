@@ -47,12 +47,14 @@ void wena_card_move_close(WenaCardMoveState *state)
     WenaCardMoveReorder reorder;
     WenaCardMoveInsert insert;
     void *context;
+    int boards_enabled;
     if (state == NULL) return;
     load = state->load; apply = state->apply; reorder = state->reorder; context = state->context;
+    boards_enabled=state->boards_enabled;
     insert=state->insert;free(state->destination_order);
     free(state->order);
     wena_card_move_init(state, load, apply, context);
-    state->reorder = reorder;state->insert=insert;
+    state->reorder = reorder;state->insert=insert;state->boards_enabled=boards_enabled;
 }
 
 void wena_card_move_set_reorder_adapter(WenaCardMoveState *state,
@@ -219,6 +221,10 @@ int wena_card_move_render(struct nk_context *context, WenaCardMoveState *state,
         nk_label(context, wena_ui_control_text(WENA_UI_MOVE_CARD_TO), NK_TEXT_LEFT);
         (void)wena_hierarchy_destination_render(context,layout,state->target_list_id,state->target_swimlane_id);
         render_order(context, state, layout);
+        if(state->boards_enabled){
+            nk_layout_row_dynamic(context,28,1);
+            if(nk_button_label(context,wena_ui_text(WENA_UI_TEXT_BOARDS)))state->boards_requested=1;
+        }
         nk_layout_row_dynamic(context, 28, 2);
         if (nk_button_label(context, wena_ui_control_text(WENA_UI_SAVE))) {
             if (wena_hierarchy_destination_lane(layout, state->target_swimlane_id) == NULL ||

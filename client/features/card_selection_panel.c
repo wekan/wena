@@ -69,6 +69,7 @@ static void reset_destination(WenaCardSelectionPanel *panel)
 }
 static void cancel_capture(WenaCardSelectionPanel *panel)
 {
+    if(panel->single_card){panel->visible=0;panel->single_card=0;}
     free(panel->moving);panel->moving=NULL;free(panel->transfer);panel->transfer=NULL;
     wena_directory_picker_close(&panel->boards);reset_destination(panel);panel->table.page_size=4;
     free(panel->labels);panel->labels=NULL;panel->selected_label=0;free(panel->captured);panel->captured=NULL;
@@ -200,6 +201,28 @@ int wena_card_selection_panel_open(WenaCardSelectionPanel *panel,const WenaCard 
     cancel_capture(panel);
     strcpy(panel->list_id,list_id);strcpy(panel->lane_id,lane_id);panel->visible=1;panel->error=0;panel->table.page=0;return 1;
 }
+int wena_card_selection_panel_open_card(WenaCardSelectionPanel *panel,
+    const char *board,const char *card)
+{
+    WenaId ids[1];WenaCardMoveSelection *capture;
+    if(!panel||!panel->selection||!panel->move_load||!panel->move_save||
+        !panel->transfer_load||!panel->transfer_save||!panel->transfer_view||
+        !wena_model_identifier_valid(board)||!wena_model_identifier_valid(card))return 0;
+    strcpy(ids[0],card);capture=NULL;
+    if(!panel->move_load(panel->move_context,board,(const WenaId*)ids,1,&capture)){
+        free(capture);return 0;
+    }
+    if(!capture||capture->count!=1||strcmp(capture->board_id,board)||
+        strcmp(capture->cards[0].id,card)||!capture->cards[0].version||
+        capture->cards[0].version>WENA_VERSION_MUTATE_MAX){free(capture);return 0;}
+    cancel_capture(panel);
+    (void)wena_card_selection_init(panel->selection,capture->board_id);
+    strcpy(panel->selection->ids[0],ids[0]);panel->selection->count=1;
+    panel->moving=capture;panel->single_card=panel->visible=1;panel->error=0;
+    panel->list_id[0]=panel->lane_id[0]=0;panel->table.page_size=2;
+    if(!wena_directory_picker_open(&panel->boards,WENA_DIRECTORY_BOARDS))panel->archive_error=1;
+    return 1;
+}
 static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel,
     const WenaCard *cards,size_t count,const char *board,const WenaBoardLayout *layout,float width,float height)
 {
@@ -217,7 +240,7 @@ static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel
     if(move_capture(panel))total=move_capture(panel)->count;
     else if(panel->captured)total=panel->captured_count;
     else if(!panel->error)for(i=0;i<count;++i)if(in_scope(&rows,i))++total;
-    if(nk_begin_titled(context,"Card selection",wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION),
+    if(nk_begin_titled(context,"Card selection",panel->single_card?wena_ui_control_text(WENA_UI_MOVE_CARD_TO):wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION),
         nk_rect(width*0.2f,0,width*0.8f,height),NK_WINDOW_BORDER)){
         if(wena_text_form_keys(context,0u)&WENA_TEXT_FORM_CANCEL){
             nk_end(context);if(panel->captured||panel->labels||move_capture(panel))cancel_capture(panel);else wena_card_selection_panel_close(panel);return 1;
@@ -294,7 +317,7 @@ static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel
         }
         if(panel->archive_error){nk_layout_row_dynamic(context,48,1);nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));}
         nk_layout_row_dynamic(context,28,1);
-        close=nk_button_label(context,wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION_OFF));
+        close=nk_button_label(context,panel->single_card?wena_ui_control_text(WENA_UI_CLOSE):wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION_OFF));
     }
     nk_end(context);
     if(close)wena_card_selection_panel_close(panel);

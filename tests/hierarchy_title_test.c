@@ -388,6 +388,7 @@ static void selection_cross_moves(struct nk_context *ctx,WenaCardSelectionPanel 
 {
     WenaHierarchyTransfer transfer;WenaSqliteBoardSnapshot *destination,*before_source,*before_target;
     MoveDirectory directory;int calls,keys;
+    WenaCardSelectionPanel single;WenaCardSelection *single_ids,*saved_ids;
     execute(db,"INSERT INTO boards VALUES('z0','Repeated board',1),('z1','Repeated board',1),('z2','Repeated board',1),('zz-target','Repeated board',1);"
         "INSERT INTO lists VALUES('zl','zz-target','Target list',0,1);INSERT INTO swimlanes VALUES('zs','zz-target','Target lane',0,1);"
         "INSERT INTO cards VALUES('zt0','zz-target','zs','zl','Target card',5,0,1),('zt1','zz-target','zs','zl','Archived',8,1,1)");
@@ -436,6 +437,38 @@ static void selection_cross_moves(struct nk_context *ctx,WenaCardSelectionPanel 
     assert(scalar(db,"SELECT position FROM cards WHERE id='zt1'")==3&&scalar(db,"SELECT archived FROM cards WHERE id='zt1'")==1);
     assert(wena_sqlite_board_load(db,"move-ui",before_source)&&!memcmp(snapshot,before_source,sizeof(*snapshot)));
     assert(wena_sqlite_board_load(db,"zz-target",before_target)&&!memcmp(destination,before_target,sizeof(*destination)));
+    /* A single-card dialog owns distinct IDs and reuses every move control. */
+    single_ids=(WenaCardSelection*)calloc(1,sizeof(*single_ids));
+    saved_ids=(WenaCardSelection*)malloc(sizeof(*saved_ids));assert(single_ids&&saved_ids);
+    assert(wena_card_selection_toggle(panel->selection,snapshot->cards,snapshot->card_count,"m3"));
+    *saved_ids=*panel->selection;
+    wena_card_selection_panel_init(&single,single_ids);
+    wena_card_selection_panel_set_move(&single,wena_hierarchy_mutation_selected_move_load,
+        wena_hierarchy_mutation_selected_move,adapter);
+    assert(wena_card_selection_panel_set_transfer(&single,wena_hierarchy_transfer_load,wena_hierarchy_transfer_save,
+        wena_hierarchy_transfer_view,&transfer,move_directory,&directory));
+    assert(!wena_card_selection_panel_open_card(&single,"move-ui","missing")&&!single.visible&&!single_ids->count);
+    assert(wena_card_selection_panel_open_card(&single,"move-ui","m2"));
+    assert(single.single_card&&single.boards.open&&single.moving->count==1&&!strcmp(single_ids->ids[0],"m2"));
+    assert(!wena_card_selection_panel_open_card(&single,"move-ui","missing"));
+    assert(single.single_card&&single.visible&&single.moving&&single.boards.open&&!strcmp(single_ids->ids[0],"m2"));
+    assert(wena_card_selection_panel_open_card(&single,single_ids->board_id,single_ids->ids[0]));
+    assert(single.moving->count==1&&!strcmp(single.moving->cards[0].id,"m2"));
+    move_ui_frame(ctx,&single,snapshot);move_ui_click(ctx,&single,snapshot,"Cancel");
+    assert(!single.visible&&!single.moving&&!single.boards.open&&!memcmp(saved_ids,panel->selection,sizeof(*saved_ids)));
+    assert(wena_card_selection_panel_open_card(&single,"move-ui","m2"));
+    move_ui_frame(ctx,&single,snapshot);move_ui_key(ctx,&single,snapshot,NK_KEY_TEXT_RESET_MODE);
+    assert(!single.visible&&!single.moving&&!memcmp(saved_ids,panel->selection,sizeof(*saved_ids)));
+    assert(wena_card_selection_panel_open_card(&single,"move-ui","m2"));
+    move_ui_frame(ctx,&single,snapshot);move_pick_board(ctx,&single,snapshot,"zz-target");
+    assert(single.transfer&&single.transfer->source.count==1);
+    keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
+    move_ui_key(ctx,&single,snapshot,NK_KEY_ENTER);assert(keys==scalar(db,"SELECT count(*) FROM idempotency_keys"));
+    move_ui_click(ctx,&single,snapshot,"Save");
+    assert(!single.visible&&!single.transfer&&!single_ids->count);
+    assert(scalar(db,"SELECT count(*) FROM cards WHERE id='m2' AND board_id='zz-target'")==1);
+    assert(!memcmp(saved_ids,panel->selection,sizeof(*saved_ids)));
+    wena_card_selection_panel_close(&single);free(single_ids);free(saved_ids);
     free(destination);free(before_source);free(before_target);
 }
 static void selection_moves(sqlite3 *db)

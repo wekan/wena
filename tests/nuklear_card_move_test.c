@@ -164,6 +164,14 @@ int main(void)
     render(&ctx,&state,&layout);
     click(&ctx,&state,&layout,"Cancel");
     assert(!state.visible && writes==1);
-    nk_free(&ctx); puts("Real Nuklear move selectors, save and cancel passed");
+    state.boards_enabled=1;
+    assert(wena_card_move_open(&state,&layout,"card")&&state.boards_enabled);
+    nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+    click(&ctx,&state,&layout,"Boards");
+    assert(state.visible&&state.boards_requested&&writes==1);
+    assert(!strcmp(state.board_id,"board")&&!strcmp(state.card_id,"card"));
+    wena_card_move_close(&state);
+    assert(!state.boards_requested&&state.boards_enabled);
+    nk_free(&ctx); puts("Real Nuklear move selectors, save, cancel and board intent passed");
     return 0;
 }

@@ -954,7 +954,7 @@ Architecture decisions for this cycle:
                 of invalid destinations, without model writes or automatic
                 retargeting. Standalone real Nuklear tests verify lane changes,
                 scoped and board-wide lists, exclusions and explicit repair.
-              - [_] Complete native bulk movement.
+              - [x] Complete native bulk movement.
                 - [x] Refresh the displayed board and peer card count from the
                   same read transaction as bulk-move revisions and ordering.
                   Reuse the shared board reader so destination ordinals cannot
@@ -972,7 +972,7 @@ Architecture decisions for this cycle:
                   read-only review, empty destinations, same-column append,
                   archived siblings, numeric position input, stale selection or
                   ordering, failed capture, late rollback, retry and reopening.
-                - [_] Complete cross-board card movement.
+                - [x] Complete cross-board card movement.
                   - [x] Port Cards.move label mapping from the pinned WeKan
                     models/cards.js into a pure shared model helper: match all
                     destination labels by exact nonempty assigned source name,
@@ -1035,8 +1035,14 @@ Architecture decisions for this cycle:
                       refresh/retry, empty targets, switching to the source
                       board, cancellation, stale/late failures, manual insertion,
                       exact source/target cache publication and reopening.
-                  - [_] Expose the shared cross-board workflow from the existing
-                    single-card Move editor as well as multi-selection.
+                  - [x] Expose the shared cross-board workflow from the existing
+                    single-card Move editor as well as multi-selection. Emit a
+                    Boards intent and open the same paginated move form with
+                    separate exact-one-card selection storage. Reuse capture,
+                    destination controls and guarded save; cancel/close exits
+                    without altering the board's multi-selection. Real Nuklear
+                    and SQLite tests cover the opener, failed capture, Cancel,
+                    Escape, explicit Save and preserved independent selection.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse
