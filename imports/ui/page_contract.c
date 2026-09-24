@@ -10,6 +10,7 @@ typedef struct WenaUiTextContract {
 } WenaUiTextContract;
 
 static const WenaUiTextContract texts[] = {
+    {WENA_UI_TEXT_ARCHIVE_SELECTION, "archive-selection", "Move selection to Archive"},
     {WENA_UI_TEXT_SELECTED, "selected-label", "Selected:"},
     {WENA_UI_TEXT_SELECT_LIST_CARDS, "list-select-cards", "Select all cards in this list"},
     {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},

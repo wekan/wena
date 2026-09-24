@@ -142,7 +142,8 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_SELECT_ALL,
     WENA_UI_TEXT_SELECT_NONE,
     WENA_UI_TEXT_SELECT_LIST_CARDS,
-    WENA_UI_TEXT_SELECTED
+    WENA_UI_TEXT_SELECTED,
+    WENA_UI_TEXT_ARCHIVE_SELECTION
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

@@ -53,7 +53,10 @@ in a private staged copy before restore interrupts the running database.
   panel for the clicked swimlane. Checkboxes toggle exact cards; Select none or
   Turn Multi-Selection off clears the selection. Opening another menu hides the
   panel while retaining IDs for additive selection. Minicard Selected checkboxes
-  toggle the same IDs, including on collapsed cards. Bulk actions are still pending.
+  toggle the same IDs, including on collapsed cards. Move selection to Archive
+  captures exact IDs/revisions for confirmation. Cancel/Escape retain the selection;
+  Enter never archives. Failed writes preserve the selection for retry, and a
+  successful commit clears it. Bulk label/member/move actions remain pending.
 - List menu → Archive all cards in this list opens a confirmation for that
   list in the clicked swimlane. Cancel/Escape discard it; Enter does not archive.
   Previously archived cards and the list/swimlane themselves remain unchanged.

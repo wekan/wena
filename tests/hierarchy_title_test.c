@@ -307,6 +307,20 @@ static void archives_click(struct nk_context *context,WenaCardArchivesState *sta
  nk_input_end(context);archives_frame(context,state,layout);}
 }
 
+static void selection_frame(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot)
+{
+ nk_clear(ctx);nk_input_begin(ctx);nk_input_end(ctx);
+ assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
+}
+static void selection_click(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot,const char *label)
+{
+ struct nk_vec2 point;int down;point=label_center(ctx,label);
+ for(down=1;down>=0;--down){
+  nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
+  nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);
+  if(panel->visible)assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
+ }
+}
 int main(int argc, char **argv)
 {
     unsigned char migration[65536];
@@ -596,7 +610,56 @@ int main(int argc, char **argv)
             state.board_id,state.target_id,state.scope_lane));
         assert(selection->count==4&&wena_card_selection_contains(selection,"outside"));
         frame(&context,&state,&layout);assert(!state.requested_action);
-        wena_hierarchy_title_close(&state);wena_card_selection_panel_close(&panel);assert(!selection->count);
+        wena_hierarchy_title_close(&state);
+        wena_card_selection_panel_set_archive(&panel,wena_hierarchy_mutation_selected_cards_load,
+            wena_hierarchy_mutation_selected_cards_archive,&adapter);
+        assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"board","list",NULL));
+        selection_frame(&context,&panel,snapshot);
+        strcpy(adapter.actor_id,"missing");selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        assert(panel.archive_error&&!panel.captured&&selection->count==4);strcpy(adapter.actor_id,"actor");
+        selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        assert(panel.captured&&panel.captured_count==4&&selection->count==4);
+        nk_clear(&context);nk_input_begin(&context);nk_input_key(&context,NK_KEY_ENTER,1);nk_input_end(&context);
+        assert(wena_card_selection_panel_render(&context,&panel,snapshot->cards,snapshot->card_count,"board",640,480));
+        nk_clear(&context);nk_input_begin(&context);nk_input_key(&context,NK_KEY_ENTER,0);nk_input_end(&context);
+        assert(wena_card_selection_panel_render(&context,&panel,snapshot->cards,snapshot->card_count,"board",640,480));
+        assert(panel.captured&&selection->count==4&&scalar(database,"SELECT count(*) FROM cards WHERE archived=1")==0);
+
+        selection_click(&context,&panel,snapshot,"Cancel");
+        assert(!panel.captured&&selection->count==4&&panel.visible);
+        selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"outside"));
+        selection_frame(&context,&panel,snapshot);assert(panel.error&&panel.captured_count==4&&selection->count==3);
+        selection_click(&context,&panel,snapshot,"Move to Archive");
+        assert(scalar(database,"SELECT count(*) FROM cards WHERE archived=1")==0&&panel.captured);
+        selection_click(&context,&panel,snapshot,"Cancel");
+        assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"board","list",NULL));
+        selection_frame(&context,&panel,snapshot);
+
+        selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        nk_clear(&context);nk_input_begin(&context);nk_input_key(&context,NK_KEY_TEXT_RESET_MODE,1);nk_input_end(&context);
+        assert(wena_card_selection_panel_render(&context,&panel,snapshot->cards,snapshot->card_count,"board",640,480));
+        assert(!panel.captured&&selection->count==4&&panel.visible);
+        nk_clear(&context);nk_input_begin(&context);nk_input_key(&context,NK_KEY_TEXT_RESET_MODE,0);nk_input_end(&context);
+        assert(wena_card_selection_panel_render(&context,&panel,snapshot->cards,snapshot->card_count,"board",640,480));
+
+        selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        assert(panel.captured_count==4);
+        execute(database,"UPDATE cards SET version=version+1 WHERE id='outside'");
+        selection_click(&context,&panel,snapshot,"Move to Archive");
+        assert(panel.archive_error&&panel.captured_count==4&&selection->count==4);
+        assert(scalar(database,"SELECT count(*) FROM cards WHERE archived=1")==0);
+        selection_click(&context,&panel,snapshot,"Cancel");
+        selection_click(&context,&panel,snapshot,"Move selection to Archive");
+        execute(database,"CREATE TRIGGER fail_selection BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+        selection_click(&context,&panel,snapshot,"Move to Archive");
+        assert(panel.archive_error&&panel.captured&&selection->count==4);
+        for(index=0;index<snapshot->card_count;++index)assert(!snapshot->cards[index].archived);
+        execute(database,"DROP TRIGGER fail_selection");
+        selection_click(&context,&panel,snapshot,"Move to Archive");
+        assert(!panel.visible&&!panel.captured&&!selection->count);
+        assert(scalar(database,"SELECT count(*) FROM cards WHERE archived=1")==4);
+        for(index=0;index<snapshot->card_count;++index)assert(snapshot->cards[index].archived);
         free(selection);
     }
     nk_free(&context);

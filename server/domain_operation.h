@@ -2,6 +2,7 @@
 #define WENA_SERVER_DOMAIN_OPERATION_H
 
 #include "region_response.h"
+#include "../models/card_revision.h"
 #include "router.h"
 
 #define WENA_DOMAIN_BODY_CAPACITY 4097u
@@ -54,10 +55,7 @@ typedef enum WenaDomainOperation {
 /* Native-only bounded batch payload. Storage remains caller-owned for apply.
  * HTTP dispatch never populates this span or exposes its operation. */
 #define WENA_DOMAIN_CARD_BATCH_CAPACITY 2048u
-typedef struct WenaDomainCardRevision {
-    char id[65];
-    unsigned long version;
-} WenaDomainCardRevision;
+typedef WenaCardRevision WenaDomainCardRevision;
 typedef struct WenaDomainCommand {
     WenaDomainOperation operation;
     unsigned long request_version;

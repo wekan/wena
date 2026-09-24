@@ -859,7 +859,14 @@ Architecture decisions for this cycle:
               buffers, captured rows and full display caches. Verify concurrent
               WAL snapshots, stale/foreign/duplicate/archived inputs, staging/
               commit/late rollback, replay, peer counts and database equality.
-            - [_] Add the panel archive confirmation and preserve failed selection.
+            - [x] Add the panel archive confirmation and preserve failed selection.
+              Reuse paginated exact-ID rows and shared model revision tokens.
+              Capture once, freeze selection while confirming, and require an
+              explicit click; Cancel/Escape retain selected IDs. Native SQLite/UI
+              tests cover failed capture, stale revisions, late rollback/retry,
+              Enter without mutation, exact cache publication and reopening.
+              Hiding/closing releases captured rows; successful archive clears IDs.
+            - [_] Add remaining bulk label/member/move actions.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse
