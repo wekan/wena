@@ -996,6 +996,15 @@ Architecture decisions for this cycle:
                       changes. Tests cover rollback, ignored/altered children,
                       terminal revisions, empty and full-capacity collections,
                       and FK rejection until the owning card is also moved.
+                    - [x] Add the SQLite label-assignment transfer primitive
+                      using the shared catalogue reader, assignment writer and
+                      name mapper. Validate both complete catalogues and exact
+                      source assignments before writing; verify the final set
+                      and unchanged catalogue contents/revisions afterward.
+                      Leave aggregate revisions to the enclosing card move.
+                      Test trigger alterations, partial writes, corruption,
+                      commit rollback, reopening, empty catalogues/assignments
+                      and the full 128-label capacity.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

@@ -1,5 +1,6 @@
 #include "../client/features/labels/panel.h"
 #include "../client/features/labels/mutation.h"
+#include "../server/mutations/labels.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>
@@ -173,6 +174,79 @@ static void selected_labels(sqlite3 *db)
     free(rows);
 }
 
+static void reboard_labels(char **paths)
+{
+    sqlite3 *db;size_t i;char query[512],path[1024];
+    const char *triggers[]={
+        "CREATE TRIGGER corrupt BEFORE DELETE ON card_labels WHEN OLD.label_id='s0' BEGIN SELECT RAISE(IGNORE);END",
+        "CREATE TRIGGER corrupt BEFORE INSERT ON card_labels WHEN NEW.label_id='d1' BEGIN SELECT RAISE(ABORT,'second');END",
+        "CREATE TRIGGER corrupt AFTER INSERT ON card_labels WHEN NEW.label_id='d1' BEGIN DELETE FROM card_labels WHERE card_id=NEW.card_id AND label_id='d0';END",
+        "CREATE TRIGGER corrupt AFTER INSERT ON card_labels WHEN NEW.label_id='d1' BEGIN UPDATE labels SET name='Changed' WHERE board_id='b' AND id='d0';END",
+        "CREATE TRIGGER corrupt AFTER INSERT ON card_labels WHEN NEW.label_id='d1' BEGIN UPDATE labels SET version=2 WHERE board_id='a' AND id='s0';END",
+        "CREATE TRIGGER corrupt AFTER INSERT ON card_labels WHEN NEW.label_id='d1' BEGIN INSERT INTO card_labels VALUES('b',NEW.card_id,'d3');END"
+    };
+    assert(strlen(paths[4])+16<sizeof(path));sprintf(path,"%s.transfer",paths[4]);
+    assert(sqlite3_open(path,&db)==SQLITE_OK);sql(db,"PRAGMA foreign_keys=ON");
+    schema(db,paths[1]);schema(db,paths[2]);schema(db,paths[3]);
+    sql(db,"INSERT INTO boards VALUES('a','Source',1),('b','Destination',1);"
+        "INSERT INTO lists VALUES('al','a','List',0,1),('bl','b','List',0,1);"
+        "INSERT INTO swimlanes VALUES('as','a','Lane',0,1),('bs','b','Lane',0,1);"
+        "INSERT INTO cards VALUES('card','a','as','al','Card',0,0,1),('other','a','as','al','Other',1,0,1)");
+    sql(db,"INSERT INTO labels VALUES('a','s0','Match','red',0,1,0,0),('a','s1','','blue',1,1,0,0),('a','s2','Missing','green',2,1,0,0)");
+    sql(db,"INSERT INTO labels VALUES('b','d0','Match','blue',0,1,0,0),('b','d1','Match','green',1,1,0,0),"
+        "('b','d2','','blue',2,1,0,0),('b','d3','match','red',3,1,0,0),('b','s0','Unrelated','pink',4,1,0,0)");
+    sql(db,"INSERT INTO card_labels VALUES('a','card','s0'),('a','card','s1'),('a','card','s2'),('a','other','s0')");
+    assert(!wena_sqlite_card_labels_reboard(db,"a","card","b"));
+    sql(db,"BEGIN");assert(!wena_sqlite_card_labels_reboard(db,"a","card","a"));
+    assert(!wena_sqlite_card_labels_reboard(db,"a","bad/id","b"));
+    assert(!wena_sqlite_card_labels_reboard(db,"wrong","card","b"));sql(db,"ROLLBACK");
+    for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){
+        sql(db,triggers[i]);sql(db,"BEGIN");assert(!wena_sqlite_card_labels_reboard(db,"a","card","b"));sql(db,"ROLLBACK;DROP TRIGGER corrupt");
+        assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='a'")==4&&number(db,"SELECT count(*) FROM card_labels WHERE board_id='b'")==0);
+        assert(number(db,"SELECT count(*) FROM labels WHERE board_id='b' AND name='Match'")==2&&number(db,"SELECT version FROM labels WHERE board_id='a' AND id='s0'")==1);
+        assert(number(db,"PRAGMA foreign_keys")==1&&number(db,"PRAGMA defer_foreign_keys")==0);
+    }
+    sql(db,"PRAGMA foreign_keys=OFF;BEGIN;UPDATE card_labels SET label_id='missing' WHERE card_id='card' AND label_id='s2'");
+    assert(!wena_sqlite_card_labels_reboard(db,"a","card","b"));sql(db,"ROLLBACK;BEGIN;UPDATE card_labels SET board_id='b' WHERE card_id='card' AND label_id='s2'");
+    assert(!wena_sqlite_card_labels_reboard(db,"a","card","b"));sql(db,"ROLLBACK;PRAGMA foreign_keys=ON");
+    sql(db,"PRAGMA ignore_check_constraints=ON;BEGIN;UPDATE labels SET color='invalid' WHERE board_id='b' AND id='d0'");
+    assert(!wena_sqlite_card_labels_reboard(db,"a","card","b"));sql(db,"ROLLBACK;PRAGMA ignore_check_constraints=OFF");
+    sql(db,"BEGIN");assert(wena_sqlite_card_labels_reboard(db,"a","card","b"));
+    assert(sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_CONSTRAINT);sql(db,"ROLLBACK");
+    sql(db,"BEGIN");assert(wena_sqlite_card_labels_reboard(db,"a","card","b"));
+    sql(db,"UPDATE cards SET board_id='b',list_id='bl',swimlane_id='bs',version=version+1 WHERE id='card'");
+    sqlite3_commit_hook(db,reject_batch_commit,NULL);assert(sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_CONSTRAINT);
+    sqlite3_commit_hook(db,NULL,NULL);assert(sqlite3_get_autocommit(db));
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='a'")==4);
+    sql(db,"BEGIN");assert(wena_sqlite_card_labels_reboard(db,"a","card","b"));
+    assert(number(db,"SELECT version FROM cards WHERE id='card'")==1&&number(db,"SELECT sum(version) FROM boards")==2);
+    sql(db,"UPDATE cards SET board_id='b',list_id='bl',swimlane_id='bs',version=version+1 WHERE id='card';UPDATE boards SET version=version+1;COMMIT");
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='b' AND card_id='card' AND label_id IN('d0','d1')")==2);
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='a' AND card_id='other'")==1);
+    assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0);
+    assert(sqlite3_close(db)==SQLITE_OK);assert(sqlite3_open(path,&db)==SQLITE_OK);sql(db,"PRAGMA foreign_keys=ON");
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='b' AND card_id='card'")==2);
+    /* Exercise the complete bounded assignment set using distinct target IDs. */
+    sql(db,"DELETE FROM card_labels;DELETE FROM labels;BEGIN");
+    for(i=0;i<WENA_BOARD_LABEL_CAPACITY;++i){
+        sprintf(query,"INSERT INTO labels VALUES('b','s%lu','Label %lu','red',%lu,1,0,0)",(unsigned long)i,(unsigned long)i,(unsigned long)i);sql(db,query);
+        sprintf(query,"INSERT INTO labels VALUES('a','d%lu','Label %lu','blue',%lu,1,0,0)",(unsigned long)i,(unsigned long)i,(unsigned long)i);sql(db,query);
+        sprintf(query,"INSERT INTO card_labels VALUES('b','card','s%lu')",(unsigned long)i);sql(db,query);
+    }
+    sql(db,"COMMIT;BEGIN;INSERT INTO labels VALUES('a','overflow','Extra','red',128,1,0,0)");
+    assert(!wena_sqlite_card_labels_reboard(db,"b","card","a"));sql(db,"ROLLBACK;BEGIN");
+    assert(wena_sqlite_card_labels_reboard(db,"b","card","a"));
+    sql(db,"UPDATE cards SET board_id='a',list_id='al',swimlane_id='as',version=version+1 WHERE id='card';COMMIT");
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='a' AND card_id='card'")==WENA_BOARD_LABEL_CAPACITY);
+    sql(db,"DELETE FROM labels WHERE board_id='b';BEGIN");assert(wena_sqlite_card_labels_reboard(db,"a","card","b"));
+    sql(db,"UPDATE cards SET board_id='b',list_id='bl',swimlane_id='bs',version=version+1 WHERE id='card';COMMIT");
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE card_id='card'")==0);
+    sql(db,"BEGIN");assert(wena_sqlite_card_labels_reboard(db,"b","card","a"));
+    sql(db,"UPDATE cards SET board_id='a',list_id='al',swimlane_id='as',version=version+1 WHERE id='card';COMMIT");
+    assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0&&number(db,"PRAGMA foreign_keys")==1);
+    assert(sqlite3_close(db)==SQLITE_OK);
+}
+
 int main(int argc, char **argv)
 {
     sqlite3 *database;
@@ -339,6 +413,7 @@ int main(int argc, char **argv)
     assert(sqlite3_open(argv[4], &database) == SQLITE_OK);
     schema(database,argv[5]);schema(database,argv[6]);
     selected_labels(database);
+    reboard_labels(argv);
     assert(sqlite3_close(database)==SQLITE_OK);
     assert(sqlite3_open(argv[4], &database)==SQLITE_OK);
     assert(number(database,"SELECT version FROM boards WHERE id='batch'")== (sqlite3_int64)WENA_VERSION_READ_MAX);
