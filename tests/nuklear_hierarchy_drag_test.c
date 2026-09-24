@@ -27,15 +27,17 @@ static const char *id(Fixture *f,size_t i)
 {return f->kind==WENA_HIERARCHY_LIST?f->snapshot->lists[i].id:f->snapshot->swimlanes[i].id;}
 static void frame(Fixture *f,struct nk_vec2 point,int down,int escape)
 {
- unsigned long before;size_t i,found;const struct nk_command *command;const char *label;
- before=statements;
+ unsigned long before;size_t i,found,visible[3],count;const struct nk_command *command;const char *label;
+ before=statements;count=0;
  nk_clear(&f->ctx);nk_input_begin(&f->ctx);nk_input_motion(&f->ctx,(int)point.x,(int)point.y);
  nk_input_button(&f->ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);
  nk_input_key(&f->ctx,NK_KEY_TEXT_RESET_MODE,escape);nk_input_end(&f->ctx);
  wena_hierarchy_drag_begin(&f->ctx,&f->drag,&f->layout);
  if(nk_begin(&f->ctx,"Hierarchy",nk_rect(0,0,500,500),NK_WINDOW_BORDER)){
   for(i=0;i<3;++i){
+   if((f->kind==WENA_HIERARCHY_LIST?f->snapshot->lists[i].archived:f->snapshot->swimlanes[i].archived))continue;
    if(f->hide_source&&!strcmp(f->drag.gesture.source_id,id(f,i)))continue;
+   visible[count++]=i;
    wena_hierarchy_drag_handle(&f->ctx,&f->drag,&f->layout,f->kind,id(f,i),i,f->enabled);
   }
  }
@@ -44,10 +46,10 @@ static void frame(Fixture *f,struct nk_vec2 point,int down,int escape)
  nk_foreach(command,&f->ctx)if(command->type==NK_COMMAND_TEXT){
   const struct nk_command_text *text;text=(const struct nk_command_text*)command;
   if((size_t)text->length==strlen(label)&&!memcmp(text->string,label,(size_t)text->length)){
-   assert(found<3);f->points[found++]=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
+   assert(found<3);f->points[visible[found++]]=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
   }
  }
- if(!f->hide_source)assert(found==3);
+ assert(found==count);
 }
 static void press(Fixture *f,int from)
 {
@@ -110,6 +112,22 @@ int main(int argc,char **argv)
  press(&f,0);if(kind)f.snapshot->swimlanes[0].sort=9;else f.snapshot->lists[0].sort=9;
  frame(&f,f.points[2],1,0);assert(!f.drag.gesture.active&&!f.drag.move.visible);refresh(&f);
  frame(&f,nk_vec2(0,0),0,0);
+ if(!kind){
+  /* Real mouse drop uses complete ordinals across a hidden middle list. */
+  sprintf(query,"INSERT INTO list_archive_state VALUES('%s','b',1,123456)",id(&f,1));sql(f.db,query);
+  refresh(&f);strcpy(captured[0],id(&f,0));strcpy(captured[1],id(&f,1));
+  press(&f,0);assert(f.drag.move.count==3);release(&f,2);
+  assert(wena_hierarchy_drag_process(&f.drag,&f.layout)==1&&!strcmp(id(&f,2),captured[0]));
+  assert(!strcmp(id(&f,0),captured[1])&&f.snapshot->lists[0].archived);
+  press(&f,2);release(&f,1);assert(wena_hierarchy_drag_process(&f.drag,&f.layout)==1);
+  assert(!strcmp(id(&f,1),captured[0])&&f.snapshot->lists[0].archived);
+  assert(number(f.db,"SELECT archived_at FROM list_archive_state")==123456);
+  /* A source becoming archived during a drag cancels before applying. */
+  press(&f,1);f.snapshot->lists[1].archived=1;
+  frame(&f,f.points[2],1,0);assert(!f.drag.gesture.active&&!f.drag.move.visible);
+  refresh(&f);sql(f.db,"DELETE FROM list_archive_state");refresh(&f);
+  frame(&f,nk_vec2(0,0),0,0);
+ }
  strcpy(f.mutation.actor_id,"missing");frame(&f,f.points[0],1,0);
  assert(f.drag.gesture.active&&wena_hierarchy_drag_process(&f.drag,&f.layout)==-1&&f.drag.error);
  before=statements;assert(!wena_hierarchy_drag_process(&f.drag,&f.layout)&&statements==before);

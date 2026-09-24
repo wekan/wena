@@ -90,9 +90,9 @@ static void test_kind(WenaHierarchyKind kind)
     assert(nk_init_default(&ctx,&font));
     assert(wena_board_init(&board,"board","Board",0));
     assert(wena_list_init(&lists[0],"one","board","","Repeated",0,0));
-    assert(wena_list_init(&lists[1],"two","board","","Repeated",1,0));
+    assert(wena_list_init(&lists[1],"two","board","","Repeated",1,1));
     assert(wena_swimlane_init(&lanes[0],"one","board","Repeated",0,0));
-    assert(wena_swimlane_init(&lanes[1],"two","board","Repeated",1,0));
+    assert(wena_swimlane_init(&lanes[1],"two","board","Repeated",1,1));
     memset(&layout,0,sizeof(layout)); layout.board=&board;
     layout.lists=lists; layout.list_count=2; layout.swimlanes=lanes; layout.swimlane_count=2;
     wena_hierarchy_move_init(&state,load,move,NULL);

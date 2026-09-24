@@ -32,3 +32,11 @@ routes. Atomic board snapshots load archive state with the hierarchy in their
 existing read transaction, retain the complete card cache and reject malformed
 or wrong-board metadata. Legacy databases omit the table; v10-or-newer databases
 with a missing archive table fail instead of silently unhiding lists.
+
+Native hierarchy movement includes hidden siblings in its complete order and
+fingerprint. Its numeric selector uses those same ordinals, and rendered drag
+handles retain the original snapshot indices across hidden entries. Archived
+model sources cannot open a move panel; archiving the source during a gesture
+cancels it. Moving an active sibling preserves the hidden list's archive state,
+timestamp and revision. Database archive-state eligibility checks for other
+mutations remain required before exposing native archive controls.

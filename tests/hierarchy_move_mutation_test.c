@@ -11,7 +11,7 @@ static int number(sqlite3*d,const char*q){sqlite3_stmt*s;int n;assert(sqlite3_pr
 static void unchanged(sqlite3*d,WenaSqliteBoardSnapshot*s,WenaSqliteBoardSnapshot*before,int keys){assert(!memcmp(s,before,sizeof(*s)));assert(number(d,"SELECT count(*) FROM idempotency_keys")==keys);}
 int main(int argc,char**argv)
 {
-    const char*hash="e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
+    char hash[65];
     FILE*f;unsigned char*migration;long length;sqlite3*d,*writer;
     WenaSqliteBoardSnapshot *snapshot,*before,*reopened;
     WenaHierarchyMoveMutation adapter,other;
@@ -19,7 +19,7 @@ int main(int argc,char**argv)
     WenaHierarchyKind kind;const char*table,*id,*last;char path[512],query[512],body[256];
     unsigned long version,position;size_t i;int keys;
     assert(argc==3);f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);assert(length>0);rewind(f);
-    migration=(unsigned char*)malloc((size_t)length);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);
+    migration=(unsigned char*)malloc((size_t)length);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);wena_sha256_hex(migration,(size_t)length,hash);
     snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));reopened=(WenaSqliteBoardSnapshot*)malloc(sizeof(*reopened));assert(snapshot&&before&&reopened);
     sprintf(path,"%s/hierarchy-move.sqlite",argv[2]);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&d));
     sql(d,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO boards VALUES('other','Other',1);");
@@ -91,6 +91,22 @@ int main(int argc,char**argv)
         assert(wena_hierarchy_move_mutation_move(&adapter,"b",kind,id,4,0));
         for(i=0;i<3;++i)assert((kind==WENA_HIERARCHY_LIST?snapshot->lists[i].sort:snapshot->swimlanes[i].sort)==(double)i);
     }
+    /* Persisted hidden sibling survives movement in both directions, including
+     * exact archive time and its own version. Only active sources may move. */
+    sql(d,"INSERT INTO list_archive_state VALUES('l1','b',1,123456);UPDATE lists SET version=version+1 WHERE id='l1'");
+    assert(wena_sqlite_board_load(d,"b",snapshot));
+    assert(wena_hierarchy_move_mutation_init(&adapter,d,"u","b",snapshot));
+    memcpy(before,snapshot,sizeof(*before));keys=number(d,"SELECT count(*) FROM idempotency_keys");
+    assert(!wena_hierarchy_move_mutation_load(&adapter,"b",WENA_HIERARCHY_LIST,"l1",&version,&position));
+    assert(!wena_hierarchy_move_mutation_move(&adapter,"b",WENA_HIERARCHY_LIST,"l1",2,0));
+    unchanged(d,snapshot,before,keys);
+    assert(wena_hierarchy_move_mutation_load(&adapter,"b",WENA_HIERARCHY_LIST,"l0",&version,&position));
+    assert(wena_hierarchy_move_mutation_move(&adapter,"b",WENA_HIERARCHY_LIST,"l0",version,2));
+    assert(wena_sqlite_board_load(d,"b",reopened)&&!memcmp(snapshot,reopened,sizeof(*snapshot)));
+    assert(number(d,"SELECT archived_at FROM list_archive_state WHERE list_id='l1'")==123456);
+    assert(number(d,"SELECT version FROM lists WHERE id='l1'")==2);
+    assert(wena_hierarchy_move_mutation_move(&adapter,"b",WENA_HIERARCHY_LIST,"l0",version+1,0));
+    assert(wena_sqlite_board_load(d,"b",reopened)&&!memcmp(snapshot,reopened,sizeof(*snapshot)));
     assert(sqlite3_close(d)==SQLITE_OK);free(migration);free(snapshot);free(before);free(reopened);
     puts("native hierarchy movement tests passed");return 0;
 }

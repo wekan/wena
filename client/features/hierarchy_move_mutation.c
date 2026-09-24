@@ -28,11 +28,11 @@ static int selection(WenaHierarchyMoveMutation *a, const char *board,
         else{item=s->swimlanes[i].id;parent=s->swimlanes[i].board_id;
             position=s->swimlanes[i].sort;archived=s->swimlanes[i].archived;}
         if(!wena_model_identifier_valid(item)||!wena_model_identifier_valid(parent)||
-            strcmp(parent,board)||archived||position!=(double)i)return 0;
+            strcmp(parent,board)||(archived!=0&&archived!=1)||position!=(double)i)return 0;
         for(j=0;j<i;++j){previous=kind==WENA_HIERARCHY_LIST?s->lists[j].id:s->swimlanes[j].id;
             if(!strcmp(previous,item))return 0;}
         if(!wena_sqlite_hierarchy_order_add(&hash,item,strlen(item)))return 0;
-        if(!strcmp(item,id)){*selected=i;found=1;}
+        if(!strcmp(item,id)){if(archived)return 0;*selected=i;found=1;}
     }
     if(!found)return 0;
     wena_sha256_final_hex(&hash,order);

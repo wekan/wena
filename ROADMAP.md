@@ -800,8 +800,13 @@ Architecture decisions for this cycle:
       - [_] Wire ordinary-list archive/restore through native adapters and the
         native menu/archive browser. Ordinary lists preserve card archive flags;
         template-list cascades remain separate until template models are ported.
-        Before exposing controls, retain hidden lists in complete hierarchy
-        ordering and reject archived destinations in card creation/movement.
+        Before exposing controls, reject archived destinations in card
+        creation/movement and validate stored source archive state for reordering.
+      - [x] Retain hidden siblings in the shared native hierarchy move order and
+        fingerprints. Reject archived model sources and cancel a drag/panel when
+        its source becomes archived. Selector and real mouse tests preserve
+        complete ordinals across hidden lists; persistence tests verify archive
+        metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside

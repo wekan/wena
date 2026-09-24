@@ -107,6 +107,21 @@ static void test_kind(WenaHierarchyKind kind)
     assert(!wena_hierarchy_move_open(&state,&layout,kind,"one"));
     lists[1].sort=1; lanes[1].sort=1;
     assert(wena_hierarchy_move_open(&state,&layout,kind,"one"));
+    /* Hidden siblings keep their complete ordinal; an archived source closes
+     * the panel before it can call an adapter. */
+    lists[1].archived=1; lanes[1].archived=1;
+    assert(wena_hierarchy_move_current(&state,&layout));
+    assert(state.count==2 && !strcmp(state.order[1],"two"));
+    frame(&state,&layout,NULL,"2. Repeated [two]");
+    assert(state.target_position==1);
+    lists[0].archived=1; lanes[0].archived=1;
+    assert(!wena_hierarchy_move_current(&state,&layout));
+    assert(!wena_hierarchy_move_open(&state,&layout,kind,"one"));
+    lists[0].archived=0; lanes[0].archived=0;
+    lists[1].archived=2; lanes[1].archived=2;
+    assert(!wena_hierarchy_move_open(&state,&layout,kind,"one"));
+    lists[1].archived=1; lanes[1].archived=1;
+    assert(wena_hierarchy_move_open(&state,&layout,kind,"one"));
     strcpy(board.id,"wrong");
     assert(!wena_hierarchy_move_render(&context,&state,&layout,800,600));
     strcpy(board.id,"board");

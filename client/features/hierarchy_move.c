@@ -13,20 +13,22 @@ static int board_valid(const WenaBoardLayout *layout, WenaHierarchyKind kind)
           (layout->swimlane_count == 0 || layout->swimlanes != NULL)));
 }
 
-/* Every visible sibling owns exactly one contiguous nonnegative position.
+/* Every sibling, including archived entries, owns exactly one contiguous nonnegative position.
  * Filtering by board never changes the semantic SQLite destination ordinal. */
 static int item(const WenaBoardLayout *layout, WenaHierarchyKind kind,
-    size_t index, const char **id, const char **title, double *position)
+    size_t index, const char **id, const char **title, double *position, int *archived)
 {
     if (kind == WENA_HIERARCHY_LIST) {
         const WenaList *list;
         list = &layout->lists[index];
-        if (list->archived || strcmp(list->board_id, layout->board->id)) return 0;
+        if (strcmp(list->board_id, layout->board->id)) return 0;
+        *archived = list->archived;
         *id = list->id; *title = list->title; *position = list->sort;
     } else {
         const WenaSwimlane *lane;
         lane = &layout->swimlanes[index];
-        if (lane->archived || strcmp(lane->board_id, layout->board->id)) return 0;
+        if (strcmp(lane->board_id, layout->board->id)) return 0;
+        *archived = lane->archived;
         *id = lane->id; *title = lane->title; *position = lane->sort;
     }
     return 1;
@@ -39,11 +41,14 @@ static int order_valid(WenaHierarchyMoveState *state,
     const char *id, *title;
     double position;
     unsigned char seen[WENA_HIERARCHY_MOVE_CAPACITY];
+    int archived, active_source;
     if (!board_valid(layout, state->kind) || strcmp(state->board_id, layout->board->id)) return 0;
     size = state->kind == WENA_HIERARCHY_LIST ? layout->list_count : layout->swimlane_count;
-    memset(seen, 0, sizeof(seen)); count = 0;
+    memset(seen, 0, sizeof(seen)); count = 0; active_source = 0;
     for (i = 0; i < size; ++i) {
-        if (!item(layout, state->kind, i, &id, &title, &position)) continue;
+        if (!item(layout, state->kind, i, &id, &title, &position, &archived)) return 0;
+        if (archived != 0 && archived != 1) return 0;
+        if (!strcmp(id, state->target_id) && !archived) active_source = 1;
         (void)title;
         if (!(position >= 0 && position < (double)WENA_HIERARCHY_MOVE_CAPACITY)) return 0;
         j = (size_t)position;
@@ -54,7 +59,7 @@ static int order_valid(WenaHierarchyMoveState *state,
         } else if (strcmp(state->order[j], id)) return 0;
         ++count;
     }
-    if (count == 0 || count > WENA_HIERARCHY_MOVE_CAPACITY || (!capture && count != state->count)) return 0;
+    if (!active_source || count == 0 || count > WENA_HIERARCHY_MOVE_CAPACITY || (!capture && count != state->count)) return 0;
     for (i = 0; i < count; ++i) {
         if (!seen[i]) return 0;
         for (j = 0; j < i; ++j) if (!strcmp(state->order[i], state->order[j])) return 0;
@@ -111,12 +116,13 @@ static void option_label(void *data, int selected, const char **label)
     const char *id, *title;
     double position;
     size_t i, size;
+    int archived;
     options = (HierarchyMoveOptions *)data;
     *label = wena_ui_text(WENA_UI_TEXT_UNKNOWN);
     if (selected >= 0 && (size_t)selected < options->state->count) {
         size = options->state->kind == WENA_HIERARCHY_LIST ? options->layout->list_count : options->layout->swimlane_count;
         for (i = 0; i < size; ++i) {
-            if (item(options->layout, options->state->kind, i, &id, &title, &position) &&
+            if (item(options->layout, options->state->kind, i, &id, &title, &position, &archived) &&
                 !strcmp(id, options->state->order[selected])) {
                 sprintf(options->label, "%d. %s [%s]", selected + 1, title, id);
                 *label = options->label;
