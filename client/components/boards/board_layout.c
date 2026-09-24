@@ -220,19 +220,24 @@ static void wena_render_cards(struct nk_context *context,
                               const WenaList *list,
                               const WenaSwimlane *swimlane)
 {
-    size_t index;
+    size_t index, ordinal, position;
     unsigned int card_action;
     int collapsed;
 
+    ordinal = 0;
     for (index = 0; index < layout->card_count; ++index) {
         const WenaCard *card = &layout->cards[index];
 
-        if (!card->archived && wena_same_id(card->board_id, layout->board->id) &&
-            wena_same_id(card->list_id, list->id) &&
-            wena_same_id(card->swimlane_id, swimlane->id) &&
+        if (!wena_same_id(card->board_id, layout->board->id) ||
+            !wena_same_id(card->list_id, list->id) ||
+            !wena_same_id(card->swimlane_id, swimlane->id)) continue;
+        position = ordinal++;
+        if (!card->archived &&
             (layout->card_visible == NULL ||
              layout->card_visible(layout->card_visible_context, card))) {
             card_action = WENA_CARD_BODY_NO_ACTION;
+            if (layout->card_drag_handle)
+                layout->card_drag_handle(context, layout->card_drag_context, card, position);
             collapsed = layout->card_collapsed && layout->card_collapsed(context,
                 layout->card_collapsed_context, card);
             if (!collapsed && layout->card_badges != NULL)

@@ -157,6 +157,27 @@ static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
     layout->card_collapsed=NULL;layout->card_collapsed_context=NULL;
     layout->card_badges=NULL;layout->card_contents=NULL;
 }
+static void ordinal_probe(struct nk_context *context,void *opaque,const WenaCard *card,size_t ordinal)
+{
+    int *count;
+    (void)context;count=(int *)opaque;
+    assert(ordinal==(!strcmp(card->id,"new-sibling") ? 1u : 0u));++*count;
+}
+static void archived_ordinals(struct nk_context *context,WenaBoardLayout *layout)
+{
+    WenaCard cards[4];
+    const WenaCard *saved;
+    size_t count;
+    int calls;
+    saved=layout->cards;count=layout->card_count;assert(count==3);
+    memcpy(cards,saved,3*sizeof(*cards));cards[3]=cards[0];
+    cards[0].archived=1;strcpy(cards[3].id,"new-sibling");cards[3].sort+=1;
+    calls=0;layout->cards=cards;layout->card_count=4;
+    layout->card_drag_handle=ordinal_probe;layout->card_drag_context=&calls;
+    render(context,layout,900);assert(calls==3);
+    layout->cards=saved;layout->card_count=count;
+    layout->card_drag_handle=NULL;layout->card_drag_context=NULL;
+}
 int main(void)
 {
     struct nk_context context;
@@ -198,6 +219,7 @@ int main(void)
     layout.card_count = 1;
     card_folding(&context, &layout);
     layout.card_count = 3;
+    archived_ordinals(&context, &layout);
     /* The original state-free caller also needs full-height list/card geometry. */
     render(&context, &layout, 480.0f);
     assert(visible_text(&context, "First card", 640.0f, 480.0f, &first));

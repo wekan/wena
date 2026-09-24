@@ -71,3 +71,12 @@ invalid numeric positions, and compares a later model array with the captured
 order. Replacing a snapshot is atomic on allocation/validation success. The
 existing Move dialog uses this model; additional drag/select controls should
 reuse it instead of duplicating sibling validation or indexing by titles.
+
+Whole-card dragging uses `features/card_drag`, the same gesture component and
+ordered-card snapshot model. The board layout supplies ordinals that include
+archived and filtered cards. The adapter guards the captured source revision and
+complete sibling ordering, then calls the existing reorder mutation after
+drawing. Errors require explicit Refresh. `features/boards/reload` reloads the
+complete board and synchronizes the registered card-cache count without moving
+its arrays; failed reads preserve the previous models. Hosts cancel drafts before
+reloading. This also recovers from another process changing sibling order.

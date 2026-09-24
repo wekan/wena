@@ -11,6 +11,8 @@
 #include "features/board.h"
 #include "features/board_filter.h"
 #include "features/card_mutation.h"
+#include "features/card_drag.h"
+#include "features/boards/reload.h"
 #include "features/card_create.h"
 #include "features/card_move.h"
 #include "features/card_archives.h"
@@ -65,6 +67,8 @@ typedef struct WenaDesktopChecklistPreview {
     WenaCardSectionControl sections;
     WenaChecklistInlineEdit inline_edit;
     WenaChecklistDrag drag;
+    WenaCardDrag card_drag;
+    const WenaBoardLayout *layout;
     int readonly;
     int error;
 } WenaDesktopChecklistPreview;
@@ -78,6 +82,20 @@ static unsigned int desktop_card_contents(struct nk_context *context,
         preview->view->contents, card, preview->view->settings.show_checklists,
         preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections,
         preview->readonly || preview->error ? NULL : &preview->inline_edit, preview->readonly || preview->error ? NULL : &preview->drag) : WENA_CARD_BODY_NO_ACTION;
+}
+
+static void desktop_card_drag(struct nk_context *context,void *opaque,
+    const WenaCard *card,size_t ordinal)
+{
+    WenaDesktopChecklistPreview *preview;
+    const WenaChecklistCardSummary *summary;
+    preview=(WenaDesktopChecklistPreview *)opaque;
+    summary=preview->view->summary_valid ?
+        wena_checklist_summary_find(&preview->view->contents->summary,card->id) : NULL;
+    wena_card_drag_handle(context,&preview->card_drag,preview->layout->cards,
+        preview->layout->card_count,card,ordinal,summary && !summary->archived ? summary->card_version : 0,
+        !preview->readonly && !preview->error && !preview->inline_edit.action &&
+        !preview->drag.gesture.active);
 }
 
 static int desktop_card_collapsed(struct nk_context *context,
@@ -106,6 +124,7 @@ typedef struct WenaDesktopToolbar {
     WenaBoardPresentation *labels;
     WenaDesktopChecklistPreview *preview;
     int filter_changed;
+    int board_refresh;
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -118,6 +137,7 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
     toolbar = (WenaDesktopToolbar *)opaque;
     toolbar->actions = 0u;
     toolbar->filter_changed = 0;
+    toolbar->board_refresh = 0;
     toolbar->collapse_retry = 0;
     wena_language_picker_render(context, toolbar->language);
     nk_layout_row_dynamic(context, 28.0f, 4);
@@ -139,15 +159,16 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
             toolbar->labels->refresh_pending = 1;
     }
     if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->labels->sections_error ||
-        toolbar->preview->error || toolbar->preview->sections.error || toolbar->preview->drag.error)) {
+        toolbar->preview->error || toolbar->preview->sections.error || toolbar->preview->drag.error || toolbar->preview->card_drag.error)) {
         nk_layout_row_dynamic(context, 22.0f, 1);
-        nk_label(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS), NK_TEXT_LEFT);
+        nk_label(context, wena_ui_text(WENA_UI_TEXT_CARDS), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 28.0f, 2);
         nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
         if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_REFRESH))) {
             toolbar->labels->summary_pending = 1;
             toolbar->preview->error = 0;
             toolbar->preview->drag.error = 0;
+            toolbar->board_refresh = toolbar->preview->card_drag.error;
             toolbar->preview->sections.error = 0;
             toolbar->labels->sections_pending = 1;
         }
@@ -441,11 +462,14 @@ int main(int argc, char **argv)
     toolbar.labels = &label_view;
     toolbar.preview = &preview;
     preview.view = &label_view;
+    preview.layout = &layout;
     preview.readonly = smoke;
     layout.card_contents = desktop_card_contents;
     layout.card_contents_context = &preview;
     layout.card_collapsed = desktop_card_collapsed;
     layout.card_collapsed_context = &preview;
+    layout.card_drag_handle = desktop_card_drag;
+    layout.card_drag_context = &preview;
     layout.card_badges = desktop_card_badges;
     layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;
@@ -541,6 +565,13 @@ int main(int argc, char **argv)
             opened_panel = DESKTOP_PANEL_NONE;
             if (label_view.summary_valid)
                 wena_checklist_inline_sync(&preview.inline_edit, label_view.contents, label_view.settings.show_checklists);
+            {
+                const WenaChecklistCardSummary *source;
+                source = label_view.summary_valid ? wena_checklist_summary_find(
+                    &label_view.contents->summary, preview.card_drag.gesture.source_id) : NULL;
+                wena_card_drag_begin(context, &preview.card_drag, snapshot->cards,
+                    snapshot->card_count, source && !source->archived ? source->card_version : 0);
+            }
             wena_reorder_drag_begin(context, &preview.drag.gesture);
             preview.intent.pending = 0;
             preview.sections.pending = 0;
@@ -552,13 +583,16 @@ int main(int argc, char **argv)
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) goto cleanup;
             wena_reorder_drag_end(context, &preview.drag.gesture);
-            if (preview.intent.pending || preview.inline_edit.action || preview.drag.gesture.active || preview.drag.gesture.pending) {
+            wena_card_drag_end(context, &preview.card_drag);
+            if (preview.intent.pending || preview.inline_edit.action || preview.drag.gesture.active || preview.drag.gesture.pending ||
+                preview.card_drag.gesture.active || preview.card_drag.gesture.pending) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
             if (toolbar.filter_changed) {
                 wena_checklist_inline_cancel(&preview.inline_edit);
                 wena_reorder_drag_cancel(&preview.drag.gesture);
+                wena_card_drag_cancel(&preview.card_drag);
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
@@ -705,6 +739,25 @@ int main(int argc, char **argv)
                 wena_checklist_inline_cancel(&preview.inline_edit);
             if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
                 wena_reorder_drag_cancel(&preview.drag.gesture);
+            if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
+                wena_card_drag_cancel(&preview.card_drag);
+            if (toolbar.board_refresh) {
+                desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
+                wena_card_drag_cancel(&preview.card_drag);
+                wena_checklist_inline_cancel(&preview.inline_edit);
+                wena_reorder_drag_cancel(&preview.drag.gesture);
+                preview.intent.pending = 0;
+                preview.card_drag.error = !wena_board_reload(&mutation, snapshot);
+                if (!preview.card_drag.error) {
+                    label_view.valid = 0;label_view.refresh_pending = 1;
+                    label_view.summary_valid = 0;label_view.summary_pending = 1;
+                    label_view.sections_valid = 0;label_view.sections_pending = 1;
+                }
+            }
+            completion_result = wena_card_drag_apply(&preview.card_drag, &mutation);
+            if (completion_result) {
+                label_view.summary_valid = 0;label_view.summary_pending = 1;
+            }
             completion_result = wena_checklist_mutation_drag(&checklist_mutation, &preview.drag);
             if (completion_result) {
                 label_view.summary_valid = 0;label_view.summary_pending = 1;
@@ -752,6 +805,7 @@ int main(int argc, char **argv)
     }
     status = 0;
 cleanup:
+    wena_card_drag_cancel(&preview.card_drag);
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
     if (context != NULL) nk_sdl_shutdown();

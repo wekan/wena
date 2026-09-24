@@ -31,8 +31,8 @@ once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
 Cross-board transfer and minicard drag/drop remain open.
 
-Latest integrated validation: 128 native suites passed, zero failed or skipped,
-plus all four localhost HTTP/runtime suites passed outside the sandbox (132 total;
+Latest integrated validation: 131 native suites passed, zero failed or skipped,
+plus all four localhost HTTP/runtime suites passed outside the sandbox (135 total;
 runtime rerun after schema-v9).
 The sandbox itself denies loopback bind with EPERM; no listener implementation
 change was needed. Fixed a macOS unused-variable build error in OS entropy and a
@@ -911,6 +911,13 @@ Architecture decisions for this cycle:
 - [_] Nuclear GUI adapts to all screen sizes from smallest to biggest, with mobile and desktop mode, like Meteor 3 WeKan
 - [_] GUI works with touch displays, mouse, keyboard
 - [_] Possible to drag drop same way like Meteor 3 WeKan
+  - [x] Reuse drag gestures and ordered-card snapshots for same-column card moves.
+    Include archived/filtered sibling ordinals, exact IDs and source revisions;
+    keep rendering SQL-free and apply the existing order fingerprint transaction.
+    Explicit failed-write Refresh reloads the complete board and registered cache
+    count atomically. Validate duplicate titles, rollback, external sibling changes,
+    consumed intents and unchanged models on failed reload.
+  - [_] Complete cross-column/card/hierarchy drag movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and
