@@ -198,3 +198,26 @@ selector is therefore omitted from this editor; saving its visible settings
 preserves the existing stored override. Model/persistence support alone does
 not establish native minicard display parity. Canonical Default/Yes/No and
 Show-on-Minicard contract keys may remain available for future implemented UI.
+
+## Local cross-board transfer
+
+The typed checklist and item transfer edits accept an optional `target_board_id`.
+Omitting it preserves the same-board contract. An explicit empty, malformed,
+missing or duplicate form `targetBoardId` is rejected. Both operations share
+revision-guarded aggregate advancement and the existing transaction/idempotency
+path. Whole-checklist transfer updates the parent and every child's board/card
+scope; item transfer updates board/card/checklist in one statement. Destination
+collections, capacities and postconditions are validated before commit.
+
+Whole-checklist transfer uses SQLite's transaction-scoped
+[`defer_foreign_keys`](https://www.sqlite.org/pragma.html#pragma_defer_foreign_keys)
+for the existing composite foreign keys; commit/rollback resets it. No schema
+change or foreign-key disabling is needed. The same fast regression bodies run
+against same-board and cross-board fixtures via `test_checklist_cross_board.sh`.
+
+This is trusted local persistence. WeKan's `server/models/checklists.js`
+`moveChecklist` checks mutation rights on both source and destination boards and
+moves activity references; its model hooks maintain denormalized board IDs.
+Native remote authorization/activity adapters remain separate roadmap work.
+The current native transfer form still presents same-board destinations; the
+shared directory picker is being connected separately.

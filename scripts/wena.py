@@ -164,6 +164,7 @@ TEST_SUITES = (
     ('checklist-item-move', 'test_checklist_item_move.sh', 'Guarded checklist item transfer across cards or same-card parents'),
     ('nuklear-checklist-item-move', 'test_nuklear_checklist_item_move.sh', 'Real Nuklear/SQLite item destination selectors and guarded lifecycle'),
     ('svg', 'test_svg.sh', 'MIT SVG conversion, native vector scaling, theme tokens and lossless documentation captures'),
+    ('checklist-cross-board', 'test_checklist_cross_board.sh', 'Reuse transfer regression suites across distinct boards'),
     ('checklist-move', 'test_checklist_move.sh', 'Atomic whole-checklist transfer with source/destination guards, rollback and reopen'),
     ('nuklear-checklist-move', 'test_nuklear_checklist_move.sh', 'Real Nuklear and SQLite cross-card selection, cancel, stale revisions and refresh'),
     ('desktop-package', 'test_desktop_package.py', 'Linux amd64 desktop package extraction, integrity and deterministic metadata'),

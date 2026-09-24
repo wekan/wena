@@ -286,7 +286,8 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
         !edit->expected_item_version ||
         edit->expected_item_version > WENA_VERSION_MUTATE_MAX)) return 0;
     if (edit->action == WENA_CHECKLIST_MOVE_ITEM) {
-        if (!wena_model_identifier_valid(edit->target_card_id) ||
+        if ((edit->target_board_id && !wena_model_identifier_valid(edit->target_board_id)) ||
+            !wena_model_identifier_valid(edit->target_card_id) ||
             !wena_model_identifier_valid(edit->target_checklist_id) ||
             !strcmp(checklist, edit->target_checklist_id) ||
             !edit->expected_target_card_version ||
@@ -304,11 +305,16 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             item, edit->expected_item_version, edit->target_card_id,
             edit->expected_target_card_version, edit->target_checklist_id,
             edit->expected_target_checklist_version);
+        if (edit->target_board_id) {
+            strcat(command.form_body, "&targetBoardId=");
+            strcat(command.form_body, edit->target_board_id);
+        }
         command.form_body_length = strlen(command.form_body);
         return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
     }
     if (edit->action == WENA_CHECKLIST_MOVE) {
-        if (!wena_model_identifier_valid(edit->target_card_id) ||
+        if ((edit->target_board_id && !wena_model_identifier_valid(edit->target_board_id)) ||
+            !wena_model_identifier_valid(edit->target_card_id) ||
             !strcmp(card_id, edit->target_card_id) ||
             !edit->expected_target_card_version ||
             edit->expected_target_card_version > WENA_VERSION_MUTATE_MAX) return 0;
@@ -320,6 +326,10 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
             "targetCardId=%s&expectedTargetVersion=%lu", card_id,
             edit->expected_card_version, checklist, edit->expected_checklist_version,
             edit->target_card_id, edit->expected_target_card_version);
+        if (edit->target_board_id) {
+            strcat(command.form_body, "&targetBoardId=");
+            strcat(command.form_body, edit->target_board_id);
+        }
         command.form_body_length = strlen(command.form_body);
         return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
     }

@@ -36,7 +36,9 @@ typedef struct WenaChecklistEdit {
     size_t batch_length;
     /* Zero-based destination ordinal for same-card ordering only. */
     unsigned long target_position;
-    /* MOVE appends the whole checklist to a different active same-board card. */
+    /* MOVE appends the whole checklist to a different active card. */
+    /* NULL preserves same-board behavior; explicit destination is local-only. */
+    const char *target_board_id;
     const char *target_card_id;
     unsigned long expected_target_card_version;
     const char *target_checklist_id;

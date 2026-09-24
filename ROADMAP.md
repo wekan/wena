@@ -29,7 +29,11 @@ and checklist selectors. Save guards both cards, both checklists and the item,
 appends without changing completion, and advances a same-card aggregate only
 once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
-Cross-board transfer and minicard drag/drop remain open.
+Cross-board transfer now shares these guarded local persistence operations through
+an explicit destination-board ID. The same regression bodies run against same-board
+and cross-board fixtures, including capacity, malformed scopes, late rollback,
+replay, reverse transfer and reopen. Ten focused suites and cross-board ASan/UBSan
+checks pass. Cross-board picker integration and full drag/drop parity remain open.
 
 Latest integrated validation: 131 native suites passed, zero failed or skipped,
 plus all four localhost HTTP/runtime suites passed outside the sandbox (135 total;

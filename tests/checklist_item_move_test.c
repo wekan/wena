@@ -6,6 +6,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef WENA_TEST_CROSS_BOARD
+#define TARGET_BOARD "destination"
+#define TARGET_LIST "dl"
+#define TARGET_LANE "ds"
+#define TARGET_ARGUMENT TARGET_BOARD
+#else
+#define TARGET_BOARD "b"
+#define TARGET_LIST "l"
+#define TARGET_LANE "s"
+#define TARGET_ARGUMENT NULL
+#endif
+
 static void sql(sqlite3 *db, const char *query)
 {
     char *error;
@@ -41,6 +53,7 @@ static void schema(sqlite3 *db, const char *path)
 static void change_for(WenaChecklistEdit *edit, sqlite3 *db)
 {
     memset(edit, 0, sizeof(*edit));
+    edit->target_board_id = TARGET_ARGUMENT;
     edit->action = WENA_CHECKLIST_MOVE_ITEM;
     edit->item_id = "i1"; edit->target_checklist_id = "dest";
     edit->expected_item_version = (unsigned long)number(db, "SELECT version FROM checklist_items WHERE id='i1'");
@@ -97,7 +110,7 @@ static void rejected(WenaChecklistMutation *adapter, WenaChecklistEdit *edit,
 int main(int argc, char **argv)
 {
     sqlite3 *db, *second;
-    WenaChecklistMutation adapter, unknown;
+    WenaChecklistMutation adapter, unknown, target_adapter;
     WenaChecklistSnapshot *source, *target;
     WenaChecklistEdit edit, stale;
     WenaDomainCommand command;
@@ -115,20 +128,29 @@ int main(int argc, char **argv)
     sql(db, "PRAGMA foreign_keys=ON"); schema(db, argv[1]); schema(db, argv[2]); schema(db, argv[3]);
     sql(db, "INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);"
         "INSERT INTO boards VALUES('foreign','Other',1);"
+        "INSERT INTO boards VALUES('destination','Destination',1);"
+        "INSERT INTO lists VALUES('dl','destination','List',0,1);"
+        "INSERT INTO swimlanes VALUES('ds','destination','Lane',0,1);"
         "INSERT INTO lists VALUES('l','b','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);"
         "INSERT INTO lists VALUES('fl','foreign','List',0,1);INSERT INTO swimlanes VALUES('fs','foreign','Lane',0,1)");
     sql(db, "INSERT INTO cards VALUES('src','b','s','l','Source',0,0,1);"
-        "INSERT INTO cards VALUES('dst','b','s','l','Destination',1,0,1);"
+        "INSERT INTO cards VALUES('dst','" TARGET_BOARD "','" TARGET_LANE "','" TARGET_LIST "','Destination',1,0,1);"
         "INSERT INTO cards VALUES('other','foreign','fs','fl','Other',0,0,1)");
     sql(db, "INSERT INTO checklists(id,board_id,card_id,title,position) VALUES"
         "('cl','b','src','Source list',2),('keep','b','src','Other list',9),"
-        "('dest','b','dst','Destination',5),('foreign-list','foreign','other','Other',0)");
+        "('dest','" TARGET_BOARD "','dst','Destination',5),('foreign-list','foreign','other','Other',0)");
     sql(db, "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES"
         "('i1','b','src','cl','Suomi \303\244',2,1),('i2','b','src','cl','Keep sibling',18,0),"
-        "('di','b','dst','dest','Existing',7,0)");
+        "('di','" TARGET_BOARD "','dst','dest','Existing',7,0)");
     assert(wena_checklist_mutation_init(&adapter, db, "u", "b"));
+    assert(wena_checklist_mutation_init(&target_adapter, db, "u", TARGET_BOARD));
     source = wena_checklist_snapshot_create(); target = wena_checklist_snapshot_create(); assert(source && target);
     change_for(&edit, db);
+    edit.target_board_id = ""; rejected(&adapter, &edit, 1);
+    edit.target_board_id = "missing"; rejected(&adapter, &edit, 1);
+    edit.target_board_id = "b&targetBoardId=destination"; rejected(&adapter, &edit, 1);
+    change_for(&edit, db);
+
     edit.target_checklist_id = "cl"; rejected(&adapter, &edit, 1);
     edit.target_checklist_id = "missing"; rejected(&adapter, &edit, 1);
     edit.target_checklist_id = "keep"; rejected(&adapter, &edit, 1);
@@ -159,7 +181,7 @@ int main(int argc, char **argv)
     /* Across cards, the combined target must remain within its read capacity. */
     sql(db, "WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<1023) "
         "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position) "
-        "SELECT 'extra'||x,'b','dst','dest','Extra',x+100 FROM n");
+        "SELECT 'extra'||x,'" TARGET_BOARD "','dst','dest','Extra',x+100 FROM n");
     rejected(&adapter, &edit, 1); sql(db, "DELETE FROM checklist_items WHERE id LIKE 'extra%'");
     stale = edit; assert(sqlite3_open(argv[4], &second) == SQLITE_OK);
     sql(second, "UPDATE checklist_items SET title='Concurrent',version=version+1 WHERE id='di';"
@@ -170,9 +192,24 @@ int main(int argc, char **argv)
     strcpy(command.form_body, "cardId=src&expectedVersion=1&checklistId=cl&expectedChecklistVersion=1&itemId=i1&expectedItemVersion=1&targetCardId=dst&expectedTargetVersion=2&targetChecklistId=dest&expectedTargetChecklistVersion=2&targetChecklistId=cl");
     command.form_body_length = strlen(command.form_body);
     assert(!wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
+    /* Explicit invalid/duplicate destination board fields must never fall back
+     * to the source board or leave any partial writes behind. */
+    *strrchr(command.form_body, '&') = 0;
+#ifdef WENA_TEST_CROSS_BOARD
+    command.form_body_length = strlen(command.form_body);
+    assert(!wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
+#endif
+    strcat(command.form_body, "&targetBoardId=");
+    command.form_body_length = strlen(command.form_body);
+    before = dump(db);
+    assert(!wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
+    strcat(command.form_body, TARGET_BOARD "&targetBoardId=" TARGET_BOARD);
+    command.form_body_length = strlen(command.form_body);
+    assert(!wena_sqlite_persistence_apply(&adapter.persistence, &command, &response));
+    after = dump(db); assert(!strcmp(before, after)); free(before); free(after);
     assert(wena_checklist_mutation_save_request(&adapter, "b", "src", &edit, 1));
     assert(wena_checklist_mutation_load(&adapter, "b", "src", source));
-    assert(wena_checklist_mutation_load(&adapter, "b", "dst", target));
+    assert(wena_checklist_mutation_load(&target_adapter, TARGET_BOARD, "dst", target));
     assert(source->card_version == 2 && source->item_count == 1 && source->items[0].position == 18);
     assert(source->checklist_versions[0] == 2 && source->checklist_versions[1] == 1);
     assert(target->card_version == 3 && target->item_count == 2 && target->checklist_versions[0] == 3);
@@ -183,11 +220,15 @@ int main(int argc, char **argv)
     assert(sqlite3_open(argv[4], &db) == SQLITE_OK); sql(db, "PRAGMA foreign_keys=ON");
     after = dump(db); assert(!strcmp(before, after)); free(before); free(after);
     assert(wena_checklist_mutation_init(&adapter, db, "u", "b"));
+    assert(wena_checklist_mutation_init(&target_adapter, db, "u", TARGET_BOARD));
+    edit.target_board_id = "b";
     edit.target_card_id = "src"; edit.target_checklist_id = "keep"; edit.checklist_id = "dest";
     edit.expected_card_version = 3; edit.expected_target_card_version = 2;
     edit.expected_checklist_version = 3; edit.expected_target_checklist_version = 1; edit.expected_item_version = 2;
+#ifndef WENA_TEST_CROSS_BOARD
     assert(!wena_checklist_mutation_save_request(&adapter, "b", "dst", &edit, 1));
-    assert(wena_checklist_mutation_save_request(&adapter, "b", "dst", &edit, 2));
+#endif
+    assert(wena_checklist_mutation_save_request(&target_adapter, TARGET_BOARD, "dst", &edit, 2));
     /* Same-card transfer is possible at full capacity; its aggregate advances once. */
     sql(db, "WITH RECURSIVE n(x) AS(SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<1022) "
         "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position) "
