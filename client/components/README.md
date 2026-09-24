@@ -121,3 +121,8 @@ board-wide lists. Folded lanes keep their drag and Uncollapse controls visible.
 zero-based ordinals in model intents. Its disabled state consumes the same row.
 Checklist and item transfer forms reuse it with a range derived from their captured
 destination snapshots, so validation cannot silently move the confirmation buttons.
+
+Checklist previews use the same destination-zone controller for append and explicit
+insertion slots. An insertion slot captures the complete collection ordinal before
+a visible sibling, including hidden siblings, and sends the same typed transfer
+option as the numeric form. Rendering and hit testing perform no SQL.

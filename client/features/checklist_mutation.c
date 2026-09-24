@@ -546,6 +546,7 @@ int wena_checklist_mutation_drag(WenaChecklistMutation *adapter,WenaChecklistDra
     edit.expected_item_version=state->source.item_version;
     edit.target_position=(unsigned long)state->gesture.target_position;
     if (moving) {
+        edit.insert_at_position=state->insert_at_position;
         edit.target_card_id=state->target_card_id;
         edit.expected_target_card_version=state->target_card_version;
         edit.target_checklist_id=state->target_checklist_id;

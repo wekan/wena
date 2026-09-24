@@ -31,6 +31,7 @@ unsigned int wena_checklist_contents_render_editable(struct nk_context *context,
             wena_checklist_inline_render(context, edit);
             continue;
         }
+        if (drag) wena_checklist_drag_destination_at(context,drag,contents,card,NULL,list_index);
         editable = edit && !edit->action && (!intent || !intent->pending);
         nk_layout_row_dynamic(context, 28.0f, (sections ? 2 : 1) + (editable ? 1 : 0));
         if (nk_button_label(context, list->checklist.title)) action |= WENA_CARD_BODY_OPEN_CHECKLISTS;
@@ -48,6 +49,7 @@ unsigned int wena_checklist_contents_render_editable(struct nk_context *context,
         nk_layout_row_dynamic(context, 28.0f, 1);
         for (index = 0; index < list->item_count; ++index) {
             if (list->checklist.hide_checked_items && list->items[index].is_finished) continue;
+            if (drag) wena_checklist_drag_destination_at(context,drag,contents,card,list,index);
             nk_layout_row_dynamic(context, 28.0f, (editable ? 2 : 1) + (drag ? 1 : 0));
             if (intent && (!edit || !edit->action)) {
                 finished = list->items[index].is_finished;

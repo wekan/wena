@@ -112,7 +112,10 @@ bounded numeric control. Both moves use the existing collision-safe order writer
 with one revision advance for the moved row and changed siblings. Default append
 behavior remains compatible. Sixteen focused suites and insertion/order/chooser
 sanitizers pass. Numeric controls keep Save/Cancel geometry stable when destination
-selection becomes invalid and avoid a second popup in the same form.
+selection becomes invalid and avoid a second popup in the same form. Minicard
+checklist/item drag slots now reuse these exact insertion mutations, including
+hidden destination sibling ordinals. Eleven focused suites and the expanded real
+Nuklear preview sanitizer suite pass.
 See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally
@@ -873,7 +876,10 @@ Architecture decisions for this cycle:
         Preserve default append behavior, advance moved rows only once and guard
         changing sibling versions, terminal positions, rollback and exact scope.
         Fifteen backend combinations and real UI controls pass, including sanitizers.
-      - [_] Finish arbitrary insertion-point/cross-board drag movement.
+      - [x] Reuse exact insertion mutations for minicard checklist/item drop slots
+        before visible siblings. Include hidden sibling ordinals, capture target
+        revisions, keep drawing SQL-free and consume each drop once.
+      - [_] Finish cross-board drag movement and visual parity.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

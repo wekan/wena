@@ -229,19 +229,22 @@ static void drag_reordering(sqlite3 *db,struct nk_context *ctx,
  assert(!strcmp(list->next->next->checklist.id,"inherit")&&list->next->next->item_count==5);
  active_drag=NULL;
 }
-static void drag_to_destination(struct nk_context *ctx,WenaChecklistBoardContents *contents,
- WenaCard *card,const char *label_text,int from)
+static void drag_to_slot(struct nk_context *ctx,WenaChecklistBoardContents *contents,
+ WenaCard *card,const char *label_text,int from,const char *slot)
 {
  struct nk_vec2 point;int step;
  frame(ctx,contents,card,1);point=nth_label(ctx,label_text,from);
  for(step=0;step<3;++step) {
   if(step==1)point.x+=8;
-  if(step==2)point=nth_label(ctx,"Destination",0);
+  if(step==2)point=nth_label(ctx,slot,0);
   nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
   nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,step<2);nk_input_end(ctx);
   assert(!draw(ctx,contents,card,1));
  }
 }
+static void drag_to_destination(struct nk_context *ctx,WenaChecklistBoardContents *contents,
+ WenaCard *card,const char *label_text,int from)
+{drag_to_slot(ctx,contents,card,label_text,from,"Destination");}
 static void drag_transfers(sqlite3 *db,struct nk_context *ctx,
  WenaChecklistBoardContents **contents,WenaChecklistMutation *adapter,WenaCard *card)
 {
@@ -279,12 +282,27 @@ static void drag_transfers(sqlite3 *db,struct nk_context *ctx,
  list=wena_checklist_contents_find(*contents,"d");
  assert(list&&!strcmp(list->checklist.id,"inherit")&&list->item_count==4);
  assert(!strcmp(list->items[0].card_id,"d"));
- drag_to_destination(ctx,*contents,card,"Move selection",0);
- assert(drag.gesture.pending&&drag.action==WENA_CHECKLIST_MOVE_ITEM&&!strcmp(drag.target_card_id,"d"));
+ drag_to_slot(ctx,*contents,card,"Move selection",0,"Destination 1");
+ assert(drag.gesture.pending&&drag.action==WENA_CHECKLIST_MOVE_ITEM&&!strcmp(drag.target_card_id,"d")&&drag.insert_at_position&&drag.gesture.target_position==0);
  assert(wena_checklist_mutation_drag(adapter,&drag)==1);
  assert(wena_checklist_contents_load(db,"u","b",contents));
  list=wena_checklist_contents_find(*contents,"d");
- assert(list->item_count==5&&!strcmp(list->items[4].id,"done")&&list->items[4].is_finished);
+ assert(list->item_count==5&&!strcmp(list->items[0].id,"done")&&list->items[0].is_finished);
+ /* Hidden destination siblings still participate in exact insertion ordinals. */
+ sql(db,"UPDATE checklists SET position=7,version=version+1 WHERE id='inherit';"
+  "INSERT INTO checklists(id,board_id,card_id,title,position,show_on_minicard) VALUES('targethidden','b','d','Hidden destination',0,0);"
+  "UPDATE cards SET version=version+1 WHERE id='d'");
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ statements=0;assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
+ drag_to_slot(ctx,*contents,card,"Move Checklist",0,"Destination 2");
+ assert(drag.gesture.pending&&drag.action==WENA_CHECKLIST_MOVE&&drag.insert_at_position&&drag.gesture.target_position==1&&!statements);
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
+ assert(wena_checklist_mutation_drag(adapter,&drag)==1&&!wena_checklist_mutation_drag(adapter,&drag));
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"d");
+ assert(!strcmp(list->checklist.id,"targethidden")&&list->checklist.position==0);
+ list=list->next;assert(!strcmp(list->checklist.id,"shown")&&list->checklist.position==1);
+ list=list->next;assert(!strcmp(list->checklist.id,"inherit")&&list->checklist.position==2);
  extra_card=NULL;active_drag=NULL;
 }
 int main(int argc,char **argv)
