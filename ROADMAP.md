@@ -821,7 +821,7 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
-        - [_] Port list work-in-progress limits using shared rules.
+        - [x] Port list work-in-progress limits using shared rules.
           - [x] Add pure C89 hard/soft limit decisions and editor transitions.
             Distinguish reached/exceeded, allow non-increasing moves, reject
             arithmetic overflow and preserve failed outputs. Match WeKan's
@@ -857,8 +857,12 @@ Architecture decisions for this cycle:
             numeric drafts and explicit saves; Enter never commits a number.
             Verify real input, toggles/count adjustment, invalid and below-count
             values, cancellation, rollback/retry, stale revisions and reopening.
-          - [_] Show list limit status/warnings and creation availability in
+          - [x] Show list limit status/warnings and creation availability in
             native headers using the shared rules and unfiltered cached counts.
+            Share colored headings for reached/exceeded counts; hard limits
+            prevent Add card while keeping List menu available. Real mouse and
+            draw-command tests cover other lanes, filters, archives, foreign
+            cards, soft/disabled limits and malformed state without SQL reads.
       - [x] Extract the label palette/custom-hex input into one reusable native
         color form. Share bounded draft validation, named/default colors,
         overflow rejection and preview rendering; keep persistence in callers.

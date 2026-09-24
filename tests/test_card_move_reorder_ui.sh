@@ -18,7 +18,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \
-  "$root_dir/client/components/lists/list_header.c" "$root_dir/tests/fakes/color_heading.c" \
+  "$root_dir/client/components/lists/list_header.c" "$root_dir/models/wip_limit.c" "$root_dir/tests/fakes/color_heading.c" \
   "$root_dir/client/components/cards/card_body.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \

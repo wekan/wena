@@ -10,7 +10,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/client/components/boards/board_layout.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \
-  "$root_dir/client/components/lists/list_header.c" "$root_dir/client/components/common/color_heading.c" \
+  "$root_dir/client/components/lists/list_header.c" "$root_dir/models/wip_limit.c" "$root_dir/client/components/common/color_heading.c" \
   "$root_dir/client/components/cards/card_body.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/model.c" "$root_dir/models/board.c" \

@@ -3,8 +3,8 @@
 `models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
 limits and future lane/group limits. It has no database or UI dependencies.
 Guarded setting writes, snapshot loading and card mutation enforcement are
-implemented. The native limit editor is connected; header warnings and creation
-availability remain open roadmap steps.
+implemented, together with the native editor, header warnings and Add card
+availability. Combined list-group and swimlane limits are separate future work.
 
 Schema v12 adds `list_wip_limits`, with one row per list and an exact board/list
 foreign key. Missing rows will use defaults; stored rows default to value 1,
@@ -85,6 +85,16 @@ Cancel/Escape discard the numeric draft; failed writes keep it and its captured
 revision. Real Nuklear/SQLite tests exercise these controls, automatic count
 adjustment, invalid/over-limit values, late rollback/retry, stale revisions,
 failed loads and persisted settings after reopening.
+
+List headers count cached active cards across every swimlane before applying
+the presentation filter; archived and foreign-board cards are excluded. Enabled
+limits display count/limit through the shared colored-heading component, using
+orange at the limit and red above it with its existing contrast calculation.
+The same pure rule decides Add card availability. A full hard limit replaces
+the Add card button with a non-interactive label while retaining List menu;
+soft or disabled limits keep creation available. Malformed settings fail closed.
+Rendering performs no database reads. Real mouse/draw-command tests cover these
+states and changing cached archive flags, including fully filtered boards.
 
 The port follows the original WeKan source:
 

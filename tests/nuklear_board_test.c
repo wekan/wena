@@ -4,6 +4,7 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/board.h"
+#include "../client/components/lists/list_header.h"
 #include "../client/components/common/card_section.h"
 
 #include <assert.h>
@@ -250,6 +251,58 @@ static void colored_headings(void)
     }
 }
 
+static int hide_cards(void *context,const WenaCard *card)
+{(void)context;(void)card;return 0;}
+static void wip_click(struct nk_context *context,WenaBoardLayout *layout,const char *label)
+{
+ struct nk_vec2 point;int down;const struct nk_command *command;WenaListInteraction captured;
+ memset(&captured,0,sizeof(captured));
+ assert(visible_text(context,label,640,480,&point));
+ for(down=1;down>=0;--down){nk_clear(context);nk_input_begin(context);
+  nk_input_motion(context,(int)point.x,(int)point.y);nk_input_button(context,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(context);
+  assert(wena_board_feature_render(context,layout,640,480));
+  if(layout->list_interaction->actions)captured=*layout->list_interaction;
+  nk_foreach(command,context){(void)command;}
+ }
+ *layout->list_interaction=captured;
+}
+static void wip_headers(void)
+{
+ struct nk_context context;struct nk_user_font font;WenaBoard board;WenaSwimlane lanes[2];WenaList list;
+ WenaCard cards[4];WenaBoardLayout layout;WenaListInteraction interaction;const struct nk_command *command;
+ unsigned char orange[3],red[3];int found;
+ memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&context,&font));
+ assert(wena_board_init(&board,"b","Board",0));
+ assert(wena_swimlane_init(&lanes[0],"s","b","First",0,0));assert(wena_swimlane_init(&lanes[1],"t","b","Second",1,0));
+ assert(wena_list_init(&list,"l","b","","List",0,0));list.wip_limit.enabled=1;list.wip_limit.value=2;
+ assert(wena_card_init(&cards[0],"a","b","s","l","Visible",0,0));
+ assert(wena_card_init(&cards[1],"b","b","t","l","Other lane",0,0));
+ assert(wena_card_init(&cards[2],"c","b","s","l","Archived",1,1));
+ assert(wena_card_init(&cards[3],"d","other","s","l","Foreign",2,0));
+ memset(&layout,0,sizeof(layout));memset(&interaction,0,sizeof(interaction));layout.board=&board;layout.lists=&list;layout.list_count=1;
+ layout.swimlanes=lanes;layout.swimlane_count=2;layout.cards=cards;layout.card_count=4;layout.list_interaction=&interaction;
+ layout.card_visible=hide_cards;render(&context,&layout,480);
+ assert(visible_text(&context,"2 / 2",640,480,NULL));assert(!visible_text(&context,"Visible",640,480,NULL));
+ assert(wena_color_rgb("orange",orange)&&wena_color_rgb("red",red));found=0;
+ nk_foreach(command,&context)if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
+  if(text->length==5&&!memcmp(text->string,"2 / 2",5)){assert(same_rgb(text->background,orange));found=1;}}
+ assert(found);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
+ wip_click(&context,&layout,"List menu");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
+ list.wip_limit.soft=1;list.wip_limit.value=1;render(&context,&layout,480);
+ assert(visible_text(&context,"2 / 1",640,480,NULL));found=0;
+ nk_foreach(command,&context)if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
+  if(text->length==5&&!memcmp(text->string,"2 / 1",5)){assert(same_rgb(text->background,red));found=1;}}
+ assert(found);wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD&&!strcmp(interaction.list_id,"l"));
+ list.wip_limit.soft=0;render(&context,&layout,480);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
+ list.wip_limit.enabled=0;render(&context,&layout,480);assert(!visible_text(&context,"2 / 1",640,480,NULL));
+ wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
+ list.wip_limit.enabled=1;list.wip_limit.value=2;cards[1].archived=1;render(&context,&layout,480);
+ assert(visible_text(&context,"1 / 2",640,480,NULL));wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
+ list.wip_limit.value=0;render(&context,&layout,480);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
+ wip_click(&context,&layout,"List menu");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
+ nk_free(&context);
+}
+
 int main(void)
 {
     struct nk_context context;
@@ -269,6 +322,7 @@ int main(void)
     struct nk_vec2 second;
 
     colored_headings();
+    wip_headers();
     memset(&font, 0, sizeof(font));
     font.height = 14.0f;
     font.width = text_width;

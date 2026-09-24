@@ -206,10 +206,10 @@ int main(void)
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(list_interaction.actions == WENA_LIST_HEADER_NO_ACTION);
     assert(list_interaction.list_id[0] == '\0');
-    assert(wena_list_header_render(NULL, &lists[0]) ==
+    assert(wena_list_header_render(NULL, &lists[0], 0) ==
            WENA_LIST_HEADER_NO_ACTION);
     lists[0].archived = 1;
-    assert(wena_list_header_render(&context, &lists[0]) ==
+    assert(wena_list_header_render(&context, &lists[0], 0) ==
            WENA_LIST_HEADER_NO_ACTION);
     lists[0].archived = 0;
     layout.list_interaction = NULL;

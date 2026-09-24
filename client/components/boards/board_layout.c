@@ -267,6 +267,7 @@ static void wena_render_lists(struct nk_context *context,
     size_t index;
     size_t visible_count;
     unsigned int list_action;
+    size_t card_index,active_count;
 
     visible_count = 0;
     for (index = 0; index < layout->list_count; ++index) {
@@ -293,7 +294,13 @@ static void wena_render_lists(struct nk_context *context,
         nk_layout_row_push(context, 260.0f);
         if (wena_model_group_begin(context, "list/", layout->board->id,
                                     swimlane->id, list->id)) {
-            list_action = wena_list_header_render(context, list);
+            active_count=0;
+            for(card_index=0;card_index<layout->card_count;++card_index){
+                const WenaCard *card=&layout->cards[card_index];
+                if(!card->archived&&wena_same_id(card->board_id,layout->board->id)&&
+                    wena_same_id(card->list_id,list->id))++active_count;
+            }
+            list_action = wena_list_header_render(context, list, active_count);
             if (layout->list_drag_handle) layout->list_drag_handle(context,
                 layout->hierarchy_drag_context,list,index);
             if (layout->list_interaction != NULL &&
