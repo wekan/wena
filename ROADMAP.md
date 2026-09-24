@@ -897,9 +897,16 @@ Architecture decisions for this cycle:
                   preserve outputs on failure and support in-place use. Exhaustive
                   small-set and full 2048-person tests cover both action states,
                   inactive/absent members, transfer filtering and aliasing.
-                - [_] Add versioned board-member and card-person storage with
-                  guarded single/bulk operations, consistent captures, migration
-                  verification and cross-board member filtering in the transaction.
+                - [x] Add immutable schema-v14 board-member and card-person
+                  tables. Keep versioned roster eligibility separate from ordered
+                  member/assignee sets; enforce actor/card foreign keys, unique
+                  assignments/positions, strict IDs and typed values. Do not grant
+                  membership during upgrade or cascade away assignments when a
+                  member departs. Reuse the all-prefix migration test harness;
+                  verify upgrades from v1-v13, defaults, malformed rows, all table
+                  and index definitions, seven rollback boundaries and reopening.
+                - [_] Add guarded single/bulk assignment operations, consistent
+                  captures and cross-board member filtering in the transaction.
                 - [_] Connect shared paginated person controls to card details and
                   multi-selection, showing mixed assignment and publishing caches
                   only after successful commit. Verify real input and rollback.

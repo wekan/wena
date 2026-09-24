@@ -229,6 +229,7 @@ TEST_SUITES = (
     ('card-sections', 'test_card_sections.sh', 'Reusable actor/card section preferences and schema-v8 upgrade'),
     ('sqlite-schema-v11', 'test_sqlite_schema_v11.sh', 'Immutable hierarchy colors migration, all-prefix upgrades and failure rollback'),
     ('sqlite-schema-v12', 'test_sqlite_schema_v12.sh', 'Immutable list WIP migration, all-prefix upgrades and failure rollback'),
+    ('sqlite-schema-v14', 'test_sqlite_schema_v14.sh', 'Board membership and card people constraints, all-prefix upgrades and atomic rollback'),
     ('sqlite-schema-v13', 'test_sqlite_schema_v13.sh', 'Immutable swimlane/card archive metadata, all-prefix upgrades and rollback'),
     ('sqlite-schema-v10', 'test_sqlite_schema_v10.sh', 'List archive state upgrades, constraints and transaction rollback'),
     ('sqlite-schema-v9', 'test_sqlite_schema_v9.sh', 'Card collapse preferences upgrade and rollback'),

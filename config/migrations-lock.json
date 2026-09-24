@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "schema_version": 13,
+  "schema_version": 14,
   "migrations": [
     {
       "version": 1,
@@ -105,6 +105,14 @@
       "size": 1362,
       "bundle_sha256": "d37445208ea3a74827e47156c1281a0454446d0b8dd4b1736c12a764dd8a318f",
       "bundle_size": 14229
+    },
+    {
+      "version": 14,
+      "path": "server/migrations/014_card_people.sql",
+      "sha256": "71dcf202e3b4bbf3feded7e218ad577b42c7956e90758728db0d87f040bca91e",
+      "size": 2296,
+      "bundle_sha256": "a97e26eaea900c3d6860562fb9f439a555884f4d7e1610e179dcbcf6690f61e3",
+      "bundle_size": 16525
     }
   ]
 }

@@ -217,6 +217,32 @@ static const char migration_v13[] =
 "  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT\n"
 ");\n"
 "CREATE INDEX card_archive_board_idx ON card_archive_state(board_id, card_id, archived_at);\n";
+static const char migration_v14[] =
+"CREATE TABLE board_members (\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0 AND board_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n"
+"  actor_id TEXT NOT NULL CHECK (typeof(actor_id) = 'text' AND length(CAST(actor_id AS BLOB)) BETWEEN 1 AND 64 AND instr(actor_id, char(0)) = 0 AND actor_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n"
+"  active INTEGER NOT NULL DEFAULT 1 CHECK (typeof(active) = 'integer' AND active IN (0, 1)),\n"
+"  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n"
+"  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n"
+"  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= created_at),\n"
+"  PRIMARY KEY (board_id, actor_id),\n"
+"  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT,\n"
+"  FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX board_members_actor_idx ON board_members(actor_id, active, board_id);\n"
+"CREATE TABLE card_people (\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0 AND board_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n"
+"  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0 AND card_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n"
+"  field TEXT NOT NULL CHECK (typeof(field) = 'text' AND field IN ('members', 'assignees') AND instr(field, char(0)) = 0),\n"
+"  actor_id TEXT NOT NULL CHECK (typeof(actor_id) = 'text' AND length(CAST(actor_id AS BLOB)) BETWEEN 1 AND 64 AND instr(actor_id, char(0)) = 0 AND actor_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n"
+"  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n"
+"  PRIMARY KEY (board_id, card_id, field, actor_id),\n"
+"  UNIQUE (board_id, card_id, field, position),\n"
+"  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT,\n"
+"  FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX card_people_actor_idx ON card_people(board_id, actor_id, field, card_id);\n"
+"CREATE INDEX card_people_card_order_idx ON card_people(card_id, field, position, board_id, actor_id);\n";
 static const WenaCompiledMigration migrations[] = {
     {1, migration_v1, 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5", 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"},
     {2, migration_v2, 424u, "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83", 2673u, "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919"},
@@ -231,6 +257,7 @@ static const WenaCompiledMigration migrations[] = {
     {11, migration_v11, 1968u, "9c5a04b32f44bd3327ea08ee4ac21b6ba14c7d28aba3a77ebbf6e09f99146070", 12085u, "c9d3a3c589cd906396377433356dc52a67ac69e6fe7201d3eadb17fd4280576b"},
     {12, migration_v12, 782u, "bc63af91d0a661b9b7ff809af2080a0a28bb55ce92d505a6a7dd383d4ab93543", 12867u, "b16987da81f95a0d18d4e9d5379d56b726110567da7513c20d25cb84ff1216be"},
     {13, migration_v13, 1362u, "b44ea2149d37ceb8b5073703aa91aec4604fa1d4c170be91179abdbf3bc1b0a1", 14229u, "d37445208ea3a74827e47156c1281a0454446d0b8dd4b1736c12a764dd8a318f"},
+    {14, migration_v14, 2296u, "71dcf202e3b4bbf3feded7e218ad577b42c7956e90758728db0d87f040bca91e", 16525u, "a97e26eaea900c3d6860562fb9f439a555884f4d7e1610e179dcbcf6690f61e3"},
 };
 static const WenaSchemaObject schema_objects[] = {
     {2, "cards_board_id_unique", "index", "CREATE UNIQUE INDEX cards_board_id_unique ON cards(board_id, id)"},
@@ -258,6 +285,11 @@ static const WenaSchemaObject schema_objects[] = {
     {13, "swimlane_archive_board_idx", "index", "CREATE INDEX swimlane_archive_board_idx ON swimlane_archive_state(board_id, archived, swimlane_id)"},
     {13, "card_archive_state", "table", "CREATE TABLE card_archive_state (\n  card_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0),\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  archived_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived_at) = 'integer' AND archived_at >= 0),\n  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT\n)"},
     {13, "card_archive_board_idx", "index", "CREATE INDEX card_archive_board_idx ON card_archive_state(board_id, card_id, archived_at)"},
+    {14, "board_members", "table", "CREATE TABLE board_members (\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0 AND board_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n  actor_id TEXT NOT NULL CHECK (typeof(actor_id) = 'text' AND length(CAST(actor_id AS BLOB)) BETWEEN 1 AND 64 AND instr(actor_id, char(0)) = 0 AND actor_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n  active INTEGER NOT NULL DEFAULT 1 CHECK (typeof(active) = 'integer' AND active IN (0, 1)),\n  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n  created_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(created_at) = 'integer' AND created_at >= 0),\n  updated_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(updated_at) = 'integer' AND updated_at >= created_at),\n  PRIMARY KEY (board_id, actor_id),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT,\n  FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE RESTRICT\n)"},
+    {14, "board_members_actor_idx", "index", "CREATE INDEX board_members_actor_idx ON board_members(actor_id, active, board_id)"},
+    {14, "card_people", "table", "CREATE TABLE card_people (\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0 AND board_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0 AND card_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n  field TEXT NOT NULL CHECK (typeof(field) = 'text' AND field IN ('members', 'assignees') AND instr(field, char(0)) = 0),\n  actor_id TEXT NOT NULL CHECK (typeof(actor_id) = 'text' AND length(CAST(actor_id AS BLOB)) BETWEEN 1 AND 64 AND instr(actor_id, char(0)) = 0 AND actor_id NOT GLOB '*[^A-Za-z0-9_-]*'),\n  position INTEGER NOT NULL CHECK (typeof(position) = 'integer' AND position BETWEEN 0 AND 2147483647),\n  PRIMARY KEY (board_id, card_id, field, actor_id),\n  UNIQUE (board_id, card_id, field, position),\n  FOREIGN KEY (board_id, card_id) REFERENCES cards(board_id, id) ON DELETE RESTRICT,\n  FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE RESTRICT\n)"},
+    {14, "card_people_actor_idx", "index", "CREATE INDEX card_people_actor_idx ON card_people(board_id, actor_id, field, card_id)"},
+    {14, "card_people_card_order_idx", "index", "CREATE INDEX card_people_card_order_idx ON card_people(card_id, field, position, board_id, actor_id)"},
 };
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
