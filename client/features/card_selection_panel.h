@@ -5,6 +5,7 @@
 #include "../../models/card_move_selection.h"
 #include "../components/boards/board_layout.h"
 #include "labels/store.h"
+#include "directory_picker.h"
 #include "../components/common/paginated_table.h"
 typedef int (*WenaSelectionCapture)(void *,const char *,const WenaId *,size_t,WenaCardRevision **);
 typedef int (*WenaSelectionArchive)(void *,const char *,const WenaCardRevision *,size_t);
@@ -12,6 +13,10 @@ typedef int (*WenaSelectionLabelsLoad)(void *,const char *,const WenaId *,size_t
 typedef int (*WenaSelectionLabelsSave)(void *,const char *,const WenaLabelSelectionSnapshot *,const char *,int);
 typedef int (*WenaSelectionMoveLoad)(void *,const char *,const WenaId *,size_t,WenaCardMoveSelection **);
 typedef int (*WenaSelectionMoveSave)(void *,const WenaCardMoveSelection *,const char *,const char *,size_t);
+typedef int (*WenaSelectionTransferLoad)(void *,const char *,const WenaId *,size_t,const char *,WenaCardTransferSelection **);
+typedef int (*WenaSelectionTransferSave)(void *,const WenaCardTransferSelection *,const char *,const char *,size_t);
+/* Cached destination model pointers only; this callback must not perform I/O. */
+typedef int (*WenaSelectionTransferView)(void *,WenaBoardLayout *);
 typedef struct WenaCardSelectionPanel {
     WenaCardSelection *selection;
     WenaTableState table;
@@ -35,6 +40,12 @@ typedef struct WenaCardSelectionPanel {
     WenaSelectionMoveLoad move_load;
     WenaSelectionMoveSave move_save;
     void *move_context;
+    WenaCardTransferSelection *transfer;
+    WenaDirectoryPicker boards;
+    WenaSelectionTransferLoad transfer_load;
+    WenaSelectionTransferSave transfer_save;
+    WenaSelectionTransferView transfer_view;
+    void *transfer_context;
 } WenaCardSelectionPanel;
 /* Non-owning selection storage must outlive the panel. Opening unions the
  * scoped active cards into selection; failed opens preserve both objects. */
@@ -49,6 +60,11 @@ void wena_card_selection_panel_set_labels(WenaCardSelectionPanel *panel,
     WenaSelectionLabelsLoad load,WenaSelectionLabelsSave save,void *context);
 void wena_card_selection_panel_set_move(WenaCardSelectionPanel *panel,
     WenaSelectionMoveLoad load,WenaSelectionMoveSave save,void *context);
+int wena_card_selection_panel_set_transfer(WenaCardSelectionPanel *panel,
+    WenaSelectionTransferLoad load,WenaSelectionTransferSave save,WenaSelectionTransferView view,
+    void *context,WenaDirectoryLoad directory_load,void *directory_context);
+/* Poll pending board-directory reads outside rendering, once per frame. */
+int wena_card_selection_panel_poll(WenaCardSelectionPanel *panel);
 /* Board-aware variant enables the shared move form. Capture providers refresh
  * the layout backing storage; caller updates layout counts before the next frame. */
 int wena_card_selection_panel_render_board(struct nk_context *context,WenaCardSelectionPanel *panel,

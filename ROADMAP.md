@@ -913,7 +913,8 @@ Architecture decisions for this cycle:
                 refresh dependent revision caches. Real Nuklear/SQLite tests
                 cover paging, failed capture, Enter without writes, cancellation,
                 mixed add/remove, stale revisions, late rollback/retry and cache
-                equality. Other bulk member/move actions remain open.
+                equality. Bulk member assignment remains open; move work is
+                tracked below.
               - [x] Add a shared pure-C89 block-insertion planner over complete
                 destination order snapshots. Preserve supplied selection order,
                 remove existing destination members before insertion and retain
@@ -980,7 +981,7 @@ Architecture decisions for this cycle:
                     Reuse extracted catalogue validation in native label
                     snapshots. Test empty sets, Unicode/case, differently
                     colored matches, scope/corruption and the 128-label bound.
-                  - [_] Move card-owned metadata and remapped assignments in
+                  - [x] Move card-owned metadata and remapped assignments in
                     one guarded transaction, then connect a shared board picker
                     and publish both affected board views consistently.
                     Reuse the existing checklist transfer's transaction-scoped
@@ -1026,8 +1027,16 @@ Architecture decisions for this cycle:
                       failure. Tests cover a concurrent WAL writer, stale caches,
                       denied reads/commits, existing transactions/hooks, invalid
                       target staging, late rollback, replay and reopening.
-                    - [_] Connect the shared board picker and destination
-                      controls to native cross-board selection transfer.
+                    - [x] Connect the shared board picker and destination
+                      controls to native cross-board selection transfer. Reuse
+                      paginated directory/review tables, cached destination
+                      views and position input; keep directory I/O outside
+                      rendering. Test repeated titles across pages, explicit
+                      refresh/retry, empty targets, switching to the source
+                      board, cancellation, stale/late failures, manual insertion,
+                      exact source/target cache publication and reopening.
+                  - [_] Expose the shared cross-board workflow from the existing
+                    single-card Move editor as well as multi-selection.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

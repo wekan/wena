@@ -665,6 +665,21 @@ int wena_hierarchy_transfer_init(WenaHierarchyTransfer *transfer,WenaHierarchyMu
     if(!transfer||!transfer_context_valid(&candidate))return 0;
     *transfer=candidate;return 1;
 }
+int wena_hierarchy_transfer_view(void *context,WenaBoardLayout *layout)
+{
+    WenaHierarchyTransfer *transfer;WenaSqliteBoardSnapshot *snapshot;WenaBoardLayout candidate;
+    transfer=(WenaHierarchyTransfer*)context;
+    if(!layout||!transfer_context_valid(transfer))return 0;
+    snapshot=transfer->destination;
+    if(!wena_model_identifier_valid(snapshot->board.id)||snapshot->board.archived||
+        snapshot->card_count>WENA_SQLITE_BOARD_MAX_CARDS||snapshot->list_count>WENA_SQLITE_BOARD_MAX_LISTS||
+        snapshot->swimlane_count>WENA_SQLITE_BOARD_MAX_SWIMLANES)return 0;
+    memset(&candidate,0,sizeof(candidate));candidate.board=&snapshot->board;
+    candidate.cards=snapshot->cards;candidate.card_count=snapshot->card_count;
+    candidate.lists=snapshot->lists;candidate.list_count=snapshot->list_count;
+    candidate.swimlanes=snapshot->swimlanes;candidate.swimlane_count=snapshot->swimlane_count;
+    *layout=candidate;return 1;
+}
 static int transfer_version(sqlite3 *db,const char *board,unsigned long *output)
 {
     sqlite3_stmt *s;sqlite3_int64 version;int ok;

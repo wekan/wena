@@ -126,4 +126,6 @@ int wena_hierarchy_transfer_request(WenaHierarchyTransfer *transfer,const WenaCa
     const char *list,const char *lane,size_t before,unsigned long request);
 int wena_hierarchy_transfer_save(void *context,const WenaCardTransferSelection *selection,
     const char *list,const char *lane,size_t before);
+/* Read-only cached view for destination controls; no database access. */
+int wena_hierarchy_transfer_view(void *context,WenaBoardLayout *layout);
 #endif
