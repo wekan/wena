@@ -31,6 +31,16 @@ static int save(void *context, const char *board, unsigned long version, int ena
     if (fail_after_save) fail_load = 1;
     return 1;
 }
+static int save_all(void *context,const char *board,unsigned long version,int count,int contents,int collapse)
+{
+    unsigned long before;
+    int changed;
+    before=store.board_version;changed=collapse!=store.allow_minicard_collapse;
+    if (!save(context,board,version,count,contents)) return 0;
+    store.allow_minicard_collapse=collapse;
+    if (changed && store.board_version==before) ++store.board_version;
+    return 1;
+}
 static float width(nk_handle handle, float height, const char *text, int length)
 {
     (void)handle; (void)text;
@@ -163,6 +173,17 @@ int main(void)
     click(&context, &state, "Checklists");revision=store.board_version;
     click(&context, &state, "Save");
     assert(!state.error && !store.show_checklists && store.board_version==revision+1 && calls==4);
+    wena_board_settings_close(&state);
+    state.save_all=save_all;
+    store.allow_minicard_collapse=1;
+    assert(wena_board_settings_open(&state,"b"));key(&context,&state,NK_KEY_ENTER,0);
+    click(&context,&state,"Collapse");
+    assert(!state.allow_minicard_collapse&&store.allow_minicard_collapse&&calls==4);
+    click(&context,&state,"Cancel");assert(store.allow_minicard_collapse&&calls==4);
+    assert(wena_board_settings_open(&state,"b"));key(&context,&state,NK_KEY_ENTER,0);
+    click(&context,&state,"Collapse");revision=store.board_version;
+    click(&context,&state,"Save");
+    assert(!state.error&&!store.allow_minicard_collapse&&store.board_version==revision+1&&calls==5);
     wena_board_settings_close(&state);
     nk_free(&context);
     puts("Real Nuklear board setting drafts, explicit Save, keyboard and readonly passed");

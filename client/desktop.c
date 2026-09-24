@@ -85,6 +85,7 @@ static int desktop_card_collapsed(struct nk_context *context,
     WenaDesktopChecklistPreview *preview;
     int collapsed;
     preview = (WenaDesktopChecklistPreview *)opaque;
+    if (!preview->view->summary_valid || !preview->view->settings.allow_minicard_collapse) return 0;
     nk_layout_row_dynamic(context, 24.0f, 1);
     collapsed = wena_card_section_toggle(context, &preview->sections,
         card->board_id, card->id, "minicard");
@@ -478,6 +479,7 @@ int main(int argc, char **argv)
         smoke ? NULL : wena_board_presentation_labels_save, &label_view);
     wena_board_settings_init(&editors.board_settings, wena_board_presentation_settings_load,
         smoke ? NULL : wena_board_presentation_settings_save_display, &label_view);
+    editors.board_settings.save_all = smoke ? NULL : wena_board_presentation_settings_save_all;
     if (!smoke) {
         if (!wena_hierarchy_mutation_init(&hierarchy_mutation, database,
             actor_id, board_id, snapshot)) goto cleanup;

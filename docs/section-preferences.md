@@ -41,4 +41,7 @@ an eventual import adapter must map that field explicitly. The layout's optional
 fold callback suppresses badge and expanded-content rendering while preserving
 the card title, Open card and Card menu actions. Folding a card cancels its inline
 draft. Actor isolation, revision checks and persistence use the same adapter as
-checklist folds. The board-level option to disable this control remains pending.
+checklist folds. Schema v9 adds the canonical default-on board setting that disables this control
+and displays cards expanded, without deleting any actor's saved choices. The
+board settings panel saves this choice together with both checklist display
+flags in one guarded transaction. Older count-only/two-flag APIs preserve it.

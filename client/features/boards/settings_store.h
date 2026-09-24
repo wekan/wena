@@ -6,6 +6,7 @@ typedef struct WenaBoardSettingsSnapshot {
     unsigned long board_version;
     int show_checklist_count;
     int show_checklists;
+    int allow_minicard_collapse;
 } WenaBoardSettingsSnapshot;
 int wena_board_settings_snapshot_valid(const WenaBoardSettingsSnapshot *snapshot,
     const char *board_id);

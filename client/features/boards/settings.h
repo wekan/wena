@@ -26,4 +26,9 @@ int wena_board_settings_mutation_save_display(void *context,const char *board_id
     unsigned long version,int count,int contents);
 int wena_board_settings_mutation_save_display_request(WenaBoardSettingsMutation *adapter,
     const char *board_id,unsigned long version,int count,int contents,unsigned long request);
+/* Three explicit display choices; legacy save APIs preserve the collapse flag. */
+int wena_board_settings_mutation_save_all(void *context,const char *board_id,
+    unsigned long version,int count,int contents,int collapse);
+int wena_board_settings_mutation_save_all_request(WenaBoardSettingsMutation *adapter,
+    const char *board_id,unsigned long version,int count,int contents,int collapse,unsigned long request);
 #endif

@@ -31,9 +31,9 @@ once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
 Cross-board transfer and minicard drag/drop remain open.
 
-Latest integrated validation: 127 native suites passed, zero failed or skipped,
-plus all four localhost HTTP/runtime suites passed outside the sandbox (131 total;
-runtime rerun after schema-v8).
+Latest integrated validation: 128 native suites passed, zero failed or skipped,
+plus all four localhost HTTP/runtime suites passed outside the sandbox (132 total;
+runtime rerun after schema-v9).
 The sandbox itself denies loopback bind with EPERM; no listener implementation
 change was needed. Fixed a macOS unused-variable build error in OS entropy and a
 reference inventory scanner that wrongly excluded checkouts beneath `.tools`.
@@ -103,6 +103,13 @@ preferences with shared model, storage and collapse control. Minicards and the
 opened card share the same checklist key; preferences leave canonical card/board
 revisions unchanged. Nineteen focused suites, section/preview/presentation
 sanitizers and desktop checks pass. See `docs/section-preferences.md`.
+Whole-card collapse uses the same generic preference store and control, retaining
+titles/actions and skipping badges/expanded content while folded. Schema v9 adds
+the canonical board option to disable folding without discarding actor choices;
+the three display settings save in one guarded transaction. Legacy save APIs
+preserve the new setting. Migration v1-v8 bytes are unchanged, and a reusable
+schema test template covers v7 and v9 upgrades, constraints, rollback and reopen.
+
 Inline checklist/item renaming and single-item creation now share a general
 text form, including the existing title editors' focus/keyboard policy. Rendering
 captures exact IDs/revisions without SQL; submission uses the existing guarded
@@ -893,5 +900,7 @@ Architecture decisions for this cycle:
   - [x] Persist whole-minicard folds per actor using the shared section control
     and store; keep title/actions visible and skip badges/expanded contents.
     Verify real mouse collapse/expand, read-only behavior, actor isolation and reopen.
-  - [_] Add the board option to disable minicard collapse and complete
-    responsive/accessibility/persistence parity.
+  - [x] Add the canonical default-on board option to disable minicard collapse,
+    preserving actor choices and sharing atomic board display-setting saves.
+    Schema v9 upgrades from all earlier versions; rollback and real UI tests pass.
+  - [_] Complete responsive/accessibility/persistence parity.

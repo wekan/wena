@@ -22,6 +22,7 @@ void wena_board_settings_close(WenaBoardSettingsState *state)
     state->needs_refresh = 0;
     state->show_checklist_count = 0;
     state->show_checklists = 1;
+    state->allow_minicard_collapse = 1;
     state->board_id[0] = 0;
     memset(&state->snapshot, 0, sizeof(state->snapshot));
 }
@@ -35,6 +36,7 @@ static int reload_settings(WenaBoardSettingsState *state)
     state->snapshot = replacement;
     state->show_checklist_count = replacement.show_checklist_count;
     state->show_checklists = replacement.show_checklists;
+    state->allow_minicard_collapse = replacement.allow_minicard_collapse;
     state->needs_refresh = 0;
     state->error = 0;
     return 1;
@@ -73,13 +75,14 @@ static void boolean_field(struct nk_context *context, const char *label,
 int wena_board_settings_render(struct nk_context *context,
     WenaBoardSettingsState *state, const char *board_id, float width, float height)
 {
-    int save, cancel;
+    int save, cancel, editable, saved;
     if (!state || !state->visible) return 0;
     if (!wena_model_identifier_valid(board_id) || strcmp(state->board_id, board_id)) {
         wena_board_settings_close(state);
         return 0;
     }
     if (!context || width <= 0 || height <= 0) return 0;
+    editable = state->save != NULL || state->save_all != NULL;
     save = 0;
     cancel = 0;
     if (nk_begin_titled(context, "Board settings", wena_ui_text(WENA_UI_TEXT_SETTINGS),
@@ -95,14 +98,16 @@ int wena_board_settings_render(struct nk_context *context,
                 state->error = !reload_settings(state);
         } else {
             boolean_field(context, wena_ui_text(WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD),
-                &state->show_checklist_count, state->save != NULL);
+                &state->show_checklist_count, editable);
             nk_layout_row_dynamic(context, 28, 1);
             nk_label(context, wena_ui_text(WENA_UI_TEXT_SHOW_ON_MINICARD), NK_TEXT_LEFT);
             boolean_field(context, wena_ui_text(WENA_UI_TEXT_CHECKLISTS),
-                &state->show_checklists, state->save != NULL);
-            nk_layout_row_dynamic(context, 28, state->save ? 2 : 1);
+                &state->show_checklists, editable);
+            boolean_field(context, wena_ui_control_text(WENA_UI_COLLAPSE_LIST),
+                &state->allow_minicard_collapse, state->save_all != NULL);
+            nk_layout_row_dynamic(context, 28, editable ? 2 : 1);
             /* Enter never changes a checkbox draft or implicitly commits it. */
-            if (state->save)
+            if (editable)
                 save = nk_button_label(context, wena_ui_control_text(WENA_UI_SAVE));
             cancel = nk_button_label(context, wena_ui_control_text(WENA_UI_CANCEL));
         }
@@ -117,10 +122,17 @@ int wena_board_settings_render(struct nk_context *context,
     if (cancel) {
         wena_board_settings_close(state);
     } else if (save) {
-        if ((state->show_checklist_count != 0 && state->show_checklist_count != 1) ||
-            (state->show_checklists != 0 && state->show_checklists != 1) ||
-            !state->save || !state->save(state->context, state->board_id,
-                state->snapshot.board_version, state->show_checklist_count, state->show_checklists)) {
+        saved = 0;
+        if ((state->show_checklist_count == 0 || state->show_checklist_count == 1) &&
+            (state->show_checklists == 0 || state->show_checklists == 1) &&
+            (state->allow_minicard_collapse == 0 || state->allow_minicard_collapse == 1)) {
+            if (state->save_all) saved = state->save_all(state->context, state->board_id,
+                state->snapshot.board_version, state->show_checklist_count,
+                state->show_checklists, state->allow_minicard_collapse);
+            else if (state->save) saved = state->save(state->context, state->board_id,
+                state->snapshot.board_version, state->show_checklist_count, state->show_checklists);
+        }
+        if (!saved) {
             state->error = 1;
         } else {
             state->needs_refresh = 1;

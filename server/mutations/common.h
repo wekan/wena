@@ -6,6 +6,7 @@
  * including empty. No mode permits NUL, DEL or Unicode C1 controls. */
 int wena_mutation_text(const WenaDomainCommand *command,const char *name,
     char *out,size_t capacity,int mode);
+int wena_mutation_has_value(const WenaDomainCommand *command,const char *name);
 int wena_mutation_decimal(const char *text,int allow_zero,unsigned long maximum,
     unsigned long *result);
 void wena_mutation_identity(const WenaDomainCommand *command,

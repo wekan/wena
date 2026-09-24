@@ -93,6 +93,53 @@ static void display_settings(sqlite3 *database)
     assert(!wena_board_settings_mutation_save_display(&adapter,"display",3,1,1));
     sql(database,"UPDATE board_minicard_settings SET show_checklists=0 WHERE board_id='display';PRAGMA ignore_check_constraints=OFF");
 }
+static void collapse_settings(sqlite3 *database)
+{
+    WenaBoardSettingsMutation adapter;
+    WenaBoardSettingsSnapshot snapshot,before;
+    WenaDomainCommand command;
+    WenaRegionResponse response;
+    sqlite3_int64 keys;
+    const char *invalid[]={"2","","true","0&allowMinicardCollapse=1","%00"};
+    size_t i;
+    sql(database,"INSERT INTO boards VALUES('fold','Fold',1)");
+    assert(wena_board_settings_mutation_init(&adapter,database,"u","fold"));
+    assert(wena_board_settings_mutation_load(&adapter,"fold",&snapshot)&&snapshot.allow_minicard_collapse);
+    keys=number(database,"SELECT count(*) FROM idempotency_keys");
+    assert(wena_board_settings_mutation_save_all(&adapter,"fold",1,0,1,1));
+    assert(number(database,"SELECT count(*) FROM idempotency_keys")==keys);
+    assert(!wena_board_settings_mutation_save_all(&adapter,"fold",1,0,1,2));
+    for(i=0;i<sizeof(invalid)/sizeof(invalid[0]);++i) {
+        raw(&command,1,"0");command.operation=WENA_DOMAIN_SET_BOARD_PRESENTATION;
+        strcpy(command.route,"/b/fold/native");
+        sprintf(command.form_body+strlen(command.form_body),"&showChecklists=1&allowMinicardCollapse=%s",invalid[i]);
+        command.form_body_length=strlen(command.form_body);
+        assert(!wena_sqlite_persistence_apply(&adapter.persistence,&command,&response));
+    }
+    sql(database,"CREATE TRIGGER reject_collapse BEFORE INSERT ON board_card_collapse_settings BEGIN SELECT RAISE(ABORT,'fold'); END");
+    assert(!wena_board_settings_mutation_save_all(&adapter,"fold",1,1,0,0));
+    sql(database,"DROP TRIGGER reject_collapse");
+    assert(number(database,"SELECT version FROM boards WHERE id='fold'")==1);
+    assert(number(database,"SELECT count(*) FROM board_settings WHERE board_id='fold'")==0);
+    assert(number(database,"SELECT count(*) FROM board_minicard_settings WHERE board_id='fold'")==0);
+    assert(wena_board_settings_mutation_save_all_request(&adapter,"fold",1,1,0,0,1));
+    assert(wena_board_settings_mutation_load(&adapter,"fold",&snapshot));
+    assert(snapshot.board_version==2&&!snapshot.allow_minicard_collapse&&snapshot.show_checklist_count&&!snapshot.show_checklists);
+    assert(!wena_board_settings_mutation_save_all_request(&adapter,"fold",2,0,1,1,1));
+    assert(!wena_board_settings_mutation_save_all(&adapter,"fold",1,0,1,1));
+    assert(wena_board_settings_mutation_save_display(&adapter,"fold",2,0,1));
+    assert(wena_board_settings_mutation_load(&adapter,"fold",&snapshot));
+    assert(snapshot.board_version==3&&!snapshot.allow_minicard_collapse);
+    before=snapshot;
+    sql(database,"PRAGMA ignore_check_constraints=ON;UPDATE board_card_collapse_settings SET allow_collapse=2 WHERE board_id='fold'");
+    assert(!wena_board_settings_mutation_load(&adapter,"fold",&snapshot)&&!memcmp(&snapshot,&before,sizeof(snapshot)));
+    assert(!wena_board_settings_mutation_save_all(&adapter,"fold",3,0,1,1));
+    sql(database,"UPDATE board_card_collapse_settings SET allow_collapse=0 WHERE board_id='fold';PRAGMA ignore_check_constraints=OFF");
+    sql(database,"CREATE TRIGGER reject_collapse AFTER UPDATE ON board_card_collapse_settings BEGIN UPDATE board_settings SET show_checklist_count=1 WHERE board_id='fold'; END");
+    assert(!wena_board_settings_mutation_save_all(&adapter,"fold",3,0,1,1));
+    sql(database,"DROP TRIGGER reject_collapse");
+    assert(wena_board_settings_mutation_load(&adapter,"fold",&snapshot)&&!snapshot.allow_minicard_collapse&&snapshot.board_version==3);
+}
 int main(int argc,char **argv)
 {
     sqlite3 *database,*second;
@@ -192,6 +239,7 @@ int main(int argc,char **argv)
     assert(!wena_board_settings_mutation_load(&adapter,"b",&snapshot));assert(!memcmp(&snapshot,&before,sizeof(snapshot)));
     sql(database,"UPDATE board_settings SET show_checklist_count=1 WHERE board_id='b';PRAGMA ignore_check_constraints=OFF");
     display_settings(database);
+    collapse_settings(database);
     /* Terminal readable version never overflows into an unreadable state. */
     sprintf(query,"UPDATE boards SET version=%lu WHERE id='b'",WENA_VERSION_MUTATE_MAX);sql(database,query);
     assert(wena_board_settings_mutation_load(&adapter,"b",&snapshot));

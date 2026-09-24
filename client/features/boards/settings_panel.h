@@ -9,16 +9,21 @@ typedef int (*WenaBoardSettingsLoad)(void *context, const char *board_id,
 typedef int (*WenaBoardSettingsSave)(void *context, const char *board_id,
     unsigned long expected_board_version, int show_checklist_count, int show_checklists);
 
+typedef int (*WenaBoardSettingsSaveAll)(void *context, const char *board_id,
+    unsigned long version, int count, int contents, int collapse);
+
 typedef struct WenaBoardSettingsState {
     int visible;
     int error;
     int needs_refresh;
     int show_checklist_count;
     int show_checklists;
+    int allow_minicard_collapse;
     WenaId board_id;
     WenaBoardSettingsSnapshot snapshot;
     WenaBoardSettingsLoad load;
     WenaBoardSettingsSave save;
+    WenaBoardSettingsSaveAll save_all;
     void *context;
 } WenaBoardSettingsState;
 

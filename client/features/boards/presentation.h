@@ -48,4 +48,6 @@ int wena_board_presentation_settings_save(void *context,const char *board_id,
     unsigned long expected_board_version,int show_checklist_count);
 int wena_board_presentation_settings_save_display(void *context,const char *board_id,
     unsigned long expected_board_version,int show_checklist_count,int show_checklists);
+int wena_board_presentation_settings_save_all(void *context,const char *board_id,
+    unsigned long version,int count,int contents,int collapse);
 #endif

@@ -5,7 +5,7 @@ test_dir="${TMPDIR:-/tmp}/wena-board-settings-panel-sqlite-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 settings_schema=${WENA_BOARD_SETTINGS_SCHEMA:-$root_dir/server/migrations/006_board_settings.sql}
-cat "$settings_schema" "$root_dir/server/migrations/007_board_minicard_settings.sql" > "$test_dir/settings.sql"
+cat "$settings_schema" "$root_dir/server/migrations/007_board_minicard_settings.sql" "$root_dir/server/migrations/009_board_card_collapse.sql" > "$test_dir/settings.sql"
 settings_schema="$test_dir/settings.sql"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
   -I"$root_dir/tests/fakes" \

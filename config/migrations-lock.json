@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "schema_version": 8,
+  "schema_version": 9,
   "migrations": [
     {
       "version": 1,
@@ -65,6 +65,14 @@
       "size": 843,
       "bundle_sha256": "23278383993f7a5b1fe4d0cef413c7a8bcee31e93c18b93c1d2572fc69f5df09",
       "bundle_size": 9021
+    },
+    {
+      "version": 9,
+      "path": "server/migrations/009_board_card_collapse.sql",
+      "sha256": "e69c2dd37a03beb1c404223e212abe920fa88b9f5aad9fa561ae01ac4a4b6e7d",
+      "size": 387,
+      "bundle_sha256": "d33b785da15b151791ec33f7bd4516e3cb82b471fcf5ed943d08b59d10c9b09a",
+      "bundle_size": 9408
     }
   ]
 }

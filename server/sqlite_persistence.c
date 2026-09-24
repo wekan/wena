@@ -136,6 +136,8 @@ int wena_mutation_text(const WenaDomainCommand *command,const char *name,
     if (mode<0 || mode>2 || !command || !name || !out || !capacity) return 0;
     return value_mode(command,name,out,capacity,mode);
 }
+int wena_mutation_has_value(const WenaDomainCommand *command,const char *name)
+{ return command && name ? has_value(command,name) : 0; }
 int wena_mutation_decimal(const char *text,int allow_zero,unsigned long maximum,
     unsigned long *result)
 {

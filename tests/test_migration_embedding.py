@@ -19,7 +19,7 @@ verify_spec = importlib.util.spec_from_file_location("verify_migrations", ROOT /
 verify_module = importlib.util.module_from_spec(verify_spec)
 verify_spec.loader.exec_module(verify_module)
 lock, migration = verify_module.verify()
-assert lock["schema_version"] == 8
+assert lock["schema_version"] == 9
 assert lock["migrations"][0]["sha256"] == verify_module.V1_SHA256
 assert migration.startswith((ROOT / lock["migrations"][0]["path"]).read_bytes())
 assert len(migration) == lock["migrations"][-1]["bundle_size"]

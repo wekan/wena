@@ -153,3 +153,13 @@ int wena_board_presentation_settings_save_display(void *context,const char *boar
         &view->settings_mutation,board_id,version,count,contents)) return 0;
     view->summary_valid=0;view->summary_pending=1;return 1;
 }
+
+int wena_board_presentation_settings_save_all(void *context,const char *board_id,
+    unsigned long version,int count,int contents,int collapse)
+{
+    WenaBoardPresentation *view;
+    view=(WenaBoardPresentation *)context;
+    if (!initialized(view) || !wena_board_settings_mutation_save_all(
+        &view->settings_mutation,board_id,version,count,contents,collapse)) return 0;
+    view->summary_valid=0;view->summary_pending=1;return 1;
+}
