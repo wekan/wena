@@ -362,23 +362,10 @@ int wena_card_mutation_restore(void *context, const char *board,
         next_request(a, "restore-card"));
 }
 
-int wena_card_mutation_reorder_request(WenaCardMutation *a,
-    const char *board,const char *card,unsigned long expected,
-    unsigned long request,unsigned long target)
+static int ordered_card_source(const WenaCardMutation *a,const char *board,
+    const char *card,size_t *selected)
 {
-    WenaDomainCommand command;
-    WenaRegionResponse response;
-    WenaSha256 hash;
-    WenaCard moved;
-    WenaId list,lane;
-    char order[65];
-    WenaCardOrderSlot *slots;
-    size_t index,count,source,ordinal;
-    int valid;
-    int found;
-    if(!scoped(a,board,card)||!expected||expected > WENA_VERSION_MUTATE_MAX||
-        !request||request>=(unsigned long)LONG_MAX||!a->cards||a->card_count>WENA_CARD_ORDER_CAPACITY||
-        (a->published_card_count&&*a->published_card_count!=a->card_count))return 0;
+    size_t index,source;int found;
     source=0;found=0;
     for(index=0;index<a->card_count;++index){
         if(!wena_model_identifier_valid(a->cards[index].id)||
@@ -390,21 +377,45 @@ int wena_card_mutation_reorder_request(WenaCardMutation *a,
             source=index;found=1;
         }
     }
-    if(!found)return 0;
+    if(found)*selected=source;
+    return found;
+}
+
+static int card_order_fingerprint(const WenaCardOrderSlot *slots,size_t count,char *order)
+{
+    WenaSha256 hash;size_t index;
+    wena_sha256_init(&hash);
+    for(index=0;index<count;++index){
+        if((index&&slots[index].model_index<=slots[index-1].model_index)||
+            !wena_sqlite_card_order_add(&hash,slots[index].id,strlen(slots[index].id),
+                (unsigned long)slots[index].position))return 0;
+    }
+    wena_sha256_final_hex(&hash,order);return 1;
+}
+
+int wena_card_mutation_reorder_request(WenaCardMutation *a,
+    const char *board,const char *card,unsigned long expected,
+    unsigned long request,unsigned long target)
+{
+    WenaDomainCommand command;
+    WenaRegionResponse response;
+    WenaCard moved;
+    WenaId list,lane;
+    char order[65];
+    WenaCardOrderSlot *slots;
+    size_t index,count,source,ordinal;
+    int valid;
+    if(!scoped(a,board,card)||!expected||expected > WENA_VERSION_MUTATE_MAX||
+        !request||request>=(unsigned long)LONG_MAX||!a->cards||a->card_count>WENA_CARD_ORDER_CAPACITY||
+        (a->published_card_count&&*a->published_card_count!=a->card_count))return 0;
+    if(!ordered_card_source(a,board,card,&source))return 0;
     strcpy(list,a->cards[source].list_id);strcpy(lane,a->cards[source].swimlane_id);
     slots=NULL;count=0;ordinal=0;valid=0;
     if(!wena_card_order_capture(a->cards,a->card_count,board,list,lane,&slots,&count))return 0;
-    wena_sha256_init(&hash);
-    for(index=0;index<count;++index){
-        /* Publication traverses physical cache order; reject a cache whose
-         * column traversal disagrees with the shared sorted snapshot. */
-        if((index&&slots[index].model_index<=slots[index-1].model_index)||
-            !wena_sqlite_card_order_add(&hash,slots[index].id,strlen(slots[index].id),
-                (unsigned long)slots[index].position))goto done;
-        if(slots[index].model_index==source)ordinal=index;
-    }
-    if(target>=(unsigned long)count)goto done;
-    wena_sha256_final_hex(&hash,order);
+    /* Publication traverses physical cache order; reject a cache whose
+     * column traversal disagrees with the shared sorted snapshot. */
+    if(!card_order_fingerprint(slots,count,order)||target>=(unsigned long)count)goto done;
+    for(index=0;index<count;++index)if(slots[index].model_index==source)ordinal=index;
     memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_MOVE_CARD;
     command.request_version=request;strcpy(command.user_id,a->actor_id);strcpy(command.route,a->route);
     sprintf(command.form_body,"cardId=%s&expectedVersion=%lu&targetListId=%s&targetSwimlaneId=%s&targetPosition=%lu&expectedOrder=%s",
@@ -429,4 +440,56 @@ int wena_card_mutation_reorder(void *context,const char *board,const char *card,
     if(!scoped(a,board,card))return 0;
     return wena_card_mutation_reorder_request(a,board,card,expected,
         next_request(a,"move-card"),target);
+}
+
+int wena_card_mutation_insert_request(WenaCardMutation *a,const char *board,
+    const char *card,unsigned long expected,unsigned long request,
+    const char *list,const char *lane,unsigned long target)
+{
+    WenaCardOrderSlot *source,*destination;WenaCard *candidate,moved;
+    size_t source_count,count,index,selected,at;char source_order[65],target_order[65];
+    WenaDomainCommand command;WenaRegionResponse response;int valid;
+    if(!scoped(a,board,card)||!wena_model_identifier_valid(list)||!wena_model_identifier_valid(lane)||
+        !expected||expected>WENA_VERSION_MUTATE_MAX||!request||request>=(unsigned long)LONG_MAX||
+        !a->cards||!a->card_count||a->card_count>WENA_CARD_ORDER_CAPACITY||
+        (a->published_card_count&&*a->published_card_count!=a->card_count))return 0;
+    if(!ordered_card_source(a,board,card,&selected)||
+        (!strcmp(a->cards[selected].list_id,list)&&!strcmp(a->cards[selected].swimlane_id,lane)))return 0;
+    source=NULL;destination=NULL;candidate=NULL;source_count=count=0;valid=0;
+    if(!wena_card_order_capture(a->cards,a->card_count,board,a->cards[selected].list_id,
+        a->cards[selected].swimlane_id,&source,&source_count)||
+        !wena_card_order_capture(a->cards,a->card_count,board,list,lane,&destination,&count)||
+        target>(unsigned long)count||count>=WENA_CARD_ORDER_CAPACITY||
+        !card_order_fingerprint(source,source_count,source_order)||
+        !card_order_fingerprint(destination,count,target_order))goto done;
+    candidate=(WenaCard*)malloc(a->card_count*sizeof(*candidate));if(!candidate)goto done;
+    at=0;
+    for(index=0;index<a->card_count;++index){
+        if(index==selected||(!strcmp(a->cards[index].board_id,board)&&
+            !strcmp(a->cards[index].list_id,list)&&!strcmp(a->cards[index].swimlane_id,lane)))continue;
+        candidate[at++]=a->cards[index];
+    }
+    moved=a->cards[selected];strcpy(moved.list_id,list);strcpy(moved.swimlane_id,lane);moved.sort=(double)target;
+    for(index=0;index<=count;++index){
+        if(index==(size_t)target)candidate[at++]=moved;
+        if(index<count){candidate[at]=a->cards[destination[index].model_index];
+            candidate[at].sort=(double)(index+(index>=(size_t)target?1u:0u));++at;}
+    }
+    if(at!=a->card_count)goto done;
+    memset(&command,0,sizeof(command));command.operation=WENA_DOMAIN_MOVE_CARD;command.request_version=request;
+    strcpy(command.user_id,a->actor_id);strcpy(command.route,a->route);
+    sprintf(command.form_body,"cardId=%s&expectedVersion=%lu&targetListId=%s&targetSwimlaneId=%s&sourceListId=%s&sourceSwimlaneId=%s&insertPosition=%lu&expectedSourceOrder=%s&expectedOrder=%s",
+        card,expected,list,lane,a->cards[selected].list_id,a->cards[selected].swimlane_id,target,source_order,target_order);
+    command.form_body_length=strlen(command.form_body);
+    if(!wena_sqlite_persistence_apply(&a->persistence,&command,&response))goto done;
+    memcpy(a->cards,candidate,a->card_count*sizeof(*candidate));valid=1;
+ done:
+    free(source);free(destination);free(candidate);return valid;
+}
+int wena_card_mutation_insert(void *context,const char *board,const char *card,
+    unsigned long expected,const char *list,const char *lane,unsigned long target)
+{
+    WenaCardMutation *a;a=(WenaCardMutation*)context;
+    if(!scoped(a,board,card))return 0;
+    return wena_card_mutation_insert_request(a,board,card,expected,next_request(a,"move-card"),list,lane,target);
 }

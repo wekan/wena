@@ -2,8 +2,8 @@
 
 The shared `WENA_DOMAIN_MOVE_CARD` SQLite operation accepts `insertPosition` for
 an exact ordinal in a different list or swimlane on the same board. This is the
-storage foundation for native form and drag insertion; those controls are not
-connected yet. Existing append moves and same-column `targetPosition` reorders
+storage foundation for native form and drag insertion. The native mutation
+adapter is implemented; form and drag controls are not connected yet. Existing append moves and same-column `targetPosition` reorders
 retain their contracts.
 
 The request includes the existing `cardId`, `expectedVersion`, `targetListId`
@@ -35,3 +35,11 @@ semantics and full native interaction parity remain separate roadmap work.
 columns, archived siblings, duplicate titles, capacity, malformed/stale requests,
 replay, staging/metadata rollback and unexpected trigger changes. The suite is
 strict C89 and also runs with the existing ASan/UBSan compiler wrapper.
+
+The native `wena_card_mutation_insert[_request]` adapter captures both columns
+through `models/card_order`, which also represents an empty column without an
+allocation. It prepares a complete replacement cache before SQLite begins its
+mutation: unaffected cards preserve their traversal order and destination cards
+are published together in their new ordinal order. After commit only a memcpy
+and frees remain. Failure preserves the original cache byte-for-byte. The same
+fingerprint helper now serves native same-column reordering and insertion.

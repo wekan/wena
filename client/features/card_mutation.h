@@ -70,4 +70,13 @@ int wena_card_mutation_reorder(void *context, const char *board_id,
 int wena_card_mutation_reorder_request(WenaCardMutation *adapter,
     const char *board_id, const char *card_id, unsigned long expected_version,
     unsigned long request_version, unsigned long target_position);
+/* Exact cross-column insertion, including archived destination slots. Both
+ * column snapshots must agree with SQLite. All allocation/cache preparation is
+ * completed before commit; failure preserves the caller's entire cache. */
+int wena_card_mutation_insert(void *context,const char *board_id,const char *card_id,
+    unsigned long expected_version,const char *target_list_id,
+    const char *target_swimlane_id,unsigned long target_position);
+int wena_card_mutation_insert_request(WenaCardMutation *adapter,const char *board_id,
+    const char *card_id,unsigned long expected_version,unsigned long request_version,
+    const char *target_list_id,const char *target_swimlane_id,unsigned long target_position);
 #endif

@@ -29,11 +29,16 @@ int main(void)
     assert(!wena_card_order_capture(cards,4,"b","l","s",&slots,&count)&&slots==before);
     strcpy(cards[0].id,"later");
     assert(!wena_card_order_capture(cards,2049,"b","l","s",&slots,&count));
-    assert(!wena_card_order_capture(cards,4,"b","missing","s",&slots,&count));
     assert(!wena_card_order_current(slots,count,cards,2,"b","l","s"));
     assert(!wena_card_order_current(slots,count,cards,4,"foreign","l","s"));
     assert(wena_card_order_capture(cards,4,"b","other","s",&slots,&count));
     assert(count==1&&!strcmp(slots[0].id,"other"));
+    assert(wena_card_order_capture(cards,4,"b","missing","s",&slots,&count));
+    assert(!slots&&!count&&wena_card_order_current(slots,count,cards,4,"b","missing","s"));
+    strcpy(cards[0].list_id,"missing");
+    assert(!wena_card_order_current(slots,count,cards,4,"b","missing","s"));
+    assert(wena_card_order_capture(NULL,0,"b","l","s",&slots,&count));
+    assert(wena_card_order_current(slots,count,NULL,0,"b","l","s"));
     free(slots);
     puts("Shared card order: exact IDs, archived slots, scope, stale detection and atomic replacement passed");
     return 0;

@@ -1004,8 +1004,12 @@ Architecture decisions for this cycle:
     for same-column reordering and list/swimlane transfers. Check both captured
     order fingerprints, exact source version, archived slots, capacity and replay;
     test start/middle/end/empty targets and early/late transaction rollback.
-  - [_] Connect exact cross-column insertion to native move/drag adapters and
-    controls; complete arbitrary insertion-point movement and visual parity.
+  - [x] Add the native exact-insertion mutation adapter using the same ordered
+    column snapshots and fingerprints, including empty destinations. Prepare the
+    complete traversal cache before writing and publish only after commit. Verify
+    cache/SQLite equality at every boundary, reverse moves, replay, stale columns
+    and late rollback without changing any caller-owned model on failure.
+  - [_] Connect exact cross-column insertion to native move/drag controls; complete arbitrary insertion-point movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and

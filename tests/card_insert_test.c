@@ -1,4 +1,6 @@
 #include "../server/sqlite_persistence.h"
+#include "../server/sqlite_board.h"
+#include "../client/features/card_mutation.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +41,49 @@ static void reject(sqlite3 *db,WenaSqlitePersistence *store,WenaDomainCommand *c
     assert(number(db,"SELECT count(*) FROM cards WHERE id='c' AND list_id='l1' AND swimlane_id='s1' AND position=2 AND version=1")==1);
     assert(number(db,"SELECT position FROM cards WHERE id='a'")==8);
 }
+static void native_case(const char *migration,int lane,int empty,unsigned long target)
+{
+    WenaSqliteBoardSnapshot *cache,*before,*reload;WenaCardMutation adapter;
+    sqlite3 *db;size_t i,j;const char *list,*swimlane;
+    list=lane?"l1":"l2";swimlane=lane?"s2":"s1";
+    cache=(WenaSqliteBoardSnapshot*)malloc(sizeof(*cache));
+    before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
+    reload=(WenaSqliteBoardSnapshot*)malloc(sizeof(*reload));assert(cache&&before&&reload);
+    db=fixture(migration,lane,empty);assert(wena_sqlite_board_load(db,"b",cache));
+    assert(wena_card_mutation_init(&adapter,db,"u","b",cache->cards,cache->card_count));
+    assert(wena_card_mutation_set_create_cache(&adapter,&cache->card_count,cache->card_count));
+    memcpy(before,cache,sizeof(*cache));
+    assert(!wena_card_mutation_insert(&adapter,"b","c",1,"l1","s1",0));
+    assert(!wena_card_mutation_insert(&adapter,"b","a",1,list,swimlane,target));
+    assert(!wena_card_mutation_insert(&adapter,"b","c",99,list,swimlane,target));
+    assert(!wena_card_mutation_insert(&adapter,"wrong","c",1,list,swimlane,target));
+    assert(!wena_card_mutation_insert(&adapter,"b","c",1,list,swimlane,4));
+    assert(!memcmp(before,cache,sizeof(*cache)));
+    sql(db,"CREATE TRIGGER reject_native BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'native');END");
+    assert(!wena_card_mutation_insert_request(&adapter,"b","c",1,10,list,swimlane,target));
+    assert(!memcmp(before,cache,sizeof(*cache))&&!number(db,"SELECT count(*) FROM idempotency_keys"));
+    sql(db,"DROP TRIGGER reject_native");
+    if(!empty){
+        sql(db,"UPDATE cards SET position=12 WHERE id='d2'");
+        assert(!wena_card_mutation_insert(&adapter,"b","c",1,list,swimlane,target));
+        assert(!memcmp(before,cache,sizeof(*cache)));sql(db,"UPDATE cards SET position=11 WHERE id='d2'");
+    }
+    assert(wena_card_mutation_insert_request(&adapter,"b","c",1,10,list,swimlane,target));
+    assert(cache->card_count==before->card_count&&adapter.card_count==cache->card_count);
+    assert(wena_sqlite_board_load(db,"b",reload));
+    for(i=0;i<reload->card_count;++i){
+        for(j=0;j<cache->card_count;++j)if(!strcmp(cache->cards[j].id,reload->cards[i].id))break;
+        assert(j<cache->card_count&&!memcmp(&cache->cards[j],&reload->cards[i],sizeof(WenaCard)));
+    }
+    memcpy(before,cache,sizeof(*cache));
+    assert(!wena_card_mutation_insert_request(&adapter,"b","c",2,10,"l1","s1",0));
+    assert(!memcmp(before,cache,sizeof(*cache)));
+    /* Reuse the just-published traversal cache for a move back to its origin. */
+    assert(wena_card_mutation_insert(&adapter,"b","c",2,"l1","s1",0));
+    assert(number(db,"SELECT count(*) FROM cards WHERE id='c' AND list_id='l1' AND swimlane_id='s1' AND position=0 AND version=3")==1);
+    assert(number(db,"SELECT position FROM cards WHERE id='a'")==1);
+    sqlite3_close(db);free(cache);free(before);free(reload);
+}
 int main(int argc,char **argv)
 {
     FILE *f;long length;char *migration,*field,q[256];sqlite3 *db;WenaSqlitePersistence store;
@@ -46,6 +91,7 @@ int main(int argc,char **argv)
     assert(argc==3);(void)argv[2];f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);rewind(f);
     migration=(char*)malloc((size_t)length+1);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);migration[length]=0;fclose(f);
     for(lane=0;lane<2;++lane)for(empty=0;empty<2;++empty)for(target=0;target<(empty?1:4);++target){
+        native_case(migration,lane,empty,(unsigned long)target);
         db=fixture(migration,lane,empty);wena_sqlite_persistence_init(&store,db);command(db,&c,lane,(unsigned long)target);
         assert(wena_sqlite_persistence_apply(&store,&c,&r));assert(store.moved_card_position==target);
         assert(number(db,"SELECT version FROM cards WHERE id='c'")==2);
