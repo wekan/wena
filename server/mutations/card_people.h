@@ -22,4 +22,9 @@ int wena_sqlite_selected_people_change(sqlite3 *db,const WenaDomainCommand *comm
 int wena_sqlite_card_person_set(sqlite3 *db,const WenaMemberRoster *roster,
     const WenaCardPeopleSnapshot *expected,int field,const char *actor,int enabled,
     WenaCardPeopleSnapshot *output);
+/* Caller-owned cross-board transaction: filter members by active target
+ * membership, preserve assignees and original positions. Move only child scopes;
+ * caller subsequently moves the parent and advances card/board revisions before
+ * commit, or rolls everything back. FK enforcement is deferred, never disabled. */
+int wena_sqlite_card_people_reboard(sqlite3 *db,const char *board,const char *card,const char *target);
 #endif

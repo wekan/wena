@@ -22,6 +22,52 @@ static void rejects(sqlite3 *db,const char *setup,int field,const char *actor,in
  sql(db,"BEGIN");capture(db,r,c);assert(!memcmp(c,before,sizeof(*c))&&!memcmp(r,before_r,sizeof(*r)));sql(db,"COMMIT");
  free(before);free(before_r);
 }
+static void reboard_cases(sqlite3 *db,WenaCardPeopleSnapshot *before,WenaCardPeopleSnapshot *after)
+{
+ size_t i;int changes;char query[512];
+ const char *triggers[]={
+  "CREATE TRIGGER fail_reboard BEFORE DELETE ON card_people BEGIN SELECT RAISE(IGNORE);END",
+  "CREATE TRIGGER fail_reboard BEFORE UPDATE OF board_id ON card_people BEGIN SELECT RAISE(IGNORE);END",
+  "CREATE TRIGGER fail_reboard AFTER UPDATE OF board_id ON card_people BEGIN UPDATE cards SET title='Changed' WHERE id='c';END",
+  "CREATE TRIGGER fail_reboard AFTER DELETE ON card_people BEGIN UPDATE board_members SET active=0 WHERE board_id='other' AND actor_id='a';END"
+ };
+ sql(db,"INSERT INTO lists VALUES('ol','other','Other list',0,1);INSERT INTO swimlanes VALUES('os','other','Other lane',0,1);"
+  "INSERT INTO board_members(board_id,actor_id,active) VALUES('other','a',1),('other','z',0)");
+ assert(!wena_sqlite_card_people_reboard(db,"b","c","other"));
+ sql(db,"BEGIN");assert(wena_sqlite_card_people_read(db,"b","c",before));
+ assert(!wena_sqlite_card_people_reboard(db,"b","c","b"));
+ assert(!wena_sqlite_card_people_reboard(db,"b","c","missing"));
+ assert(wena_sqlite_card_people_reboard(db,"b","c","other"));
+ assert(!wena_sqlite_card_people_read(db,"b","c",after));
+ assert(wena_sqlite_card_people_read_staged(db,"b","c","other",after));
+ assert(after->card_version==before->card_version&&after->fields[0].count==1&&after->positions[0][0]==6);
+ assert(!strcmp(after->fields[0].ids[0],"a")&&after->fields[1].count==2&&after->positions[1][0]==9&&after->positions[1][1]==10);
+ assert(sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)!=SQLITE_OK&&!sqlite3_get_autocommit(db));sql(db,"ROLLBACK");
+ for(i=0;i<sizeof(triggers)/sizeof(triggers[0]);++i){
+  sql(db,"BEGIN");sql(db,triggers[i]);assert(!wena_sqlite_card_people_reboard(db,"b","c","other"));sql(db,"ROLLBACK");
+  sql(db,"BEGIN");assert(wena_sqlite_card_people_read(db,"b","c",after)&&!memcmp(before,after,sizeof(*before)));sql(db,"COMMIT");
+ }
+ sql(db,"BEGIN");assert(wena_sqlite_card_people_reboard(db,"b","c","other"));
+ sql(db,"UPDATE cards SET board_id='other',list_id='ol',swimlane_id='os',version=version+1 WHERE id='c';COMMIT");
+ sql(db,"BEGIN");assert(wena_sqlite_card_people_read(db,"other","c",after)&&after->card_version==11&&after->fields[0].count==1&&after->fields[1].count==2);sql(db,"COMMIT");
+ sql(db,"BEGIN;INSERT INTO cards VALUES('empty','b','s','l','Empty',1,0,1)");
+ assert(wena_sqlite_card_people_reboard(db,"b","empty","other"));
+ sql(db,"UPDATE cards SET board_id='other',list_id='ol',swimlane_id='os' WHERE id='empty'");
+ assert(wena_sqlite_card_people_read(db,"other","empty",after)&&!after->fields[0].count&&!after->fields[1].count);sql(db,"ROLLBACK");
+ /* Both full person fields survive; target roster overflow fails before writes. */
+ sql(db,"BEGIN;DELETE FROM board_members WHERE board_id='other';INSERT INTO cards VALUES('full','b','s','l','Full',1,0,1)");
+ for(i=0;i<2048;++i){
+  sprintf(query,"INSERT INTO actors VALUES('q%04lu','Person',1);INSERT INTO board_members(board_id,actor_id) VALUES('other','q%04lu')",(unsigned long)i,(unsigned long)i);sql(db,query);
+  sprintf(query,"INSERT INTO card_people VALUES('b','full','members','q%04lu',%lu),('b','full','assignees','q%04lu',%lu)",(unsigned long)i,(unsigned long)i,(unsigned long)i,(unsigned long)i);sql(db,query);
+ }
+ sql(db,"INSERT INTO board_members(board_id,actor_id) VALUES('other','a')");changes=sqlite3_total_changes(db);
+ assert(!wena_sqlite_card_people_reboard(db,"b","full","other")&&sqlite3_total_changes(db)==changes);
+ sql(db,"DELETE FROM board_members WHERE board_id='other' AND actor_id='a'");
+ assert(wena_sqlite_card_people_reboard(db,"b","full","other"));
+ sql(db,"UPDATE cards SET board_id='other',list_id='ol',swimlane_id='os' WHERE id='full'");
+ assert(wena_sqlite_card_people_read(db,"other","full",after)&&after->fields[0].count==2048&&after->fields[1].count==2048&&after->positions[1][2047]==2047);
+ sql(db,"ROLLBACK");assert(wena_sqlite_integrity(db));
+}
 int main(int argc,char **argv)
 {
  FILE *file;long length;unsigned char *bundle;char hash[65],query[512];sqlite3 *db;
@@ -99,6 +145,9 @@ int main(int argc,char **argv)
  assert(wena_sqlite_open(argv[2],bundle,(size_t)length,hash,&db));sql(db,"BEGIN");capture(db,r,c);
  assert(c->card_version==10&&c->board_version==3&&c->fields[0].count==2&&c->fields[1].count==2);
  assert(c->positions[0][0]==5&&c->positions[0][1]==6&&c->positions[1][0]==9&&c->positions[1][1]==10);
+ sql(db,"COMMIT");reboard_cases(db,before,out);assert(sqlite3_close(db)==SQLITE_OK);
+ assert(wena_sqlite_open(argv[2],bundle,(size_t)length,hash,&db));sql(db,"BEGIN");
+ assert(wena_sqlite_card_people_read(db,"other","c",out)&&out->fields[0].count==1&&out->fields[1].count==2);
  sql(db,"COMMIT");assert(sqlite3_close(db)==SQLITE_OK);
  free(bundle);free(r);free(c);free(out);free(before);
  puts("Shared person writes, exact guards, stable order, no-ops and rollback passed");return 0;

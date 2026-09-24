@@ -935,8 +935,17 @@ Architecture decisions for this cycle:
                   without writes, cross-card alterations, late/staging/commit
                   rollback, replay, no-ops, one-card spans, full capacity and reopen;
                   HTTP dispatch keeps the typed operation private to native code.
-                - [_] Add consistent native person captures, roster management
-                  and transactional cross-board member filtering.
+                - [x] Integrate person assignments into the guarded cross-board
+                  transfer. Reuse strict snapshot reads and the shared member
+                  filter; retain members active on the destination board and
+                  preserve assignees and original positions. Stage child scopes
+                  with deferred foreign keys, verify unchanged card metadata and
+                  both rosters, and include person/actor data in whole-batch
+                  fingerprints. Test absent/inactive destination members, ignored
+                  writes, cross-card/roster alterations, rollback, empty/full
+                  person sets, roster overflow, parent-before-commit enforcement
+                  and reopening through native transfer adapters.
+                - [_] Add consistent native person captures and roster management.
                 - [_] Connect shared paginated person controls to card details and
                   multi-selection, showing mixed assignment and publishing caches
                   only after successful commit. Verify real input and rollback.

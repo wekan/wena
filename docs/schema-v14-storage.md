@@ -58,7 +58,15 @@ fields, ordering, card metadata and every selected no-op card. Fingerprints use
 length-framed strings and fixed-width numbers, not native structure bytes. The
 HTTP dispatcher does not expose this typed native operation.
 
-Roster management, transactional transfer filtering, native capture adapters and
-paginated person controls remain pending in `ROADMAP.md`. No native UI exposes
+Cross-board transfer now reuses the member filter and strict snapshot reader.
+Members survive only when active on the destination board; assignees retain their
+IDs, and both fields retain original order positions. Child scopes move under
+transaction-local deferred foreign keys before the parent card moves. A staged
+reader verifies the destination assignment scopes against the still-original
+parent metadata. The transfer verifies both rosters and person/actor fingerprints
+across the entire batch before commit; any failure rolls everything back.
+
+Roster management, native capture adapters and paginated person controls remain
+pending in `ROADMAP.md`. No native UI exposes
 assignment writes yet. As with the existing native domain adapter, the caller is
 responsible for authentication and board authorization before invoking it.

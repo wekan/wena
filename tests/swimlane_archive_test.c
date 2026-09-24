@@ -495,6 +495,9 @@ static void transfer_original(sqlite3 *db)
  assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xs' AND version=1 AND title='Finished' AND is_finished=1")==1);
  assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='xs'")==3&&number(db,"SELECT count(*) FROM card_labels WHERE board_id='xt'")==0);
  assert(number(db,"SELECT count(*) FROM actor_card_sections WHERE card_id='xa' AND collapsed=1 AND version=1")==1);
+ assert(number(db,"SELECT count(*) FROM card_people WHERE board_id='xs'")==6);
+ assert(number(db,"SELECT count(*) FROM card_people WHERE board_id='xt'")==0);
+ assert(number(db,"SELECT count(*) FROM board_members WHERE board_id='xt' AND actor_id='keep' AND active=1")==1);
  assert(number(db,"SELECT count(*) FROM idempotency_keys WHERE operation='transfer-selected-cards'")==0);
  assert(sqlite3_get_autocommit(db)&&number(db,"PRAGMA defer_foreign_keys")==0);
 }
@@ -529,7 +532,13 @@ static void cross_board_selected(sqlite3 *db)
  "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE labels SET name='Changed' WHERE board_id='xt' AND id='d0';END",
  "CREATE TRIGGER cross_fail AFTER UPDATE OF version ON boards WHEN NEW.id='xt' BEGIN UPDATE cards SET position=99 WHERE id='xu';END",
  "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN INSERT INTO list_archive_state VALUES('xsl','xs',1,1);END",
- "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE actor_card_sections SET collapsed=0 WHERE card_id='xa';END"
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE actor_card_sections SET collapsed=0 WHERE card_id='xa';END",
+ "CREATE TRIGGER cross_fail BEFORE DELETE ON card_people BEGIN SELECT RAISE(IGNORE);END",
+ "CREATE TRIGGER cross_fail BEFORE UPDATE OF board_id ON card_people BEGIN SELECT RAISE(IGNORE);END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN DELETE FROM card_people WHERE card_id='xb';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF version ON boards WHEN NEW.id='xt' BEGIN UPDATE card_people SET position=99 WHERE card_id='xb';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE board_members SET active=0 WHERE board_id='xt' AND actor_id='keep';END",
+ "CREATE TRIGGER cross_fail AFTER UPDATE OF board_id ON cards WHEN NEW.id='xa' BEGIN UPDATE actors SET display_name='Changed' WHERE id='keep';END"
  };
  sql(db,"INSERT INTO boards VALUES('xs','Source',1),('xt','Target',1);"
  "INSERT INTO lists VALUES('xsl','xs','Source',0,1),('xtl','xt','Target',0,1);"
@@ -542,6 +551,10 @@ static void cross_board_selected(sqlite3 *db)
  "INSERT INTO checklist_items(id,board_id,card_id,checklist_id,title,position,is_finished) VALUES('xi','xs','xa','xc','Finished',9,1)");
  sql(db,"INSERT INTO labels VALUES('xs','s0','Match','red',0,1,0,0),('xs','blank','','blue',1,1,0,0),('xt','d0','Match','blue',0,1,0,0),('xt','d1','Match','green',1,1,0,0);"
  "INSERT INTO card_labels VALUES('xs','xa','s0'),('xs','xa','blank'),('xs','xb','s0')");
+ sql(db,"INSERT INTO actors VALUES('keep','Keep',1),('drop','Drop',1),('absent','Absent',1);"
+ "INSERT INTO board_members(board_id,actor_id,active) VALUES('xs','keep',1),('xs','drop',1),('xs','absent',1),('xt','keep',1),('xt','drop',0)");
+ sql(db,"INSERT INTO card_people VALUES('xs','xa','members','keep',4),('xs','xa','members','drop',8),('xs','xa','members','absent',11),"
+ "('xs','xa','assignees','drop',7),('xs','xb','members','keep',3),('xs','xb','assignees','absent',5)");
  strcpy(rows[0].id,"xb");rows[0].version=1;strcpy(rows[1].id,"xa");rows[1].version=1;
  wena_sqlite_persistence_init(&store,db);transfer_command(db,&command,rows,2,"xs","xt","xtl","xts",1,9000);
  command.selected_card_count=0;assert(!wena_sqlite_persistence_apply(&store,&command,&response));command.selected_card_count=2;
@@ -576,6 +589,12 @@ static void cross_board_selected(sqlite3 *db)
  assert(number(db,"SELECT count(*) FROM checklists WHERE board_id='xt' AND version=2 AND hide_all_items=1 AND position=7")==1);
  assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xt' AND version=2 AND is_finished=1 AND position=9")==1);
  assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='xt' AND label_id IN('d0','d1')")==4);
+ assert(number(db,"SELECT count(*) FROM card_people WHERE board_id='xt'")==4);
+ assert(number(db,"SELECT count(*) FROM card_people WHERE field='members' AND actor_id='keep' AND board_id='xt'")==2);
+ assert(number(db,"SELECT position FROM card_people WHERE card_id='xa' AND field='members'")==4);
+ assert(number(db,"SELECT position FROM card_people WHERE card_id='xb' AND field='members'")==3);
+ assert(number(db,"SELECT position FROM card_people WHERE card_id='xa' AND field='assignees' AND actor_id='drop'")==7);
+ assert(number(db,"SELECT position FROM card_people WHERE card_id='xb' AND field='assignees' AND actor_id='absent'")==5);
  assert(number(db,"SELECT count(*) FROM actor_card_sections WHERE card_id='xa' AND collapsed=1 AND version=1")==1);
  assert(number(db,"SELECT count(*) FROM boards WHERE id IN('xs','xt') AND version=2")==2);
  assert(!wena_sqlite_persistence_apply(&store,&command,&response));
@@ -723,6 +742,8 @@ int main(int argc,char **argv)
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xs'")==4&&number(db,"SELECT count(*) FROM cards WHERE board_id='xt'")==1);
  assert(number(db,"SELECT version FROM cards WHERE id='xa'")==3);
+ assert(number(db,"SELECT count(*) FROM card_people WHERE board_id='xs' AND card_id IN('xa','xb')")==4);
+ assert(number(db,"SELECT position FROM card_people WHERE card_id='xa' AND field='assignees' AND actor_id='drop'")==7);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
  assert(!list_cards(&store,"listId=l&expectedVersion=1",400));

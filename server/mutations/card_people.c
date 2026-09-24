@@ -87,3 +87,53 @@ int wena_sqlite_card_person_set(sqlite3 *db,const WenaMemberRoster *roster,
     if(ok){*output=*planned;result=changed?1:2;}
     free(current_roster);free(current);free(planned);return result;
 }
+
+static int reboard_rows(sqlite3 *db,const char *board,const char *card,const char *target,size_t count)
+{
+    sqlite3_stmt *q;int ok;
+    if(sqlite3_prepare_v2(db,"UPDATE card_people SET board_id=?3 WHERE board_id=?1 AND card_id=?2",-1,&q,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(q,1,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(q,2,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(q,3,target,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==(int)count;
+    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
+}
+int wena_sqlite_card_people_reboard(sqlite3 *db,const char *board,const char *card,const char *target)
+{
+    WenaMemberRoster *source,*destination,*roster_after;
+    WenaCardPeopleSnapshot *before,*planned,*after;size_t i,j;int ok;
+    if(!db||sqlite3_get_autocommit(db)||!wena_model_identifier_valid(board)||!wena_model_identifier_valid(card)||
+        !wena_model_identifier_valid(target)||!strcmp(board,target))return 0;
+    source=(WenaMemberRoster*)malloc(sizeof(*source));destination=(WenaMemberRoster*)malloc(sizeof(*destination));
+    roster_after=(WenaMemberRoster*)malloc(sizeof(*roster_after));before=(WenaCardPeopleSnapshot*)malloc(sizeof(*before));
+    planned=(WenaCardPeopleSnapshot*)malloc(sizeof(*planned));after=(WenaCardPeopleSnapshot*)malloc(sizeof(*after));
+    if(!source||!destination||!roster_after||!before||!planned||!after){
+        free(source);free(destination);free(roster_after);free(before);free(planned);free(after);return 0;
+    }
+    ok=wena_sqlite_member_roster_read(db,board,source)&&wena_sqlite_member_roster_read(db,target,destination)&&
+        wena_sqlite_card_people_read(db,board,card,before)&&!before->archived;
+    if(ok){
+        *planned=*before;
+        ok=wena_card_people_transfer(&before->fields[WENA_PERSON_MEMBERS],destination->members,destination->count,
+            target,&planned->fields[WENA_PERSON_MEMBERS]);
+        if(ok){
+            strcpy(planned->fields[WENA_PERSON_ASSIGNEES].board_id,target);
+            memset(planned->positions[WENA_PERSON_MEMBERS],0,sizeof(planned->positions[WENA_PERSON_MEMBERS]));
+            j=0;for(i=0;i<before->fields[WENA_PERSON_MEMBERS].count;++i)
+                if(j<planned->fields[WENA_PERSON_MEMBERS].count&&
+                    !strcmp(before->fields[WENA_PERSON_MEMBERS].ids[i],planned->fields[WENA_PERSON_MEMBERS].ids[j]))
+                    planned->positions[WENA_PERSON_MEMBERS][j++]=before->positions[WENA_PERSON_MEMBERS][i];
+            ok=j==planned->fields[WENA_PERSON_MEMBERS].count;
+        }
+    }
+    if(ok)ok=sqlite3_exec(db,"PRAGMA defer_foreign_keys=ON",NULL,NULL,NULL)==SQLITE_OK;
+    j=0;
+    for(i=0;ok&&i<before->fields[WENA_PERSON_MEMBERS].count;++i){
+        if(j<planned->fields[WENA_PERSON_MEMBERS].count&&
+            !strcmp(before->fields[WENA_PERSON_MEMBERS].ids[i],planned->fields[WENA_PERSON_MEMBERS].ids[j]))++j;
+        else ok=row_write(db,before,WENA_PERSON_MEMBERS,before->fields[WENA_PERSON_MEMBERS].ids[i],0,0);
+    }
+    if(ok)ok=reboard_rows(db,board,card,target,planned->fields[0].count+planned->fields[1].count)&&
+        wena_sqlite_card_people_read_staged(db,board,card,target,after)&&!memcmp(planned,after,sizeof(*planned))&&
+        wena_sqlite_member_roster_read(db,board,roster_after)&&!memcmp(source,roster_after,sizeof(*source))&&
+        wena_sqlite_member_roster_read(db,target,roster_after)&&!memcmp(destination,roster_after,sizeof(*destination));
+    free(source);free(destination);free(roster_after);free(before);free(planned);free(after);return ok;
+}

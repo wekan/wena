@@ -60,14 +60,14 @@ int wena_sqlite_member_roster_read(sqlite3 *db,const char *board,WenaMemberRoste
     if(ok)*output=*candidate;
     free(candidate);return ok;
 }
-int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,WenaCardPeopleSnapshot *output)
+int wena_sqlite_card_people_read_staged(sqlite3 *db,const char *board,const char *card,const char *assignment_board,WenaCardPeopleSnapshot *output)
 {
     WenaCardPeopleSnapshot *candidate;sqlite3_stmt *q;const char *scope,*actor,*field;
     size_t n;int ok,step,f;sqlite3_int64 position;unsigned long actor_version;
-    if(!db||sqlite3_get_autocommit(db)||!output||!wena_model_identifier_valid(board)||!wena_model_identifier_valid(card))return 0;
+    if(!db||sqlite3_get_autocommit(db)||!output||!wena_model_identifier_valid(board)||!wena_model_identifier_valid(card)||!wena_model_identifier_valid(assignment_board))return 0;
     candidate=(WenaCardPeopleSnapshot*)calloc(1,sizeof(*candidate));if(!candidate)return 0;
     strcpy(candidate->card_id,card);q=NULL;
-    for(f=0;f<WENA_PERSON_FIELD_COUNT;++f)(void)wena_card_people_init(&candidate->fields[f],board);
+    for(f=0;f<WENA_PERSON_FIELD_COUNT;++f)(void)wena_card_people_init(&candidate->fields[f],assignment_board);
     ok=board_version(db,board,&candidate->board_version)&&
         sqlite3_prepare_v2(db,"SELECT board_id,version,archived,list_id,swimlane_id,title,position FROM cards WHERE id=?1",-1,&q,NULL)==SQLITE_OK;
     if(ok)ok=sqlite3_bind_text(q,1,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(q)==SQLITE_ROW;
@@ -94,7 +94,7 @@ int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,
     step=SQLITE_DONE;
     while(ok&&(step=sqlite3_step(q))==SQLITE_ROW){
         scope=text(q,0,WENA_ID_CAPACITY);field=text(q,1,16);actor=text(q,2,WENA_ID_CAPACITY);
-        if(!scope||strcmp(scope,board)||!field||!wena_model_identifier_valid(actor)||
+        if(!scope||strcmp(scope,assignment_board)||!field||!wena_model_identifier_valid(actor)||
             sqlite3_column_type(q,3)!=SQLITE_INTEGER||!version(q,4,&actor_version)){ok=0;break;}
         if(!strcmp(field,"members"))f=WENA_PERSON_MEMBERS;
         else if(!strcmp(field,"assignees"))f=WENA_PERSON_ASSIGNEES;
@@ -111,3 +111,6 @@ int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,
     if(ok)*output=*candidate;
     free(candidate);return ok;
 }
+
+int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,WenaCardPeopleSnapshot *output)
+{return wena_sqlite_card_people_read_staged(db,board,card,board,output);}

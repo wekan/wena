@@ -31,4 +31,9 @@ typedef struct WenaCardPeopleSnapshot {
  * membership grants, authentication or authorization. */
 int wena_sqlite_member_roster_read(sqlite3 *db,const char *board,WenaMemberRoster *output);
 int wena_sqlite_card_people_read(sqlite3 *db,const char *board,const char *card,WenaCardPeopleSnapshot *output);
+/* Transfer-only read while deferred foreign keys allow child rows to move
+ * before their parent card. Metadata/version still describe parent_board;
+ * field scopes must exactly match assignment_board. Normal callers use read. */
+int wena_sqlite_card_people_read_staged(sqlite3 *db,const char *parent_board,
+    const char *card,const char *assignment_board,WenaCardPeopleSnapshot *output);
 #endif

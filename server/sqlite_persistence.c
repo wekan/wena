@@ -444,7 +444,7 @@ int wena_sqlite_card_board_order(sqlite3 *db,const char *board,char output[65])
     if(!output||!board_order_read(db,board,&rows,&count,candidate))return 0;
     free(rows);strcpy(output,candidate);return 1;
 }
-typedef struct WenaTransferGuard {char stable[65],checklists[65],labels[65];} WenaTransferGuard;
+typedef struct WenaTransferGuard {char stable[65],checklists[65],labels[65],people[65];} WenaTransferGuard;
 /* Typed row framing for exact before/after comparison, including NULL/empty
  * values. Queries are fixed here, never supplied by a client. */
 static int transfer_hash_rows(sqlite3 *db,const char *query,const char *board,const char *card,WenaSha256 *hash)
@@ -476,13 +476,17 @@ static int transfer_guard(sqlite3 *db,const char *board,const char *card,WenaTra
         !transfer_hash_rows(db,"SELECT * FROM checklist_items WHERE card_id=?2 ORDER BY id COLLATE BINARY",board,card,&hash))return 0;
     wena_sha256_final_hex(&hash,guard->checklists);wena_sha256_init(&hash);
     if(!transfer_hash_rows(db,"SELECT * FROM card_labels WHERE card_id=?2 ORDER BY label_id COLLATE BINARY",board,card,&hash))return 0;
-    wena_sha256_final_hex(&hash,guard->labels);return 1;
+    wena_sha256_final_hex(&hash,guard->labels);wena_sha256_init(&hash);
+    if(!transfer_hash_rows(db,"SELECT p.*,a.display_name,a.version FROM card_people p LEFT JOIN actors a ON a.id=p.actor_id WHERE p.card_id=?2 ORDER BY p.field,p.position,p.actor_id COLLATE BINARY",board,card,&hash))return 0;
+    wena_sha256_final_hex(&hash,guard->people);return 1;
 }
 static int transfer_catalogues(sqlite3 *db,const char *source,const char *target,char output[65])
 {
     WenaSha256 hash;wena_sha256_init(&hash);
     if(!transfer_hash_rows(db,"SELECT * FROM labels WHERE board_id=?1 ORDER BY id COLLATE BINARY",source,NULL,&hash)||
-        !transfer_hash_rows(db,"SELECT * FROM labels WHERE board_id=?1 ORDER BY id COLLATE BINARY",target,NULL,&hash))return 0;
+        !transfer_hash_rows(db,"SELECT * FROM labels WHERE board_id=?1 ORDER BY id COLLATE BINARY",target,NULL,&hash)||
+        !transfer_hash_rows(db,"SELECT m.*,a.display_name,a.version FROM board_members m LEFT JOIN actors a ON a.id=m.actor_id WHERE m.board_id=?1 ORDER BY m.actor_id COLLATE BINARY",source,NULL,&hash)||
+        !transfer_hash_rows(db,"SELECT m.*,a.display_name,a.version FROM board_members m LEFT JOIN actors a ON a.id=m.actor_id WHERE m.board_id=?1 ORDER BY m.actor_id COLLATE BINARY",target,NULL,&hash))return 0;
     wena_sha256_final_hex(&hash,output);return 1;
 }
 /* Single-row owned metadata: validate its scope/type, change only board_id,
@@ -561,7 +565,7 @@ static int transfer_selected_cards(sqlite3 *db,const WenaDomainCommand *c,const 
         !value(c,"expectedTargetBoardVersion",text,sizeof(text))||!decimal(text,0,WENA_VERSION_MUTATE_MAX,&target_version)||
         !scalar(db,"SELECT count(*) FROM boards WHERE id=?1 AND typeof(version)='integer' AND version=?4",board,NULL,NULL,source_version)||
         !scalar(db,"SELECT count(*) FROM boards WHERE id=?1 AND typeof(version)='integer' AND version=?4",target,NULL,NULL,target_version)||
-        wena_sqlite_optional_table(db,"card_archive_state",13)!=1||
+        wena_sqlite_optional_table(db,"card_archive_state",13)!=1||wena_sqlite_optional_table(db,"card_people",14)!=1||
         !wena_sqlite_list_active(db,target,list)||!wena_sqlite_swimlane_active(db,target,lane)||
         !value(c,"expectedBoardOrder",text,sizeof(text))||!board_order_read(db,board,&source,&source_count,hash)||strcmp(text,hash)||
         !value(c,"expectedTargetBoardOrder",text,sizeof(text))||!board_order_read(db,target,&destination,&dest_count,hash)||strcmp(text,hash)||
@@ -593,11 +597,14 @@ static int transfer_selected_cards(sqlite3 *db,const WenaDomainCommand *c,const 
     for(i=0;i<n;++i){
         if(!transfer_guard(db,board,ids[i],&actual)||memcmp(&actual,&guards[i],sizeof(actual))||
             !wena_sqlite_card_checklists_reboard(db,board,ids[i],target)||!transfer_guard(db,board,ids[i],&actual)||
-            strcmp(actual.stable,guards[i].stable)||strcmp(actual.labels,guards[i].labels))goto done;
+            strcmp(actual.stable,guards[i].stable)||strcmp(actual.labels,guards[i].labels)||strcmp(actual.people,guards[i].people))goto done;
         strcpy(guards[i].checklists,actual.checklists);
         if(!wena_sqlite_card_labels_reboard(db,board,ids[i],target)||!transfer_guard(db,board,ids[i],&actual)||
-            strcmp(actual.stable,guards[i].stable)||strcmp(actual.checklists,guards[i].checklists))goto done;
+            strcmp(actual.stable,guards[i].stable)||strcmp(actual.checklists,guards[i].checklists)||strcmp(actual.people,guards[i].people))goto done;
         strcpy(guards[i].labels,actual.labels);
+        if(!wena_sqlite_card_people_reboard(db,board,ids[i],target)||!transfer_guard(db,board,ids[i],&actual)||
+            strcmp(actual.stable,guards[i].stable)||strcmp(actual.checklists,guards[i].checklists)||strcmp(actual.labels,guards[i].labels))goto done;
+        strcpy(guards[i].people,actual.people);
         if(!transfer_owned_row(db,board,ids[i],target,0)||!transfer_owned_row(db,board,ids[i],target,1)||
             !transfer_card_row(db,board,target,ids[i],list,lane,c->selected_cards[i].version,maximum+1+(sqlite3_int64)i))goto done;
         destination[dest_count+i]=source[indices[i]];strcpy(destination[dest_count+i].list,list);strcpy(destination[dest_count+i].lane,lane);
