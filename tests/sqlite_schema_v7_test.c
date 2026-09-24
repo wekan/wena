@@ -10,12 +10,20 @@
 #define WENA_SETTING_COLUMN "show_checklists"
 #endif
 typedef struct Bundle {unsigned char *bytes;size_t length;char hash[65];} Bundle;
+#ifdef WENA_SETTING_LIST_ARCHIVE
+#define WENA_SETTING_DEFAULT 0
+#define WENA_SETTING_FAILURE_MODES 4
+#else
+#define WENA_SETTING_DEFAULT 1
+#define WENA_SETTING_FAILURE_MODES 3
+#endif
 static int failure;
 static int authorize(void *data,int action,const char *first,const char *second,
  const char *database,const char *trigger)
 {
  (void)data;(void)second;(void)database;(void)trigger;
  if((failure==1&&action==SQLITE_CREATE_TABLE&&first&&!strcmp(first,WENA_SETTING_TABLE))||
+    (failure==4&&action==SQLITE_CREATE_INDEX&&first&&!strcmp(first,"list_archive_board_idx"))||
     (failure==2&&action==SQLITE_INSERT&&first&&!strcmp(first,"schema_migrations"))||
     (failure==3&&action==SQLITE_TRANSACTION&&first&&!strcmp(first,"COMMIT")))return SQLITE_DENY;
  return SQLITE_OK;
@@ -43,18 +51,38 @@ int main(int argc,char **argv)
   sprintf(path,"%s/from-%d.sqlite",argv[WENA_SETTING_SCHEMA_VERSION+1],old);
   assert(wena_sqlite_open(path,bundles[old-1].bytes,bundles[old-1].length,bundles[old-1].hash,&db));
   sql(db,"INSERT INTO boards VALUES('b','Keep title',42)");
+#ifdef WENA_SETTING_LIST_ARCHIVE
+  sql(db,"INSERT INTO boards VALUES('other','Other',1);INSERT INTO lists VALUES('l','b','Keep list',0,7);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);INSERT INTO cards VALUES('c','b','s','l','Keep card',0,1,3)");
+#endif
   if(old>=6)sql(db,"INSERT INTO board_settings VALUES('b',1)");
   assert(sqlite3_close(db)==SQLITE_OK);
   assert(wena_sqlite_open(path,bundles[WENA_SETTING_SCHEMA_VERSION-1].bytes,bundles[WENA_SETTING_SCHEMA_VERSION-1].length,bundles[WENA_SETTING_SCHEMA_VERSION-1].hash,&db));
   assert(wena_sqlite_schema_version(db)==WENA_SETTING_SCHEMA_VERSION&&number(db,"SELECT version FROM boards WHERE id='b'")==42);
   assert(number(db,"SELECT count(*) FROM " WENA_SETTING_TABLE "")==0);
   if(old>=6)assert(number(db,"SELECT show_checklist_count FROM board_settings WHERE board_id='b'")==1);
+#ifdef WENA_SETTING_LIST_ARCHIVE
+  sql(db,"INSERT INTO list_archive_state(list_id,board_id) VALUES('l','b')");
+  assert(number(db,"SELECT archived_at FROM list_archive_state")==0);
+  assert(number(db,"SELECT version FROM lists WHERE id='l'")==7);
+  assert(number(db,"SELECT archived FROM cards WHERE id='c'")==1);
+  assert(sqlite3_exec(db,"UPDATE list_archive_state SET archived_at=-1",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE list_archive_state SET archived_at=0.5",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE list_archive_state SET archived_at='bad'",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"UPDATE list_archive_state SET board_id='other'",NULL,NULL,NULL)!=SQLITE_OK);
+  assert(sqlite3_exec(db,"DELETE FROM lists WHERE id='l'",NULL,NULL,NULL)!=SQLITE_OK);
+  sql(db,"UPDATE list_archive_state SET archived_at=123");
+#else
   sql(db,"INSERT INTO " WENA_SETTING_TABLE "(board_id) VALUES('b')");
-  assert(number(db,"SELECT " WENA_SETTING_COLUMN " FROM " WENA_SETTING_TABLE "")==1);
+#endif
+  assert(number(db,"SELECT " WENA_SETTING_COLUMN " FROM " WENA_SETTING_TABLE "")==WENA_SETTING_DEFAULT);
   assert(sqlite3_exec(db,"UPDATE " WENA_SETTING_TABLE " SET " WENA_SETTING_COLUMN "=2",NULL,NULL,NULL)!=SQLITE_OK);
   assert(sqlite3_exec(db,"UPDATE " WENA_SETTING_TABLE " SET " WENA_SETTING_COLUMN "=NULL",NULL,NULL,NULL)!=SQLITE_OK);
   assert(sqlite3_exec(db,"UPDATE " WENA_SETTING_TABLE " SET " WENA_SETTING_COLUMN "='bad'",NULL,NULL,NULL)!=SQLITE_OK);
+#ifdef WENA_SETTING_LIST_ARCHIVE
+  assert(sqlite3_exec(db,"INSERT INTO list_archive_state(list_id,board_id) VALUES('missing','b')",NULL,NULL,NULL)!=SQLITE_OK);
+#else
   assert(sqlite3_exec(db,"INSERT INTO " WENA_SETTING_TABLE " VALUES('missing',0)",NULL,NULL,NULL)!=SQLITE_OK);
+#endif
   assert(sqlite3_exec(db,"DELETE FROM boards WHERE id='b'",NULL,NULL,NULL)!=SQLITE_OK);
   sql(db,"UPDATE " WENA_SETTING_TABLE " SET " WENA_SETTING_COLUMN "=0");
   assert(wena_sqlite_integrity(db)&&sqlite3_close(db)==SQLITE_OK);
@@ -63,7 +91,7 @@ int main(int argc,char **argv)
   assert(number(db,"SELECT " WENA_SETTING_COLUMN " FROM " WENA_SETTING_TABLE "")==0);
   assert(sqlite3_close(db)==SQLITE_OK);
  }
- for(mode=1;mode<=3;++mode){
+ for(mode=1;mode<=WENA_SETTING_FAILURE_MODES;++mode){
   sprintf(path,"%s/rollback-%d.sqlite",argv[WENA_SETTING_SCHEMA_VERSION+1],mode);
   assert(wena_sqlite_open(path,bundles[WENA_SETTING_SCHEMA_VERSION-2].bytes,bundles[WENA_SETTING_SCHEMA_VERSION-2].length,bundles[WENA_SETTING_SCHEMA_VERSION-2].hash,&db));
   failure=mode;assert(sqlite3_set_authorizer(db,authorize,NULL)==SQLITE_OK);

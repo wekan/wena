@@ -167,6 +167,15 @@ static const char migration_v9[] =
 "  allow_collapse INTEGER NOT NULL DEFAULT 1 CHECK (typeof(allow_collapse) = 'integer' AND allow_collapse IN (0, 1)),\n"
 "  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n"
 ");\n";
+static const char migration_v10[] =
+"CREATE TABLE list_archive_state (\n"
+"  list_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(list_id) = 'text' AND length(CAST(list_id AS BLOB)) BETWEEN 1 AND 64 AND instr(list_id, char(0)) = 0),\n"
+"  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n"
+"  archived INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived) = 'integer' AND archived IN (0, 1)),\n"
+"  archived_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived_at) = 'integer' AND archived_at >= 0),\n"
+"  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n"
+");\n"
+"CREATE INDEX list_archive_board_idx ON list_archive_state(board_id, archived, list_id);\n";
 static const WenaCompiledMigration migrations[] = {
     {1, migration_v1, 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5", 2249u, "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5"},
     {2, migration_v2, 424u, "429503c784a355f492d4ca6e65428a5e38375ec9d04fc63d264a9ffe1cf6ad83", 2673u, "0653cc5cce0527d8ed5b4f10e184f82b0636d4aee83a5ca27914db7f8f8d7919"},
@@ -177,6 +186,7 @@ static const WenaCompiledMigration migrations[] = {
     {7, migration_v7, 385u, "e67771f1a9b59a15e3681a003db247919c26b9fef4c92a4ecf8dae5a8dd29a86", 8178u, "ea8829086b29ec811f546d128589d363fe337729506de0dedcd304a8b35e0681"},
     {8, migration_v8, 843u, "20d32a701cd08e370fd45afda40b1bf3db278feda0266f91546071b175d58cd4", 9021u, "23278383993f7a5b1fe4d0cef413c7a8bcee31e93c18b93c1d2572fc69f5df09"},
     {9, migration_v9, 387u, "e69c2dd37a03beb1c404223e212abe920fa88b9f5aad9fa561ae01ac4a4b6e7d", 9408u, "d33b785da15b151791ec33f7bd4516e3cb82b471fcf5ed943d08b59d10c9b09a"},
+    {10, migration_v10, 709u, "569f851244e439b5106cf081ad43a07fb026eed894bef133368ba7cda48bcc1d", 10117u, "36eb52ba96835f1612b8de1175acd83a03c6f92df0576161ff683455a2924373"},
 };
 static const WenaSchemaObject schema_objects[] = {
     {2, "cards_board_id_unique", "index", "CREATE UNIQUE INDEX cards_board_id_unique ON cards(board_id, id)"},
@@ -192,6 +202,8 @@ static const WenaSchemaObject schema_objects[] = {
     {7, "board_minicard_settings", "table", "CREATE TABLE board_minicard_settings (\n  board_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  show_checklists INTEGER NOT NULL DEFAULT 1 CHECK (typeof(show_checklists) = 'integer' AND show_checklists IN (0, 1)),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n)"},
     {8, "actor_card_sections", "table", "CREATE TABLE actor_card_sections (\n  actor_id TEXT NOT NULL CHECK (typeof(actor_id) = 'text' AND length(CAST(actor_id AS BLOB)) BETWEEN 1 AND 64 AND instr(actor_id, char(0)) = 0),\n  card_id TEXT NOT NULL CHECK (typeof(card_id) = 'text' AND length(CAST(card_id AS BLOB)) BETWEEN 1 AND 64 AND instr(card_id, char(0)) = 0),\n  section_key TEXT NOT NULL CHECK (typeof(section_key) = 'text' AND length(CAST(section_key AS BLOB)) BETWEEN 1 AND 128 AND instr(section_key, char(0)) = 0),\n  collapsed INTEGER NOT NULL CHECK (typeof(collapsed) = 'integer' AND collapsed IN (0, 1)),\n  version INTEGER NOT NULL DEFAULT 1 CHECK (typeof(version) = 'integer' AND version > 0),\n  PRIMARY KEY (actor_id, card_id, section_key),\n  FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE RESTRICT,\n  FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE RESTRICT\n)"},
     {9, "board_card_collapse_settings", "table", "CREATE TABLE board_card_collapse_settings (\n  board_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  allow_collapse INTEGER NOT NULL DEFAULT 1 CHECK (typeof(allow_collapse) = 'integer' AND allow_collapse IN (0, 1)),\n  FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE RESTRICT\n)"},
+    {10, "list_archive_state", "table", "CREATE TABLE list_archive_state (\n  list_id TEXT NOT NULL PRIMARY KEY CHECK (typeof(list_id) = 'text' AND length(CAST(list_id AS BLOB)) BETWEEN 1 AND 64 AND instr(list_id, char(0)) = 0),\n  board_id TEXT NOT NULL CHECK (typeof(board_id) = 'text' AND length(CAST(board_id AS BLOB)) BETWEEN 1 AND 64 AND instr(board_id, char(0)) = 0),\n  archived INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived) = 'integer' AND archived IN (0, 1)),\n  archived_at INTEGER NOT NULL DEFAULT 0 CHECK (typeof(archived_at) = 'integer' AND archived_at >= 0),\n  FOREIGN KEY (board_id, list_id) REFERENCES lists(board_id, id) ON DELETE RESTRICT\n)"},
+    {10, "list_archive_board_idx", "index", "CREATE INDEX list_archive_board_idx ON list_archive_state(board_id, archived, list_id)"},
 };
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop

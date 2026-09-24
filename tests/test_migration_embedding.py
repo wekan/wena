@@ -19,7 +19,7 @@ verify_spec = importlib.util.spec_from_file_location("verify_migrations", ROOT /
 verify_module = importlib.util.module_from_spec(verify_spec)
 verify_spec.loader.exec_module(verify_module)
 lock, migration = verify_module.verify()
-assert lock["schema_version"] == 9
+assert lock["schema_version"] == 10
 assert lock["migrations"][0]["sha256"] == verify_module.V1_SHA256
 assert migration.startswith((ROOT / lock["migrations"][0]["path"]).read_bytes())
 assert len(migration) == lock["migrations"][-1]["bundle_size"]
@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as temporary:
         for entry in lock["migrations"]:
             (stale / entry["path"]).write_bytes((ROOT / entry["path"]).read_bytes())
         (stale / verify_module.HEADER).write_bytes((ROOT / verify_module.HEADER).read_bytes())
-    for case in range(15):
+    for case in range(17):
         reset()
         altered = json.loads(json.dumps(lock))
         if case == 0:
@@ -64,6 +64,9 @@ with tempfile.TemporaryDirectory() as temporary:
         elif case == 14:
             path = stale / lock["migrations"][7]["path"]
             path.write_bytes(path.read_bytes() + b"-- stale v8\n")
+        elif case in (15, 16):
+            path = stale / lock["migrations"][case - 7]["path"]
+            path.write_bytes(path.read_bytes() + b"-- stale archive-era migration\n")
         else:
             if case == 3: altered["migrations"].reverse()
             elif case == 4: altered["migrations"].pop()

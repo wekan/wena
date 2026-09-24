@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "schema_version": 9,
+  "schema_version": 10,
   "migrations": [
     {
       "version": 1,
@@ -73,6 +73,14 @@
       "size": 387,
       "bundle_sha256": "d33b785da15b151791ec33f7bd4516e3cb82b471fcf5ed943d08b59d10c9b09a",
       "bundle_size": 9408
+    },
+    {
+      "version": 10,
+      "path": "server/migrations/010_list_archive_state.sql",
+      "sha256": "569f851244e439b5106cf081ad43a07fb026eed894bef133368ba7cda48bcc1d",
+      "size": 709,
+      "bundle_sha256": "36eb52ba96835f1612b8de1175acd83a03c6f92df0576161ff683455a2924373",
+      "bundle_size": 10117
     }
   ]
 }

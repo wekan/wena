@@ -787,6 +787,14 @@ Architecture decisions for this cycle:
         board actions focused, and open card actions through the details canvas.
         Use full-width wrapped card/list titles and separate action rows. Real
         Nuklear tests verify text/scissor visibility at the desktop's 14px font.
+      - [x] Add immutable additive schema-v10 ordinary-list archive metadata,
+        with exact board/list scope, boolean state, archive time and a board/state
+        index. Reuse migration regression scenarios for every v1-v9 upgrade,
+        preserved cards/versions, constraints, failed DDL/index/commit rollback,
+        downgrade rejection and reopening.
+      - [_] Wire ordinary-list archive/restore through guarded adapters and the
+        native menu/archive browser. Ordinary lists preserve card archive flags;
+        template-list cascades remain separate until template models are ported.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
