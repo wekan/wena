@@ -953,8 +953,7 @@ Architecture decisions for this cycle:
                 of invalid destinations, without model writes or automatic
                 retargeting. Standalone real Nuklear tests verify lane changes,
                 scoped and board-wide lists, exclusions and explicit repair.
-              - [_] Connect bulk moves to the shared destination UI and complete
-                remaining cross-board movement.
+              - [_] Complete native bulk movement.
                 - [x] Refresh the displayed board and peer card count from the
                   same read transaction as bulk-move revisions and ordering.
                   Reuse the shared board reader so destination ordinals cannot
@@ -962,6 +961,17 @@ Architecture decisions for this cycle:
                   commit. Test stale caches, a concurrent WAL writer, malformed
                   display metadata and denied read commit; preserve all prior
                   outputs on failure.
+                - [x] Connect same-board bulk moves to the shared selection
+                  panel, paginated review table, list/swimlane selectors and
+                  position input. Capture once, retain exact selection order,
+                  support append/manual insertion and require explicit Save.
+                  Cancel/Escape/hide free capture data while retaining IDs;
+                  success publishes the complete board and exits selection.
+                  Real Nuklear/SQLite tests cover multi-list selections, paging,
+                  read-only review, empty destinations, same-column append,
+                  archived siblings, numeric position input, stale selection or
+                  ordering, failed capture, late rollback, retry and reopening.
+                - [_] Complete cross-board card movement.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

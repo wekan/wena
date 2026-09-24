@@ -322,6 +322,112 @@ static void selection_click(struct nk_context *ctx,WenaCardSelectionPanel *panel
   if(panel->visible)assert(wena_card_selection_panel_render(ctx,panel,snapshot->cards,snapshot->card_count,"board",640,480));
  }
 }
+static void move_ui_render(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot)
+{
+    WenaBoardLayout layout;const struct nk_command *command;
+    memset(&layout,0,sizeof(layout));layout.board=&snapshot->board;
+    layout.cards=snapshot->cards;layout.card_count=snapshot->card_count;
+    layout.lists=snapshot->lists;layout.list_count=snapshot->list_count;
+    layout.swimlanes=snapshot->swimlanes;layout.swimlane_count=snapshot->swimlane_count;
+    if(panel->visible)assert(wena_card_selection_panel_render_board(ctx,panel,&layout,640,480));
+    nk_foreach(command,ctx){(void)command;}
+}
+static void move_ui_frame(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot)
+{nk_clear(ctx);nk_input_begin(ctx);nk_input_end(ctx);move_ui_render(ctx,panel,snapshot);}
+static void move_ui_click_at(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot,struct nk_vec2 point)
+{
+    int down;
+    for(down=1;down>=0;--down){nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
+        nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);move_ui_render(ctx,panel,snapshot);}
+}
+static void move_ui_click(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot,const char *label)
+{move_ui_click_at(ctx,panel,snapshot,label_center(ctx,label));}
+static void move_ui_increment(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot)
+{
+    const struct nk_command *command;struct nk_vec2 point;point=nk_vec2(0,0);
+    nk_foreach(command,ctx)if(command->type==NK_COMMAND_TRIANGLE_FILLED){
+        const struct nk_command_triangle_filled *t;t=(const struct nk_command_triangle_filled*)command;
+        point=nk_vec2((t->a.x+t->b.x+t->c.x)/3.0f,(t->a.y+t->b.y+t->c.y)/3.0f);}
+    assert(point.x>0);move_ui_click_at(ctx,panel,snapshot,point);move_ui_frame(ctx,panel,snapshot);
+}
+static void move_ui_key(struct nk_context *ctx,WenaCardSelectionPanel *panel,WenaSqliteBoardSnapshot *snapshot,enum nk_keys key)
+{
+    int down;for(down=1;down>=0;--down){nk_clear(ctx);nk_input_begin(ctx);nk_input_key(ctx,key,down);nk_input_end(ctx);move_ui_render(ctx,panel,snapshot);}
+}
+static void selection_moves(sqlite3 *db)
+{
+    struct nk_context ctx;struct nk_user_font font;WenaCardSelectionPanel panel;WenaHierarchyMutation adapter;
+    WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaCardSelection *selection;size_t peer;int keys;
+    execute(db,"INSERT INTO boards VALUES('move-ui','Move UI',1);"
+        "INSERT INTO lists VALUES('ms','move-ui','Source',0,1),('md','move-ui','Destination',1,1),('mo','move-ui','Other',2,1);"
+        "INSERT INTO swimlanes VALUES('ml','move-ui','Lane',0,1)");
+    execute(db,
+        "INSERT INTO cards VALUES('m0','move-ui','ml','ms','Repeated',0,0,1),('m1','move-ui','ml','ms','Repeated',1,0,1),"
+        "('m2','move-ui','ml','ms','Repeated',2,0,1),('m3','move-ui','ml','mo','Outside',0,0,1),"
+        "('d0','move-ui','ml','md','Destination card',5,0,1),('d1','move-ui','ml','md','Archived',8,1,1)");
+    snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));
+    fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));selection=(WenaCardSelection*)malloc(sizeof(*selection));assert(snapshot&&before&&fresh&&selection);
+    assert(wena_sqlite_board_load(db,"move-ui",snapshot));assert(wena_hierarchy_mutation_init(&adapter,db,"actor","move-ui",snapshot));
+    peer=snapshot->card_count;adapter.published_card_count=&peer;
+    memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&ctx,&font));
+    assert(wena_card_selection_init(selection,"move-ui"));wena_card_selection_panel_init(&panel,selection);
+    wena_card_selection_panel_set_move(&panel,wena_hierarchy_mutation_selected_move_load,wena_hierarchy_mutation_selected_move,&adapter);
+    assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"move-ui","ms","ml"));
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m3")&&selection->count==4);
+    move_ui_frame(&ctx,&panel,snapshot);strcpy(adapter.actor_id,"missing");
+    move_ui_click(&ctx,&panel,snapshot,"Move selection");assert(panel.archive_error&&!panel.moving&&selection->count==4);
+    strcpy(adapter.actor_id,"actor");move_ui_click(&ctx,&panel,snapshot,"Move selection");
+    assert(panel.moving&&panel.moving->count==4&&panel.table.page_size==2&&panel.destination_ready);
+    move_ui_click(&ctx,&panel,snapshot,"Next Page");(void)label_center(&ctx,"Outside [m3]");
+    keys=scalar(db,"SELECT count(*) FROM idempotency_keys");move_ui_key(&ctx,&panel,snapshot,NK_KEY_ENTER);
+    assert(panel.moving&&keys==scalar(db,"SELECT count(*) FROM idempotency_keys"));
+    move_ui_click(&ctx,&panel,snapshot,"Cancel");assert(!panel.moving&&!panel.destination&&panel.table.page_size==4&&selection->count==4);
+    move_ui_click(&ctx,&panel,snapshot,"Move selection");move_ui_key(&ctx,&panel,snapshot,NK_KEY_TEXT_RESET_MODE);
+    assert(!panel.moving&&selection->count==4&&panel.visible);
+    move_ui_click(&ctx,&panel,snapshot,"Move selection");move_ui_click(&ctx,&panel,snapshot,"Source [ms]");
+    move_ui_click(&ctx,&panel,snapshot,"Destination [md]");assert(!strcmp(panel.target_list,"md")&&panel.destination_count==2);
+    *before=*snapshot;execute(db,"CREATE TRIGGER move_ui_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+    move_ui_click(&ctx,&panel,snapshot,"Save");assert(panel.archive_error&&panel.moving&&selection->count==4&&!memcmp(before,snapshot,sizeof(*before)));
+    execute(db,"DROP TRIGGER move_ui_late;UPDATE cards SET version=version+1 WHERE id='m3'");
+    move_ui_click(&ctx,&panel,snapshot,"Save");assert(panel.archive_error&&panel.moving&&!memcmp(before,snapshot,sizeof(*before)));
+    move_ui_click(&ctx,&panel,snapshot,"Cancel");move_ui_click(&ctx,&panel,snapshot,"Move selection");
+    move_ui_click(&ctx,&panel,snapshot,"Source [ms]");move_ui_click(&ctx,&panel,snapshot,"Destination [md]");
+    move_ui_click(&ctx,&panel,snapshot,"Your Manual Order");assert(panel.manual_position&&panel.position==0);
+    move_ui_increment(&ctx,&panel,snapshot);assert(panel.position==1);
+    move_ui_click(&ctx,&panel,snapshot,"Save");assert(!panel.visible&&!panel.moving&&!panel.destination&&!selection->count&&peer==6);
+    assert(scalar(db,"SELECT count(*) FROM cards WHERE id IN('m0','m1','m2','m3') AND list_id='md' AND position BETWEEN 1 AND 4")==4);
+    assert(scalar(db,"SELECT position FROM cards WHERE id='d1'")==5&&scalar(db,"SELECT archived FROM cards WHERE id='d1'")==1);
+    assert(wena_sqlite_board_load(db,"move-ui",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+    /* Same-column append preserves an unselected and an archived sibling. */
+    assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"move-ui","ms","ml"));
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m0"));
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m1"));
+    move_ui_frame(&ctx,&panel,snapshot);move_ui_click(&ctx,&panel,snapshot,"Move selection");
+    assert(panel.destination_count==6&&!panel.manual_position);move_ui_click(&ctx,&panel,snapshot,"Save");
+    assert(!panel.visible&&scalar(db,"SELECT position FROM cards WHERE id='m0'")==4&&scalar(db,"SELECT position FROM cards WHERE id='m1'")==5);
+    assert(wena_sqlite_board_load(db,"move-ui",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh)));
+    /* Review rows cannot toggle the captured set; changed selection/order cannot save. */
+    assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"move-ui","ms","ml"));
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m0"));
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m1"));
+    move_ui_frame(&ctx,&panel,snapshot);move_ui_click(&ctx,&panel,snapshot,"Move selection");
+    move_ui_click(&ctx,&panel,snapshot,"Repeated [m0]");assert(selection->count==2);
+    keys=scalar(db,"SELECT count(*) FROM idempotency_keys");snapshot->cards[0].sort=99;
+    move_ui_frame(&ctx,&panel,snapshot);move_ui_click(&ctx,&panel,snapshot,"Save");
+    assert(panel.moving&&keys==scalar(db,"SELECT count(*) FROM idempotency_keys"));*snapshot=*fresh;
+    assert(wena_card_selection_toggle(selection,snapshot->cards,snapshot->card_count,"m1"));
+    move_ui_frame(&ctx,&panel,snapshot);assert(panel.error);move_ui_click(&ctx,&panel,snapshot,"Save");
+    assert(panel.moving&&keys==scalar(db,"SELECT count(*) FROM idempotency_keys"));
+    move_ui_click(&ctx,&panel,snapshot,"Cancel");assert(!panel.moving&&selection->count==1);
+    move_ui_click(&ctx,&panel,snapshot,"Move selection");assert(panel.moving);
+    wena_card_selection_panel_hide(&panel);assert(!panel.moving&&!panel.destination&&selection->count==1);
+    assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,"move-ui","ms","ml"));
+    move_ui_frame(&ctx,&panel,snapshot);move_ui_click(&ctx,&panel,snapshot,"Move selection");
+    move_ui_click(&ctx,&panel,snapshot,"Destination [md]");move_ui_click(&ctx,&panel,snapshot,"Source [ms]");
+    assert(panel.destination_ready&&!panel.destination_count);move_ui_click(&ctx,&panel,snapshot,"Save");
+    assert(!panel.visible&&scalar(db,"SELECT count(*) FROM cards WHERE id='m0' AND list_id='ms' AND position=0")==1);
+    wena_card_selection_panel_close(&panel);nk_free(&ctx);free(selection);free(snapshot);free(before);free(fresh);
+}
 typedef struct LabelUiAdapter {WenaLabelMutation mutation;WenaLabelBoardSnapshot *badges;} LabelUiAdapter;
 static int label_ui_load(void *data,const char *board,const WenaId *ids,size_t count,WenaLabelSelectionSnapshot **out)
 {LabelUiAdapter *adapter;adapter=(LabelUiAdapter*)data;return wena_label_mutation_selected_load(&adapter->mutation,board,ids,count,out);}
@@ -720,7 +826,12 @@ int main(int argc, char **argv)
     assert(snapshot->list_count == 4 && snapshot->swimlane_count == 3);
     assert(snapshot->lists[0].wip_limit.value==5&&snapshot->lists[0].wip_limit.enabled&&!snapshot->lists[0].wip_limit.soft);
     assert(!strcmp(snapshot->lists[0].color,"#123AbC")&&!strcmp(snapshot->swimlanes[0].color,"#123AbC"));
+    selection_moves(database);
     assert(sqlite3_close(database) == SQLITE_OK);
+    assert(wena_sqlite_open(path,migration,length,hash,&database));
+    assert(scalar(database,"SELECT count(*) FROM cards WHERE id='m0' AND list_id='ms' AND position=0")==1);
+    assert(scalar(database,"SELECT count(*) FROM cards WHERE id='d1' AND archived=1")==1);
+    assert(sqlite3_close(database)==SQLITE_OK);
     free(snapshot);
     puts("hierarchy SQLite title and real Nuklear editor tests passed");
     return 0;

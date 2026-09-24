@@ -583,6 +583,8 @@ int main(int argc, char **argv)
             wena_hierarchy_mutation_selected_cards_load,wena_hierarchy_mutation_selected_cards_archive,&hierarchy_mutation);
         wena_card_selection_panel_set_labels(&editors.selection,wena_board_presentation_selected_labels_load,
             wena_board_presentation_selected_labels_save,&label_view);
+        wena_card_selection_panel_set_move(&editors.selection,wena_hierarchy_mutation_selected_move_load,
+            wena_hierarchy_mutation_selected_move,&hierarchy_mutation);
         editors.hierarchy.selection_enabled=1;
         layout.card_selected=wena_card_selection_selected;layout.card_selected_context=selection;
         layout.card_selection=wena_card_selection_traversal_control;layout.card_selection_context=selection_traversal;
@@ -807,8 +809,8 @@ int main(int argc, char **argv)
                 }else editors.hierarchy.error=1;
             }
             if(opened_panel!=DESKTOP_PANEL_SELECTION)
-                (void)wena_card_selection_panel_render(context,&editors.selection,
-                    snapshot->cards,snapshot->card_count,snapshot->board.id,(float)width,(float)height);
+                (void)wena_card_selection_panel_render_board(context,&editors.selection,
+                    &layout,(float)width,(float)height);
             /* Never replay an opener's input into the newly opened panel. */
             if (opened_panel != DESKTOP_PANEL_HIERARCHY_MOVE)
                 (void)wena_hierarchy_move_render(context, &editors.hierarchy_move,
