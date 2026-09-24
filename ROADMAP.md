@@ -797,8 +797,13 @@ Architecture decisions for this cycle:
         retain archive time on restore, reject stale versions, replay, malformed
         state and cross-board corruption, and roll back ignored/altered writes.
         Legacy snapshots remain readable; missing v10 archive tables fail closed.
-      - [_] Wire ordinary-list archive/restore through native adapters and the
-        native menu/archive browser. Ordinary lists preserve card archive flags;
+      - [x] Reuse the native hierarchy adapter for ordinary-list archive/restore.
+        Load strict persisted revisions/state, preserve failed-load outputs,
+        reject malformed/duplicate model IDs and stale versions, and publish
+        only the committed flag without a fallible reload. Verify no-op, replay,
+        rollback, exact child-cache preservation and reopening.
+      - [_] Wire ordinary-list archive/restore into the native menu/archive
+        browser. Ordinary lists preserve card archive flags;
         template-list cascades remain separate until template models are ported.
       - [x] Share strict database list-state reads across archive mutations and
         movement eligibility, including legacy schema detection used by snapshots.

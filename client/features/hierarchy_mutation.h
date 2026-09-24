@@ -34,4 +34,15 @@ int wena_hierarchy_mutation_create(void *context, const char *board_id,
 int wena_hierarchy_mutation_create_request(WenaHierarchyMutation *adapter,
     const char *board_id, WenaHierarchyKind kind, unsigned long request_version,
     const char *title);
+/* Ordinary-list archive controls reuse this adapter and its complete snapshot.
+ * Failed loads preserve version; failed writes preserve the entire snapshot. */
+int wena_hierarchy_mutation_archive_load(void *context,const char *board_id,
+    const char *list_id,unsigned long *version);
+int wena_hierarchy_mutation_archive(void *context,const char *board_id,
+    const char *list_id,unsigned long expected_version);
+int wena_hierarchy_mutation_restore(void *context,const char *board_id,
+    const char *list_id,unsigned long expected_version);
+int wena_hierarchy_mutation_archive_request(WenaHierarchyMutation *adapter,
+    const char *board_id,const char *list_id,unsigned long expected_version,
+    unsigned long request_version,int archived);
 #endif

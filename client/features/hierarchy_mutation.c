@@ -1,3 +1,4 @@
+#include "../../server/list_state.h"
 #include "hierarchy_mutation.h"
 
 #include <limits.h>
@@ -249,4 +250,81 @@ int wena_hierarchy_mutation_create(void *context, const char *board,
     return wena_hierarchy_mutation_create_request(adapter, board, kind,
         next_request(adapter, kind == WENA_HIERARCHY_LIST ? "create-list" :
             "create-swimlane"), title);
+}
+
+/* Archive controls retain the complete loader snapshot. Only the selected flag
+ * is published after commit; no allocation or reload can fail after the write. */
+static WenaList *archive_selection(WenaHierarchyMutation *adapter,
+    const char *board,const char *id)
+{
+    WenaList *found,*list;size_t i,j;
+    if(!selected(adapter,board,WENA_HIERARCHY_BOARD,board)||
+        !wena_model_identifier_valid(id))return NULL;
+    found=NULL;
+    for(i=0;i<adapter->snapshot->list_count;++i){
+        list=&adapter->snapshot->lists[i];
+        if(!wena_model_identifier_valid(list->id)||strcmp(list->board_id,board)||
+            (list->archived!=0&&list->archived!=1))return NULL;
+        for(j=0;j<i;++j)if(!strcmp(adapter->snapshot->lists[j].id,list->id))return NULL;
+        if(!strcmp(list->id,id))found=list;
+    }
+    return found;
+}
+
+int wena_hierarchy_mutation_archive_load(void *context,const char *board,
+    const char *id,unsigned long *version)
+{
+    WenaHierarchyMutation *adapter;WenaList *list;sqlite3_stmt *statement;
+    sqlite3_int64 stored,at;int ok,archived;
+    adapter=(WenaHierarchyMutation*)context;
+    list=archive_selection(adapter,board,id);if(!list||!version)return 0;
+    if(sqlite3_prepare_v2(adapter->persistence.database,
+        "SELECT version FROM lists WHERE id=?1 AND board_id=?2 AND EXISTS(SELECT 1 FROM actors WHERE id=?3)",
+        -1,&statement,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(statement,1,id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(statement,2,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(statement,3,adapter->actor_id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_step(statement)==SQLITE_ROW&&sqlite3_column_type(statement,0)==SQLITE_INTEGER;
+    stored=0;
+    if(ok){stored=sqlite3_column_int64(statement,0);
+        ok=stored>0&&stored<=(sqlite3_int64)WENA_VERSION_READ_MAX&&sqlite3_step(statement)==SQLITE_DONE;}
+    if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
+    if(!ok||!wena_sqlite_list_state_read(adapter->persistence.database,board,id,
+        (unsigned long)stored,&archived,&at)||archived!=list->archived)return 0;
+    *version=(unsigned long)stored;return 1;
+}
+
+int wena_hierarchy_mutation_archive_request(WenaHierarchyMutation *adapter,
+    const char *board,const char *id,unsigned long expected,unsigned long request,int archived)
+{
+    WenaList *list;WenaDomainCommand command;WenaRegionResponse response;
+    list=archive_selection(adapter,board,id);
+    if(!list||!expected||expected>WENA_VERSION_MUTATE_MAX||!request||
+        request>=(unsigned long)LONG_MAX||(archived!=0&&archived!=1))return 0;
+    memset(&command,0,sizeof(command));
+    command.operation=archived?WENA_DOMAIN_ARCHIVE_LIST:WENA_DOMAIN_RESTORE_LIST;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);
+    strcpy(command.route,adapter->route);
+    sprintf(command.form_body,"listId=%s&expectedVersion=%lu",id,expected);
+    command.form_body_length=strlen(command.form_body);
+    if(!wena_sqlite_persistence_apply(&adapter->persistence,&command,&response))return 0;
+    list->archived=archived;return 1;
+}
+
+int wena_hierarchy_mutation_archive(void *context,const char *board,
+    const char *id,unsigned long expected)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!archive_selection(adapter,board,id))return 0;
+    return wena_hierarchy_mutation_archive_request(adapter,board,id,expected,
+        next_request(adapter,"archive-list"),1);
+}
+
+int wena_hierarchy_mutation_restore(void *context,const char *board,
+    const char *id,unsigned long expected)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!archive_selection(adapter,board,id))return 0;
+    return wena_hierarchy_mutation_archive_request(adapter,board,id,expected,
+        next_request(adapter,"restore-list"),0);
 }

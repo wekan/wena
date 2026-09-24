@@ -20,7 +20,7 @@ strict scalar checks, cross-board foreign-key rejection, table/index/metadata/
 commit failure rollback, downgrade rejection and reopening. Embedded artifacts
 must contain the newly pinned complete migration bundle. Native snapshot loading
 and guarded archive/restore mutations are now
-implemented. Native adapters and menu/archive-browser integration remain open
+implemented. Native menu/archive-browser integration remains open
 in ROADMAP.md.
 
 The typed local archive and restore operations use the same actor, board,
@@ -45,3 +45,12 @@ snapshots. Legacy creation without explicit parents selects an active list;
 explicit parents never silently fall back. Corrupt metadata and missing v10
 tables fail without committing card changes or request identities. Archive
 mutations reuse the reader, and snapshot loading shares its legacy-table check.
+
+The existing native hierarchy adapter provides archive/restore callbacks and an
+archive-state revision loader for both active and hidden lists. It reuses actor,
+board and durable request handling; failed loads preserve the caller's version.
+Malformed or duplicate model selections fail before mutation. Successful writes
+publish only the selected list flag after commit, without allocation or reload,
+so child cards and every other cached field remain intact. No-op, replay, stale
+revision, late rollback, wrong scope/actor, corrupt state and reopening are tested
+against the real SQLite transaction and loader.

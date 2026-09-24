@@ -1,3 +1,4 @@
+#include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_storage.h"
@@ -33,6 +34,54 @@ static void blocked_operations(WenaSqlitePersistence *store)
  assert(number(store->database,"SELECT count(*) FROM idempotency_keys")==keys);
  assert(number(store->database,"SELECT version FROM cards WHERE id='live'")==1);
  assert(number(store->database,"SELECT version FROM cards WHERE id='active'")==1);
+}
+static void native_adapter(const unsigned char *migration,size_t length,const char *hash,const char *directory)
+{
+ char path[1024];sqlite3 *db;WenaHierarchyMutation adapter;
+ WenaSqliteBoardSnapshot *snapshot,*before,*fresh;unsigned long version;sqlite3_int64 at,keys;
+ sprintf(path,"%s/native-archive.sqlite",directory);assert(wena_sqlite_open(path,migration,length,hash,&db));
+ sql(db,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO lists VALUES('l','b','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);INSERT INTO cards VALUES('c','b','s','l','Active',0,0,1),('a','b','s','l','Archived',2,1,7)");
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));assert(snapshot&&before&&fresh);
+ assert(wena_sqlite_board_load(db,"b",snapshot));assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ assert(wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==1);
+ memcpy(before,snapshot,sizeof(*before));
+ assert(!wena_hierarchy_mutation_archive(&adapter,"other","l",1));
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","missing",1));
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",0));
+ assert(!wena_hierarchy_mutation_archive_request(&adapter,"b","l",1,0,1));
+ assert(!wena_hierarchy_mutation_archive_request(&adapter,"b","l",1,1,2));
+ strcpy(adapter.actor_id,"missing");version=88;
+ assert(!wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==88);
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",1));strcpy(adapter.actor_id,"u");
+ sql(db,"CREATE TRIGGER late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",1));sql(db,"DROP TRIGGER late");
+ assert(!memcmp(snapshot,before,sizeof(*before))&&!number(db,"SELECT count(*) FROM list_archive_state"));
+ assert(wena_hierarchy_mutation_archive_request(&adapter,"b","l",1,50,1));before->lists[0].archived=1;
+ assert(!memcmp(snapshot,before,sizeof(*before)));at=number(db,"SELECT archived_at FROM list_archive_state");
+ assert(wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==2);
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ assert(!wena_hierarchy_mutation_archive_request(&adapter,"b","l",2,50,1));
+ assert(wena_hierarchy_mutation_archive(&adapter,"b","l",2));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ assert(!wena_hierarchy_mutation_restore(&adapter,"b","l",1));assert(!memcmp(snapshot,before,sizeof(*before)));
+ assert(wena_hierarchy_mutation_restore(&adapter,"b","l",2));before->lists[0].archived=0;
+ assert(!memcmp(snapshot,before,sizeof(*before))&&number(db,"SELECT archived_at FROM list_archive_state")==at);
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*snapshot)));
+ /* Model corruption and stale archive flags cannot supply a selection. */
+ snapshot->lists[1]=snapshot->lists[0];snapshot->list_count=2;
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",3));memcpy(snapshot,before,sizeof(*snapshot));
+ snapshot->lists[0].archived=2;assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",3));memcpy(snapshot,before,sizeof(*snapshot));
+ snapshot->lists[0].archived=1;version=88;
+ assert(!wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==88);memcpy(snapshot,before,sizeof(*snapshot));
+ sql(db,"PRAGMA ignore_check_constraints=ON;UPDATE list_archive_state SET archived=2;PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==88);
+ assert(!wena_hierarchy_mutation_archive(&adapter,"b","l",3)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ sql(db,"UPDATE list_archive_state SET archived=0");
+ assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,length,hash,&db));
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ assert(wena_hierarchy_mutation_archive(&adapter,"b","l",3));
+ assert(wena_hierarchy_mutation_archive_load(&adapter,"b","l",&version)&&version==4);
+ assert(wena_sqlite_board_load(db,"b",fresh)&&!memcmp(snapshot,fresh,sizeof(*snapshot)));
+ sqlite3_close(db);free(snapshot);free(before);free(fresh);
 }
 int main(int argc,char **argv)
 {
@@ -89,5 +138,5 @@ int main(int argc,char **argv)
  memcpy(before,after,sizeof(*before));sql(db,"DROP TABLE list_archive_state");
  assert(!wena_sqlite_board_load(db,"b",after)&&!memcmp(before,after,sizeof(*before)));
  blocked_operations(&store);
- assert(!change(&store,0,4,4,NULL));sqlite3_close(db);free(before);free(after);free(migration);puts("List archive transactions and snapshots: passed");return 0;
+ assert(!change(&store,0,4,4,NULL));sqlite3_close(db);free(before);free(after);native_adapter(migration,(size_t)length,hash,argv[2]);free(migration);puts("List archive transactions and snapshots: passed");return 0;
 }
