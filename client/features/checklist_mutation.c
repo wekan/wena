@@ -455,26 +455,38 @@ int wena_checklist_mutation_complete(WenaChecklistMutation *adapter,
 int wena_checklist_mutation_inline(WenaChecklistMutation *adapter,WenaChecklistInlineEdit *state)
 {
     WenaChecklistEdit edit;
-    char titles[1][WENA_CHECKLIST_TITLE_CAPACITY];
+    char titles[WENA_CHECKLIST_BATCH_MAX_ITEMS][WENA_CHECKLIST_TITLE_CAPACITY];
     size_t count;
+    int batch;
     if (!state || !state->pending) return 0;
     state->pending=0;
+    batch=state->action==WENA_CHECKLIST_ADD_ITEMS;
     if ((state->action!=WENA_CHECKLIST_RENAME && state->action!=WENA_CHECKLIST_RENAME_ITEM &&
-         state->action!=WENA_CHECKLIST_ADD_ITEM) || state->length<0 ||
-        (size_t)state->length>=sizeof(state->input) ||
-        !wena_model_title_valid(state->input,(size_t)state->length,WENA_CHECKLIST_TITLE_CAPACITY)) {
+         state->action!=WENA_CHECKLIST_ADD_ITEM && !batch) || state->length<0 ||
+        (size_t)state->length>=sizeof(state->input)) {
         state->error=1;return -1;
     }
-    state->input[state->length]=0;
-    if (state->action==WENA_CHECKLIST_ADD_ITEM) {
-        if (!wena_checklist_item_titles_parse(state->input,(size_t)state->length,0,0,titles,1,&count) || count!=1) {
+    if (batch) {
+        if (!wena_checklist_item_batch_parse(state->input,(size_t)state->length,titles,&count)) {
             state->error=1;return -1;
         }
-    } else strcpy(titles[0],state->input);
+    } else {
+        if (!wena_model_title_valid(state->input,(size_t)state->length,WENA_CHECKLIST_TITLE_CAPACITY)) {
+            state->error=1;return -1;
+        }
+        state->input[state->length]=0;
+        if (state->action==WENA_CHECKLIST_ADD_ITEM) {
+            if (!wena_checklist_item_titles_parse(state->input,(size_t)state->length,0,0,titles,1,&count) || count!=1) {
+                state->error=1;return -1;
+            }
+        } else strcpy(titles[0],state->input);
+    }
     memset(&edit,0,sizeof(edit));edit.action=state->action;
     edit.checklist_id=state->checklist_id;edit.item_id=state->item_id;
     edit.expected_card_version=state->card_version;edit.expected_checklist_version=state->checklist_version;
-    edit.expected_item_version=state->item_version;edit.title=titles[0];
+    edit.expected_item_version=state->item_version;
+    if (batch) {edit.batch_text=state->input;edit.batch_length=(size_t)state->length;}
+    else edit.title=titles[0];
     if (!wena_checklist_mutation_save(adapter,state->board_id,state->card_id,&edit)) {state->error=1;return -1;}
     /* Drop the consumed draft before any read, so reload failure cannot replay. */
     memset(state,0,sizeof(*state));return 1;

@@ -134,6 +134,31 @@ static void inline_forms(sqlite3 *db,struct nk_context *ctx,
  assert(wena_checklist_contents_load(db,"u","b",contents));
  wena_checklist_inline_sync(&edit,*contents,1);assert(edit.action);
  wena_checklist_inline_sync(&edit,*contents,0);assert(!edit.action);
+ list=wena_checklist_contents_find(*contents,"c");
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_ADD_ITEM));
+ frame(ctx,*contents,card,1);
+ click_item(ctx,*contents,card,"Each line of text becomes one of the checklist items");
+ assert(edit.action==WENA_CHECKLIST_ADD_ITEMS&&!edit.pending);
+ strcpy(edit.input,"  Batch one  \n\n Batch two ");edit.length=(int)strlen(edit.input);
+ frame(ctx,*contents,card,1);
+ click_item(ctx,*contents,card,"Each line of text becomes one of the checklist items");
+ assert(edit.action==WENA_CHECKLIST_ADD_ITEMS&&edit.error&&strchr(edit.input,'\n'));
+ frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Save");assert(edit.pending);
+ sql(db,"CREATE TRIGGER reject_batch BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END");
+ assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&!edit.pending);
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ assert(wena_checklist_contents_find(*contents,"c")->item_count==3);
+ sql(db,"DROP TRIGGER reject_batch");edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==1&&!edit.action);
+ assert(!wena_checklist_mutation_inline(adapter,&edit));
+ assert(wena_checklist_contents_load(db,"u","b",contents));
+ list=wena_checklist_contents_find(*contents,"c");
+ assert(list->item_count==5&&!strcmp(list->items[3].title,"Batch one")&&!strcmp(list->items[4].title,"Batch two"));
+ assert(wena_checklist_inline_begin(&edit,*contents,card,list,0,WENA_CHECKLIST_ADD_ITEM));
+ edit.action=WENA_CHECKLIST_ADD_ITEMS;
+ strcpy(edit.input,"a\nb\nc\nd\ne\nf\ng\nh\ni");edit.length=(int)strlen(edit.input);edit.pending=1;
+ assert(wena_checklist_mutation_inline(adapter,&edit)==-1&&!edit.pending&&edit.action);
+ wena_checklist_inline_cancel(&edit);
  active_edit=NULL;
 }
 int main(int argc,char **argv)

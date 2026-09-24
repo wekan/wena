@@ -31,9 +31,15 @@ after rendering, then refreshes the snapshot. Read-only/error states draw inert
 controls. Reuse this control and `models/card_section` for future card sections.
 
 `forms/text_form.[ch]` supplies a single-line draft editor and Save/Cancel
-controls. Callers own the buffer, byte limit, validation and persistence. Escape
+controls, with an optional multiline mode whose Enter inserts a newline. Callers
+own the buffer, byte limit, validation and persistence. Escape
 wins over Enter within the focused host window; the component only reports an
 intent. Existing title editors share its keyboard policy. Checklist previews use
 the same form for list names, item names and item creation, with exact IDs and
 captured revisions carried by `features/checklists/inline_edit`. Submit after
 rendering: failures retain the draft, successful writes consume it before reload.
+
+`features/checklists/entry_form.[ch]` adapts the general text form to checklist
+entry in both opened cards and minicards. It owns the single/batch toggle and
+parsed item-count preview. Both hosts call the existing canonical title parser
+and atomic checklist mutation; neither duplicates parsing or line-splitting.

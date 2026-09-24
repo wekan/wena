@@ -110,7 +110,12 @@ mutation after drawing. Validation/stale/transaction failures retain the draft
 without automatic replay; Save is explicit, Cancel discards, and disappeared or
 hidden targets cancel. Real Nuklear/SQLite tests cover clicks, canonical item
 trimming, invalid titles, stale revisions and late transaction rollback.
-Inline batch creation and drag/drop remain open.
+Batch entry now uses one checklist-entry adapter in both opened cards and
+minicards, built on the general single/multiline text form. The canonical newline
+toggle preserves incompatible drafts; Enter inserts a line in batch mode and
+only Save submits. Shared parsing enforces eight items, canonical trimming,
+insertion order and atomic failure. Twenty-one focused suites and both entry
+sanitizer suites pass. Drag/drop remains open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -801,8 +806,9 @@ Architecture decisions for this cycle:
         and reopen; keep canonical card/board revisions unchanged.
       - [x] Share a text form for expanded minicard checklist/item rename and
         single-item creation, with guarded one-shot writes and retained errors.
-      - [_] Finish inline batch creation, drag/drop and cross-board checklist/item
-        movement.
+      - [x] Reuse single/batch checklist entry across opened cards and minicards,
+        preserving drafts, canonical parsing and atomic guarded saves.
+      - [_] Finish drag/drop and cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

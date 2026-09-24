@@ -1,5 +1,8 @@
 #include "inline_edit.h"
+#include "entry_form.h"
 #include "../../components/forms/text_form.h"
+#include "../../../imports/ui/page_contract.h"
+#include <nuklear.h>
 #include <string.h>
 void wena_checklist_inline_cancel(WenaChecklistInlineEdit *edit)
 {if(edit)memset(edit,0,sizeof(*edit));}
@@ -25,7 +28,11 @@ void wena_checklist_inline_render(struct nk_context *context,WenaChecklistInline
 {
     unsigned int action;
     if (!edit || !edit->action) return;
-    action=wena_text_form_render(context,edit->input,&edit->length,(int)sizeof(edit->input),edit->error);
+    action=wena_checklist_entry_form(context,&edit->action,edit->input,&edit->length,(int)sizeof(edit->input),&edit->error);
+    if (edit->error) {
+        nk_layout_row_dynamic(context,48,1);
+        nk_label_wrap(context,wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+    }
     if(action & WENA_TEXT_FORM_CANCEL)wena_checklist_inline_cancel(edit);
     else if(action & WENA_TEXT_FORM_SAVE)edit->pending=1;
 }

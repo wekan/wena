@@ -10,4 +10,7 @@ unsigned int wena_text_form_keys(struct nk_context *context,unsigned int edit_re
  * This component reports intent only; it never performs persistence. */
 unsigned int wena_text_form_render(struct nk_context *context,char *text,int *length,
     int capacity,int error);
+/* Multiline mode inserts newlines on Enter; Save requires a button click. */
+unsigned int wena_text_form_render_mode(struct nk_context *context,char *text,
+    int *length,int capacity,int error,int multiline);
 #endif
