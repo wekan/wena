@@ -12,8 +12,9 @@ def main():
   if base.exists():candidates.extend(base.rglob('*'))
  candidates.extend(f for f in root.iterdir() if f.is_file())
  for f in sorted(set(candidates)):
-  if not f.is_file() or f.suffix not in EXT or any(x in f.parts for x in ('.git','.tools','node_modules','_build')):continue
-  rel=f.relative_to(root).as_posix()
+  relative=f.relative_to(root)
+  if not f.is_file() or f.suffix not in EXT or any(x in relative.parts for x in ('.git','.tools','node_modules','_build')):continue
+  rel=relative.as_posix()
   try: lines=f.read_text(encoding='utf-8').splitlines()
   except UnicodeDecodeError: continue
   for no,line in enumerate(lines,1):

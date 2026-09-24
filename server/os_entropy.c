@@ -18,7 +18,9 @@
 
 int wena_os_entropy(void *context, unsigned char *output, size_t length)
 {
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
     size_t offset;
+#endif
     (void)context;
     if (output == NULL || length == 0) return 0;
 #if defined(_WIN32)
