@@ -37,8 +37,9 @@ int wena_sqlite_list_state_read(sqlite3 *db,const char *board,const char *list,u
         (!version||sqlite3_column_int64(s,0)==(sqlite3_int64)version);
     *archived=0;*at=0;
     if(ok&&sqlite3_column_type(s,3)!=SQLITE_NULL){
+        ok=sqlite3_column_type(s,4)==SQLITE_TEXT;
         scope=sqlite3_column_text(s,4);
-        ok=sqlite3_column_type(s,4)==SQLITE_TEXT&&scope&&
+        ok=ok&&scope&&
             sqlite3_column_bytes(s,4)==(int)strlen(board)&&!strcmp((const char*)scope,board)&&
             sqlite3_column_type(s,1)==SQLITE_INTEGER&&(sqlite3_column_int64(s,1)==0||sqlite3_column_int64(s,1)==1)&&
             sqlite3_column_type(s,2)==SQLITE_INTEGER&&sqlite3_column_int64(s,2)>=0;

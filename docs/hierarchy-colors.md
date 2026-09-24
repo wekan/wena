@@ -22,5 +22,17 @@ failures at both tables, both indexes, migration metadata and commit roll back
 all v11 objects and permit retry. The compiled registry pins v1-v10 bytes and
 verifies exact v11 DDL in each embedded migration bundle.
 
-Native model loading, guarded color mutations and header/editor integration
-remain open in ROADMAP.md. The schema alone does not expose color controls.
+Typed local list/swimlane color mutations share one guarded implementation and
+the existing actor/board/revision/replay transaction. Empty clears the color;
+an unchanged value writes no row, revision or request identity. Actual changes
+advance only the parent revision, verify the resulting scope/color/version, and
+roll back ignored or altered writes. Archived lists reject edits. Both hierarchy
+types are tested across palette/hex values, malformed forms, unknown actors,
+wrong scope, replay, stale revisions, read-only databases, corruption and reopen.
+No HTTP route is added. Native loading/adapters and header/editor integration
+remain open in ROADMAP.md.
+
+Strict result readers check SQLite types before requesting text conversion.
+SQLite documents that conversion can invalidate later type inspection; BLOB
+colors and archive scopes are explicit regression cases. See the official
+[SQLite result-value interface](https://www.sqlite.org/c3ref/column_blob.html).

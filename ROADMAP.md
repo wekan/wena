@@ -833,7 +833,11 @@ Architecture decisions for this cycle:
           all-prefix migration tests for defaults, named/custom colors, retained
           hierarchy/card/archive state, downgrade and reopen; inject both-table,
           both-index, metadata and commit rollback failures.
-        - [_] Load colors, persist guarded edits and connect headers/forms.
+        - [x] Persist list/swimlane colors through one guarded mutation, sharing
+          exact scope, revision, replay, no-op and result verification. Reject
+          archived list edits, malformed colors and corrupt metadata; roll back
+          ignored/altered writes and preserve cards/board revisions on reopen.
+        - [_] Load colors and connect native adapters, headers and forms.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the

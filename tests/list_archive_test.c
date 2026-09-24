@@ -133,6 +133,8 @@ int main(int argc,char **argv)
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='l'")==2);
  sql(db,"PRAGMA ignore_check_constraints=ON;UPDATE list_archive_state SET archived=2;PRAGMA ignore_check_constraints=OFF");blocked_operations(&store);
  sql(db,"UPDATE list_archive_state SET archived=1;PRAGMA foreign_keys=OFF;UPDATE list_archive_state SET board_id='other'");blocked_operations(&store);
+ sql(db,"PRAGMA ignore_check_constraints=ON;UPDATE list_archive_state SET board_id=x'62';PRAGMA ignore_check_constraints=OFF");
+ blocked_operations(&store);assert(!change(&store,0,4,4,NULL));
  sql(db,"UPDATE list_archive_state SET board_id='b';PRAGMA foreign_keys=ON");
  assert(wena_sqlite_board_load(db,"b",after));
  memcpy(before,after,sizeof(*before));sql(db,"DROP TABLE list_archive_state");
