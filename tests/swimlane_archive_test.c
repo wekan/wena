@@ -171,6 +171,58 @@ static void native_archive(sqlite3 *db)
  assert(peer_count==snapshot->card_count);
  free(snapshot);free(before);free(fresh);
 }
+static int list_cards(WenaSqlitePersistence *store,const char *form,unsigned long request)
+{
+ WenaDomainCommand c;WenaRegionResponse r;memset(&c,0,sizeof(c));
+ c.operation=WENA_DOMAIN_ARCHIVE_LIST_CARDS;c.request_version=request;
+ strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");strcpy(c.form_body,form);c.form_body_length=strlen(form);
+ return wena_sqlite_persistence_apply(store,&c,&r);
+}
+static void list_cards_tests(sqlite3 *db,WenaSqlitePersistence *store)
+{
+ const char *scoped="listId=batch&expectedVersion=1&swimlaneId=t&expectedSwimlaneVersion=1";
+ const char *all="listId=batch&expectedVersion=1";sqlite3_int64 keys;size_t i;
+ const char *failures[]={
+ "CREATE TRIGGER batch_fail BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END",
+ "CREATE TRIGGER batch_fail BEFORE UPDATE ON cards WHEN OLD.id='batch-z' BEGIN SELECT RAISE(ABORT,'second');END",
+ "CREATE TRIGGER batch_fail AFTER UPDATE ON cards WHEN NEW.id='batch-z' BEGIN UPDATE cards SET archived=0 WHERE id='batch-a';END",
+ "CREATE TRIGGER batch_fail AFTER UPDATE ON cards WHEN NEW.id='batch-z' BEGIN UPDATE cards SET swimlane_id='empty' WHERE id='batch-a';END",
+ "CREATE TRIGGER batch_fail AFTER UPDATE ON cards WHEN NEW.id='batch-z' BEGIN UPDATE lists SET version=version+1 WHERE id='batch';END"};
+ sql(db,"INSERT INTO lists VALUES('batch','b','Batch',3,1);"
+ "INSERT INTO cards VALUES('batch-a','b','t','batch','A',0,0,1),('batch-z','b','t','batch','Z',1,0,1),"
+ "('batch-pre','b','t','batch','Prior',2,1,4),('batch-other','b','empty','batch','Other',0,0,1);"
+ "INSERT INTO card_archive_state VALUES('batch-pre','b',123)");
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ assert(!list_cards(store,"listId=batch&expectedVersion=2",300));
+ assert(!list_cards(store,"listId=batch&expectedVersion=1&swimlaneId=foreign&expectedSwimlaneVersion=1",300));
+ assert(!list_cards(store,"listId=batch&expectedVersion=1&swimlaneId=t&expectedSwimlaneVersion=2",300));
+ assert(!list_cards(store,"listId=batch&expectedVersion=1&swimlaneId=t",300));
+ assert(!list_cards(store,"listId=batch&expectedVersion=1&expectedSwimlaneVersion=1",300));
+ sql(db,"INSERT INTO list_archive_state VALUES('batch','b',1,1)");assert(!list_cards(store,all,300));
+ sql(db,"DELETE FROM list_archive_state WHERE list_id='batch'");
+ sql(db,"INSERT INTO swimlane_archive_state VALUES('t','b',1,1)");assert(!list_cards(store,scoped,300));
+ sql(db,"DELETE FROM swimlane_archive_state WHERE swimlane_id='t'");
+ sql(db,"PRAGMA query_only=ON");assert(!list_cards(store,all,300));sql(db,"PRAGMA query_only=OFF");
+ for(i=0;i<sizeof(failures)/sizeof(failures[0]);++i){
+  sql(db,failures[i]);assert(!list_cards(store,scoped,300));sql(db,"DROP TRIGGER batch_fail");
+  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=0 AND version=1")==3);
+  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND swimlane_id='t'")==3);
+  assert(number(db,"SELECT version FROM lists WHERE id='batch'")==1);
+  assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ }
+ assert(list_cards(store,scoped,300));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND swimlane_id='t' AND archived=1")==3);
+ assert(number(db,"SELECT version FROM cards WHERE id='batch-pre'")==4);
+ assert(number(db,"SELECT archived_at FROM card_archive_state WHERE card_id='batch-pre'")==123);
+ assert(number(db,"SELECT archived FROM cards WHERE id='batch-other'")==0);
+ assert(!list_cards(store,scoped,300));assert(list_cards(store,scoped,301));
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys+1);
+ assert(list_cards(store,all,301));
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==4);
+ assert(number(db,"SELECT version FROM lists WHERE id='batch'")==1);
+ assert(number(db,"SELECT version FROM swimlanes WHERE id='t'")==1);
+ assert(list_cards(store,all,302));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys+2);
+}
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -223,12 +275,15 @@ int main(int argc,char **argv)
  assert(wena_sqlite_swimlane_state_read(db,"b","s",5,&archived,&at)&&!archived);
  assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='s' AND archived=0 AND version=5")==2);
  native_archive(db);
+ list_cards_tests(db,&store);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==4);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
+ assert(!list_cards(&store,"listId=l&expectedVersion=1",400));
  assert(!change(&store,"empty",3,4,1));assert(number(db,"SELECT count(*) FROM cards WHERE swimlane_id='empty' AND archived=0 AND version=1")==2049);
- assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);sql(db,"DELETE FROM cards WHERE swimlane_id='empty'");
+ assert(number(db,"SELECT version FROM swimlanes WHERE id='empty'")==3);sql(db,"DELETE FROM cards WHERE swimlane_id='empty' AND id GLOB 'bulk*'");
  sql(db,"DROP TABLE swimlane_archive_state");assert(!change(&store,"s",9,4,1));
  sql(db,"CREATE VIEW swimlane_archive_state AS SELECT 's' AS swimlane_id,'b' AS board_id,0 AS archived,0 AS archived_at");assert(!change(&store,"s",9,4,1));
  assert(sqlite3_close(db)==SQLITE_OK);free(migration);

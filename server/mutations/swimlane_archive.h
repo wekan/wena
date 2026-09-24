@@ -5,4 +5,6 @@
 /* Caller owns guarded transaction. 0 failure, 1 changed, 2 unchanged. */
 int wena_sqlite_swimlane_archive_change(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,unsigned long *result_version);
+int wena_sqlite_list_cards_archive_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version);
 #endif
