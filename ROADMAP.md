@@ -887,6 +887,22 @@ Architecture decisions for this cycle:
               Enter without mutation, exact cache publication and reopening.
               Hiding/closing releases captured rows; successful archive clears IDs.
             - [_] Add remaining bulk label/member/move actions.
+              - [_] Add card members and assignees with shared bulk assignment.
+                - [x] Add a pure C89 roster and stable person-set model shared by
+                  members and assignees. Port pinned WeKan's active-board-member
+                  add eligibility, removal of departed members and repeated-action
+                  no-ops. Add a separate Cards.move membership filter retaining
+                  original-order IDs active on the destination board. Reject
+                  invalid scopes, duplicate IDs, malformed flags and overflow;
+                  preserve outputs on failure and support in-place use. Exhaustive
+                  small-set and full 2048-person tests cover both action states,
+                  inactive/absent members, transfer filtering and aliasing.
+                - [_] Add versioned board-member and card-person storage with
+                  guarded single/bulk operations, consistent captures, migration
+                  verification and cross-board member filtering in the transaction.
+                - [_] Connect shared paginated person controls to card details and
+                  multi-selection, showing mixed assignment and publishing caches
+                  only after successful commit. Verify real input and rollback.
               - [x] Add native exact-selection label assignment/removal in one
                 guarded transaction. Reuse single-card assignment validation
                 and writes; validate all selected revisions and active parents

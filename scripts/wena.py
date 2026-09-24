@@ -161,6 +161,7 @@ def tools_menu():
 # One catalog drives listing, named execution and the complete native run.
 # Shell wrappers for capability/schema already include their Python helpers.
 TEST_SUITES = (
+    ('card-people', 'test_card_people.sh', 'Shared member/assignee eligibility, stable set operations and cross-board membership mapping'),
     ('checklist-item-move', 'test_checklist_item_move.sh', 'Guarded checklist item transfer across cards or same-card parents'),
     ('nuklear-checklist-item-move', 'test_nuklear_checklist_item_move.sh', 'Real Nuklear/SQLite item destination selectors and guarded lifecycle'),
     ('svg', 'test_svg.sh', 'MIT SVG conversion, native vector scaling, theme tokens and lossless documentation captures'),
