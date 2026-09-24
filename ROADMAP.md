@@ -828,8 +828,14 @@ Architecture decisions for this cycle:
             model/selection IDs, duplicates, flags and capacity atomically;
             test duplicate titles, foreign boards, malformed inputs, no-ops,
             removal and the complete 2048-card boundary with sanitizers.
+          - [x] Add a native selection panel using the shared paginated table.
+            Exact-ID checkboxes, scoped Select all, Select none and disabling
+            selection reuse the model. Prune stale cards before drawing;
+            preserve selection on malformed caches, show translated errors/
+            empty states, and clear on Escape or board changes. Real mouse
+            tests cover paging, duplicate titles, lane isolation and pruning.
           - [_] Connect list-menu selection, minicard selection controls and
-            the shared sidebar/table to guarded bulk actions.
+            the shared selection panel to guarded bulk actions.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

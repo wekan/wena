@@ -10,6 +10,10 @@ typedef struct WenaUiTextContract {
 } WenaUiTextContract;
 
 static const WenaUiTextContract texts[] = {
+    {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},
+    {WENA_UI_TEXT_MULTI_SELECTION_OFF, "multi-selection-off", "Turn Multi-Selection off"},
+    {WENA_UI_TEXT_SELECT_ALL, "select-all", "Select all"},
+    {WENA_UI_TEXT_SELECT_NONE, "select-none", "Select none"},
     {WENA_UI_TEXT_ARCHIVE_LIST_CARDS, "list-archive-cards", "Archive all cards in this list"},
     {WENA_UI_TEXT_ARCHIVE_LIST_CARDS_CONFIRM, "list-archive-cards-pop", "This will remove all the cards in this list from the board. To view cards in Archive and bring them back to the board, click \342\200\234Menu\342\200\235 > \342\200\234Archive\342\200\235."},
     {WENA_UI_TEXT_MOVE_TO_ARCHIVE, "archive", "Move to Archive"},
