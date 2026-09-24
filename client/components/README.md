@@ -64,3 +64,10 @@ still requires a visible valid source. Checklist transfers append to another
 active card, and item transfers append to another checklist on the same board.
 These use existing atomic transfer operations; an ordinary sibling row remains a
 same-collection reorder target rather than silently changing transfer semantics.
+
+Ordered-card consumers share `models/card_order.[ch]`. It captures a scoped,
+sorted column including archived slots, rejects ambiguous IDs/positions and
+invalid numeric positions, and compares a later model array with the captured
+order. Replacing a snapshot is atomic on allocation/validation success. The
+existing Move dialog uses this model; additional drag/select controls should
+reuse it instead of duplicating sibling validation or indexing by titles.

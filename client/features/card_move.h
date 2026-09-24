@@ -1,22 +1,18 @@
 #ifndef WENA_CARD_MOVE_H
 #define WENA_CARD_MOVE_H
 #include "card_details.h"
+#include "../../models/card_order.h"
 #include "../components/boards/board_layout.h"
 
 typedef int (*WenaCardMoveApply)(void *context, const char *board_id,
     const char *card_id, unsigned long expected_version,
     const char *target_list_id, const char *target_swimlane_id);
 
-#define WENA_CARD_MOVE_ORDER_CAPACITY 2048u
+#define WENA_CARD_MOVE_ORDER_CAPACITY WENA_CARD_ORDER_CAPACITY
 
 typedef int (*WenaCardMoveReorder)(void *context, const char *board_id,
     const char *card_id, unsigned long expected_version, unsigned long target_position);
-typedef struct WenaCardMoveSlot {
-    WenaId id;
-    double position;
-    size_t model_index;
-    int archived;
-} WenaCardMoveSlot;
+typedef WenaCardOrderSlot WenaCardMoveSlot;
 
 typedef struct WenaCardMoveState {
     int visible;

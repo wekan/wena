@@ -273,6 +273,7 @@ TEST_SUITES = (
     ('card-move-reorder-ui', 'test_card_move_reorder_ui.sh', 'Indexed card move editor snapshot lifetime and cancellation'),
     ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
     ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
+    ('card-order', 'test_card_order.sh', 'Shared ordered card snapshots and stale detection'),
     ('card-reorder', 'test_card_reorder.sh', 'Indexed card moves with gap compaction, replay and transactional rollback'),
     ('card-move', 'test_card_move.sh', 'Bounded card movement form destinations and cancellation'),
     ('card-move-sqlite', 'test_card_move_sqlite.sh', 'Card move UI integration with guarded SQLite adapter'),

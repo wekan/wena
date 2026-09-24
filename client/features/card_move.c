@@ -90,74 +90,16 @@ static int same_column(const WenaCardMoveState *state, const WenaCard *card)
         !strcmp(card->swimlane_id, state->source_swimlane_id);
 }
 
-static int compare_slots(const void *left, const void *right)
-{
-    const WenaCardMoveSlot *a = (const WenaCardMoveSlot *)left;
-    const WenaCardMoveSlot *b = (const WenaCardMoveSlot *)right;
-    return a->position < b->position ? -1 : a->position > b->position ? 1 : 0;
-}
-
 static int capture_order(WenaCardMoveState *state, const WenaBoardLayout *layout)
 {
-    size_t i, j, count;
-    const WenaCard *card;
-    count = 0;
-    for (i = 0; i < layout->card_count; ++i)
-        if (same_column(state, &layout->cards[i])) ++count;
-    if (count == 0 || count > WENA_CARD_MOVE_ORDER_CAPACITY) return 0;
-    state->order = (WenaCardMoveSlot *)calloc(count, sizeof(*state->order));
-    if (state->order == NULL) return 0;
-    state->order_count = count;
-    count = 0;
-    for (i = 0; i < layout->card_count; ++i) {
-        card = &layout->cards[i];
-        if (!same_column(state, card)) continue;
-        if (!(card->sort >= 0 && card->sort < (double)(LONG_MAX - 2048) &&
-              card->sort <= 9007199254740991.0) ||
-            (double)(long)card->sort != card->sort ||
-            (card->archived != 0 && card->archived != 1) ||
-            !wena_model_identifier_valid(card->id)) goto bad;
-        strcpy(state->order[count].id, card->id);
-        state->order[count].position = card->sort;
-        state->order[count].model_index = i;
-        state->order[count].archived = card->archived;
-        ++count;
-    }
-    qsort(state->order, count, sizeof(*state->order), compare_slots);
-    for (i = 0; i < count; ++i) {
-        if (i > 0 && state->order[i - 1].position == state->order[i].position) goto bad;
-        for (j = 0; j < i; ++j)
-            if (!strcmp(state->order[i].id, state->order[j].id)) goto bad;
-    }
-    return 1;
-bad:
-    free(state->order); state->order = NULL; state->order_count = 0; return 0;
+    return wena_card_order_capture(layout->cards,layout->card_count,state->board_id,
+        state->source_list_id,state->source_swimlane_id,&state->order,&state->order_count);
 }
 
 static int order_current(const WenaCardMoveState *state, const WenaBoardLayout *layout)
 {
-    unsigned char seen[WENA_CARD_MOVE_ORDER_CAPACITY];
-    size_t i, low, high, middle, count;
-    const WenaCard *card;
-    if (state->order == NULL || state->order_count == 0 ||
-        state->order_count > WENA_CARD_MOVE_ORDER_CAPACITY) return 0;
-    memset(seen, 0, sizeof(seen)); count = 0;
-    for (i = 0; i < layout->card_count; ++i) {
-        card = &layout->cards[i];
-        if (!same_column(state, card)) continue;
-        low = 0; high = state->order_count;
-        while (low < high) {
-            middle = low + (high - low) / 2;
-            if (state->order[middle].position < card->sort) low = middle + 1;
-            else high = middle;
-        }
-        if (low == state->order_count || seen[low] ||
-            state->order[low].position != card->sort ||
-            state->order[low].archived != card->archived ||
-            strcmp(state->order[low].id, card->id)) return 0;
-        seen[low] = 1; ++count;
-    }
-    return count == state->order_count;
+    return wena_card_order_current(state->order,state->order_count,layout->cards,
+        layout->card_count,state->board_id,state->source_list_id,state->source_swimlane_id);
 }
 
 int wena_card_move_open(WenaCardMoveState *state,

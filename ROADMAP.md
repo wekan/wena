@@ -79,7 +79,11 @@ item lists. It shares navigation, page clamping, headings, row callbacks, exact
 absolute row intents and empty/error handling; translated navigation comes from
 the pinned catalog. Real Nuklear coverage includes different adapters and maximal
 size_t boundaries. Twenty focused native suites pass; table and sidebar integration
-also pass ASan/UBSan. See `client/components/README.md`.
+also pass ASan/UBSan. Ordered-card snapshot capture and stale detection now live
+in a reusable pure model, used by the Move dialog and ready for card dragging;
+archived siblings, exact IDs, numeric bounds and atomic replacement share one
+implementation. Nine existing focused suites and the new model test pass.
+See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally
 retains owned ordered checklist/item contents in the same read transaction as its
