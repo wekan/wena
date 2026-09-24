@@ -33,11 +33,37 @@ static int advance(sqlite3 *db,const WenaCardPeopleSnapshot *card)
         sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;
     if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
 }
+int wena_card_person_plan(const WenaMemberRoster *roster,const WenaCardPeopleSnapshot *current,
+    int field,const char *actor,int enabled,WenaCardPeopleSnapshot *output)
+{
+    WenaCardPeopleSnapshot *planned;size_t i,j;unsigned long position;int ok,changed,result;
+    if(!roster||!current||!output||field<0||field>=WENA_PERSON_FIELD_COUNT||current->archived||
+        !wena_card_people_valid(&current->fields[0])||!wena_card_people_valid(&current->fields[1])||
+        strcmp(current->fields[0].board_id,current->fields[1].board_id)||
+        !wena_model_identifier_valid(roster->board_id)||strcmp(roster->board_id,current->fields[0].board_id)||
+        roster->board_version!=current->board_version||!current->board_version||current->board_version>WENA_VERSION_MUTATE_MAX||
+        !current->card_version||current->card_version>WENA_VERSION_MUTATE_MAX)return 0;
+    planned=(WenaCardPeopleSnapshot*)malloc(sizeof(*planned));if(!planned)return 0;*planned=*current;
+    ok=wena_card_people_set(&current->fields[field],roster->members,roster->count,actor,enabled,&planned->fields[field],&changed);
+    if(ok&&changed){
+        if(enabled){
+            i=current->fields[field].count;position=0;
+            if(i){position=current->positions[field][i-1];if(position>=2147483647UL)ok=0;else ++position;}
+            if(ok)planned->positions[field][i]=position;
+        }else{
+            for(i=0;i<current->fields[field].count;++i)if(!strcmp(current->fields[field].ids[i],actor))break;
+            for(j=i+1;j<current->fields[field].count;++j)planned->positions[field][j-1]=current->positions[field][j];
+            planned->positions[field][planned->fields[field].count]=0;
+        }
+        ++planned->card_version;
+    }
+    result=0;if(ok){*output=*planned;result=changed?1:2;}free(planned);return result;
+}
 int wena_sqlite_card_person_set(sqlite3 *db,const WenaMemberRoster *roster,
     const WenaCardPeopleSnapshot *expected,int field,const char *actor,int enabled,WenaCardPeopleSnapshot *output)
 {
     WenaMemberRoster *current_roster;WenaCardPeopleSnapshot *current,*planned;
-    size_t i,j;unsigned long position;int ok,changed,result;
+    unsigned long position;int ok,changed,result;
     if(!db||sqlite3_get_autocommit(db)||!roster||!expected||!output||field<0||field>=WENA_PERSON_FIELD_COUNT||
         !wena_model_identifier_valid(actor)||(enabled!=0&&enabled!=1)||
         !wena_model_identifier_valid(roster->board_id)||!wena_model_identifier_valid(expected->card_id)||
@@ -50,28 +76,14 @@ int wena_sqlite_card_person_set(sqlite3 *db,const WenaMemberRoster *roster,
     result=0;changed=0;
     ok=wena_sqlite_member_roster_read(db,roster->board_id,current_roster)&&!memcmp(roster,current_roster,sizeof(*roster))&&
         wena_sqlite_card_people_read(db,roster->board_id,expected->card_id,current)&&!memcmp(expected,current,sizeof(*expected))&&parents(db,current);
-    if(ok){
-        *planned=*current;
-        ok=wena_card_people_set(&current->fields[field],roster->members,roster->count,actor,enabled,&planned->fields[field],&changed);
-    }
-    position=0;
+    if(ok){result=wena_card_person_plan(roster,current,field,actor,enabled,planned);ok=result!=0;changed=result==1;}
     if(ok&&changed){
-        if(enabled){
-            i=current->fields[field].count;
-            if(i){position=current->positions[field][i-1];if(position==2147483647UL)ok=0;else ++position;}
-            if(ok)planned->positions[field][i]=position;
-        }else{
-            for(i=0;i<current->fields[field].count;++i)if(!strcmp(current->fields[field].ids[i],actor))break;
-            for(j=i+1;j<current->fields[field].count;++j)planned->positions[field][j-1]=current->positions[field][j];
-            planned->positions[field][planned->fields[field].count]=0;
-        }
-        if(ok)ok=row_write(db,current,field,actor,enabled,position)&&advance(db,current);
-        if(ok){
-            ++planned->card_version;
-            ok=wena_sqlite_member_roster_read(db,roster->board_id,current_roster)&&!memcmp(roster,current_roster,sizeof(*roster))&&
-                wena_sqlite_card_people_read(db,roster->board_id,expected->card_id,current)&&!memcmp(planned,current,sizeof(*current))&&parents(db,current);
-        }
+        position=enabled?planned->positions[field][planned->fields[field].count-1]:0;
+        ok=row_write(db,current,field,actor,enabled,position)&&advance(db,current);
+        if(ok)ok=wena_sqlite_member_roster_read(db,roster->board_id,current_roster)&&!memcmp(roster,current_roster,sizeof(*roster))&&
+            wena_sqlite_card_people_read(db,roster->board_id,expected->card_id,current)&&!memcmp(planned,current,sizeof(*current))&&parents(db,current);
     }
+    result=0;
     if(ok){*output=*planned;result=changed?1:2;}
     free(current_roster);free(current);free(planned);return result;
 }

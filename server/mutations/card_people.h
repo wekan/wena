@@ -1,6 +1,14 @@
 #ifndef WENA_MUTATION_CARD_PEOPLE_H
 #define WENA_MUTATION_CARD_PEOPLE_H
 #include "../card_people_store.h"
+#include "common.h"
+/* Shared preflight over strict reader snapshots: 0 invalid, 1 changed, 2 no-op.
+ * Does not write or inspect the database. Output survives failure. */
+int wena_card_person_plan(const WenaMemberRoster *roster,const WenaCardPeopleSnapshot *current,
+    int field,const char *actor,int enabled,WenaCardPeopleSnapshot *output);
+/* Exact native selection, including a one-card span; caller owns transaction. */
+int wena_sqlite_selected_people_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version);
 /* Caller-owned guarded write transaction; 0 failure, 1 changed, 2 no-op.
  * Revalidate exact roster/card captures and active card parents. Add/remove one
  * person in either field through the same writer. Preserve order gaps, append

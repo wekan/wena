@@ -924,8 +924,19 @@ Architecture decisions for this cycle:
                   changes, late/commit rollback, terminal revisions, full capacity,
                   in-place output and reopening. Caller still owns the board
                   revision, whole-batch verification, idempotency and commit.
-                - [_] Connect guarded single/bulk assignment domain operations,
-                  consistent native captures and transactional cross-board filtering.
+                - [x] Connect one native typed person-assignment operation for
+                  both single-card and exact multi-card spans. Preflight the whole
+                  selection, share the writer for either field, advance changed
+                  cards and the board once, and preserve mixed no-op revisions.
+                  Use canonically framed per-card fingerprints to check the full
+                  batch after later writes/board triggers without retaining 2048
+                  full snapshots. Reuse actor/idempotency/publication/commit guards.
+                  Tests cover invalid/stale selection and eligibility, preflight
+                  without writes, cross-card alterations, late/staging/commit
+                  rollback, replay, no-ops, one-card spans, full capacity and reopen;
+                  HTTP dispatch keeps the typed operation private to native code.
+                - [_] Add consistent native person captures, roster management
+                  and transactional cross-board member filtering.
                 - [_] Connect shared paginated person controls to card details and
                   multi-selection, showing mixed assignment and publishing caches
                   only after successful commit. Verify real input and rollback.

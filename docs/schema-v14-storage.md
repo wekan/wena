@@ -46,6 +46,19 @@ cards advance revisions. It neither advances the board revision nor commits:
 the enclosing domain operation must authorize the caller, guard replay, verify
 the whole batch, advance the board once and commit or roll everything back.
 
-Domain assignment operations, roster management, transactional transfer filtering,
-native snapshots and paginated person controls remain pending in `ROADMAP.md`.
-Until those operations are connected, no application action writes these tables.
+Native operation `WENA_DOMAIN_SET_SELECTED_PERSON` accepts an exact typed span of
+1–2048 unique card IDs/revisions, including a one-card span. Its form supplies
+`personId`, `field` (`members` or `assignees`), `enabled` (`0` or `1`) and
+`expectedBoardVersion`. The existing guarded persistence transaction checks the
+actor and replay identity. The operation preflights every selected card before
+writes, advances only changed cards and advances the board once. All-no-op
+requests preserve revisions and do not consume a mutation identity. Complete
+roster and per-card fingerprints are checked after writes, including both person
+fields, ordering, card metadata and every selected no-op card. Fingerprints use
+length-framed strings and fixed-width numbers, not native structure bytes. The
+HTTP dispatcher does not expose this typed native operation.
+
+Roster management, transactional transfer filtering, native capture adapters and
+paginated person controls remain pending in `ROADMAP.md`. No native UI exposes
+assignment writes yet. As with the existing native domain adapter, the caller is
+responsible for authentication and board authorization before invoking it.

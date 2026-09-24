@@ -1,11 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-test_dir="${TMPDIR:-/tmp}/wena-list-archive-$$"
+test_dir="${TMPDIR:-/tmp}/wena-selected-people-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/list_archive_test.c" "$root_dir/client/features/hierarchy_mutation.c" "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \
+ "$root_dir/tests/selected_people_test.c" "$root_dir/client/features/hierarchy_mutation.c" "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
  "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/card_people.c" "$root_dir/server/mutations/selected_people.c" "$root_dir/server/card_people_store.c" "$root_dir/models/card_people.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \
   "$root_dir/server/mutations/checklist_order.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
