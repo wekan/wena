@@ -1016,8 +1016,18 @@ Architecture decisions for this cycle:
                       board revisions once. Tests cover invalid/stale targets,
                       archived siblings, corruption, cross-card trigger changes,
                       late/staging/commit rollback, replay, reopening and full
-                      2048-card transfers. Native capture/picker/publication
-                      integration remains open.
+                      2048-card transfers.
+                    - [x] Add native cross-board capture and save adapters.
+                      Capture immutable selection, both board revisions/order
+                      fingerprints and both display snapshots in one read
+                      transaction. Generalize the existing publication hook to
+                      stage one or two boards and publish both only after commit.
+                      Preserve output pointers, views and traversal counts on
+                      failure. Tests cover a concurrent WAL writer, stale caches,
+                      denied reads/commits, existing transactions/hooks, invalid
+                      target staging, late rollback, replay and reopening.
+                    - [_] Connect the shared board picker and destination
+                      controls to native cross-board selection transfer.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

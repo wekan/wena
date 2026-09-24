@@ -583,6 +583,76 @@ static void cross_board_selected(sqlite3 *db)
  assert(number(db,"SELECT count(*) FROM pragma_foreign_key_check")==0);
 }
 
+static int transfer_capture_race(unsigned int event,void *context,void *statement,void *text)
+{
+ Race *race;const char *query;(void)text;race=(Race*)context;query=sqlite3_sql((sqlite3_stmt*)statement);
+ if(event==SQLITE_TRACE_STMT&&!race->fired&&query&&strstr(query,"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE id=")){
+  race->fired=1;sql(race->writer,"UPDATE cards SET position=3 WHERE id='xu';UPDATE boards SET version=3 WHERE id='xs'");
+ }
+ return 0;
+}
+static void native_cross_board(sqlite3 *db,const char *path)
+{
+ WenaHierarchyMutation adapter;WenaHierarchyTransfer transfer;WenaCardTransferSelection *capture,*saved,*original;
+ WenaSqliteBoardSnapshot *source,*destination,*before_source,*before_destination,*fresh;WenaId ids[2];
+ Race race;size_t source_count,target_count;int calls;
+ source=(WenaSqliteBoardSnapshot*)malloc(sizeof(*source));destination=(WenaSqliteBoardSnapshot*)malloc(sizeof(*destination));
+ before_source=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before_source));before_destination=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before_destination));
+ fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));original=(WenaCardTransferSelection*)malloc(sizeof(*original));
+ assert(source&&destination&&before_source&&before_destination&&fresh&&original);
+ assert(wena_sqlite_board_load(db,"xt",source)&&wena_sqlite_board_load(db,"xs",destination));
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","xt",source));
+ assert(!wena_hierarchy_transfer_init(&transfer,&adapter,source));assert(wena_hierarchy_transfer_init(&transfer,&adapter,destination));
+ source_count=source->card_count;target_count=destination->card_count;adapter.published_card_count=&source_count;transfer.published_card_count=&target_count;
+ *before_source=*source;*before_destination=*destination;capture=NULL;strcpy(ids[0],"xb");strcpy(ids[1],"xa");
+ source->card_count=destination->card_count=0;source_count=target_count=0;strcpy(source->lists[0].title,"Stale");
+ assert(sqlite3_open(path,&race.writer)==SQLITE_OK);race.fired=0;
+ assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,transfer_capture_race,&race)==SQLITE_OK);
+ assert(wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture));
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK&&race.fired);
+ assert(capture->source_board_version==2&&capture->target_board_version==2&&capture->source.count==2&&!strcmp(capture->source.cards[0].id,"xb"));
+ assert(!memcmp(source,before_source,sizeof(*source))&&!memcmp(destination,before_destination,sizeof(*destination))&&source_count==4&&target_count==1);
+ assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));
+ sql(race.writer,"UPDATE cards SET position=2 WHERE id='xu';UPDATE boards SET version=2 WHERE id='xs'");assert(sqlite3_close(race.writer)==SQLITE_OK);
+ *original=*capture;saved=capture;
+ assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"missing",&capture));
+ assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xt",&capture));
+ strcpy(adapter.actor_id,"missing");assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture));strcpy(adapter.actor_id,"u");
+ transfer.published_card_count=&source_count;assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture));transfer.published_card_count=&target_count;
+ calls=0;assert(sqlite3_set_authorizer(db,move_capture_deny_commit,&calls)==SQLITE_OK);
+ assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture)&&calls==1);
+ assert(sqlite3_set_authorizer(db,NULL,NULL)==SQLITE_OK&&sqlite3_get_autocommit(db));
+ sql(db,"BEGIN");assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture)&&!sqlite3_get_autocommit(db));sql(db,"ROLLBACK");
+ assert(saved==capture&&!memcmp(capture,original,sizeof(*capture))&&!memcmp(source,before_source,sizeof(*source))&&
+  !memcmp(destination,before_destination,sizeof(*destination))&&source_count==4&&target_count==1);
+ capture->target_fingerprint[64]='x';assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));*capture=*original;
+ strcpy(destination->board.id,"other");assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));*destination=*before_destination;
+ adapter.persistence.prepare_publish=transfer_reject_publish;adapter.persistence.publish_context=&calls;
+ assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500)&&adapter.persistence.prepare_publish==transfer_reject_publish&&adapter.persistence.publish_context==&calls);
+ adapter.persistence.prepare_publish=NULL;adapter.persistence.publish_context=NULL;
+ sql(db,"PRAGMA ignore_check_constraints=ON;INSERT INTO swimlane_colors VALUES('xss','xs','invalid');PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,2,"xs",&capture));
+ assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));sql(db,"DELETE FROM swimlane_colors WHERE swimlane_id='xss'");
+ sql(db,"CREATE TRIGGER transfer_native_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));sql(db,"DROP TRIGGER transfer_native_late");
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500)&&calls==1);sqlite3_commit_hook(db,NULL,NULL);
+ assert(saved==capture&&!memcmp(capture,original,sizeof(*capture))&&!memcmp(source,before_source,sizeof(*source))&&
+  !memcmp(destination,before_destination,sizeof(*destination))&&source_count==4&&target_count==1);
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xt' AND version=2")==2);
+ source->card_count=destination->card_count=0;source_count=target_count=0;
+ assert(wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));
+ assert(source_count==2&&target_count==3&&!memcmp(capture,original,sizeof(*capture)));
+ assert(wena_sqlite_board_load(db,"xt",fresh)&&!memcmp(source,fresh,sizeof(*source)));
+ assert(wena_sqlite_board_load(db,"xs",fresh)&&!memcmp(destination,fresh,sizeof(*destination)));
+ *before_source=*source;*before_destination=*destination;
+ assert(!wena_hierarchy_transfer_request(&transfer,capture,"xsl","xss",1,9500));
+ assert(!memcmp(source,before_source,sizeof(*source))&&!memcmp(destination,before_destination,sizeof(*destination)));
+ strcpy(ids[0],"xd0");assert(wena_hierarchy_transfer_load(&transfer,"xt",(const WenaId*)ids,1,"xs",&capture));
+ assert(wena_hierarchy_transfer_save(&transfer,capture,"xsl","xss",3)&&source_count==1&&target_count==4);
+ assert(wena_sqlite_board_load(db,"xs",fresh)&&!memcmp(destination,fresh,sizeof(*destination)));
+ free(capture);free(original);free(source);free(destination);free(before_source);free(before_destination);free(fresh);
+}
+
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -649,6 +719,10 @@ int main(int argc,char **argv)
  assert(number(db,"SELECT count(*) FROM checklist_items WHERE board_id='xt' AND version=2")==1);
  assert(number(db,"SELECT count(*) FROM cards WHERE board_id='ft' AND version=2")==2048);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
+ native_cross_board(db,path);
+ assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
+ assert(number(db,"SELECT count(*) FROM cards WHERE board_id='xs'")==4&&number(db,"SELECT count(*) FROM cards WHERE board_id='xt'")==1);
+ assert(number(db,"SELECT version FROM cards WHERE id='xa'")==3);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");
  assert(!list_cards(&store,"listId=l&expectedVersion=1",400));

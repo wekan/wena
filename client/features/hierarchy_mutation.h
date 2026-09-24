@@ -107,4 +107,23 @@ int wena_hierarchy_mutation_selected_move_request(WenaHierarchyMutation *adapter
     size_t before,unsigned long request);
 int wena_hierarchy_mutation_selected_move(void *context,const WenaCardMoveSelection *selection,
     const char *list,const char *lane,size_t before);
+/* Non-owning transfer context. Source and destination storage must be distinct
+ * and outlive the context. Optional traversal counts must also be distinct.
+ * The caller authorizes access to both boards before capture/save. */
+typedef struct WenaHierarchyTransfer {
+    WenaHierarchyMutation *source;
+    WenaSqliteBoardSnapshot *destination;
+    size_t *published_card_count;
+} WenaHierarchyTransfer;
+int wena_hierarchy_transfer_init(WenaHierarchyTransfer *transfer,WenaHierarchyMutation *source,
+    WenaSqliteBoardSnapshot *destination);
+/* Initialize *output to NULL or storage owned by this API. Capture reads both
+ * complete boards and guards in one transaction, replacing all outputs only
+ * after commit. Failure preserves captures, both views and peer counts. */
+int wena_hierarchy_transfer_load(void *context,const char *board,const WenaId *ids,size_t count,
+    const char *target,WenaCardTransferSelection **output);
+int wena_hierarchy_transfer_request(WenaHierarchyTransfer *transfer,const WenaCardTransferSelection *selection,
+    const char *list,const char *lane,size_t before,unsigned long request);
+int wena_hierarchy_transfer_save(void *context,const WenaCardTransferSelection *selection,
+    const char *list,const char *lane,size_t before);
 #endif

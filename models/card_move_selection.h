@@ -10,4 +10,11 @@ typedef struct WenaCardMoveSelection {
     size_t count;
     WenaCardRevision cards[WENA_CARD_ORDER_CAPACITY];
 } WenaCardMoveSelection;
+/* Both board guards belong to the same read snapshot as source.cards[]. */
+typedef struct WenaCardTransferSelection {
+    WenaCardMoveSelection source;
+    WenaId target_board_id;
+    char target_fingerprint[65];
+    unsigned long source_board_version,target_board_version;
+} WenaCardTransferSelection;
 #endif
