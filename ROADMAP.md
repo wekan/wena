@@ -887,6 +887,16 @@ Architecture decisions for this cycle:
               Enter without mutation, exact cache publication and reopening.
               Hiding/closing releases captured rows; successful archive clears IDs.
             - [_] Add remaining bulk label/member/move actions.
+              - [x] Add native exact-selection label assignment/removal in one
+                guarded transaction. Reuse single-card assignment validation
+                and writes; validate all selected revisions and active parents
+                before writing, then verify every result. Mixed no-op cards keep
+                their revisions; the board advances once per changed batch.
+                Cover duplicate/foreign/stale IDs, archived parents, read-only
+                writes, late/partial/commit rollback, replay, full 2048-card
+                capacity, terminal revisions and reopening. HTTP dispatch does
+                not expose these typed native batch operations.
+              - [_] Add native label batch capture/publication and shared panel UI.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

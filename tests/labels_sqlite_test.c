@@ -57,6 +57,122 @@ static void reopen(WenaLabelsState *state, WenaCard *card)
     wena_labels_close(state);
     assert(wena_labels_open(state, "b", card));
 }
+static void batch_command(WenaDomainCommand *command,WenaDomainCardRevision *rows,size_t count,
+    int assign,unsigned long board_version,unsigned long request)
+{
+    memset(command,0,sizeof(*command));command->operation=assign?WENA_DOMAIN_ASSIGN_SELECTED_LABEL:WENA_DOMAIN_UNASSIGN_SELECTED_LABEL;
+    command->request_version=request;strcpy(command->user_id,"u");strcpy(command->route,"/b/batch/native");
+    sprintf(command->form_body,"labelId=label&expectedLabelVersion=1&expectedBoardVersion=%lu",board_version);
+    command->form_body_length=strlen(command->form_body);command->selected_cards=rows;command->selected_card_count=count;
+}
+static char *batch_state(sqlite3 *db)
+{
+    sqlite3_stmt *statement;char *copy;
+    assert(sqlite3_prepare_v2(db,"SELECT group_concat(row,'|') FROM ("
+        "SELECT 'c:'||id||':'||version||':'||archived||':'||list_id||':'||swimlane_id AS row FROM cards WHERE board_id='batch' "
+        "UNION ALL SELECT 'a:'||card_id||':'||label_id FROM card_labels WHERE board_id='batch' "
+        "UNION ALL SELECT 'l:'||id||':'||version FROM labels WHERE board_id='batch' ORDER BY row)",-1,&statement,NULL)==SQLITE_OK);
+    assert(sqlite3_step(statement)==SQLITE_ROW);
+    copy=sqlite3_mprintf("%s",sqlite3_column_text(statement,0));assert(copy);
+    assert(sqlite3_finalize(statement)==SQLITE_OK);return copy;
+}
+static void batch_rejected(sqlite3 *db,WenaSqlitePersistence *store,WenaDomainCommand *command)
+{
+    WenaRegionResponse response;sqlite3_int64 version,keys,assignments;char *before,*after;
+    version=number(db,"SELECT version FROM boards WHERE id='batch'");
+    before=batch_state(db);
+    keys=number(db,"SELECT count(*) FROM idempotency_keys");
+    assignments=number(db,"SELECT count(*) FROM card_labels WHERE board_id='batch'");
+    assert(!wena_sqlite_persistence_apply(store,command,&response));
+    assert(version==number(db,"SELECT version FROM boards WHERE id='batch'"));
+    after=batch_state(db);assert(!strcmp(before,after));sqlite3_free(before);sqlite3_free(after);
+    assert(keys==number(db,"SELECT count(*) FROM idempotency_keys"));
+    assert(assignments==number(db,"SELECT count(*) FROM card_labels WHERE board_id='batch'"));
+    assert(sqlite3_get_autocommit(db));
+}
+static int reject_batch_commit(void *data){(void)data;return 1;}
+static void selected_labels(sqlite3 *db)
+{
+    WenaSqlitePersistence store;WenaDomainCommand command;WenaRegionResponse response;
+    WenaDomainCardRevision *rows;sqlite3_int64 keys;size_t i;char query[256];
+    sql(db,"INSERT INTO boards VALUES('batch','Batch',1);"
+        "INSERT INTO lists VALUES('bl','batch','List',0,1);INSERT INTO swimlanes VALUES('bs','batch','Lane',0,1);"
+        "INSERT INTO cards VALUES('ba','batch','bs','bl','Same title',0,0,1),('bz','batch','bs','bl','Same title',1,0,1),('bu','batch','bs','bl','Unselected',2,0,1);"
+        "INSERT INTO labels VALUES('batch','label','Batch label','blue',0,1,0,0)");
+    rows=(WenaDomainCardRevision*)calloc(WENA_DOMAIN_CARD_BATCH_CAPACITY,sizeof(*rows));assert(rows);
+    strcpy(rows[0].id,"ba");rows[0].version=1;strcpy(rows[1].id,"bz");rows[1].version=1;
+    wena_sqlite_persistence_init(&store,db);batch_command(&command,rows,2,1,1,4000);
+    command.selected_card_count=0;batch_rejected(db,&store,&command);
+    command.selected_card_count=WENA_DOMAIN_CARD_BATCH_CAPACITY+1;batch_rejected(db,&store,&command);
+    command.selected_card_count=2;command.selected_cards=NULL;batch_rejected(db,&store,&command);command.selected_cards=rows;
+    strcpy(rows[1].id,"ba");batch_rejected(db,&store,&command);
+    strcpy(rows[1].id,"foreign");batch_rejected(db,&store,&command);
+    strcpy(rows[1].id,"missing");batch_rejected(db,&store,&command);
+    strcpy(rows[1].id,"bad id");batch_rejected(db,&store,&command);
+    strcpy(rows[1].id,"bz");rows[1].version=2;batch_rejected(db,&store,&command);rows[1].version=1;
+    sql(db,"UPDATE cards SET archived=1 WHERE id='bz'");batch_rejected(db,&store,&command);
+    sql(db,"UPDATE cards SET archived=0 WHERE id='bz'");
+    sql(db,"INSERT INTO list_archive_state VALUES('bl','batch',1,1)");batch_rejected(db,&store,&command);
+    sql(db,"UPDATE list_archive_state SET archived=0 WHERE list_id='bl'");
+    sql(db,"INSERT INTO swimlane_archive_state VALUES('bs','batch',1,1)");batch_rejected(db,&store,&command);
+    sql(db,"UPDATE swimlane_archive_state SET archived=0 WHERE swimlane_id='bs'");
+    sql(db,"PRAGMA query_only=ON");batch_rejected(db,&store,&command);sql(db,"PRAGMA query_only=OFF");
+    strcpy(command.user_id,"missing");batch_rejected(db,&store,&command);strcpy(command.user_id,"u");
+    batch_command(&command,rows,2,1,2,4000);batch_rejected(db,&store,&command);
+    batch_command(&command,rows,2,1,1,4000);
+    sql(db,"UPDATE labels SET version=2 WHERE board_id='batch'");batch_rejected(db,&store,&command);
+    sql(db,"UPDATE labels SET version=1 WHERE board_id='batch'");
+    sql(db,"CREATE TRIGGER batch_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late'); END");
+    batch_rejected(db,&store,&command);sql(db,"DROP TRIGGER batch_late");
+    sql(db,"CREATE TRIGGER batch_second BEFORE INSERT ON card_labels WHEN NEW.card_id='bz' BEGIN SELECT RAISE(ABORT,'second'); END");
+    batch_rejected(db,&store,&command);sql(db,"DROP TRIGGER batch_second");
+    sql(db,"CREATE TRIGGER batch_earlier AFTER INSERT ON card_labels WHEN NEW.card_id='bz' BEGIN DELETE FROM card_labels WHERE card_id='ba'; END");
+    batch_rejected(db,&store,&command);sql(db,"DROP TRIGGER batch_earlier");
+    sql(db,"CREATE TRIGGER batch_parent AFTER INSERT ON card_labels WHEN NEW.card_id='bz' BEGIN UPDATE list_archive_state SET archived=1 WHERE list_id='bl'; END");
+    batch_rejected(db,&store,&command);sql(db,"DROP TRIGGER batch_parent");
+    assert(number(db,"SELECT archived FROM list_archive_state WHERE list_id='bl'")==0);
+    sqlite3_commit_hook(db,reject_batch_commit,NULL);batch_rejected(db,&store,&command);sqlite3_commit_hook(db,NULL,NULL);
+    assert(wena_sqlite_persistence_apply(&store,&command,&response));batch_rejected(db,&store,&command);
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='batch'")==2);
+    assert(number(db,"SELECT version FROM cards WHERE id='bu'")==1);
+    assert(number(db,"SELECT version FROM boards WHERE id='batch'")==2);
+    assert(rows[0].version==1&&rows[1].version==1);
+    rows[0].version=rows[1].version=2;
+    keys=number(db,"SELECT count(*) FROM idempotency_keys");
+    batch_command(&command,rows,2,1,2,4001);assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(keys==number(db,"SELECT count(*) FROM idempotency_keys"));
+    /* Mixed add and remove preserve no-op card revisions. */
+    strcpy(rows[1].id,"bu");rows[1].version=1;
+    batch_command(&command,rows,2,1,2,4002);assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(number(db,"SELECT version FROM cards WHERE id='ba'")==2&&number(db,"SELECT version FROM cards WHERE id='bu'")==2);
+    sql(db,"DELETE FROM card_labels WHERE card_id='bu'");rows[1].version=2;
+    batch_command(&command,rows,2,0,3,4003);assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(number(db,"SELECT version FROM cards WHERE id='ba'")==3&&number(db,"SELECT version FROM cards WHERE id='bu'")==2);
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE card_id='bz'")==1);
+    /* Full native capacity is a typed span, independent of HTTP body size. */
+    sql(db,"BEGIN");
+    for(i=0;i<WENA_DOMAIN_CARD_BATCH_CAPACITY;++i){
+        sprintf(rows[i].id,"bulk%lu",(unsigned long)i);rows[i].version=1;
+        sprintf(query,"INSERT INTO cards VALUES('%s','batch','bs','bl','Bulk',%lu,0,1)",rows[i].id,(unsigned long)i+10);sql(db,query);
+    }
+    sql(db,"COMMIT");batch_command(&command,rows,WENA_DOMAIN_CARD_BATCH_CAPACITY,1,4,4004);
+    assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='batch'")==2049);
+    for(i=0;i<WENA_DOMAIN_CARD_BATCH_CAPACITY;++i)rows[i].version=2;
+    batch_command(&command,rows,WENA_DOMAIN_CARD_BATCH_CAPACITY,0,5,4005);
+    assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(number(db,"SELECT count(*) FROM card_labels WHERE board_id='batch'")==1);
+    strcpy(rows[0].id,"ba");rows[0].version=WENA_VERSION_MUTATE_MAX;
+    sprintf(query,"UPDATE boards SET version=%lu WHERE id='batch'",WENA_VERSION_MUTATE_MAX);sql(db,query);
+    sprintf(query,"UPDATE cards SET version=%lu WHERE id='ba'",WENA_VERSION_MUTATE_MAX);sql(db,query);
+    batch_command(&command,rows,1,1,WENA_VERSION_MUTATE_MAX,4010);
+    assert(wena_sqlite_persistence_apply(&store,&command,&response));
+    assert(number(db,"SELECT version FROM cards WHERE id='ba'")== (sqlite3_int64)WENA_VERSION_READ_MAX);
+    rows[0].version=WENA_VERSION_READ_MAX;
+    batch_command(&command,rows,1,0,WENA_VERSION_READ_MAX,4011);batch_rejected(db,&store,&command);
+    free(rows);
+}
+
 int main(int argc, char **argv)
 {
     sqlite3 *database;
@@ -69,7 +185,7 @@ int main(int argc, char **argv)
     char long_name[150], query[512];
     sqlite3_int64 keys, board_version, card_version, archived_version;
     unsigned long request;
-    assert(argc == 5);
+    assert(argc == 7);
     assert(sqlite3_open(argv[4], &database) == SQLITE_OK);
     sql(database, "PRAGMA foreign_keys=ON");
     schema(database, argv[1]);
@@ -220,6 +336,14 @@ int main(int argc, char **argv)
         !strcmp(state.snapshot->labels[0].name, "Other label"));
     wena_labels_close(&state);
     assert(sqlite3_close(database) == SQLITE_OK);
+    assert(sqlite3_open(argv[4], &database) == SQLITE_OK);
+    schema(database,argv[5]);schema(database,argv[6]);
+    selected_labels(database);
+    assert(sqlite3_close(database)==SQLITE_OK);
+    assert(sqlite3_open(argv[4], &database)==SQLITE_OK);
+    assert(number(database,"SELECT version FROM boards WHERE id='batch'")== (sqlite3_int64)WENA_VERSION_READ_MAX);
+    assert(number(database,"SELECT count(*) FROM card_labels WHERE board_id='batch'")==2);
+    assert(sqlite3_close(database)==SQLITE_OK);
     puts("Labels UI SQLite writes, cancel, revisions, scopes, replay, rollback and reopening passed");
     return 0;
 }

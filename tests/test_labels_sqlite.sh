@@ -24,4 +24,6 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
   -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$root_dir/server/migrations/001_initial.sql" \
   "$root_dir/server/migrations/002_card_descriptions.sql" \
-  "$root_dir/server/migrations/005_labels.sql" "$test_dir/labels.sqlite"
+  "$root_dir/server/migrations/005_labels.sql" "$test_dir/labels.sqlite" \
+  "$root_dir/server/migrations/010_list_archive_state.sql" \
+  "$root_dir/server/migrations/013_swimlane_archive_state.sql"

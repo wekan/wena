@@ -31,7 +31,7 @@ int main(void)
         "create-checklist", "rename-checklist", "add-checklist-item",
         "rename-checklist-item", "set-checklist-item-finished",
         "set-checklist-flags", "delete-checklist", "delete-checklist-item",
-        "archive-selected-cards", "archive-list-cards", "archive-swimlane", "restore-swimlane"
+        "assign-selected-label", "unassign-selected-label", "archive-selected-cards", "archive-list-cards", "archive-swimlane", "restore-swimlane"
     };
     size_t index;
     int previous_calls;

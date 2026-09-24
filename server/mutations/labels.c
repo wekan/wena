@@ -1,4 +1,6 @@
 #include "labels.h"
+#include "card_archive.h"
+#include "../list_state.h"
 #include "../../models/label.h"
 #include <limits.h>
 #include <string.h>
@@ -92,6 +94,21 @@ static int version_field(const WenaDomainCommand *command,const char *name,
         wena_mutation_decimal(text,allow_zero,WENA_VERSION_MUTATE_MAX,version);
 }
 
+/* Shared assignment validation and writes for single-card and exact batches. */
+static int assignment_state(sqlite3 *db,const LabelCommand *edit,sqlite3_int64 *has)
+{
+    return one(db,"SELECT CASE WHEN count(*)<=128 AND count(*)=count(CASE WHEN cl.board_id=?1 AND l.id IS NOT NULL THEN 1 ELSE NULL END) THEN 1 ELSE 0 END FROM card_labels cl LEFT JOIN labels l ON l.board_id=cl.board_id AND l.id=cl.label_id WHERE cl.card_id=?2",edit) &&
+        statement(db,"SELECT count(*) FROM card_labels WHERE board_id=?1 AND card_id=?2 AND label_id=?3",edit,1,has) && *has<=1;
+}
+static int assignment_write(sqlite3 *db,const LabelCommand *edit,int assign)
+{
+    if(assign&&!one(db,"SELECT CASE WHEN count(*)<128 THEN 1 ELSE 0 END FROM card_labels WHERE card_id=?2",edit))return 0;
+    return statement(db,assign?
+        "INSERT INTO card_labels(board_id,card_id,label_id) VALUES(?1,?2,?3)":
+        "DELETE FROM card_labels WHERE board_id=?1 AND card_id=?2 AND label_id=?3",edit,0,NULL) &&
+        statement(db,"UPDATE cards SET version=version+1 WHERE board_id=?1 AND id=?2 AND version=?8 AND archived=0",edit,0,NULL);
+}
+
 int wena_sqlite_labels_change(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,unsigned long *result_version)
 {
@@ -131,17 +148,11 @@ int wena_sqlite_labels_change(sqlite3 *db,const WenaDomainCommand *command,
         if (!statement(db,"SELECT count(*) FROM labels WHERE board_id=?1 AND name=?4 AND color=?5",&edit,1,&count) || count) return 0;
     }
     if (assign || unassign) {
-        /* Do not omit corrupt foreign-board or dangling selected-card rows. */
-        if (!one(db,"SELECT CASE WHEN count(*)<=128 AND count(*)=count(CASE WHEN cl.board_id=?1 AND l.id IS NOT NULL THEN 1 END) THEN 1 ELSE 0 END FROM card_labels cl LEFT JOIN labels l ON l.board_id=cl.board_id AND l.id=cl.label_id WHERE cl.card_id=?2",&edit) ||
-            !statement(db,"SELECT count(*) FROM card_labels WHERE board_id=?1 AND card_id=?2 AND label_id=?3",&edit,1,&count)) return 0;
+        if(!assignment_state(db,&edit,&count))return 0;
         if ((assign && count==1) || (unassign && count==0)) {
             *result_version=edit.board_version;return 2;
         }
-        if (assign && !one(db,"SELECT CASE WHEN count(*)<128 THEN 1 ELSE 0 END FROM card_labels WHERE card_id=?2",&edit)) return 0;
-        if (!statement(db,assign?
-            "INSERT INTO card_labels(board_id,card_id,label_id) VALUES(?1,?2,?3)":
-            "DELETE FROM card_labels WHERE board_id=?1 AND card_id=?2 AND label_id=?3",&edit,0,NULL) ||
-            !statement(db,"UPDATE cards SET version=version+1 WHERE board_id=?1 AND id=?2 AND version=?8 AND archived=0",&edit,0,NULL)) return 0;
+        if(!assignment_write(db,&edit,assign))return 0;
     } else if (remove) {
         if (!one(db,"SELECT CASE WHEN count(*)=count(CASE WHEN c.id IS NOT NULL AND typeof(c.version)='integer' AND c.version>=1 AND c.version<=?9 THEN 1 END) THEN 1 ELSE 0 END FROM card_labels cl LEFT JOIN cards c ON c.board_id=cl.board_id AND c.id=cl.card_id WHERE cl.board_id=?1 AND cl.label_id=?3",&edit) ||
             !statement(db,"SELECT count(*) FROM card_labels WHERE board_id=?1 AND label_id=?3",&edit,1,&count) ||
@@ -158,4 +169,69 @@ int wena_sqlite_labels_change(sqlite3 *db,const WenaDomainCommand *command,
     if (!statement(db,"UPDATE boards SET version=version+1 WHERE id=?1 AND version=?6",&edit,0,NULL)) return 0;
     *result_version=edit.board_version+1;
     return 1;
+}
+
+static int assignment_card(sqlite3 *db,const LabelCommand *edit)
+{
+    sqlite3_stmt *query;const char *list,*lane;int ok,archived;sqlite3_int64 at;
+    if(!wena_sqlite_card_archive_read(db,edit->board,edit->card,edit->card_version,&archived,&at)||archived||
+        sqlite3_prepare_v2(db,"SELECT list_id,swimlane_id FROM cards WHERE board_id=?1 AND id=?2",-1,&query,NULL)!=SQLITE_OK)return 0;
+    ok=sqlite3_bind_text(query,1,edit->board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
+        sqlite3_bind_text(query,2,edit->card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(query)==SQLITE_ROW;
+    if(ok){
+        list=text_column(query,0,65);lane=text_column(query,1,65);
+        ok=wena_model_identifier_valid(list)&&wena_model_identifier_valid(lane)&&
+            wena_sqlite_list_active(db,edit->board,list)&&wena_sqlite_swimlane_active(db,edit->board,lane)&&
+            sqlite3_step(query)==SQLITE_DONE;
+    }
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;return ok;
+}
+
+int wena_sqlite_selected_labels_change(sqlite3 *db,const WenaDomainCommand *command,
+    const char *board,unsigned long *result_version)
+{
+    LabelCommand edit;size_t i,j;
+    unsigned char changed[WENA_DOMAIN_CARD_BATCH_CAPACITY];
+    sqlite3_int64 has;int assign,any;
+    if(!db||!command||!result_version||sqlite3_get_autocommit(db)||
+        !wena_model_identifier_valid(board)||!command->selected_cards||
+        !command->selected_card_count||command->selected_card_count>WENA_DOMAIN_CARD_BATCH_CAPACITY)return 0;
+    assign=command->operation==WENA_DOMAIN_ASSIGN_SELECTED_LABEL;
+    if(!assign&&command->operation!=WENA_DOMAIN_UNASSIGN_SELECTED_LABEL)return 0;
+    memset(&edit,0,sizeof(edit));edit.board=board;
+    if(!version_field(command,"expectedBoardVersion",0,&edit.board_version)||
+        !version_field(command,"expectedLabelVersion",0,&edit.label_version)||
+        !wena_mutation_text(command,"labelId",edit.label,sizeof(edit.label),0)||
+        !wena_model_identifier_valid(edit.label)||!catalogue_valid(db,board)||
+        !one(db,"SELECT count(*) FROM boards WHERE id=?1 AND typeof(version)='integer' AND version=?6",&edit)||
+        !one(db,"SELECT count(*) FROM labels WHERE board_id=?1 AND id=?3 AND typeof(version)='integer' AND version=?7",&edit))return 0;
+    any=0;
+    /* Read and validate the complete selection before the first write. */
+    for(i=0;i<command->selected_card_count;++i){
+        if(!wena_model_identifier_valid(command->selected_cards[i].id)||
+            !command->selected_cards[i].version||command->selected_cards[i].version>WENA_VERSION_MUTATE_MAX)return 0;
+        for(j=0;j<i;++j)if(!strcmp(command->selected_cards[i].id,command->selected_cards[j].id))return 0;
+        strcpy(edit.card,command->selected_cards[i].id);
+        edit.card_version=command->selected_cards[i].version;
+        if(!assignment_card(db,&edit)||!assignment_state(db,&edit,&has))return 0;
+        changed[i]=(unsigned char)(assign?has==0:has==1);if(changed[i])any=1;
+    }
+    if(!any){*result_version=edit.board_version;return 2;}
+    for(i=0;i<command->selected_card_count;++i)if(changed[i]){
+        strcpy(edit.card,command->selected_cards[i].id);edit.card_version=command->selected_cards[i].version;
+        if(!assignment_write(db,&edit,assign))return 0;
+    }
+    if(!statement(db,"UPDATE boards SET version=version+1 WHERE id=?1 AND version=?6",&edit,0,NULL))return 0;
+    ++edit.board_version;
+    /* Check earlier rows again after later writes/triggers, including no-op
+     * members of a mixed selection. Only changed cards advance revisions. */
+    if(!catalogue_valid(db,board)||
+        !one(db,"SELECT count(*) FROM boards WHERE id=?1 AND typeof(version)='integer' AND version=?6",&edit)||
+        !one(db,"SELECT count(*) FROM labels WHERE board_id=?1 AND id=?3 AND typeof(version)='integer' AND version=?7",&edit))return 0;
+    for(i=0;i<command->selected_card_count;++i){
+        strcpy(edit.card,command->selected_cards[i].id);
+        edit.card_version=command->selected_cards[i].version+changed[i];
+        if(!assignment_card(db,&edit)||!assignment_state(db,&edit,&has)||has!=(assign?1:0))return 0;
+    }
+    *result_version=edit.board_version;return 1;
 }

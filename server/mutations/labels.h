@@ -6,4 +6,6 @@
  * Returns 0 failure, 1 changed, 2 guarded no-op. */
 int wena_sqlite_labels_change(sqlite3 *database,const WenaDomainCommand *command,
     const char *board_id,unsigned long *result_version);
+int wena_sqlite_selected_labels_change(sqlite3 *database,const WenaDomainCommand *command,
+    const char *board_id,unsigned long *result_version);
 #endif
