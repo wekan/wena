@@ -11,4 +11,7 @@ int wena_sqlite_checklist_order(sqlite3 *database,
 int wena_sqlite_checklist_move(sqlite3 *database,
     const WenaDomainCommand *command, const char *board_id,
     unsigned long *result_version);
+int wena_sqlite_checklist_item_move(sqlite3 *database,
+    const WenaDomainCommand *command, const char *board_id,
+    unsigned long *result_version);
 #endif

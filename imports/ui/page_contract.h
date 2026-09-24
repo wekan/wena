@@ -119,7 +119,8 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_CHECKLIST_SPLIT_LINES,
     WENA_UI_TEXT_CHECKLIST_COUNT_ON_MINICARD,
     WENA_UI_TEXT_MOVE_SELECTION,
-    WENA_UI_TEXT_MOVE_CHECKLIST
+    WENA_UI_TEXT_MOVE_CHECKLIST,
+    WENA_UI_TEXT_MOVE_DESTINATION
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

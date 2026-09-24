@@ -24,9 +24,18 @@ hidden/completed items, checks both card revisions, preserves content/flags/item
 positions, appends the checklist and advances changed revisions. Empty targets,
 capacity/position limits, stale/invalid scope, replay, late rollback and reopen
 have fast SQLite and real Nuklear/SQLite regression coverage. Individual item
-transfer, cross-board transfer and expanded minicard contents remain open.
+transfer is also implemented: item Edit offers Destination, with exact-ID card
+and checklist selectors. Save guards both cards, both checklists and the item,
+appends without changing completion, and advances a same-card aggregate only
+once. Cancel/Escape, empty destinations, stale selections, collection capacity,
+late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
+Cross-board transfer and expanded minicard contents remain open.
 
-Validation: 24 focused native suites passed in 5.50 seconds, with zero failures
+Latest item-transfer validation: 21 focused native suites passed in 5.25 seconds,
+with zero failures or skips; both item-transfer suites passed ASan/UBSan. Desktop
+startup, reopen, long-path and negative-input checks pass.
+
+Earlier SVG/whole-checklist validation: 24 focused native suites passed in 5.50 seconds, with zero failures
 or skips; SVG, both new transfer suites and the existing ordering suite passed
 ASan/UBSan (leak detection disabled on macOS). Local
 Apple Clang validation uses a temporary compiler wrapper for Homebrew SQLite

@@ -66,6 +66,11 @@ in a private staged copy before restore interrupts the running database.
   Destination selection loads once; idle drawing does not issue SQL. A destination
   already at 64 checklists, above the combined 1024-item limit, or with its last
   checklist at the maximum position is rejected without changes.
+- From item Edit, choose Destination, then a card and checklist on the same
+  board. The current card is allowed; the current checklist is excluded. Save
+  appends the item and preserves its completion state. Both parent checklists,
+  the item and affected cards must still match their captured revisions.
+  Cancel/Escape discard selection; a failed reload after Save only retries reads.
 - Select a language in the toolbar. Labels change immediately; the selection
   persists in `DATABASE_PATH.language`. `--language LOCALE` overrides a saved
   selection; otherwise the OS locale is used on first launch. The preference is
@@ -117,8 +122,8 @@ Activities and members still have scaffold sidebar content. Labels and card
 assignments have native editors and cached board badges. Comments,
 attachments, due dates, membership/authentication, native drag/drop, import/export
 and remote REST are unfinished. Checklist/item same-card reordering, atomic batch entry and whole-checklist
-same-board transfer are implemented. Cross-board checklist and cross-card item
-transfer remain open. Compact counts have a default-off board setting; expanded
+same-board transfer and item transfers between checklists on the same board are
+implemented. Cross-board transfer remains open. Compact counts have a default-off board setting; expanded
 minicard contents are not yet rendered. Stored visibility overrides are preserved.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded

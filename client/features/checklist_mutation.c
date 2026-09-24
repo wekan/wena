@@ -216,6 +216,9 @@ static const char *map_operation(WenaChecklistAction action, WenaDomainOperation
     case WENA_CHECKLIST_ADD_ITEMS:
         *domain = WENA_DOMAIN_ADD_CHECKLIST_ITEMS;
         return "add-checklist-items";
+    case WENA_CHECKLIST_MOVE_ITEM:
+        *domain = WENA_DOMAIN_MOVE_CHECKLIST_ITEM;
+        return "move-checklist-item";
     case WENA_CHECKLIST_MOVE:
         *domain = WENA_DOMAIN_MOVE_CHECKLIST;
         return "move-checklist";
@@ -275,10 +278,33 @@ int wena_checklist_mutation_save_request(WenaChecklistMutation *adapter,
     if ((edit->action == WENA_CHECKLIST_RENAME_ITEM ||
         edit->action == WENA_CHECKLIST_SET_FINISHED ||
         edit->action == WENA_CHECKLIST_REORDER_ITEM ||
+        edit->action == WENA_CHECKLIST_MOVE_ITEM ||
         edit->action == WENA_CHECKLIST_DELETE_ITEM) &&
         (!wena_model_identifier_valid(item) ||
         !edit->expected_item_version ||
         edit->expected_item_version > WENA_VERSION_MUTATE_MAX)) return 0;
+    if (edit->action == WENA_CHECKLIST_MOVE_ITEM) {
+        if (!wena_model_identifier_valid(edit->target_card_id) ||
+            !wena_model_identifier_valid(edit->target_checklist_id) ||
+            !strcmp(checklist, edit->target_checklist_id) ||
+            !edit->expected_target_card_version ||
+            edit->expected_target_card_version > WENA_VERSION_MUTATE_MAX ||
+            !edit->expected_target_checklist_version ||
+            edit->expected_target_checklist_version > WENA_VERSION_MUTATE_MAX) return 0;
+        command.request_version = request_version;
+        strcpy(command.user_id, adapter->actor_id);
+        strcpy(command.route, adapter->route);
+        sprintf(command.form_body,
+            "cardId=%s&expectedVersion=%lu&checklistId=%s&expectedChecklistVersion=%lu&"
+            "itemId=%s&expectedItemVersion=%lu&targetCardId=%s&expectedTargetVersion=%lu&"
+            "targetChecklistId=%s&expectedTargetChecklistVersion=%lu", card_id,
+            edit->expected_card_version, checklist, edit->expected_checklist_version,
+            item, edit->expected_item_version, edit->target_card_id,
+            edit->expected_target_card_version, edit->target_checklist_id,
+            edit->expected_target_checklist_version);
+        command.form_body_length = strlen(command.form_body);
+        return wena_sqlite_persistence_apply(&adapter->persistence, &command, &response);
+    }
     if (edit->action == WENA_CHECKLIST_MOVE) {
         if (!wena_model_identifier_valid(edit->target_card_id) ||
             !strcmp(card_id, edit->target_card_id) ||
