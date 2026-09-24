@@ -36,4 +36,6 @@ int wena_sqlite_card_order_add(WenaSha256 *state, const char *id,
  * including scopes, positions, revisions and archive flags. Caller owns a read
  * or write transaction. Failure preserves the 65-byte output buffer. */
 int wena_sqlite_card_board_order(sqlite3 *database,const char *board,char output[65]);
+/* Shared active source-parent guard inside a caller-owned transaction. */
+int wena_sqlite_card_parents_active(sqlite3 *database,const char *board,const char *card);
 #endif

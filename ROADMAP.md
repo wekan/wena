@@ -939,8 +939,16 @@ Architecture decisions for this cycle:
                 Test duplicate/stale/missing selections, ordering conflicts,
                 partial/late/commit rollback, altered unrelated rows, replay,
                 same-column/lane changes, full 2048-card moves and reopening.
-              - [_] Add native bulk-move capture/cache publication, shared
-                destination UI and remaining cross-board movement.
+              - [x] Capture native bulk-move revisions and the complete board
+                fingerprint in one read transaction. Share exact-selection reads,
+                active-parent checks and full-board publication with existing
+                adapters. Preserve failed capture pointers, immutable inputs and
+                board/peer caches; publish complete snapshots only after commit,
+                including no-ops. Tests cover concurrent WAL changes, stale or
+                invalid sources, late/staging/commit failures, replay, stale cache
+                counts, successful order publication and reopening.
+              - [_] Connect bulk moves to the shared destination UI and complete
+                remaining cross-board movement.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

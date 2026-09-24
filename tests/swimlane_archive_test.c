@@ -394,6 +394,67 @@ static void full_selection(sqlite3 *db,WenaSqlitePersistence *store)
  assert(number(db,"SELECT count(*) FROM cards WHERE id GLOB 'bulk*' AND archived=0")==1);
  free(cards);sql(db,"DELETE FROM card_archive_state WHERE card_id GLOB 'bulk*'");
 }
+static int move_capture_race(unsigned int event,void *context,void *statement,void *text)
+{
+ Race *race;const char *query;(void)text;race=(Race*)context;query=sqlite3_sql((sqlite3_stmt*)statement);
+ if(event==SQLITE_TRACE_STMT&&!race->fired&&query&&strstr(query,"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE id=")){
+  race->fired=1;sql(race->writer,"UPDATE cards SET position=6 WHERE id='nc'");
+ }
+ return 0;
+}
+static void native_selected_move(sqlite3 *db,const char *path)
+{
+ WenaSqliteBoardSnapshot *snapshot,*before,*fresh;WenaHierarchyMutation adapter;
+ WenaCardMoveSelection *capture,*saved,*original;WenaId ids[2];size_t peer;int calls;sqlite3_int64 keys;Race race;char fingerprint[65];
+ sql(db,"INSERT INTO boards VALUES('nm','Native move',1);INSERT INTO lists VALUES('ns','nm','Source',0,1),('nd','nm','Destination',1,1);"
+  "INSERT INTO swimlanes VALUES('nl','nm','Lane',0,1);INSERT INTO cards VALUES('na','nm','nl','ns','Repeated',0,0,1),('nb','nm','nl','ns','Repeated',1,0,1),('nc','nm','nl','nd','Other',5,0,1)");
+ snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));fresh=(WenaSqliteBoardSnapshot*)malloc(sizeof(*fresh));
+ original=(WenaCardMoveSelection*)malloc(sizeof(*original));assert(snapshot&&before&&fresh&&original);
+ assert(wena_sqlite_board_load(db,"nm",snapshot));assert(wena_hierarchy_mutation_init(&adapter,db,"u","nm",snapshot));
+ peer=snapshot->card_count;adapter.published_card_count=&peer;*before=*snapshot;
+ strcpy(ids[0],"nb");strcpy(ids[1],"na");capture=NULL;
+ sql(db,"BEGIN");assert(wena_sqlite_card_board_order(db,"nm",fingerprint));sql(db,"COMMIT");
+ assert(sqlite3_open(path,&race.writer)==SQLITE_OK);race.fired=0;
+ assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,move_capture_race,&race)==SQLITE_OK);
+ assert(wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));
+ assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK&&race.fired);
+ assert(!strcmp(capture->fingerprint,fingerprint)&&capture->count==2&&!strcmp(capture->cards[0].id,"nb"));
+ assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));
+ sql(race.writer,"UPDATE cards SET position=5 WHERE id='nc'");assert(sqlite3_close(race.writer)==SQLITE_OK);
+ *original=*capture;saved=capture;
+ strcpy(ids[1],"nb");assert(!wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));
+ strcpy(ids[1],"sel-a");assert(!wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));
+ strcpy(ids[1],"na");strcpy(adapter.actor_id,"missing");
+ assert(!wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));strcpy(adapter.actor_id,"u");
+ sql(db,"INSERT INTO list_archive_state VALUES('ns','nm',1,1)");
+ assert(!wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));
+ sql(db,"UPDATE list_archive_state SET archived=0 WHERE list_id='ns';UPDATE cards SET archived=1 WHERE id='na'");
+ assert(!wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));sql(db,"UPDATE cards SET archived=0 WHERE id='na'");
+ assert(saved==capture&&!memcmp(capture,original,sizeof(*original)));
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ capture->fingerprint[64]='x';assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));*capture=*original;
+ sql(db,"CREATE TRIGGER native_move_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));sql(db,"DROP TRIGGER native_move_late");
+ sql(db,"PRAGMA ignore_check_constraints=ON;INSERT INTO swimlane_colors VALUES('nl','nm','invalid');PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));sql(db,"DELETE FROM swimlane_colors WHERE swimlane_id='nl'");
+ calls=0;sqlite3_commit_hook(db,reject_commit,&calls);
+ assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000)&&calls==1);sqlite3_commit_hook(db,NULL,NULL);
+ assert(!memcmp(snapshot,before,sizeof(*before))&&!memcmp(capture,original,sizeof(*original))&&peer==3);
+ assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys&&number(db,"SELECT count(*) FROM cards WHERE list_id='ns' AND version=1")==2);
+ assert(!adapter.persistence.prepare_publish&&!adapter.persistence.publish_context);
+ snapshot->card_count=0;peer=0;
+ assert(wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));
+ assert(peer==3&&wena_sqlite_board_load(db,"nm",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh))&&!memcmp(capture,original,sizeof(*original)));
+ *before=*snapshot;assert(!wena_hierarchy_mutation_selected_move_request(&adapter,capture,"nd","nl",0,8000));assert(!memcmp(snapshot,before,sizeof(*before)));
+ assert(wena_hierarchy_mutation_selected_move_load(&adapter,"nm",(const WenaId*)ids,2,&capture));
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");snapshot->card_count=0;peer=0;
+ assert(wena_hierarchy_mutation_selected_move(&adapter,capture,"nd","nl",0));
+ assert(peer==3&&!memcmp(snapshot,fresh,sizeof(*fresh))&&keys==number(db,"SELECT count(*) FROM idempotency_keys"));
+ assert(wena_hierarchy_mutation_selected_move(&adapter,capture,"ns","nl",0));
+ assert(wena_sqlite_board_load(db,"nm",fresh)&&!memcmp(snapshot,fresh,sizeof(*fresh))&&peer==3);
+ free(capture);free(original);free(snapshot);free(before);free(fresh);
+}
+
 int main(int argc,char **argv)
 {
  FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;WenaSqlitePersistence store;
@@ -450,8 +511,10 @@ int main(int argc,char **argv)
  native_list_cards(db);
  selected_archive_tests(db,&store);
  native_selected_archive(db,path);
+ native_selected_move(db,path);
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(number(db,"SELECT count(*) FROM cards WHERE list_id='batch' AND archived=1")==5);
+ assert(number(db,"SELECT count(*) FROM cards WHERE list_id='ns' AND version=3")==2);
  assert(number(db,"SELECT version FROM swimlanes WHERE id='s'")==9);snapshot_state(db,0,2);
  snapshot_tests(db,path);
  sql(db,"WITH RECURSIVE n(x) AS (SELECT 0 UNION ALL SELECT x+1 FROM n WHERE x<2048) INSERT INTO cards SELECT 'bulk'||x,'b','empty','l','Bulk',x,0,1 FROM n");

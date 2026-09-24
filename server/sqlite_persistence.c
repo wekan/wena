@@ -230,16 +230,17 @@ static int card_parent(sqlite3 *db,const char *board,const char *card,char list[
     if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
     return ok&&wena_model_identifier_valid(list);
 }
-static int card_parents_active(sqlite3 *db,const char *board,const char *card)
+int wena_sqlite_card_parents_active(sqlite3 *db,const char *board,const char *card)
 {
     char list[WENA_ID_CAPACITY];
-    return card_parent(db,board,card,list,0)&&wena_sqlite_list_active(db,board,list)&&
+    return db&&!sqlite3_get_autocommit(db)&&wena_model_identifier_valid(board)&&wena_model_identifier_valid(card)&&
+        card_parent(db,board,card,list,0)&&wena_sqlite_list_active(db,board,list)&&
         card_parent(db,board,card,list,1)&&wena_sqlite_swimlane_active(db,board,list);
 }
 static int card_wip_added(sqlite3 *db,const char *board,const char *card)
 {
     char list[WENA_ID_CAPACITY];
-    return card_parents_active(db,board,card)&&card_parent(db,board,card,list,0)&&
+    return wena_sqlite_card_parents_active(db,board,card)&&card_parent(db,board,card,list,0)&&
         wena_sqlite_list_wip_check(db,board,list,1,1);
 }
 
@@ -463,7 +464,7 @@ static int move_selected_cards(sqlite3 *db,const WenaDomainCommand *command,cons
             command->selected_cards[i].version>WENA_VERSION_MUTATE_MAX)goto done;
         for(index=0;index<count;++index)if(!strcmp(before[index].card.id,command->selected_cards[i].id))break;
         if(index==count||moved[index]||before[index].card.archived||before[index].card.version!=command->selected_cards[i].version||
-            !card_parents_active(db,board,before[index].card.id))goto done;
+            !wena_sqlite_card_parents_active(db,board,before[index].card.id))goto done;
         moved[index]=1;strcpy(selected[i],before[index].card.id);
         if(strcmp(before[index].list,list))++incoming;
         if(before[index].card.version>version)version=before[index].card.version;
@@ -754,7 +755,7 @@ strcpy(title,"Description updated");version++;
 }else if(c->operation==WENA_DOMAIN_EDIT_BOARD_TITLE){if(!value(c,"title",title,sizeof(title))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version)||!run(db,"UPDATE boards SET title=?1,version=version+1 WHERE id=?2 AND id=?3 AND version=?4",title,board,board,version))goto bad;version++;
 }else if(c->operation==WENA_DOMAIN_EDIT_LIST_TITLE){if(!value(c,"listId",id,sizeof(id))||!value(c,"title",title,sizeof(title))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version)||!run(db,"UPDATE lists SET title=?1,version=version+1 WHERE id=?2 AND board_id=?3 AND version=?4",title,id,board,version))goto bad;version++;
 }else if(c->operation==WENA_DOMAIN_EDIT_SWIMLANE_TITLE){if(!value(c,"swimlaneId",id,sizeof(id))||!value(c,"title",title,sizeof(title))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version)||!run(db,"UPDATE swimlanes SET title=?1,version=version+1 WHERE id=?2 AND board_id=?3 AND version=?4",title,id,board,version))goto bad;version++;
-}else if(c->operation==WENA_DOMAIN_MOVE_CARD){char list[65],lane[65],source[65];if(!value(c,"cardId",id,sizeof(id))||!value(c,"targetListId",list,sizeof(list))||!value(c,"targetSwimlaneId",lane,sizeof(lane))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version))goto bad;if(!card_parents_active(db,board,id)||!card_parent(db,board,id,source,0)||!wena_sqlite_list_active(db,board,list)||!wena_sqlite_list_wip_check(db,board,list,strcmp(source,list)!=0,0)||!wena_sqlite_swimlane_active(db,board,lane))goto bad;
+}else if(c->operation==WENA_DOMAIN_MOVE_CARD){char list[65],lane[65],source[65];if(!value(c,"cardId",id,sizeof(id))||!value(c,"targetListId",list,sizeof(list))||!value(c,"targetSwimlaneId",lane,sizeof(lane))||!value(c,"expectedVersion",expected,sizeof(expected))||!decimal(expected,0,WENA_VERSION_MUTATE_MAX,&version))goto bad;if(!wena_sqlite_card_parents_active(db,board,id)||!card_parent(db,board,id,source,0)||!wena_sqlite_list_active(db,board,list)||!wena_sqlite_list_wip_check(db,board,list,strcmp(source,list)!=0,0)||!wena_sqlite_swimlane_active(db,board,lane))goto bad;
 if(has_value(c,"insertPosition")){char target[32];unsigned long ordinal;if(!value(c,"insertPosition",target,sizeof(target))||!decimal(target,1,(unsigned long)LONG_MAX,&ordinal)||!insert_card(db,c,board,id,list,lane,version,ordinal))goto bad;version++;}
 else if(has_value(c,"targetPosition")){char target[32];unsigned long ordinal;int reordered;if(!value(c,"targetPosition",target,sizeof(target))||!decimal(target,1,(unsigned long)LONG_MAX,&ordinal))goto bad;reordered=reorder_card(db,c,board,id,list,lane,version,ordinal);if(!reordered)goto bad;if(reordered==2)unchanged=1;else version++;}
 else{if(has_value(c,"expectedOrder")||!move_card(db,list,lane,id,board,version))goto bad;version++;}

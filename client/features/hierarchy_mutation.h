@@ -2,6 +2,7 @@
 #define WENA_HIERARCHY_MUTATION_H
 
 #include "hierarchy_title.h"
+#include "../../models/card_move_selection.h"
 #include "../../server/sqlite_board.h"
 #include "../../server/sqlite_persistence.h"
 
@@ -94,4 +95,14 @@ int wena_hierarchy_mutation_selected_cards_archive_request(WenaHierarchyMutation
     const char *board,const WenaDomainCardRevision *cards,size_t count,unsigned long request);
 int wena_hierarchy_mutation_selected_cards_archive(void *context,const char *board,
     const WenaDomainCardRevision *cards,size_t count);
+/* Capture immutable selection revisions and complete board ordering in one
+ * read transaction. *output starts NULL or owned by this API; success replaces
+ * it and failure preserves pointer/bytes. Caller frees on cancellation. */
+int wena_hierarchy_mutation_selected_move_load(void *context,const char *board,
+    const WenaId *ids,size_t count,WenaCardMoveSelection **output);
+int wena_hierarchy_mutation_selected_move_request(WenaHierarchyMutation *adapter,
+    const WenaCardMoveSelection *selection,const char *list,const char *lane,
+    size_t before,unsigned long request);
+int wena_hierarchy_mutation_selected_move(void *context,const WenaCardMoveSelection *selection,
+    const char *list,const char *lane,size_t before);
 #endif
