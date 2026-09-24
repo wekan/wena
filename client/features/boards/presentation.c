@@ -12,6 +12,7 @@ void wena_board_presentation_close(WenaBoardPresentation *view)
     if (!view) return;
     wena_label_board_snapshot_free(view->badges);
     wena_checklist_summary_free(view->summary);
+    wena_checklist_contents_free(view->contents);
     memset(view,0,sizeof(*view));
 }
 int wena_board_presentation_init(WenaBoardPresentation *view,sqlite3 *database,
@@ -50,15 +51,20 @@ int wena_board_presentation_summary_refresh(WenaBoardPresentation *view)
     view->summary_pending=0;
     valid=wena_board_settings_mutation_load(&view->settings_mutation,
         view->settings_mutation.board_id,&settings);
-    if (valid) valid=wena_checklist_summary_load(
+    if (valid) valid=wena_checklist_contents_load(
         view->settings_mutation.persistence.database,
         view->settings_mutation.actor_id,view->settings_mutation.board_id,
-        settings.show_checklist_count,view->summary);
-    /* These are separate atomic reads. Do not publish a count projection from
-     * a different board revision than the opt-in setting that requested it. */
-    if (valid && settings.show_checklist_count &&
-        settings.board_version!=view->summary->board_version) valid=0;
-    if (valid) view->settings=settings;
+        &view->contents);
+    /* Settings and contents must describe the same board revision. */
+    if (valid && settings.board_version!=view->contents->summary.board_version) valid=0;
+    if (valid) {
+        view->settings=settings;
+        if (settings.show_checklist_count) *view->summary=view->contents->summary;
+        else {
+            memset(view->summary,0,sizeof(*view->summary));
+            strcpy(view->summary->board_id,settings.board_id);
+        }
+    }
     view->summary_valid=valid;view->summary_error=!valid;
     return valid;
 }

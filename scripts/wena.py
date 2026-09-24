@@ -179,6 +179,7 @@ TEST_SUITES = (
     ('nuklear-checklist-order', 'test_nuklear_checklist_order.sh', 'Real Nuklear checklist and item ordering forms, bounds and cancellation'),
     ('checklist-order', 'test_checklist_order.sh', 'Guarded checklist and child ordering with atomic compaction and stale sibling refusal'),
     ('nuklear-paginated-table', 'test_nuklear_paginated_table.sh', 'Reusable paginated table navigation, row intents and bounds'),
+    ('nuklear-checklist-contents', 'test_nuklear_checklist_contents.sh', 'Expanded checklist preview visibility and SQL-free rendering'),
     ('checklist-summary', 'test_checklist_summary.sh', 'Bounded board checklist summary projection with exact visibility and terminal revision guards'),
     ('checklist-item-titles', 'test_checklist_item_titles.sh', 'Bounded canonical multiline checklist title parsing'),
     ('checklist-delete', 'test_checklist_delete.sh', 'Guarded confirmed checklist deletion, rollback and concurrent child changes'),
@@ -306,15 +307,15 @@ def test_command(script):
 
 
 def test_prerequisite(name):
-    if name in {"nuklear-paginated-table", "language-storage", "collapse-preferences"} and os.name == "nt":
+    if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "language-storage", "collapse-preferences"} and os.name == "nt":
         return "requires POSIX symlink and file-mode semantics"
     if name == "desktop-package" and (platform.system() != "Linux" or platform.machine().lower() not in {"x86_64", "amd64"}):
         return "desktop packaging is currently verified only on Linux amd64"
     if name == "desktop-package" and not shutil.which("readelf"):
         return "requires readelf (binutils) for actual ELF runtime requirements"
-    if name in {"nuklear-paginated-table", "nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
+    if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "nuklear", "desktop", "desktop-package", "sdl-text-input", "dependency-report"} and not shutil.which("sdl2-config"):
         return "requires SDL2 development files (sdl2-config)"
-    if name in {"nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
+    if name in {"nuklear-checklist-contents", "nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
         source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))

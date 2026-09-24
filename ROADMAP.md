@@ -29,7 +29,18 @@ and checklist selectors. Save guards both cards, both checklists and the item,
 appends without changing completion, and advances a same-card aggregate only
 once. Cancel/Escape, empty destinations, stale selections, collection capacity,
 late rollback and failed post-commit refresh have SQLite and real Nuklear tests.
-Cross-board transfer and expanded minicard contents remain open.
+Cross-board transfer and full inline minicard editing remain open.
+
+Latest integrated validation: 125 native suites passed, zero failed or skipped,
+plus all four localhost HTTP/runtime suites passed outside the sandbox (129 total).
+The sandbox itself denies loopback bind with EPERM; no listener implementation
+change was needed. Fixed a macOS unused-variable build error in OS entropy and a
+reference inventory scanner that wrongly excluded checkouts beneath `.tools`.
+A detached local reference at pinned WeKan `689a3938` makes both source-parity
+checks pass. Desktop checks and targeted preview/presentation/editor sanitizers
+pass. Linux desktop packaging remains unverified on this macOS arm64 host; its
+existing Linux-amd64-only gate skips here. Other target SDK/platform validation
+remains open; continue host-independent implementation and tests.
 
 Latest item-transfer validation: 21 focused native suites passed in 5.25 seconds,
 with zero failures or skips; both item-transfer suites passed ASan/UBSan. Desktop
@@ -69,12 +80,17 @@ the pinned catalog. Real Nuklear coverage includes different adapters and maxima
 size_t boundaries. Twenty focused native suites pass; table and sidebar integration
 also pass ASan/UBSan. See `client/components/README.md`.
 
-Expanded minicard preparation: the shared board checklist reader now optionally
+Expanded minicard contents: the shared board checklist reader now optionally
 retains owned ordered checklist/item contents in the same read transaction as its
 counts. It uses the same seven statements regardless of card count, allocates only
 for existing rows, preserves the previous snapshot on failure, and performs no SQL
-for lookups. Fast summary regressions and ASan/UBSan pass. Native rendering and
-board display settings for expanded contents remain open.
+for lookups. The desktop now renders checklist titles and visible items after card
+controls, independent of compact counts. Explicit checklist Yes/No overrides take
+priority over the canonical true default; Default restores inheritance. Titles
+open the exact card checklist editor. Real Nuklear/SQLite tests cover visibility,
+hidden/completed children, cancellation, reopen and zero-SQL idle frames; targeted
+sanitizers pass. Board-wide expanded display settings, inline editing/completion,
+per-user checklist collapse and drag/drop remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -748,9 +764,14 @@ Architecture decisions for this cycle:
         a native destination selector and guarded SQLite transaction. Preserve
         children/flags/positions, check both card revisions, and cover cancel,
         scope, capacity, stale/replay/rollback, failed-refresh recovery and reopen.
-      - [_] Finish expanded native minicard checklist presentation, cross-board
-        checklist movement and cross-card item movement. Stored inherit/false/true semantics and compact
-        default-off counts are implemented; draggable/expanded contents are not.
+      - [x] Move individual items between checklists on the same board, including
+        cross-card and same-card destinations. Guard all affected parents and the
+        item, preserve completion, append atomically and verify rollback/reopen.
+      - [x] Render cached expanded native checklist previews and expose explicit
+        inherit/hide/show overrides. Respect hidden/completed-item flags, keep
+        count visibility independent and open the exact card editor on title click.
+      - [_] Finish expanded minicard board settings, inline editing/completion,
+        per-user collapse, drag/drop and cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

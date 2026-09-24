@@ -86,7 +86,7 @@ int main(void)
  click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);assert(state.action==WENA_CHECKLIST_SET_FLAGS);
  click(&ctx,&state,&card,"Hide all checklist items");assert(state.hide_all_items&&!store.checklists[0].hide_all_items);
  click(&ctx,&state,&card,"Hide checked checklist items");assert(state.hide_checked_items);
- assert(!has_label(&ctx,"Default")&&!has_label(&ctx,"Yes")&&!has_label(&ctx,"No")&&!has_label(&ctx,"Show on minicard"));
+ assert(has_label(&ctx,"Default")&&has_label(&ctx,"Show on Minicard"));
  click(&ctx,&state,&card,"Save");assert(writes==2&&!state.action&&state.snapshot->checklists[0].hide_all_items&&state.snapshot->checklists[0].show_on_minicard==WENA_CHECKLIST_MINICARD_INHERIT);
  character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Hide all checklist items");click(&ctx,&state,&card,"Cancel");assert(state.snapshot->checklists[0].hide_all_items&&writes==2);character(&ctx,&state,&card,0);
  click(&ctx,&state,&card,"Rename");character(&ctx,&state,&card,0);click_at(&ctx,&state,&card,nk_vec2(350,55));
@@ -106,5 +106,21 @@ int main(void)
  key(&ctx,&state,&card,NK_KEY_ENTER,1);assert(writes==2&&state.action==WENA_CHECKLIST_DELETE_ITEM);key(&ctx,&state,&card,NK_KEY_ENTER,0);key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,1);assert(!state.visible&&writes==2);key(&ctx,&state,&card,NK_KEY_TEXT_RESET_MODE,0);
  assert(wena_checklists_open(&state,&card));character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Edit");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Delete");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Delete");assert(!state.action&&!state.snapshot->item_count&&writes==3);
  character(&ctx,&state,&card,0);assert(has_label(&ctx,"0 / 0 (0%)"));click(&ctx,&state,&card,"Rename");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Delete");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Delete");assert(!state.action&&!state.snapshot->checklist_count&&writes==4);wena_checklists_close(&state);
+ /* The same flag editor persists explicit overrides and restores inheritance. */
+ assert(wena_checklist_init(&store.checklists[0],"cl","b","c","Visible",0));
+ store.checklist_count=1;store.checklist_versions[0]=1;
+ assert(wena_checklists_open(&state,&card));character(&ctx,&state,&card,0);
+ click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);
+ click(&ctx,&state,&card,"Default");character(&ctx,&state,&card,0);
+ click(&ctx,&state,&card,"No");assert(state.show_on_minicard==WENA_CHECKLIST_MINICARD_HIDE);
+ key(&ctx,&state,&card,NK_KEY_ENTER,1);assert(writes==4&&state.action==WENA_CHECKLIST_SET_FLAGS);
+ key(&ctx,&state,&card,NK_KEY_ENTER,0);click(&ctx,&state,&card,"Cancel");assert(writes==4&&store.checklists[0].show_on_minicard==WENA_CHECKLIST_MINICARD_INHERIT);
+ character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);
+ click(&ctx,&state,&card,"Default");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Yes");
+ character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Save");assert(writes==5&&store.checklists[0].show_on_minicard==WENA_CHECKLIST_MINICARD_SHOW);
+ character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Checklist Actions");character(&ctx,&state,&card,0);
+ click(&ctx,&state,&card,"Yes");character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Default");
+ character(&ctx,&state,&card,0);click(&ctx,&state,&card,"Save");assert(writes==6&&store.checklists[0].show_on_minicard==WENA_CHECKLIST_MINICARD_INHERIT);
+ wena_checklists_close(&state);
  nk_free(&ctx);puts("Real checklist creation, progress, bounded editing, readonly and Escape passed");return 0;
 }

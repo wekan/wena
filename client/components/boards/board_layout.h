@@ -49,6 +49,10 @@ typedef struct WenaBoardLayout {
     unsigned int (*card_badges)(struct nk_context *context, void *user_data,
                         const WenaCard *card);
     void *card_badges_context;
+    /* Expanded content follows the card's own title/actions. */
+    unsigned int (*card_contents)(struct nk_context *context, void *user_data,
+                        const WenaCard *card);
+    void *card_contents_context;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {

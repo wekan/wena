@@ -36,8 +36,8 @@ typedef struct WenaChecklistsState {
     int is_finished;
     int hide_checked_items;
     int hide_all_items;
-    /* Preserve stored override until native minicard presentation is supported. */
-    WenaChecklistMinicard preserved_show_on_minicard;
+    /* Draft override: inherit the board default, explicitly hide, or show. */
+    WenaChecklistMinicard show_on_minicard;
     /* One full UTF-8 scalar beyond the limit detects overflow even when the
      * next input character needs four bytes; the final byte is a terminator. */
     char input[WENA_NATIVE_EDIT_CAPACITY(WENA_CHECKLIST_BATCH_MAX_BYTES + 1u)];

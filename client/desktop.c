@@ -1,3 +1,4 @@
+#include "components/cards/checklist_contents.h"
 /* MIT-licensed local desktop entrypoint. The local OS user supplies a trusted
  * actor identity; this is not a remote authentication or board-sharing API. */
 #include <SDL2/SDL.h>
@@ -56,6 +57,16 @@ static unsigned int desktop_card_badges(struct nk_context *context,
     if (view->summary_valid)
         actions |= wena_checklist_badges_render(context, view->summary, card);
     return actions;
+}
+
+static unsigned int desktop_card_contents(struct nk_context *context,
+    void *opaque, const WenaCard *card)
+{
+    WenaBoardPresentation *view;
+    view = (WenaBoardPresentation *)opaque;
+    /* Canonical board default is true; per-checklist overrides take priority. */
+    return view->summary_valid ? wena_checklist_contents_render(context,
+        view->contents, card, 1) : WENA_CARD_BODY_NO_ACTION;
 }
 
 #define DESKTOP_ADD_LIST 1u
@@ -391,6 +402,8 @@ int main(int argc, char **argv)
     toolbar.language = &language_picker;
     toolbar.filter = &filter;
     toolbar.labels = &label_view;
+    layout.card_contents = desktop_card_contents;
+    layout.card_contents_context = &label_view;
     layout.card_badges = desktop_card_badges;
     layout.card_badges_context = &label_view;
     layout.card_visible = wena_board_filter_matches;

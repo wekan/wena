@@ -124,13 +124,14 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_init(&view,database,"u","b"));
     assert(view.valid && view.summary_valid && !view.error && !view.summary_error);
     assert(!view.settings.show_checklist_count && !view.summary->enabled && !view.summary->card_count);
-    assert(work.statements>0 && work.count_queries==0);
+    assert(work.statements>0 && work.count_queries>0);
+    assert(view.contents && wena_checklist_contents_find(view.contents,"c")->item_count==2);
     quiet(database,&view,&work,1);
-    /* Default-false no-op reloads just settings once, with zero count queries. */
+    /* Count visibility is independent of the expanded contents projection. */
     assert(wena_board_presentation_settings_save(&view,"b",view.settings.board_version,0));
     assert(!view.summary_valid && view.summary_pending);
     memset(&work,0,sizeof(work));assert(wena_board_presentation_poll(&view));
-    assert(work.statements==1 && !work.count_queries);
+    assert(work.statements==8 && work.count_queries>0);
     quiet(database,&view,&work,1);
     /* Label edits publish the exact catalogue and assignment bitsets. */
     assert(wena_board_presentation_labels_load(&view,"b","c",labels));
@@ -159,6 +160,7 @@ int main(int argc,char **argv)
     assert(wena_checklist_mutation_save(&checklist_adapter,"b","c",&checklist_edit));
     assert(wena_board_presentation_poll(&view));card=wena_checklist_summary_find(view.summary,"c");
     assert(card && card->progress.total==2 && card->progress.finished==1 && card->progress.percent==50);
+    assert(wena_checklist_contents_find(view.contents,"c")->items[0].is_finished);
     quiet(database,&view,&work,1);
     /* Failed read after a committed save cannot turn that save into failure. */
     assert(wena_board_presentation_labels_load(&view,"b","c",labels));
@@ -204,7 +206,7 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_settings_load(&view,"b",&settings));
     assert(!settings.show_checklist_count && !view.summary_valid && view.summary_pending);
     memset(&work,0,sizeof(work));assert(wena_board_presentation_poll(&view));
-    assert(!view.summary->enabled && !work.count_queries);
+    assert(!view.summary->enabled && work.count_queries>0);
     assert(wena_board_presentation_settings_save(&view,"b",settings.board_version,1));
     assert(wena_board_presentation_poll(&view));
     /* Force a setting commit precisely between the two atomic summary reads. */
@@ -224,7 +226,7 @@ int main(int argc,char **argv)
     assert(wena_board_presentation_settings_load(&view,"b",&settings));
     assert(wena_board_presentation_settings_save(&view,"b",settings.board_version,1));assert(wena_board_presentation_poll(&view));
     wena_board_presentation_close(&view);wena_board_presentation_close(&view);
-    assert(!view.badges && !view.summary && !wena_board_presentation_poll(&view));
+    assert(!view.badges && !view.summary && !view.contents && !wena_board_presentation_poll(&view));
     assert(sqlite3_close(database)==SQLITE_OK);assert(sqlite3_open(argv[2],&database)==SQLITE_OK);
     assert(wena_board_presentation_init(&view,database,"u","b"));
     assert(view.valid && view.summary_valid && !view.badges->catalogue.label_count);

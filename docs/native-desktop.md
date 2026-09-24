@@ -123,8 +123,12 @@ assignments have native editors and cached board badges. Comments,
 attachments, due dates, membership/authentication, native drag/drop, import/export
 and remote REST are unfinished. Checklist/item same-card reordering, atomic batch entry and whole-checklist
 same-board transfer and item transfers between checklists on the same board are
-implemented. Cross-board transfer remains open. Compact counts have a default-off board setting; expanded
-minicard contents are not yet rendered. Stored visibility overrides are preserved.
+implemented. Cross-board transfer remains open. Compact counts have a default-off
+board setting. Expanded previews show checklist titles and visible items using the
+canonical true default; checklist Actions offers Default, Yes and No overrides.
+Hidden/all-completed display flags are respected, and a title click opens the
+card's checklist editor. Board-wide expanded display preferences, inline editing,
+per-user checklist collapse and drag/drop remain open.
 Canonical runtime strings cover the implemented shared UI contract in every
 catalog language, including the current feature messages. The trusted embedded
 Apache-2.0 Roboto asset covers selected Latin, Greek and Cyrillic glyphs. Full

@@ -13,6 +13,7 @@ typedef struct WenaBoardPresentation {
     WenaBoardSettingsMutation settings_mutation;
     WenaBoardSettingsSnapshot settings;
     WenaChecklistBoardSummary *summary;
+    WenaChecklistBoardContents *contents;
     int summary_valid;
     int summary_pending;
     int summary_error;

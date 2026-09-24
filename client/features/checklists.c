@@ -112,7 +112,7 @@ static void begin_edit(WenaChecklistsState *state, WenaChecklistAction action, s
     if (action == WENA_CHECKLIST_SET_FLAGS) {
         state->hide_checked_items = state->snapshot->checklists[list_index].hide_checked_items;
         state->hide_all_items = state->snapshot->checklists[list_index].hide_all_items;
-        state->preserved_show_on_minicard =
+        state->show_on_minicard =
             state->snapshot->checklists[list_index].show_on_minicard;
     }
     state->length = (int)strlen(state->input);
@@ -214,7 +214,8 @@ static void submit_edit(WenaChecklistsState *state)
     }
     if (state->action == WENA_CHECKLIST_SET_FLAGS && ((state->hide_checked_items != 0 &&
         state->hide_checked_items != 1) || (state->hide_all_items != 0 && state->hide_all_items
-        != 1))) {
+        != 1) || state->show_on_minicard < WENA_CHECKLIST_MINICARD_INHERIT ||
+        state->show_on_minicard > WENA_CHECKLIST_MINICARD_SHOW)) {
         state->error = 1;
         return;
     }
@@ -270,7 +271,7 @@ static void submit_edit(WenaChecklistsState *state)
     mutation.is_finished = state->is_finished;
     mutation.hide_checked_items = state->hide_checked_items;
     mutation.hide_all_items = state->hide_all_items;
-    mutation.show_on_minicard = state->preserved_show_on_minicard;
+    mutation.show_on_minicard = state->show_on_minicard;
     if (!state->save || !state->save(state->context, state->board_id, state->card_id, &mutation)) {
         state->error = 1;
         return;
@@ -425,6 +426,13 @@ static void move_checklist_destination(struct nk_context *context, WenaChecklist
     }
 }
 
+static void minicard_choice(void *unused, int index, const char **label)
+{
+    (void)unused;
+    *label = wena_ui_text(index == 0 ? WENA_UI_TEXT_DEFAULT :
+        (index == 1 ? WENA_UI_TEXT_NO : WENA_UI_TEXT_YES));
+}
+
 int wena_checklists_render(struct nk_context *context, WenaChecklistsState *state,
     const WenaCard *cards, size_t card_count, float width, float height)
 {
@@ -507,6 +515,11 @@ int wena_checklists_render(struct nk_context *context, WenaChecklistsState *stat
                     &state->hide_checked_items);
                 nk_checkbox_label(context, wena_ui_text(WENA_UI_TEXT_HIDE_ALL_ITEMS),
                     &state->hide_all_items);
+                nk_label(context, wena_ui_text(WENA_UI_TEXT_SHOW_ON_MINICARD), NK_TEXT_LEFT);
+                checked = nk_combo_callback(context, minicard_choice, NULL,
+                    (int)state->show_on_minicard + 1, 3, 24, nk_vec2(180, 150));
+                if (checked >= 0 && checked < 3)
+                    state->show_on_minicard = (WenaChecklistMinicard)(checked - 1);
             }
             else if (state->action == WENA_CHECKLIST_SET_FINISHED) {
                 nk_label_wrap(context, state->input);

@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+set -eu
+root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+test_dir=$(mktemp -d "${TMPDIR:-/tmp}/wena-contents-XXXXXX")
+trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
+python3 - "$root_dir" "$test_dir" <<'PY'
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(sys.argv[1]) / 'scripts'))
+from verify_migrations import verify
+lock, bundle = verify(Path(sys.argv[1]))
+(Path(sys.argv[2]) / 'schema.sql').write_bytes(bundle)
+PY
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
+ -isystem "$root_dir/third_party/nuklear" \
+ "$root_dir/tests/nuklear_checklist_contents_test.c" \
+ "$root_dir/client/components/cards/checklist_contents.c" \
+ "$root_dir/client/features/checklists/summary.c" \
+ "$root_dir/models/model.c" "$root_dir/models/card.c" \
+ "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
+ -lsqlite3 -lm -o "$test_dir/test"
+"$test_dir/test" "$test_dir/schema.sql"
