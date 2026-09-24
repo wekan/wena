@@ -31,7 +31,16 @@ int wena_executable_path_current(char*out,size_t cap){
 #if defined(_WIN32)
 wchar_t w[WENA_EXECUTABLE_PATH_CAPACITY];DWORD n=GetModuleFileNameW(NULL,w,WENA_EXECUTABLE_PATH_CAPACITY);int z;if(n==0||n>=WENA_EXECUTABLE_PATH_CAPACITY)return 0;z=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,w,(int)n,out,(int)cap-1,NULL,NULL);if(z<=0||(size_t)z>=cap)return 0;out[z]=0;return 1;
 #elif defined(__APPLE__)
-uint32_t n=(uint32_t)cap;if(_NSGetExecutablePath(out,&n)!=0||n==0||n>=cap){if(cap)out[0]=0;return 0;}return out[0]=='/';
+uint32_t n;
+size_t length;
+if(!out||cap<2||cap>WENA_EXECUTABLE_PATH_CAPACITY)return 0;
+n=(uint32_t)cap;memset(out,0,cap);
+/* dyld sets n to the required capacity on failure, not the written length on
+ * success. Validate the terminated output rather than rejecting unchanged n. */
+if(_NSGetExecutablePath(out,&n)!=0||!memchr(out,0,cap)){out[0]=0;return 0;}
+length=strlen(out);
+if(out[0]!='/'||!utf8(out,length)){out[0]=0;return 0;}
+return 1;
 #elif defined(__linux__)
 return wena_executable_path_validate(WENA_EXEC_LINUX,posix_query,(void*)"/proc/self/exe",out,cap);
 #elif defined(__FreeBSD__) || defined(__NetBSD__)
