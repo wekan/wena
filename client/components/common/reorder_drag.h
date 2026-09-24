@@ -7,6 +7,7 @@ struct nk_context;
 typedef struct WenaReorderDrag {
     int active, pending, source_seen, moved;
     char scope[WENA_REORDER_SCOPE_CAPACITY];
+    char target_scope[WENA_REORDER_SCOPE_CAPACITY];
     WenaId source_id, target_id;
     unsigned long revision;
     size_t source_position, target_position;
@@ -20,5 +21,9 @@ void wena_reorder_drag_begin(struct nk_context *context,WenaReorderDrag *state);
 int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
     const char *scope,unsigned long revision,const char *id,size_t position,
     const char *label,int enabled);
+/* Explicit destination zone. The adapter decides which source/destination
+ * combinations are allowed and validates them again in its transaction. */
+int wena_reorder_drag_drop(struct nk_context *context,WenaReorderDrag *state,
+    const char *scope,const char *id,const char *label,int enabled);
 void wena_reorder_drag_end(struct nk_context *context,WenaReorderDrag *state);
 #endif

@@ -496,14 +496,18 @@ int wena_checklist_mutation_inline(WenaChecklistMutation *adapter,WenaChecklistI
 int wena_checklist_mutation_drag(WenaChecklistMutation *adapter,WenaChecklistDrag *state)
 {
     WenaChecklistEdit edit;
+    int item,moving;
     if (!state || !state->gesture.pending) return 0;
     state->gesture.pending=0;
-    if ((state->action!=WENA_CHECKLIST_REORDER && state->action!=WENA_CHECKLIST_REORDER_ITEM) ||
+    item=state->action==WENA_CHECKLIST_REORDER_ITEM || state->action==WENA_CHECKLIST_MOVE_ITEM;
+    moving=state->action==WENA_CHECKLIST_MOVE || state->action==WENA_CHECKLIST_MOVE_ITEM;
+    if ((!moving && state->action!=WENA_CHECKLIST_REORDER && state->action!=WENA_CHECKLIST_REORDER_ITEM) ||
         state->gesture.revision!=state->source.card_version ||
-        strcmp(state->gesture.source_id,state->action==WENA_CHECKLIST_REORDER ?
-            state->source.checklist_id : state->source.item_id) ||
-        state->gesture.target_position >= (state->action==WENA_CHECKLIST_REORDER ?
-            WENA_CARD_CHECKLIST_CAPACITY : WENA_CARD_CHECKLIST_ITEM_CAPACITY)) {
+        strcmp(state->gesture.source_id,item ? state->source.item_id : state->source.checklist_id) ||
+        (!moving && state->gesture.target_position >= (item ?
+            WENA_CARD_CHECKLIST_ITEM_CAPACITY : WENA_CARD_CHECKLIST_CAPACITY)) ||
+        (moving && strcmp(state->gesture.target_id,item ?
+            state->target_checklist_id : state->target_card_id))) {
         state->error=1;return -1;
     }
     memset(&edit,0,sizeof(edit));edit.action=state->action;
@@ -512,6 +516,12 @@ int wena_checklist_mutation_drag(WenaChecklistMutation *adapter,WenaChecklistDra
     edit.expected_checklist_version=state->source.checklist_version;
     edit.expected_item_version=state->source.item_version;
     edit.target_position=(unsigned long)state->gesture.target_position;
+    if (moving) {
+        edit.target_card_id=state->target_card_id;
+        edit.expected_target_card_version=state->target_card_version;
+        edit.target_checklist_id=state->target_checklist_id;
+        edit.expected_target_checklist_version=state->target_checklist_version;
+    }
     if (!wena_checklist_mutation_save(adapter,state->source.board_id,state->source.card_id,&edit)) {
         state->error=1;return -1;
     }

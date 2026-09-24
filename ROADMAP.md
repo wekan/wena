@@ -128,7 +128,11 @@ It captures a seven-pixel gesture, exact IDs, scope and revision, then consumes
 the intent after drawing. Escape, hidden sources, stale collections, outside drops
 and read-only controls cancel. Hidden siblings retain their true ordinals.
 Twenty-three focused suites, both drag/preview sanitizer suites and desktop checks
-pass. Cross-collection drops and full drag/drop parity remain open.
+pass. Explicit destination zones now reuse the gesture control for same-board
+whole-checklist and item transfers, including cross-card item moves. Destination
+revisions, late rollback, no replay and completed-item preservation have real
+Nuklear/SQLite coverage. Twenty-four focused suites pass. Arbitrary insertion
+points, cross-board transfers and full drag/drop parity remain open.
 
 Blocker procedure: inspect original WeKan behavior and pinned dependency source,
 then consult official documentation and copyfree-compatible implementation examples.
@@ -824,7 +828,10 @@ Architecture decisions for this cycle:
       - [x] Reuse a bounded drag-to-reorder control for minicard checklist titles
         and items within their sibling collection. Capture exact IDs/revisions;
         validate hidden sibling ordinals, rollback and consumed intents.
-      - [_] Finish cross-collection drag/drop and cross-board checklist/item movement.
+      - [x] Share explicit destination drop zones for whole-checklist transfer to
+        another card and item transfer to another checklist on the same board.
+        Append through existing guarded transactions with target revisions.
+      - [_] Finish arbitrary insertion-point/cross-board checklist/item movement.
       - [x] Add board-scoped schema-v5 labels and card assignments through the
         existing transaction boundary. Preserve v1-v4 bytes and exact canonical
         empty-name/default-color/hex semantics; validate full bounded catalogs.

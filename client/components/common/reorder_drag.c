@@ -8,6 +8,7 @@ void wena_reorder_drag_cancel(WenaReorderDrag *state)
 }
 void wena_reorder_drag_begin(struct nk_context *context,WenaReorderDrag *state)
 {
+    float dx,dy;
     if (!state) return;
     state->pending=0;
     state->source_seen=0;
@@ -15,13 +16,17 @@ void wena_reorder_drag_begin(struct nk_context *context,WenaReorderDrag *state)
         (state->active && !nk_input_is_mouse_down(&context->input,NK_BUTTON_LEFT) &&
          !nk_input_is_mouse_released(&context->input,NK_BUTTON_LEFT)))
         wena_reorder_drag_cancel(state);
+    if (context && state->active) {
+        dx=context->input.mouse.pos.x-state->start_x;
+        dy=context->input.mouse.pos.y-state->start_y;
+        if (dx*dx+dy*dy>=49.0f) state->moved=1;
+    }
 }
 int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
     const char *scope,unsigned long revision,const char *id,size_t position,
     const char *label,int enabled)
 {
     int valid,hovered,started;
-    float dx,dy;
     if (!context || !state || !label) return 0;
     valid=enabled && scope && scope[0] && strlen(scope)<sizeof(state->scope) &&
         revision>0 && !nk_input_is_key_pressed(&context->input,NK_KEY_TEXT_RESET_MODE) &&
@@ -42,18 +47,35 @@ int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
         state->active=1;state->source_seen=1;started=1;
     }
     if (state->active) {
-        dx=context->input.mouse.pos.x-state->start_x;
-        dy=context->input.mouse.pos.y-state->start_y;
-        if (dx*dx+dy*dy>=49.0f) state->moved=1;
         if (hovered && state->moved && !state->pending && !strcmp(scope,state->scope) &&
             revision==state->revision && strcmp(id,state->source_id) &&
             nk_input_is_mouse_released(&context->input,NK_BUTTON_LEFT)) {
-            strcpy(state->target_id,id);state->target_position=position;state->pending=1;
+            strcpy(state->target_scope,scope);strcpy(state->target_id,id);state->target_position=position;state->pending=1;
         }
     }
     if (valid) (void)nk_button_label(context,label);
     else nk_label(context,label,NK_TEXT_LEFT);
     return started;
+}
+int wena_reorder_drag_drop(struct nk_context *context,WenaReorderDrag *state,
+    const char *scope,const char *id,const char *label,int enabled)
+{
+    int dropped,valid;
+    if (!context || !state || !label) return 0;
+    valid=enabled && scope && scope[0] && strlen(scope)<sizeof(state->target_scope) &&
+        wena_model_identifier_valid(id) && nk_window_has_focus(context);
+    dropped=valid && state->active && state->moved && !state->pending &&
+        !nk_input_is_key_pressed(&context->input,NK_KEY_TEXT_RESET_MODE) &&
+        nk_widget_is_hovered(context) &&
+        nk_input_is_mouse_hovering_rect(&context->input,context->current->layout->clip) &&
+        nk_input_is_mouse_released(&context->input,NK_BUTTON_LEFT);
+    if (dropped) {
+        strcpy(state->target_scope,scope);strcpy(state->target_id,id);
+        state->target_position=0;state->pending=1;
+    }
+    if (valid) (void)nk_button_label(context,label);
+    else nk_label(context,label,NK_TEXT_LEFT);
+    return dropped;
 }
 void wena_reorder_drag_end(struct nk_context *context,WenaReorderDrag *state)
 {

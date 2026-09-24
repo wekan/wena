@@ -21,6 +21,7 @@ unsigned int wena_checklist_contents_render_editable(struct nk_context *context,
     summary = wena_checklist_summary_find(&contents->summary, card->id);
     if (!summary || summary->archived) return WENA_CARD_BODY_NO_ACTION;
     action = WENA_CARD_BODY_NO_ACTION;
+    if (drag) wena_checklist_drag_destination(context, drag, contents, card, NULL);
     for (list = wena_checklist_contents_find(contents, card->id), list_index = 0; list; list = list->next, ++list_index) {
         if (!wena_checklist_shown_at_minicard(&list->checklist, board_default, &shown) || !shown) continue;
         if (edit && edit->action && !strcmp(edit->card_id, card->id) &&
@@ -42,6 +43,7 @@ unsigned int wena_checklist_contents_render_editable(struct nk_context *context,
             wena_checklist_drag_handle(context, drag, contents, card, list,
                 list_index, WENA_CHECKLIST_REORDER, (!edit || !edit->action) && (!intent || !intent->pending));
         }
+        if (drag) wena_checklist_drag_destination(context, drag, contents, card, list);
         if (list->checklist.hide_all_items) continue;
         nk_layout_row_dynamic(context, 28.0f, 1);
         for (index = 0; index < list->item_count; ++index) {

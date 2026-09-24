@@ -9,9 +9,9 @@ typedef struct Fixture {
     struct nk_context ctx;
     struct nk_user_font font;
     WenaReorderDrag drag;
-    struct nk_vec2 points[3];
+    struct nk_vec2 points[4];
     unsigned long revision;
-    int enabled,hide_source;
+    int enabled,hide_source,destination_enabled;
 } Fixture;
 static float width(nk_handle handle,float height,const char *text,int length)
 {(void)handle;(void)text;return height*(float)length*0.5f;}
@@ -34,6 +34,10 @@ static void frame(Fixture *f,int x,int y,int down,int escape)
                 i==2?"group-b":"group-a",f->revision,ids[i],(size_t)i,
                 "Move",f->enabled);
         }
+        nk_layout_row_dynamic(&f->ctx,30,1);bounds=nk_widget_bounds(&f->ctx);
+        f->points[3]=nk_vec2(bounds.x+bounds.w/2,bounds.y+bounds.h/2);
+        (void)wena_reorder_drag_drop(&f->ctx,&f->drag,"destination","target","Destination",
+            f->destination_enabled);
     }
     nk_end(&f->ctx);wena_reorder_drag_end(&f->ctx,&f->drag);
 }
@@ -63,6 +67,13 @@ int main(void)
     point(&f,0,1,0);f.hide_source=1;point(&f,1,0,0);assert(!f.drag.pending);f.hide_source=0;
     f.enabled=0;point(&f,0,1,0);point(&f,1,0,0);assert(!f.drag.active&&!f.drag.pending);
     f.enabled=1;point(&f,0,1,0);f.enabled=0;point(&f,1,0,0);assert(!f.drag.pending);
+    f.enabled=1;f.destination_enabled=1;
+    point(&f,0,1,0);point(&f,3,0,0);
+    assert(f.drag.pending&&!strcmp(f.drag.target_id,"target")&&!strcmp(f.drag.target_scope,"destination"));
+    frame(&f,0,0,0,0);f.destination_enabled=0;
+    point(&f,0,1,0);point(&f,3,0,0);assert(!f.drag.pending);
+    f.destination_enabled=1;point(&f,0,1,0);f.hide_source=1;
+    point(&f,3,0,0);assert(!f.drag.pending);f.hide_source=0;
     for(i=0;i<100;++i)frame(&f,0,0,0,0);
     nk_free(&f.ctx);
     puts("Reusable drag reorder: exact IDs, revisions, threshold, cancel, scope and readonly passed");

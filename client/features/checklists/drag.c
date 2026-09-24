@@ -1,5 +1,6 @@
 #include "drag.h"
 #include "../../../imports/ui/page_contract.h"
+#include <nuklear.h>
 #include <stdio.h>
 #include <string.h>
 void wena_checklist_drag_handle(struct nk_context *context,WenaChecklistDrag *state,
@@ -34,5 +35,43 @@ void wena_checklist_drag_handle(struct nk_context *context,WenaChecklistDrag *st
             strcpy(state->source.item_id,id);
             state->source.item_version=list->item_versions[position];
         }
+    }
+}
+
+void wena_checklist_drag_destination(struct nk_context *context,WenaChecklistDrag *state,
+    const WenaChecklistBoardContents *contents,const WenaCard *card,
+    const WenaChecklistContents *list)
+{
+    const WenaChecklistCardSummary *target;
+    const char *id;
+    char scope[WENA_REORDER_SCOPE_CAPACITY];
+    int item;
+    if (!context || !state || !state->gesture.active || state->gesture.pending || state->error ||
+        !contents || !card || card->archived || strcmp(state->source.board_id,card->board_id) ||
+        strcmp(contents->summary.board_id,card->board_id)) return;
+    item=state->action==WENA_CHECKLIST_REORDER_ITEM;
+    if (item) {
+        if (!list || strcmp(list->checklist.card_id,card->id) ||
+            !strcmp(list->checklist.id,state->source.checklist_id)) return;
+        sprintf(scope,"item:%s/%s/%s",card->board_id,card->id,list->checklist.id);
+        id=list->checklist.id;
+    } else {
+        if (list || state->action!=WENA_CHECKLIST_REORDER ||
+            !strcmp(card->id,state->source.card_id)) return;
+        sprintf(scope,"list:%s/%s",card->board_id,card->id);id=card->id;
+    }
+    target=wena_checklist_summary_find(&contents->summary,card->id);
+    if (!target || target->archived) return;
+    nk_layout_row_dynamic(context,28,1);
+    if (wena_reorder_drag_drop(context,&state->gesture,scope,id,
+        wena_ui_text(WENA_UI_TEXT_MOVE_DESTINATION),1)) {
+        strcpy(state->target_card_id,card->id);
+        state->target_card_version=target->card_version;
+        state->target_checklist_id[0]=0;state->target_checklist_version=0;
+        if (item) {
+            strcpy(state->target_checklist_id,list->checklist.id);
+            state->target_checklist_version=list->version;
+        }
+        state->action=item ? WENA_CHECKLIST_MOVE_ITEM : WENA_CHECKLIST_MOVE;
     }
 }

@@ -57,3 +57,10 @@ the [upstream input documentation](https://immediate-mode-ui.github.io/Nuklear/I
 and local clipping/focus implementation; it adds no dependency. Checklist and
 item adapters share this control and the existing guarded reorder transaction.
 Ordinals include hidden siblings, while invisible rows cannot become drop targets.
+
+Explicit destination zones reuse `wena_reorder_drag_drop`. The feature decides
+which destinations to offer and records the destination IDs/revisions; begin/end
+still requires a visible valid source. Checklist transfers append to another
+active card, and item transfers append to another checklist on the same board.
+These use existing atomic transfer operations; an ordinary sibling row remains a
+same-collection reorder target rather than silently changing transfer semantics.
