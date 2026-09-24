@@ -178,6 +178,37 @@ static void archived_ordinals(struct nk_context *context,WenaBoardLayout *layout
     layout->cards=saved;layout->card_count=count;
     layout->card_drag_handle=NULL;layout->card_drag_context=NULL;
 }
+static int list_handles[2],lane_handles[2];
+static void list_handle(struct nk_context *ctx,void *data,const WenaList *list,size_t ordinal)
+{
+    (void)data;assert(ordinal<2);
+    assert(!strcmp(list->id,ordinal?"local":"shared"));++list_handles[ordinal];
+    nk_layout_row_dynamic(ctx,24,1);nk_button_label(ctx,"Drag list");
+}
+static void lane_handle(struct nk_context *ctx,void *data,const WenaSwimlane *lane,size_t ordinal)
+{
+    (void)data;assert(ordinal<2);
+    assert(!strcmp(lane->id,ordinal?"second":"first"));++lane_handles[ordinal];
+    nk_layout_row_dynamic(ctx,24,1);nk_button_label(ctx,"Drag lane");
+}
+static void hierarchy_handles(struct nk_context *ctx,WenaBoardLayout *layout)
+{
+    WenaBoardCollapseState collapse;
+    wena_board_collapse_init(&collapse);layout->collapse=&collapse;
+    layout->list_drag_handle=list_handle;layout->swimlane_drag_handle=lane_handle;
+    memset(list_handles,0,sizeof(list_handles));memset(lane_handles,0,sizeof(lane_handles));
+    render(ctx,layout,900);
+    assert(list_handles[0]==2&&list_handles[1]==1&&lane_handles[0]==1&&lane_handles[1]==1);
+    assert(wena_board_collapse_set(&collapse,layout,WENA_COLLAPSE_SWIMLANE,"first",1));
+    memset(list_handles,0,sizeof(list_handles));memset(lane_handles,0,sizeof(lane_handles));
+    render(ctx,layout,480);
+    assert(list_handles[0]==1&&!list_handles[1]&&lane_handles[0]==1&&lane_handles[1]==1);
+    assert(visible_text(ctx,"Drag lane",640,480,NULL));
+    assert(visible_text(ctx,"Uncollapse",640,480,NULL));
+    click(ctx,layout,"Uncollapse");
+    assert(!wena_board_is_collapsed(&collapse,"board",WENA_COLLAPSE_SWIMLANE,"first"));
+    layout->collapse=NULL;layout->list_drag_handle=NULL;layout->swimlane_drag_handle=NULL;
+}
 int main(void)
 {
     struct nk_context context;
@@ -220,6 +251,7 @@ int main(void)
     card_folding(&context, &layout);
     layout.card_count = 3;
     archived_ordinals(&context, &layout);
+    hierarchy_handles(&context, &layout);
     /* The original state-free caller also needs full-height list/card geometry. */
     render(&context, &layout, 480.0f);
     assert(visible_text(&context, "First card", 640.0f, 480.0f, &first));

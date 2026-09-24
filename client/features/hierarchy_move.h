@@ -32,6 +32,8 @@ void wena_hierarchy_move_init(WenaHierarchyMoveState *state,
 void wena_hierarchy_move_close(WenaHierarchyMoveState *state);
 int wena_hierarchy_move_open(WenaHierarchyMoveState *state,
     const WenaBoardLayout *layout, WenaHierarchyKind kind, const char *target_id);
+/* Pure comparison shared by dialog and drag lifecycle; never queries storage. */
+int wena_hierarchy_move_current(WenaHierarchyMoveState *state,const WenaBoardLayout *layout);
 int wena_hierarchy_move_render(struct nk_context *context,
     WenaHierarchyMoveState *state, const WenaBoardLayout *layout,
     float width, float height);

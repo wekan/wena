@@ -49,6 +49,10 @@ typedef struct WenaBoardLayout {
     unsigned int (*card_badges)(struct nk_context *context, void *user_data,
                         const WenaCard *card);
     void *card_badges_context;
+    /* Shared hierarchy handles; board-wide list ordinals repeat per lane. */
+    void (*list_drag_handle)(struct nk_context*,void*,const WenaList*,size_t);
+    void (*swimlane_drag_handle)(struct nk_context*,void*,const WenaSwimlane*,size_t);
+    void *hierarchy_drag_context;
     /* Optional card reorder handle; ordinal includes archived/filtered siblings. */
     void (*card_drag_handle)(struct nk_context *context,void *user_data,
                         const WenaCard *card,size_t ordinal);

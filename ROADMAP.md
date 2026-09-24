@@ -101,6 +101,12 @@ does no SQL while drawing, selects exact IDs despite duplicate titles and retrie
 failed reads only on explicit Refresh. The board/card destination component reuses
 this picker for cross-board checklist and item transfers in the desktop; wiring
 the other host views remains open.
+The same drag controller now serves list/swimlane ordering through the existing
+Move adapter and pure ordering comparison. It loads the source revision once after
+press and commits once after release; drawing stays SQL-free. Eleven focused
+suites pass, including desktop and hierarchy movement. Hierarchy-drag and real
+board-layout sanitizer checks cover rollback, source/sibling changes, cancellation,
+repeated list identities and collapsed-lane control visibility.
 See `client/components/README.md`.
 
 Expanded minicard contents: the shared board checklist reader now optionally
@@ -942,7 +948,13 @@ Architecture decisions for this cycle:
     or swimlane, including empty destinations. Preserve source order/revision
     checks and exact destination scope, reject unavailable targets, and test late
     rollback plus cache publication with actual Nuklear/SQLite.
-  - [_] Complete arbitrary insertion-point/hierarchy drag movement and visual parity.
+  - [x] Reuse the bounded drag controller and Move dialog's ordering checks for
+    list/swimlane reordering. Read once after press, render without SQL and apply
+    one guarded transaction after release. Preserve explicit error/Refresh,
+    cancellation, collapsed-lane controls and repeated board-wide list identities.
+    Real Nuklear/SQLite tests cover both kinds, revisions, sibling fingerprints,
+    late rollback, cache publication and no replay; focused suites/sanitizers pass.
+  - [_] Complete arbitrary insertion-point movement and visual parity.
 - [_] Collapse Swimlane, List, Card etc like Meteor 3 WeKan
   - [x] Add bounded, board-scoped swimlane/list collapse state with canonical
     Collapse/Uncollapse controls, stable object IDs, nested restoration, stale and

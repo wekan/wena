@@ -126,6 +126,11 @@ static void option_label(void *data, int selected, const char **label)
     }
 }
 
+int wena_hierarchy_move_current(WenaHierarchyMoveState *state,const WenaBoardLayout *layout)
+{
+    return state && state->visible && order_valid(state,layout,0);
+}
+
 int wena_hierarchy_move_render(struct nk_context *context,
     WenaHierarchyMoveState *state, const WenaBoardLayout *layout,
     float width, float height)
@@ -133,7 +138,7 @@ int wena_hierarchy_move_render(struct nk_context *context,
     HierarchyMoveOptions options;
     int close_requested;
     if (state == NULL || !state->visible) return 0;
-    if (!order_valid(state, layout, 0)) { wena_hierarchy_move_close(state); return 0; }
+    if (!wena_hierarchy_move_current(state, layout)) { wena_hierarchy_move_close(state); return 0; }
     if (context == NULL || width <= 0 || height <= 0) return 0;
     close_requested = 0;
     if (nk_begin_titled(context, "Move hierarchy",

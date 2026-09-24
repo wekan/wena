@@ -31,6 +31,7 @@
 #include "features/hierarchy_title.h"
 #include "features/hierarchy_mutation.h"
 #include "features/hierarchy_move.h"
+#include "features/hierarchy_drag.h"
 #include "features/hierarchy_move_mutation.h"
 #include "components/cards/card_body.h"
 #include "components/lists/list_header.h"
@@ -69,6 +70,7 @@ typedef struct WenaDesktopChecklistPreview {
     WenaChecklistInlineEdit inline_edit;
     WenaChecklistDrag drag;
     WenaCardDrag card_drag;
+    WenaHierarchyDrag hierarchy_drag;
     const WenaBoardLayout *layout;
     int readonly;
     int error;
@@ -97,6 +99,25 @@ static void desktop_card_drag(struct nk_context *context,void *opaque,
         preview->layout->card_count,card,ordinal,summary && !summary->archived ? summary->card_version : 0,
         !preview->readonly && !preview->error && !preview->inline_edit.action &&
         !preview->drag.gesture.active);
+}
+
+static void desktop_list_drag(struct nk_context *context,void *opaque,
+    const WenaList *list,size_t ordinal)
+{
+    WenaDesktopChecklistPreview *preview;
+    preview=(WenaDesktopChecklistPreview *)opaque;
+    wena_hierarchy_drag_handle(context,&preview->hierarchy_drag,preview->layout,
+        WENA_HIERARCHY_LIST,list->id,ordinal,!preview->readonly && !preview->error &&
+        !preview->inline_edit.action && !preview->drag.gesture.active && !preview->card_drag.gesture.active);
+}
+static void desktop_swimlane_drag(struct nk_context *context,void *opaque,
+    const WenaSwimlane *lane,size_t ordinal)
+{
+    WenaDesktopChecklistPreview *preview;
+    preview=(WenaDesktopChecklistPreview *)opaque;
+    wena_hierarchy_drag_handle(context,&preview->hierarchy_drag,preview->layout,
+        WENA_HIERARCHY_SWIMLANE,lane->id,ordinal,!preview->readonly && !preview->error &&
+        !preview->inline_edit.action && !preview->drag.gesture.active && !preview->card_drag.gesture.active);
 }
 
 static void desktop_card_drop(struct nk_context *context,void *opaque,
@@ -169,7 +190,7 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
             toolbar->labels->refresh_pending = 1;
     }
     if (toolbar->labels != NULL && (toolbar->labels->summary_error || toolbar->labels->sections_error ||
-        toolbar->preview->error || toolbar->preview->sections.error || toolbar->preview->drag.error || toolbar->preview->card_drag.error)) {
+        toolbar->preview->error || toolbar->preview->sections.error || toolbar->preview->drag.error || toolbar->preview->card_drag.error || toolbar->preview->hierarchy_drag.error)) {
         nk_layout_row_dynamic(context, 22.0f, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_CARDS), NK_TEXT_LEFT);
         nk_layout_row_dynamic(context, 28.0f, 2);
@@ -178,7 +199,7 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
             toolbar->labels->summary_pending = 1;
             toolbar->preview->error = 0;
             toolbar->preview->drag.error = 0;
-            toolbar->board_refresh = toolbar->preview->card_drag.error;
+            toolbar->board_refresh = toolbar->preview->card_drag.error || toolbar->preview->hierarchy_drag.error;
             toolbar->preview->sections.error = 0;
             toolbar->labels->sections_pending = 1;
         }
@@ -482,6 +503,9 @@ int main(int argc, char **argv)
     layout.card_collapsed_context = &preview;
     layout.card_drag_handle = desktop_card_drag;
     layout.card_drag_context = &preview;
+    layout.list_drag_handle = desktop_list_drag;
+    layout.swimlane_drag_handle = desktop_swimlane_drag;
+    layout.hierarchy_drag_context = &preview;
     layout.card_drop_target = desktop_card_drop;
     layout.card_drop_context = &preview;
     layout.card_badges = desktop_card_badges;
@@ -531,6 +555,8 @@ int main(int argc, char **argv)
             actor_id, board_id, snapshot)) goto cleanup;
         if (!wena_hierarchy_move_mutation_init(&hierarchy_move_mutation,
             database, actor_id, board_id, snapshot)) goto cleanup;
+        wena_hierarchy_drag_init(&preview.hierarchy_drag,
+            wena_hierarchy_move_mutation_load,wena_hierarchy_move_mutation_move,&hierarchy_move_mutation);
         wena_hierarchy_move_init(&editors.hierarchy_move,
             wena_hierarchy_move_mutation_load, wena_hierarchy_move_mutation_move,
             &hierarchy_move_mutation);
@@ -592,6 +618,7 @@ int main(int argc, char **argv)
                 wena_card_drag_begin(context, &preview.card_drag, snapshot->cards,
                     snapshot->card_count, source && !source->archived ? source->card_version : 0);
             }
+            wena_hierarchy_drag_begin(context,&preview.hierarchy_drag,&layout);
             wena_reorder_drag_begin(context, &preview.drag.gesture);
             preview.intent.pending = 0;
             preview.sections.pending = 0;
@@ -604,8 +631,10 @@ int main(int argc, char **argv)
                 (float)width, (float)height, &editors.details)) goto cleanup;
             wena_reorder_drag_end(context, &preview.drag.gesture);
             wena_card_drag_end(context, &preview.card_drag);
+            wena_hierarchy_drag_end(context,&preview.hierarchy_drag);
             if (preview.intent.pending || preview.inline_edit.action || preview.drag.gesture.active || preview.drag.gesture.pending ||
-                preview.card_drag.gesture.active || preview.card_drag.gesture.pending) {
+                preview.card_drag.gesture.active || preview.card_drag.gesture.pending ||
+                preview.hierarchy_drag.gesture.active || preview.hierarchy_drag.gesture.pending) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
@@ -613,6 +642,7 @@ int main(int argc, char **argv)
                 wena_checklist_inline_cancel(&preview.inline_edit);
                 wena_reorder_drag_cancel(&preview.drag.gesture);
                 wena_card_drag_cancel(&preview.card_drag);
+                wena_hierarchy_drag_cancel(&preview.hierarchy_drag);
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 sidebar.visible = 0;
             }
@@ -760,21 +790,26 @@ int main(int argc, char **argv)
                 wena_checklist_inline_cancel(&preview.inline_edit);
             if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
                 wena_reorder_drag_cancel(&preview.drag.gesture);
-            if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible)
+            if (opened_panel != DESKTOP_PANEL_NONE || sidebar.visible) {
                 wena_card_drag_cancel(&preview.card_drag);
+                wena_hierarchy_drag_cancel(&preview.hierarchy_drag);
+            }
             if (toolbar.board_refresh) {
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
                 wena_card_drag_cancel(&preview.card_drag);
+                wena_hierarchy_drag_cancel(&preview.hierarchy_drag);
                 wena_checklist_inline_cancel(&preview.inline_edit);
                 wena_reorder_drag_cancel(&preview.drag.gesture);
                 preview.intent.pending = 0;
                 preview.card_drag.error = !wena_board_reload(&mutation, snapshot);
+                preview.hierarchy_drag.error = preview.card_drag.error;
                 if (!preview.card_drag.error) {
                     label_view.valid = 0;label_view.refresh_pending = 1;
                     label_view.summary_valid = 0;label_view.summary_pending = 1;
                     label_view.sections_valid = 0;label_view.sections_pending = 1;
                 }
             }
+            (void)wena_hierarchy_drag_process(&preview.hierarchy_drag,&layout);
             completion_result = wena_card_drag_apply(&preview.card_drag, &mutation);
             if (completion_result) {
                 label_view.summary_valid = 0;label_view.summary_pending = 1;

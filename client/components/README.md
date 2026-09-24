@@ -109,3 +109,10 @@ reads outside drawing and owns the chosen card's full snapshot and confirmation.
 The desktop's two checklist transfer forms share this component and require the
 snapshot revision to match the selected row. Directory pages carry the card board
 scope, so a stale or incorrect reader cannot substitute another board's page.
+
+`features/hierarchy_drag` shares the reorder gesture for list and swimlane headers.
+It uses `hierarchy_move_current` and the existing Move adapter rather than another
+order validator or persistence path. A press captures an exact entity and emits a
+read that the host processes after drawing; release emits one guarded mutation.
+The board layout reports original list/lane ordinals, including repeated views of
+board-wide lists. Folded lanes keep their drag and Uncollapse controls visible.

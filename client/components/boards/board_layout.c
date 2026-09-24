@@ -293,6 +293,8 @@ static void wena_render_lists(struct nk_context *context,
         if (wena_model_group_begin(context, "list/", layout->board->id,
                                     swimlane->id, list->id)) {
             list_action = wena_list_header_render(context, list);
+            if (layout->list_drag_handle) layout->list_drag_handle(context,
+                layout->hierarchy_drag_context,list,index);
             if (layout->list_interaction != NULL &&
                 list_action != WENA_LIST_HEADER_NO_ACTION) {
                 layout->list_interaction->actions = list_action;
@@ -376,7 +378,8 @@ int wena_board_layout_render(struct nk_context *context,
         }
         nk_layout_row_dynamic(context,
             wena_board_is_collapsed(layout->collapse, layout->board->id,
-                WENA_COLLAPSE_SWIMLANE, swimlane->id) ? 80.0f : 360.0f, 1);
+                WENA_COLLAPSE_SWIMLANE, swimlane->id) ?
+                (layout->swimlane_drag_handle ? 112.0f : 80.0f) : 360.0f, 1);
         if (wena_model_group_begin(context, "lane/", layout->board->id,
                                     "", swimlane->id)) {
             nk_layout_row_dynamic(context, 26.0f,
@@ -390,6 +393,8 @@ int wena_board_layout_render(struct nk_context *context,
                 (void)wena_model_set_required(layout->swimlane_interaction->swimlane_id,
                     sizeof(layout->swimlane_interaction->swimlane_id), swimlane->id);
             }
+            if (layout->swimlane_drag_handle) layout->swimlane_drag_handle(context,
+                layout->hierarchy_drag_context,swimlane,index);
             if (!wena_collapse_control(context, layout, WENA_COLLAPSE_SWIMLANE,
                                        swimlane->id)) {
                 wena_render_lists(context, layout, swimlane);
