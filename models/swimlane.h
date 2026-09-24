@@ -2,6 +2,7 @@
 #define WENA_SWIMLANE_H
 
 #include "model.h"
+#include "color.h"
 
 typedef struct WenaSwimlane {
     WenaId id;
@@ -9,6 +10,8 @@ typedef struct WenaSwimlane {
     WenaTitle title;
     double sort;
     int archived;
+    /* Empty uses the theme default; otherwise canonical item color or #RRGGBB. */
+    char color[WENA_COLOR_CAPACITY];
 } WenaSwimlane;
 
 int wena_swimlane_init(WenaSwimlane *swimlane, const char *id,

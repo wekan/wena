@@ -1,23 +1,10 @@
+#include "sqlite_storage.h"
 #include "list_state.h"
 #include "../models/model.h"
 #include <string.h>
-/* Legacy snapshots have no archive table. A v10-or-newer database must have it;
- * disappearance or a same-named view is corruption, not an unarchived default. */
 int wena_sqlite_list_state_available(sqlite3 *db)
 {
-    sqlite3_stmt *s;int result,available;const unsigned char *type;
-    if(sqlite3_prepare_v2(db,"SELECT type FROM sqlite_schema WHERE name='list_archive_state'",-1,&s,NULL)!=SQLITE_OK)return -1;
-    result=sqlite3_step(s);available=-1;
-    if(result==SQLITE_ROW){type=sqlite3_column_text(s,0);
-        if(type&&!strcmp((const char*)type,"table")&&sqlite3_step(s)==SQLITE_DONE)available=1;}
-    else if(result==SQLITE_DONE)available=0;
-    if(sqlite3_finalize(s)!=SQLITE_OK)return -1;
-    if(available)return available;
-    if(sqlite3_prepare_v2(db,"PRAGMA user_version",-1,&s,NULL)!=SQLITE_OK)return -1;
-    available=sqlite3_step(s)==SQLITE_ROW&&sqlite3_column_type(s,0)==SQLITE_INTEGER&&
-        sqlite3_column_int64(s,0)>=0&&sqlite3_column_int64(s,0)<10?0:-1;
-    if(sqlite3_finalize(s)!=SQLITE_OK)available=-1;
-    return available;
+    return wena_sqlite_optional_table(db,"list_archive_state",10);
 }
 
 int wena_sqlite_list_state_read(sqlite3 *db,const char *board,const char *list,unsigned long version,

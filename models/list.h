@@ -2,6 +2,7 @@
 #define WENA_LIST_H
 
 #include "model.h"
+#include "color.h"
 
 typedef struct WenaList {
     WenaId id;
@@ -12,6 +13,8 @@ typedef struct WenaList {
     WenaTitle title;
     double sort;
     int archived;
+    /* Empty uses the theme default; otherwise canonical item color or #RRGGBB. */
+    char color[WENA_COLOR_CAPACITY];
 } WenaList;
 
 int wena_list_init(WenaList *list, const char *id, const char *board_id,

@@ -29,8 +29,17 @@ advance only the parent revision, verify the resulting scope/color/version, and
 roll back ignored or altered writes. Archived lists reject edits. Both hierarchy
 types are tested across palette/hex values, malformed forms, unknown actors,
 wrong scope, replay, stale revisions, read-only databases, corruption and reopen.
-No HTTP route is added. Native loading/adapters and header/editor integration
-remain open in ROADMAP.md.
+No HTTP route is added. Native adapters and header/editor integration remain
+open in ROADMAP.md.
+
+List/swimlane models carry the stored color with an empty default. The board
+loader reads both extensions in its existing atomic snapshot transaction, with
+one board-scoped query per kind and no per-item storage requests. It checks
+metadata pointing into the board as well as rows claiming its board ID, so
+cross-board/orphan corruption cannot silently lose a color. Exact palette/hex
+values and archived-list colors survive reload. Pre-v11 databases use defaults;
+missing v11 tables or same-named views fail while preserving the caller's prior
+snapshot. Archive loading shares the same optional-table detection helper.
 
 Strict result readers check SQLite types before requesting text conversion.
 SQLite documents that conversion can invalidate later type inspection; BLOB

@@ -28,4 +28,7 @@ int wena_sqlite_schema_version(sqlite3 *database);
  * existing caller transaction, empty schema and downgrade. */
 int wena_sqlite_upgrade(sqlite3 *database, const char *target_sha256);
 
+/* 1 existing table, 0 absent legacy extension, -1 error/current-schema loss.
+ * A same-named view is rejected. Caller owns the read/write transaction. */
+int wena_sqlite_optional_table(sqlite3 *database,const char *table,int introduced);
 #endif

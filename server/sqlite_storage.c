@@ -290,3 +290,23 @@ int wena_sqlite_open(const char *path, const unsigned char *migration, size_t le
     *database=db;return 1;
 fail: sqlite3_close(db);return 0;
 }
+
+/* Additive extensions may be absent only before their introduction. */
+int wena_sqlite_optional_table(sqlite3 *db,const char *table,int introduced)
+{
+    sqlite3_stmt *s;int result,available;const unsigned char *type;
+    if(!db||!table||!table[0]||introduced<1)return -1;
+    if(sqlite3_prepare_v2(db,"SELECT type FROM sqlite_schema WHERE name=?1",-1,&s,NULL)!=SQLITE_OK)return -1;
+    if(sqlite3_bind_text(s,1,table,-1,SQLITE_TRANSIENT)!=SQLITE_OK){sqlite3_finalize(s);return -1;}
+    result=sqlite3_step(s);available=-1;
+    if(result==SQLITE_ROW){type=sqlite3_column_text(s,0);
+        if(type&&!strcmp((const char*)type,"table")&&sqlite3_step(s)==SQLITE_DONE)available=1;}
+    else if(result==SQLITE_DONE)available=0;
+    if(sqlite3_finalize(s)!=SQLITE_OK)return -1;
+    if(available)return available;
+    if(sqlite3_prepare_v2(db,"PRAGMA user_version",-1,&s,NULL)!=SQLITE_OK)return -1;
+    available=sqlite3_step(s)==SQLITE_ROW&&sqlite3_column_type(s,0)==SQLITE_INTEGER&&
+        sqlite3_column_int64(s,0)>=0&&sqlite3_column_int64(s,0)<introduced?0:-1;
+    if(sqlite3_finalize(s)!=SQLITE_OK)available=-1;
+    return available;
+}

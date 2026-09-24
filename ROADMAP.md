@@ -837,7 +837,12 @@ Architecture decisions for this cycle:
           exact scope, revision, replay, no-op and result verification. Reject
           archived list edits, malformed colors and corrupt metadata; roll back
           ignored/altered writes and preserve cards/board revisions on reopen.
-        - [_] Load colors and connect native adapters, headers and forms.
+        - [x] Load colors into native list/swimlane models in the atomic board
+          snapshot. Use bounded board-scoped queries, retain archived-list colors
+          and exact hex case, and share legacy extension detection with archives.
+          Reject wrong-board/orphan metadata, invalid types/colors and missing or
+          replaced current-schema tables without publishing a partial snapshot.
+        - [_] Connect native adapters, colored headers and shared color forms.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the
