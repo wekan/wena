@@ -16,6 +16,7 @@
 #include "features/card_create.h"
 #include "features/card_move.h"
 #include "features/card_archives.h"
+#include "features/card_selection_panel.h"
 #include "features/card_description.h"
 #include "features/card_description_mutation.h"
 #include "features/checklists.h"
@@ -222,6 +223,7 @@ typedef enum WenaDesktopPanel {
     DESKTOP_PANEL_CREATE_CARD,
     DESKTOP_PANEL_MOVE_CARD,
     DESKTOP_PANEL_ARCHIVES,
+    DESKTOP_PANEL_SELECTION,
     DESKTOP_PANEL_DESCRIPTION,
     DESKTOP_PANEL_CHECKLISTS,
     DESKTOP_PANEL_LABELS,
@@ -235,6 +237,7 @@ typedef struct WenaDesktopEditors {
     WenaCardCreateState create;
     WenaCardMoveState move;
     WenaCardArchivesState archives;
+    WenaCardSelectionPanel selection;
     WenaCardDescriptionState description;
     WenaChecklistsState checklists;
     WenaLabelsState labels;
@@ -254,6 +257,7 @@ static void desktop_close_other_editors(WenaDesktopEditors *editors,
         wena_card_create_close(&editors->create);
     if (keep != DESKTOP_PANEL_MOVE_CARD)
         wena_card_move_close(&editors->move);
+    if (keep != DESKTOP_PANEL_SELECTION) editors->selection.visible=0;
     if (keep != DESKTOP_PANEL_ARCHIVES)
         wena_card_archives_close(&editors->archives);
     if (keep != DESKTOP_PANEL_DESCRIPTION)
@@ -345,6 +349,7 @@ int main(int argc, char **argv)
     WenaDesktopToolbar toolbar;
     WenaSqliteWorkspaceSeed seed;
     WenaSqliteBoardSnapshot *snapshot;
+    WenaCardSelection *selection;
     WenaBoardLayout layout;
     WenaBoardSidebar sidebar;
     WenaBoardCollapseState collapse;
@@ -419,7 +424,7 @@ int main(int argc, char **argv)
     memset(&swimlane_interaction, 0, sizeof(swimlane_interaction));
     memset(&toolbar, 0, sizeof(toolbar));
     memset(&label_view, 0, sizeof(label_view));
-    database = NULL; window = NULL; renderer = NULL; context = NULL;
+    database = NULL; window = NULL; renderer = NULL; context = NULL;selection=NULL;
     sdl_started = 0; status = 1;
     if (!wena_executable_path_current(executable, sizeof(executable)) ||
         !wena_i18n_catalog_open(&catalog, executable) ||
@@ -466,6 +471,9 @@ int main(int argc, char **argv)
             languages, language_count)) goto cleanup;
     if (!wena_language_picker_init(&language_picker, &language, language_path,
         smoke || language_path[0] == '\0')) goto cleanup;
+    selection=(WenaCardSelection*)malloc(sizeof(*selection));
+    if(!selection||!wena_card_selection_init(selection,board_id))goto cleanup;
+    wena_card_selection_panel_init(&editors.selection,selection);
     layout.board = &snapshot->board;
     layout.swimlanes = snapshot->swimlanes; layout.swimlane_count = snapshot->swimlane_count;
     layout.lists = snapshot->lists; layout.list_count = snapshot->list_count;
@@ -569,6 +577,7 @@ int main(int argc, char **argv)
         wena_hierarchy_title_set_archive_provider(&editors.hierarchy,WENA_HIERARCHY_SWIMLANE,
             wena_hierarchy_mutation_swimlane_archive);
         wena_hierarchy_title_set_color_adapters(&editors.hierarchy,wena_hierarchy_mutation_color_load,wena_hierarchy_mutation_color_save);
+        editors.hierarchy.selection_enabled=1;
         wena_hierarchy_title_set_list_cards_adapters(&editors.hierarchy,
             wena_hierarchy_mutation_list_cards_load,wena_hierarchy_mutation_list_cards_archive);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
@@ -777,6 +786,16 @@ int main(int argc, char **argv)
                     opened_panel = DESKTOP_PANEL_HIERARCHY_MOVE;
                 desktop_close_other_editors(&editors, DESKTOP_PANEL_HIERARCHY_MOVE);
             }
+            if(editors.hierarchy.requested_action==WENA_HIERARCHY_TITLE_SELECT_CARDS){
+                if(wena_card_selection_panel_open(&editors.selection,snapshot->cards,snapshot->card_count,
+                    snapshot->board.id,editors.hierarchy.target_id,editors.hierarchy.scope_lane)){
+                    opened_panel=DESKTOP_PANEL_SELECTION;
+                    desktop_close_other_editors(&editors,DESKTOP_PANEL_SELECTION);
+                }else editors.hierarchy.error=1;
+            }
+            if(opened_panel!=DESKTOP_PANEL_SELECTION)
+                (void)wena_card_selection_panel_render(context,&editors.selection,
+                    snapshot->cards,snapshot->card_count,snapshot->board.id,(float)width,(float)height);
             /* Never replay an opener's input into the newly opened panel. */
             if (opened_panel != DESKTOP_PANEL_HIERARCHY_MOVE)
                 (void)wena_hierarchy_move_render(context, &editors.hierarchy_move,
@@ -883,6 +902,7 @@ cleanup:
     if (window != NULL) SDL_DestroyWindow(window);
     if (sdl_started) { SDL_StopTextInput(); SDL_Quit(); }
     wena_board_presentation_close(&label_view);
+    free(selection);
     free(snapshot);
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;
     wena_embedded_migration_free(&migration);

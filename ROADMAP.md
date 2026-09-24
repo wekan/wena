@@ -834,8 +834,13 @@ Architecture decisions for this cycle:
             preserve selection on malformed caches, show translated errors/
             empty states, and clear on Escape or board changes. Real mouse
             tests cover paging, duplicate titles, lane isolation and pruning.
-          - [_] Connect list-menu selection, minicard selection controls and
-            the shared selection panel to guarded bulk actions.
+          - [x] Connect list-menu selection to the shared panel in the desktop.
+            Retain the clicked lane, consume one opener intent, preserve additive
+            selection while other menus temporarily hide the panel, and avoid
+            replaying opener input into its first frame. Real menu/panel tests
+            and desktop startup/smoke checks pass.
+          - [_] Add minicard selection controls/highlighting and connect the
+            shared selection panel to guarded bulk actions.
         - [x] Archive all active cards in a list, scoped to the current lane
           in swimlane view, matching WeKan's confirmed list-menu action.
           - [x] Add a guarded typed operation with optional lane scope. Reuse

@@ -35,9 +35,11 @@ typedef int (*WenaHierarchyArchiveListCards)(void *context,const char *board,con
     const char *lane,unsigned long list_version,unsigned long lane_version);
 
 #define WENA_HIERARCHY_TITLE_MOVE 1u
+#define WENA_HIERARCHY_TITLE_SELECT_CARDS 2u
 
 typedef struct WenaHierarchyTitleState {
     unsigned int requested_action;
+    int selection_enabled;
     int visible;
     int creating;
     int confirming_cards;

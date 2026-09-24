@@ -10,6 +10,7 @@ typedef struct WenaUiTextContract {
 } WenaUiTextContract;
 
 static const WenaUiTextContract texts[] = {
+    {WENA_UI_TEXT_SELECT_LIST_CARDS, "list-select-cards", "Select all cards in this list"},
     {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},
     {WENA_UI_TEXT_MULTI_SELECTION_OFF, "multi-selection-off", "Turn Multi-Selection off"},
     {WENA_UI_TEXT_SELECT_ALL, "select-all", "Select all"},

@@ -1,4 +1,5 @@
 #include "../client/features/card_archives.h"
+#include "../client/features/card_selection_panel.h"
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_IMPLEMENTATION
@@ -79,6 +80,20 @@ static void click(struct nk_context *context, WenaHierarchyTitleState *state,
     click_at(context, state, layout, label_center(context, label));
 }
 
+/* The desktop consumes intents in the frame where a mouse press emits them. */
+static unsigned int click_action(struct nk_context *context,WenaHierarchyTitleState *state,
+    WenaBoardLayout *layout,const char *label)
+{
+    struct nk_vec2 point;int down;unsigned int action;action=0;point=label_center(context,label);
+    for(down=1;down>=0;--down){
+        nk_clear(context);nk_input_begin(context);
+        nk_input_motion(context,(int)point.x,(int)point.y);
+        nk_input_button(context,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);
+        nk_input_end(context);render(context,state,layout);
+        if(state->requested_action){assert(!action);action=state->requested_action;}
+    }
+    return action;
+}
 static int scalar(sqlite3 *database, const char *sql)
 {
     sqlite3_stmt *statement;
@@ -556,6 +571,34 @@ int main(int argc, char **argv)
     click(&context,&state,&layout,"Archive all cards in this list");frame(&context,&state,&layout);
     assert(!state.scope_lane[0]);click(&context,&state,&layout,"Move to Archive");assert(!state.visible);
     assert(scalar(database,"SELECT count(*) FROM cards WHERE archived=1")==4);
+    {
+        WenaCardSelection *selection;WenaCardSelectionPanel panel;
+        selection=(WenaCardSelection*)malloc(sizeof(*selection));assert(selection);
+        assert(wena_card_selection_init(selection,"board"));wena_card_selection_panel_init(&panel,selection);
+        execute(database,"UPDATE cards SET archived=0");
+        assert(wena_sqlite_board_load(database,"board",snapshot));layout.card_count=snapshot->card_count;
+        state.selection_enabled=1;
+        assert(wena_hierarchy_title_open_list(&state,&layout,"list","lane"));frame(&context,&state,&layout);
+        assert(click_action(&context,&state,&layout,"Select all cards in this list")==WENA_HIERARCHY_TITLE_SELECT_CARDS);
+        assert(!strcmp(state.scope_lane,"lane"));
+        assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,
+            state.board_id,state.target_id,state.scope_lane));
+        wena_hierarchy_title_close(&state);
+        assert(selection->count==3&&!wena_card_selection_contains(selection,"outside"));
+        nk_clear(&context);nk_input_begin(&context);nk_input_end(&context);
+        assert(wena_card_selection_panel_render(&context,&panel,snapshot->cards,snapshot->card_count,"board",640,480));
+        /* Opening another menu hides the panel but preserves additive selection. */
+        panel.visible=0;
+        assert(wena_hierarchy_title_open_list(&state,&layout,"list",NULL));frame(&context,&state,&layout);
+        assert(click_action(&context,&state,&layout,"Select all cards in this list")==WENA_HIERARCHY_TITLE_SELECT_CARDS);
+        assert(!state.scope_lane[0]);
+        assert(wena_card_selection_panel_open(&panel,snapshot->cards,snapshot->card_count,
+            state.board_id,state.target_id,state.scope_lane));
+        assert(selection->count==4&&wena_card_selection_contains(selection,"outside"));
+        frame(&context,&state,&layout);assert(!state.requested_action);
+        wena_hierarchy_title_close(&state);wena_card_selection_panel_close(&panel);assert(!selection->count);
+        free(selection);
+    }
     nk_free(&context);
     assert(sqlite3_close(database) == SQLITE_OK);
     assert(wena_sqlite_open(path, migration, length, hash, &database));

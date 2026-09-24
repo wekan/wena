@@ -63,7 +63,7 @@ void wena_hierarchy_title_set_adapter(WenaHierarchyTitleState *state,
     state->load_title = load;
     state->save_title = save;
     state->context = context;
-    state->create_title = NULL;
+    state->create_title = NULL;state->selection_enabled=0;
     memset(state->archives,0,sizeof(state->archives));
     state->load_color = NULL;state->save_color = NULL;
     state->load_wip=NULL;state->save_wip=NULL;
@@ -292,7 +292,7 @@ int wena_hierarchy_title_render(struct nk_context *context,
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
-        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->load_list_cards && state->archive_list_cards && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (archive_provider(state) && !state->creating ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
+        nk_rect(width * 0.2f, height * 0.2f, width * 0.6f, 210.0f + (state->selection_enabled && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_list_cards && state->archive_list_cards && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (state->load_wip && state->save_wip && !state->creating && state->kind==WENA_HIERARCHY_LIST ? 40.0f : 0.0f) + (archive_provider(state) && !state->creating ? 40.0f : 0.0f) + (state->load_color && state->save_color && !state->creating && state->kind!=WENA_HIERARCHY_BOARD ? 40.0f : 0.0f)),
         NK_WINDOW_BORDER)) {
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_control_text(state->creating ?
@@ -314,6 +314,11 @@ int wena_hierarchy_title_render(struct nk_context *context,
             if (nk_button_label(context, wena_ui_control_text(
                 state->kind == WENA_HIERARCHY_LIST ? WENA_UI_MOVE_LIST_TO :
                 WENA_UI_MOVE_SWIMLANE_TO))) state->requested_action = WENA_HIERARCHY_TITLE_MOVE;
+        }
+        if(state->selection_enabled&&!state->creating&&state->kind==WENA_HIERARCHY_LIST){
+            nk_layout_row_dynamic(context,28,1);
+            if(nk_button_label(context,wena_ui_text(WENA_UI_TEXT_SELECT_LIST_CARDS)))
+                state->requested_action=WENA_HIERARCHY_TITLE_SELECT_CARDS;
         }
         if(!state->creating&&state->kind!=WENA_HIERARCHY_BOARD&&state->load_color&&state->save_color){
             nk_layout_row_dynamic(context,28.0f,1);

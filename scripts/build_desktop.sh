@@ -31,7 +31,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/client/features/labels/panel.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/features/labels/badges.c" \
   "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" \
   "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
-  "$root_dir/client/features/card_archives.c" \
+  "$root_dir/client/features/card_archives.c" "$root_dir/client/features/card_selection_panel.c" "$root_dir/models/card_selection.c" \
   "$root_dir/client/features/card_description.c" "$root_dir/client/features/card_description_mutation.c" \
   "$root_dir/client/features/hierarchy_drag.c" "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/hierarchy_mutation.c" \
