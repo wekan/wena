@@ -290,6 +290,7 @@ TEST_SUITES = (
     ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
     ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
     ('card-order', 'test_card_order.sh', 'Shared ordered card snapshots and stale detection'),
+    ('wip-limit', 'test_wip_limit.sh', 'Shared WIP decisions, editor transitions and arithmetic bounds'),
     ('card-insert', 'test_card_insert.sh', 'Guarded exact-position card insertion across lists and swimlanes'),
     ('card-reorder', 'test_card_reorder.sh', 'Indexed card moves with gap compaction, replay and transactional rollback'),
     ('card-move', 'test_card_move.sh', 'Bounded card movement form destinations and cancellation'),

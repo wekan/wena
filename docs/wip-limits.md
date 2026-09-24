@@ -1,0 +1,37 @@
+# Work-in-progress limits
+
+`models/wip_limit.[ch]` contains shared, allocation-free C89 arithmetic for list
+limits and future lane/group limits. It has no database or UI dependencies.
+Storage, mutation enforcement and native UI integration remain open roadmap
+steps; adding this component alone does not enforce limits in the application.
+
+The port follows the original WeKan source:
+
+- `client/components/lists/listBody.js`: hard limits use all active cards in a
+  list, unfiltered and across swimlanes, before offering another card.
+- `client/components/lists/listHeader.js`: reached means count >= limit;
+  exceeded means count > limit. Explicit editor values are 1–99. Hard limits
+  cannot be set below the current count, including when disabled. Enabling a
+  limit or changing soft to hard raises a smaller saved value to the count;
+  this automatic adjustment can exceed 99.
+- `models/lists.js`: defaults are value 1, disabled, hard.
+- `models/lib/wipLimitGroupDecision.js`: combined counts reuse the same
+  reached/exceeded comparisons.
+
+The public [WeKan API schema](https://wekan.github.io/api/v7.55/#listswiplimit)
+also describes the value/enabled/soft fields. The checked-out source above is
+the behavioral reference; no third-party implementation or dependency is added.
+
+Callers supply the authoritative active count, number removed, and number added
+within the scope. Creation/restoration adds one; movement inside the same list
+removes and adds one. Wena allows non-increasing changes even when already over
+a hard limit, so a reorder or move out cannot trap cards. Increasing changes may
+reach a hard limit but may not exceed it. Soft limits report status and allow
+the change. Disabled limits never warn or restrict. These rules do not replace
+authorization, revision checks or database transactions.
+
+Invalid flags, a zero limit, count underflow and projected-count overflow fail
+without changing the output. Editor transitions likewise preserve failed
+outputs and support updating a draft in place. The fast `wip-limit` suite covers
+all small count/limit/mode/change combinations, every explicit 0–100 input for
+counts 0–101, automatic transitions and maximum `size_t` boundaries.

@@ -821,6 +821,17 @@ Architecture decisions for this cycle:
         complete ordinals across hidden lists; persistence tests verify archive
         metadata, cache publication and unchanged hidden-list revisions.
       - [_] Persist remaining list-menu and sidebar actions through adapters.
+        - [_] Port list work-in-progress limits using shared rules.
+          - [x] Add pure C89 hard/soft limit decisions and editor transitions.
+            Distinguish reached/exceeded, allow non-increasing moves, reject
+            arithmetic overflow and preserve failed outputs. Match WeKan's
+            explicit 1–99 input and count adjustment when enabling/hardening.
+            Exhaustively test small counts, modes and edits plus size bounds.
+          - [_] Add guarded persistence and atomic snapshot loading; count all
+            active unfiltered cards across the list's swimlanes.
+          - [_] Reuse the rule for card creation, restoration and movement.
+          - [_] Connect the native list limit editor and header warnings with
+            real input, rollback, stale revision and reopen tests.
       - [x] Extract the label palette/custom-hex input into one reusable native
         color form. Share bounded draft validation, named/default colors,
         overflow rejection and preview rendering; keep persistence in callers.
