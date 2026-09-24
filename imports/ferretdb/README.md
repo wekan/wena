@@ -28,3 +28,9 @@ JSON reader byte/node/depth limits also apply.
 This is a typed read-only view, not a BSON encoder or permission to modify an
 existing FerretDB database. Codec writes and real copied-database parity remain
 separate roadmap work. Run the fast `sjson` suite through `scripts/wena.py`.
+
+`edit` reuses the shared JSON edit operation to replace one non-root typed value
+and its descriptor together. It validates the complete SJSON candidate before
+replacing the output snapshot. This supports nested scalar/container type changes
+without duplicating splicing, Unicode, syntax or size checks in storage adapters.
+The edit remains entirely in memory and does not enable FerretDB database writes.

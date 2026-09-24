@@ -20,3 +20,12 @@ Wena's MIT license; no additional rendering/parser dependency is introduced.
 `test_json_document.sh` covers precision, ordering, escapes, malformed/duplicate
 input, atomic replacement, all limits and every byte substitution of a nested
 sample. Run it with the existing sanitizer compiler wrapper for memory checks.
+
+`edit` replaces up to 32 disjoint nodes in a single atomic operation. Each
+replacement must be a complete JSON value; fragments cannot inject sibling
+fields or array elements. Source node indexes identify all edits, independent of
+the caller's edit order. Ancestor/descendant overlaps and duplicate targets fail.
+The composed document is parsed again before publication, checking duplicate
+keys and combined depth/node/byte limits. Untouched bytes (including whitespace
+and numeric spellings) are preserved. Source and output may alias; replacement
+text may borrow source bytes because publication occurs after copying.

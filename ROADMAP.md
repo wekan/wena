@@ -927,7 +927,12 @@ Architecture decisions for this cycle:
       read-only SQLite transaction, with a caller-set document limit and atomic
       result publication. Reject altered table shapes, unsupported collection
       settings, malformed documents and busy databases; verify file bytes unchanged.
-    - [_] Implement typed codec writes, owner locking,
+    - [x] Add shared atomic in-memory JSON node edits and reuse them for typed
+      SJSON value/descriptor replacement. Preserve untouched bytes and exact
+      numbers; reject overlapping edits, injected fields, invalid types and
+      oversized results. C89 and sanitizer tests cover nested type changes and
+      failed replacements without changing the original snapshot.
+    - [_] Implement database codec writes, owner locking,
       verified backup and copied-WeKan round trips before direct replacement.
       The previously referenced `state-debug-speed/wekan.sqlite` fixture is absent
       in this checkout; synthetic codec/storage checks pass, but a real copied
