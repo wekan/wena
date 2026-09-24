@@ -45,4 +45,12 @@ int wena_hierarchy_mutation_restore(void *context,const char *board_id,
 int wena_hierarchy_mutation_archive_request(WenaHierarchyMutation *adapter,
     const char *board_id,const char *list_id,unsigned long expected_version,
     unsigned long request_version,int archived);
+/* Shared list/swimlane color callbacks; loads and saves publish atomically. */
+int wena_hierarchy_mutation_color_load(void *context,const char *board_id,
+    WenaHierarchyKind kind,const char *target_id,char *color,size_t capacity,unsigned long *version);
+int wena_hierarchy_mutation_color_save(void *context,const char *board_id,
+    WenaHierarchyKind kind,const char *target_id,unsigned long expected_version,const char *color);
+int wena_hierarchy_mutation_color_save_request(WenaHierarchyMutation *adapter,
+    const char *board_id,WenaHierarchyKind kind,const char *target_id,
+    unsigned long expected_version,unsigned long request_version,const char *color);
 #endif

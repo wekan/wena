@@ -29,8 +29,8 @@ advance only the parent revision, verify the resulting scope/color/version, and
 roll back ignored or altered writes. Archived lists reject edits. Both hierarchy
 types are tested across palette/hex values, malformed forms, unknown actors,
 wrong scope, replay, stale revisions, read-only databases, corruption and reopen.
-No HTTP route is added. Native adapters and header/editor integration remain
-open in ROADMAP.md.
+No HTTP route is added. Native header/editor integration remains open in
+ROADMAP.md.
 
 List/swimlane models carry the stored color with an empty default. The board
 loader reads both extensions in its existing atomic snapshot transaction, with
@@ -40,6 +40,15 @@ cross-board/orphan corruption cannot silently lose a color. Exact palette/hex
 values and archived-list colors survive reload. Pre-v11 databases use defaults;
 missing v11 tables or same-named views fail while preserving the caller's prior
 snapshot. Archive loading shares the same optional-table detection helper.
+
+Native color callbacks reuse the existing hierarchy adapter for both kinds and
+the strict stored-color reader used by mutations. Failed loads preserve both
+the output color and revision; failed writes preserve the entire cached board.
+Successful writes publish a fully initialized color field after commit without
+a reload or allocation. Shorter replacements and clearing match freshly loaded
+snapshots byte for byte. Tests cover wrong scope/actors, duplicate and archived
+model selections, archived persisted lists, stale/replayed requests, no-ops,
+late rollback, corrupt stored types and aliased cache input.
 
 Strict result readers check SQLite types before requesting text conversion.
 SQLite documents that conversion can invalidate later type inspection; BLOB

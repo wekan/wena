@@ -1,3 +1,4 @@
+#include "../../server/mutations/hierarchy_colors.h"
 #include "../../server/list_state.h"
 #include "hierarchy_mutation.h"
 
@@ -327,4 +328,67 @@ int wena_hierarchy_mutation_restore(void *context,const char *board,
     if(!archive_selection(adapter,board,id))return 0;
     return wena_hierarchy_mutation_archive_request(adapter,board,id,expected,
         next_request(adapter,"restore-list"),0);
+}
+
+static char *color_selection(WenaHierarchyMutation *adapter,const char *board,
+    WenaHierarchyKind kind,const char *id)
+{
+    const char *item,*scope,*previous;char *color,*found;size_t count,i,j;int archived;
+    if((kind!=WENA_HIERARCHY_LIST&&kind!=WENA_HIERARCHY_SWIMLANE)||
+        !selected(adapter,board,WENA_HIERARCHY_BOARD,board)||!wena_model_identifier_valid(id))return NULL;
+    count=kind==WENA_HIERARCHY_LIST?adapter->snapshot->list_count:adapter->snapshot->swimlane_count;found=NULL;
+    for(i=0;i<count;++i){
+        if(kind==WENA_HIERARCHY_LIST){item=adapter->snapshot->lists[i].id;scope=adapter->snapshot->lists[i].board_id;
+            archived=adapter->snapshot->lists[i].archived;color=adapter->snapshot->lists[i].color;}
+        else{item=adapter->snapshot->swimlanes[i].id;scope=adapter->snapshot->swimlanes[i].board_id;
+            archived=adapter->snapshot->swimlanes[i].archived;color=adapter->snapshot->swimlanes[i].color;}
+        if(!wena_model_identifier_valid(item)||strcmp(scope,board)||(archived!=0&&archived!=1))return NULL;
+        for(j=0;j<i;++j){previous=kind==WENA_HIERARCHY_LIST?adapter->snapshot->lists[j].id:adapter->snapshot->swimlanes[j].id;
+            if(!strcmp(item,previous))return NULL;}
+        if(!strcmp(item,id)&&!archived)found=color;
+    }
+    return found;
+}
+
+int wena_hierarchy_mutation_color_load(void *context,const char *board,
+    WenaHierarchyKind kind,const char *id,char *color,size_t capacity,unsigned long *version)
+{
+    WenaHierarchyMutation *adapter;char title[WENA_TITLE_CAPACITY],stored[WENA_COLOR_CAPACITY];unsigned long current;
+    adapter=(WenaHierarchyMutation*)context;
+    if(!color||!version||!capacity||!color_selection(adapter,board,kind,id)||
+        !wena_hierarchy_mutation_load(adapter,board,kind,id,title,sizeof(title),&current)||
+        !wena_sqlite_hierarchy_color_read(adapter->persistence.database,board,id,kind==WENA_HIERARCHY_LIST,current,stored)||
+        (kind==WENA_HIERARCHY_LIST&&!wena_sqlite_list_active(adapter->persistence.database,board,id))||
+        strlen(stored)>=capacity)return 0;
+    strcpy(color,stored);*version=current;return 1;
+}
+
+int wena_hierarchy_mutation_color_save_request(WenaHierarchyMutation *adapter,
+    const char *board,WenaHierarchyKind kind,const char *id,unsigned long expected,
+    unsigned long request,const char *color)
+{
+    char *model,encoded[3*(WENA_COLOR_CAPACITY-1)+1],published[WENA_COLOR_CAPACITY];size_t length,i;unsigned char c;
+    const char hex[]="0123456789ABCDEF";WenaDomainCommand command;WenaRegionResponse response;
+    model=color_selection(adapter,board,kind,id);
+    if(!model||!color||!expected||expected>WENA_VERSION_MUTATE_MAX||!request||request>=(unsigned long)LONG_MAX)return 0;
+    for(length=0;length<WENA_COLOR_CAPACITY&&color[length];++length){}
+    if(length==WENA_COLOR_CAPACITY||!wena_color_valid(color))return 0;
+    for(i=0;i<length;++i){c=(unsigned char)color[i];encoded[i*3]='%';encoded[i*3+1]=hex[c>>4];encoded[i*3+2]=hex[c&15];}
+    encoded[length*3]=0;memset(published,0,sizeof(published));memcpy(published,color,length);
+    memset(&command,0,sizeof(command));
+    command.operation=kind==WENA_HIERARCHY_LIST?WENA_DOMAIN_SET_LIST_COLOR:WENA_DOMAIN_SET_SWIMLANE_COLOR;
+    command.request_version=request;strcpy(command.user_id,adapter->actor_id);strcpy(command.route,adapter->route);
+    sprintf(command.form_body,"%s=%s&expectedVersion=%lu&color=%s",kind==WENA_HIERARCHY_LIST?"listId":"swimlaneId",id,expected,encoded);
+    command.form_body_length=strlen(command.form_body);
+    if(!wena_sqlite_persistence_apply(&adapter->persistence,&command,&response))return 0;
+    memcpy(model,published,sizeof(published));return 1;
+}
+
+int wena_hierarchy_mutation_color_save(void *context,const char *board,
+    WenaHierarchyKind kind,const char *id,unsigned long expected,const char *color)
+{
+    WenaHierarchyMutation *adapter;adapter=(WenaHierarchyMutation*)context;
+    if(!color_selection(adapter,board,kind,id))return 0;
+    return wena_hierarchy_mutation_color_save_request(adapter,board,kind,id,expected,
+        next_request(adapter,kind==WENA_HIERARCHY_LIST?"set-list-color":"set-swimlane-color"),color);
 }

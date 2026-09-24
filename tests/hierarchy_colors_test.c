@@ -1,3 +1,4 @@
+#include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_storage.h"
@@ -16,6 +17,49 @@ static int change(WenaSqlitePersistence *store,int lists,const char *id,unsigned
  strcpy(c.user_id,"u");strcpy(c.route,"/b/b/native");
  sprintf(c.form_body,"%s=%s&expectedVersion=%lu&color=%s%s",lists?"listId":"swimlaneId",id,version,color,extra?extra:"");
  c.form_body_length=strlen(c.form_body);return wena_sqlite_persistence_apply(store,&c,&r);
+}
+static void native_adapter(sqlite3 *db,int lists,const char *id,WenaSqliteBoardSnapshot *snapshot,WenaSqliteBoardSnapshot *before)
+{
+ WenaHierarchyMutation adapter;WenaHierarchyKind kind;char color[WENA_COLOR_CAPACITY],q[256];unsigned long version,untouched;sqlite3_int64 keys;
+ const char *table;char *cached;kind=lists?WENA_HIERARCHY_LIST:WENA_HIERARCHY_SWIMLANE;table=lists?"list_colors":"swimlane_colors";
+ assert(wena_hierarchy_mutation_init(&adapter,db,"u","b",snapshot));
+ cached=lists?snapshot->lists[0].color:snapshot->swimlanes[0].color;
+ assert(wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&version)&&!strcmp(color,"blue"));
+ memcpy(before,snapshot,sizeof(*before));strcpy(color,"kept");untouched=88;
+ assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,1,&untouched)&&untouched==88&&!strcmp(color,"kept"));
+ assert(!wena_hierarchy_mutation_color_load(&adapter,"other",kind,id,color,sizeof(color),&untouched)&&untouched==88&&!strcmp(color,"kept"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",WENA_HIERARCHY_BOARD,id,version,"red"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,"missing",version,"red"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version-1,"red"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"#123"));
+ strcpy(adapter.actor_id,"unknown");
+ assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched)&&untouched==88&&!strcmp(color,"kept"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));strcpy(adapter.actor_id,"u");
+ if(lists){sql(db,"UPDATE list_archive_state SET archived=1");
+  assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched));
+  assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));sql(db,"UPDATE list_archive_state SET archived=0");}
+ sql(db,"CREATE TRIGGER native_late BEFORE INSERT ON idempotency_keys BEGIN SELECT RAISE(ABORT,'late');END");
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));sql(db,"DROP TRIGGER native_late");
+ assert(!memcmp(snapshot,before,sizeof(*snapshot)));
+ if(lists){snapshot->lists[1]=snapshot->lists[0];snapshot->list_count=2;}
+ else{snapshot->swimlanes[1]=snapshot->swimlanes[0];snapshot->swimlane_count=2;}
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));memcpy(snapshot,before,sizeof(*snapshot));
+ if(lists)snapshot->lists[0].archived=1;else snapshot->swimlanes[0].archived=1;
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));memcpy(snapshot,before,sizeof(*snapshot));
+ assert(wena_hierarchy_mutation_color_save_request(&adapter,"b",kind,id,version,1000,"#aBcD01"));++version;
+ assert(!strcmp(cached,"#aBcD01"));assert(wena_sqlite_board_load(db,"b",before)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ assert(!wena_hierarchy_mutation_color_save_request(&adapter,"b",kind,id,version,1000,"red"));
+ keys=number(db,"SELECT count(*) FROM idempotency_keys");
+ assert(wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,cached));assert(number(db,"SELECT count(*) FROM idempotency_keys")==keys);
+ assert(wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red"));++version;
+ assert(wena_sqlite_board_load(db,"b",before)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ assert(wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,""));++version;
+ assert(!cached[0]);assert(wena_sqlite_board_load(db,"b",before)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ sql(db,"PRAGMA ignore_check_constraints=ON");sprintf(q,"UPDATE %s SET color=x'726564'",table);sql(db,q);sql(db,"PRAGMA ignore_check_constraints=OFF");
+ assert(!wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched)&&untouched==88&&!strcmp(color,"kept"));
+ assert(!wena_hierarchy_mutation_color_save(&adapter,"b",kind,id,version,"red")&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ sprintf(q,"UPDATE %s SET color=''",table);sql(db,q);
+ assert(wena_hierarchy_mutation_color_load(&adapter,"b",kind,id,color,sizeof(color),&untouched)&&untouched==version&&!color[0]);
 }
 static void test_kind(const unsigned char *migration,size_t length,const char *hash,const char *directory,int lists)
 {
@@ -74,10 +118,12 @@ static void test_kind(const unsigned char *migration,size_t length,const char *h
  assert(sqlite3_close(db)==SQLITE_OK);assert(wena_sqlite_open(path,migration,length,hash,&db));wena_sqlite_persistence_init(&store,db);
  assert(change(&store,lists,id,version,request,"blue",NULL));++version;++request;
  assert(wena_sqlite_board_load(db,"b",snapshot)&&!strcmp(lists?snapshot->lists[0].color:snapshot->swimlanes[0].color,"blue"));memcpy(before,snapshot,sizeof(*before));
+ native_adapter(db,lists,id,snapshot,before);version=(unsigned long)number(db,version_query);memcpy(before,snapshot,sizeof(*before));
  sprintf(q,"DROP TABLE %s",table);sql(db,q);assert(!change(&store,lists,id,version,request,"red",NULL));
  assert(!wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));
  sprintf(q,"CREATE VIEW %s AS SELECT '%s' AS %s,'b' AS board_id,'red' AS color",table,id,lists?"list_id":"swimlane_id");sql(db,q);
  assert(!wena_sqlite_board_load(db,"b",snapshot)&&!memcmp(snapshot,before,sizeof(*snapshot)));
+ assert(!change(&store,lists,id,version,request,"red",NULL));
  assert(sqlite3_close(db)==SQLITE_OK);free(snapshot);free(before);
 }
 int main(int argc,char **argv)

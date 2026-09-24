@@ -842,7 +842,13 @@ Architecture decisions for this cycle:
           and exact hex case, and share legacy extension detection with archives.
           Reject wrong-board/orphan metadata, invalid types/colors and missing or
           replaced current-schema tables without publishing a partial snapshot.
-        - [_] Connect native adapters, colored headers and shared color forms.
+        - [x] Reuse the hierarchy adapter and strict stored-color reader for
+          native list/swimlane color callbacks. Preserve failed-load outputs and
+          failed-write snapshots; publish only committed colors, including exact
+          hex case, shorter replacements and clearing. Verify scope, actors,
+          archived/duplicate model selections, stale versions, no-op, replay,
+          late rollback, corrupt data and equality with a fresh snapshot.
+        - [_] Connect colored headers and shared native color forms.
       - [x] Add explicit native list/swimlane reordering through the existing
         transaction adapter. Check the complete sibling-order fingerprint inside
         the transaction as well as selected-row scope/version, and publish the
