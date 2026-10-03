@@ -396,6 +396,8 @@ with sqlite3.connect(wekan_db) as db:
     assert db.execute("SELECT _ferretdb_sjson->>'title' FROM swimlanes_d9d57a4c").fetchone()[0] == 'Default'
 log = (directory / 'wekan-logs' / 'desktop.log').read_text()
 assert "WeKan's files in " + str(files) in log and 'made board' in log, log
+# The page it opens on is All Boards, as WeKan's.
+assert 'showing All Boards' in log, log
 # Opened again: the same board, no second one.
 run = subprocess.run([exe, '--smoke'], env=wekan_env, capture_output=True, text=True, timeout=30)
 assert run.returncode == 0, run.stderr

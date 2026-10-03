@@ -1615,6 +1615,7 @@ board_session:
     arrow_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
 window_ready:
     wena_debug_log("window open, board %s loaded%s", board_id, smoke ? " (smoke)" : "");
+    if (all_boards_page) wena_debug_log("showing All Boards");
     running = 1; frames = 0;
     while (running) {
         nk_input_begin(context);
