@@ -291,7 +291,8 @@ static void selected_titles(void)
   nk_foreach(command,&ctx){
    if(command->type==NK_COMMAND_RECT_FILLED){const struct nk_command_rect_filled *rect;
     rect=(const struct nk_command_rect_filled*)command;if(same_rgb(rect->color,bg))++filled;}
-   if(command->type!=NK_COMMAND_TEXT)continue;text=(const struct nk_command_text*)command;
+   if(command->type!=NK_COMMAND_TEXT)continue;
+   text=(const struct nk_command_text*)command;
    if(text->length==14&&!memcmp(text->string,"Selected title",14)){
     assert(same_rgb(text->background,bg)&&same_rgb(text->foreground,fg));++selected;}
    if(text->length==12&&!memcmp(text->string,"Normal title",12)){

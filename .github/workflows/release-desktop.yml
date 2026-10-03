@@ -1,0 +1,159 @@
+name: Release desktop
+
+# Builds the native SDL2/Nuklear/SQLite desktop (wena-desktop) on a native
+# runner for each platform it supports, smoke-tests it headless, packages it
+# with scripts/package_desktop_release.py and attaches the archives and their
+# .sha256 files to a release: the given tag, or the newest existing release.
+#
+# Started by `./build.sh release` (menu option 3, Release), or:
+#   gh workflow run release-desktop.yml -R wekan/wena -f tag=v1.2
+#
+# Windows is not built: the desktop still uses POSIX file APIs and absolute
+# /-paths (docs/native-desktop.md). The bootstrap targets are release-all.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach to (empty = newest existing release)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wena-release-desktop-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve-release:
+    name: Resolve release
+    runs-on: ubuntu-24.04
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Resolve the tag to attach to
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if test -n "$INPUT_TAG"; then
+            tag=$(gh release view "$INPUT_TAG" --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          else
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          test -n "$tag"
+          echo "release_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Attaching desktop builds to $tag"
+
+  desktop:
+    name: Desktop ${{ matrix.name }}
+    needs: resolve-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            name: Linux amd64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            name: Linux arm64
+            runner: ubuntu-24.04-arm
+          - target: macos-arm64
+            name: macOS arm64
+            runner: macos-15
+          - target: macos-amd64
+            name: macOS amd64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install SDL2 and SQLite (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libsdl2-dev libsqlite3-dev
+
+      - name: Install SDL2 (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: brew install sdl2
+
+      - name: Build the desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tools/tmp
+          export TMPDIR="$PWD/.tools/tmp"
+          python3 scripts/wena.py build desktop
+
+      - name: Smoke-test it headless
+        shell: bash
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          set -euo pipefail
+          export WENA_DATABASE="$RUNNER_TEMP/smoke/wena.sqlite" WENA_LOG_DIR="$RUNNER_TEMP/smoke/log"
+          dist/desktop/wena-desktop --smoke
+          dist/desktop/wena-desktop --smoke
+          cat "$WENA_LOG_DIR/desktop.log"
+
+      - name: Package
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: python3 scripts/package_desktop_release.py "$TARGET" dist/desktop/wena-desktop release-desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wena-desktop-${{ matrix.target }}
+          path: release-desktop/
+          if-no-files-found: error
+
+  attach:
+    name: Attach to the release
+    needs: [resolve-release, desktop]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wena-desktop-*
+          path: release-desktop
+          merge-multiple: true
+
+      - name: Check and upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          cd release-desktop
+          sha256sum -c ./*.sha256
+          mapfile -t assets < <(find . -maxdepth 1 -type f -print | LC_ALL=C sort)
+          test "${#assets[@]}" -eq 8
+          for attempt in 1 2 3; do
+            if timeout 10m gh release upload --repo "$GITHUB_REPOSITORY" "$RELEASE_TAG" "${assets[@]}" --clobber; then
+              {
+                echo "### Wena desktop"
+                echo "Attached ${#assets[@]} files to ${RELEASE_TAG}:"
+                printf -- '- %s\n' "${assets[@]#./}"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::warning::Upload attempt ${attempt}/3 failed"
+          done
+          echo "::error::Could not attach the desktop builds to ${RELEASE_TAG}"
+          exit 1

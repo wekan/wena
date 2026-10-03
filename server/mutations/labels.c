@@ -254,7 +254,8 @@ static int assignment_card(sqlite3 *db,const LabelCommand *edit)
             wena_sqlite_list_active(db,edit->board,list)&&wena_sqlite_swimlane_active(db,edit->board,lane)&&
             sqlite3_step(query)==SQLITE_DONE;
     }
-    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;
+    return ok;
 }
 
 int wena_sqlite_selected_labels_change(sqlite3 *db,const WenaDomainCommand *command,

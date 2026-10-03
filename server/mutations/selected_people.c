@@ -34,7 +34,8 @@ static int board_advance(sqlite3 *db,const char *board,unsigned long version)
     if(sqlite3_prepare_v2(db,"UPDATE boards SET version=version+1 WHERE id=?1 AND version=?2",-1,&q,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(q,1,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_int64(q,2,(sqlite3_int64)version)==SQLITE_OK&&
         sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;
-    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;
+    return ok;
 }
 int wena_sqlite_selected_people_change(sqlite3 *db,const WenaDomainCommand *command,
     const char *board,unsigned long *result_version)

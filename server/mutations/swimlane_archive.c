@@ -39,13 +39,16 @@ static int cards_read(sqlite3 *db,const char *board,const char *lane,const char 
         "SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE swimlane_id=?1 ORDER BY id";
     if(sqlite3_prepare_v2(db,query,-1,&s,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(s,1,list?list:lane,-1,SQLITE_TRANSIENT)==SQLITE_OK;
-    if(ok&&list)ok=sqlite3_bind_text(s,2,lane?lane:"",-1,SQLITE_TRANSIENT)==SQLITE_OK;used=0;rc=SQLITE_ERROR;
+    if(ok&&list)ok=sqlite3_bind_text(s,2,lane?lane:"",-1,SQLITE_TRANSIENT)==SQLITE_OK;
+    used=0;rc=SQLITE_ERROR;
     while(ok&&(rc=sqlite3_step(s))==SQLITE_ROW){
         if(used==WENA_CARD_ORDER_CAPACITY||!card_row(db,board,s,&cards[used])){ok=0;break;}
         ++used;
     }
-    if(rc!=SQLITE_DONE)ok=0;if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
-    if(ok)*count=used;return ok;
+    if(rc!=SQLITE_DONE)ok=0;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+    if(ok)*count=used;
+    return ok;
 }
 static int cards_equal(const ArchiveCard *a,const ArchiveCard *b,size_t count)
 {
@@ -90,7 +93,9 @@ int wena_sqlite_swimlane_archive_change(sqlite3 *db,const WenaDomainCommand *com
         "ON CONFLICT(swimlane_id) DO UPDATE SET archived=excluded.archived,archived_at=excluded.archived_at WHERE swimlane_archive_state.board_id=excluded.board_id",-1,&s,NULL)!=SQLITE_OK)goto done;
     ok=sqlite3_bind_text(s,1,lane,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(s,2,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
         sqlite3_bind_int(s,3,desired)==SQLITE_OK&&sqlite3_bind_int64(s,4,stamp)==SQLITE_OK&&sqlite3_step(s)==SQLITE_DONE&&sqlite3_changes(db)==1;
-    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;if(!ok)goto done;ok=0;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+    if(!ok)goto done;
+    ok=0;
     if(sqlite3_prepare_v2(db,"UPDATE swimlanes SET version=version+1 WHERE id=?1 AND board_id=?2 AND version=?3",-1,&s,NULL)!=SQLITE_OK)goto done;
     ok=sqlite3_bind_text(s,1,lane,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(s,2,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
         sqlite3_bind_int64(s,3,(sqlite3_int64)expected)==SQLITE_OK&&sqlite3_step(s)==SQLITE_DONE&&sqlite3_changes(db)==1;
@@ -159,7 +164,8 @@ static int selected_card_read(sqlite3 *db,const char *board,const char *id,Archi
     if(sqlite3_prepare_v2(db,"SELECT id,board_id,list_id,version,swimlane_id FROM cards WHERE id=?1",-1,&s,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(s)==SQLITE_ROW&&
         card_row(db,board,s,card)&&sqlite3_step(s)==SQLITE_DONE;
-    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+    return ok;
 }
 int wena_sqlite_card_archive_version(sqlite3 *db,const char *board,const char *id,unsigned long *version)
 {

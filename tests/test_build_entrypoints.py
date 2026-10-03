@@ -9,6 +9,7 @@ import threading
 import time
 from unittest.mock import patch
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -156,23 +157,152 @@ def test_run():
                                  text=True, capture_output=True)
             assert out.returncode == 7, out.stderr
             assert "ran --help" in out.stdout
-    # The menu: 1) Build, 2) Run, and the rest one number lower than before.
-    answers = iter(["2", "3", "4", "5", "q"])
+    # The menu: 1) Build, 2) Run, 3) Release, and the rest one number lower than before.
+    answers = iter(["2", "3", "4", "5", "6", "q"])
     printed = io.StringIO()
     with patch("builtins.input", lambda _prompt: next(answers)), \
             patch.object(wena, "run", return_value=0) as ran, \
+            patch.object(wena, "release_menu") as released, \
             patch.object(wena, "tests_menu") as tests, \
             patch.object(wena, "server_menu") as server, \
             patch.object(wena, "tools_menu") as tools, redirect_stdout(printed):
         assert wena.menu() == 0
     ran.assert_called_once_with()
-    assert (tests.call_count, server.call_count, tools.call_count) == (1, 1, 1)
+    assert (released.call_count, tests.call_count, server.call_count, tools.call_count) == (1, 1, 1, 1)
     text = printed.getvalue()
-    assert "1) Build\n  2) Run\n  3) Tests\n  4) Server\n  5) Tools\n  q) Quit" in text
+    assert "1) Build\n  2) Run\n  3) Release\n  4) Tests\n  5) Server\n  6) Tools\n  q) Quit" in text
+
+
+class Completed:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def test_release():
+    # 3) Release starts the GitHub workflows with gh for the pushed branch.
+    # Nothing here reaches GitHub: gh and git are replaced.
+    assert wena.github_repository("git@github.com:wekan/wena") == "wekan/wena"
+    assert wena.github_repository("https://github.com/wekan/wena.git") == "wekan/wena"
+    assert wena.github_repository("/srv/git/wena.git") is None
+    assert wena.github_repository("https://github.com/wekan") is None
+    calls, sleeps = [], []
+
+    def fake(results, git=None):
+        git = {"remote": "git@github.com:wekan/wena", "rev-parse": "main", "rev-list": "0", **(git or {})}
+        results = list(results)
+
+        def run(command, **_kwargs):
+            calls.append(command)
+            if command[:3] == ["gh", "auth", "status"]:
+                if results and results[0] == "auth-fail":
+                    results.pop(0)
+                    return Completed(1)
+                return Completed(0)
+            if command[:3] == ["gh", "workflow", "run"]:
+                return Completed(results.pop(0) if results else 0)
+            return Completed(0)
+        return run, (lambda *args, root=None: git[args[0]])
+
+    def release(selection="desktop", tag="", results=(), git=None, gh=True):
+        calls.clear(); sleeps.clear()
+        run, git_output = fake(results, git)
+        errors = io.StringIO()
+        with patch.object(wena.shutil, "which", lambda name: "/bin/gh" if gh else None), \
+                patch.object(wena, "git_output", git_output), patch.object(sys, "stderr", errors), \
+                redirect_stdout(io.StringIO()):
+            status = wena.release(selection, tag, ROOT, run, sleeps.append)
+        return status, [c for c in calls if c[:3] == ["gh", "workflow", "run"]], errors.getvalue()
+
+    status, runs, _ = release()
+    assert status == 0
+    assert runs == [["gh", "workflow", "run", "release-desktop.yml", "-R", "wekan/wena", "--ref", "main"]]
+    status, runs, _ = release("all", "v1.2")
+    assert status == 0 and [r[3] for r in runs] == ["release-desktop.yml", "release-all.yml"]
+    assert runs[0][-2:] == ["-f", "tag=v1.2"] and "-f" not in runs[1]
+    status, runs, _ = release("bootstrap")
+    assert status == 0 and [r[3] for r in runs] == ["release-all.yml"]
+    # Retried, then given up with how to fix it.
+    status, runs, _ = release(results=[1, 1, 0])
+    assert status == 0 and len(runs) == 3 and sleeps == [5, 5]
+    status, runs, errors = release(results=[1, 1, 1])
+    assert status == 1 and len(runs) == 3 and "workflow scope" in errors
+    # Negative: nothing is started for any of these.
+    for kwargs, code, message in [
+            ({"selection": "everything"}, 2, "unknown release selection"),
+            ({"tag": "v1;rm"}, 2, "invalid release tag"),
+            ({"gh": False}, 1, "GitHub CLI"),
+            ({"results": ["auth-fail"]}, 1, "gh auth login"),
+            ({"git": {"remote": "/srv/git/wena.git"}}, 1, "GitHub origin"),
+            ({"git": {"rev-parse": "HEAD"}}, 1, "GitHub origin"),
+            ({"git": {"rev-list": None}}, 1, "Push it first"),
+            ({"git": {"rev-list": "2"}}, 1, "2 local commit(s) are not on GitHub")]:
+        status, runs, errors = release(**kwargs)
+        assert (status, runs) == (code, []), kwargs
+        assert message in errors, (kwargs, errors)
+    assert "push origin main" in release(git={"rev-list": "2"})[2]
+    # Release never pushes.
+    release()
+    assert not any(c[:2] == ["git", "push"] or "push" in c for c in calls)
+
+
+def test_desktop_release_packaging():
+    spec = importlib.util.spec_from_file_location("package_desktop_release", ROOT / "scripts" / "package_desktop_release.py")
+    package = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(package)
+    import hashlib, tarfile
+    with tempfile.TemporaryDirectory() as temp:
+        binary = Path(temp) / "wena-desktop"
+        binary.write_bytes(b"\x7fELF fake desktop")
+        first = package.package("linux-arm64", binary, Path(temp) / "a")
+        second = package.package("linux-arm64", binary, Path(temp) / "b")
+        assert first.name == "wena-desktop-linux-arm64.tar.gz"
+        assert first.read_bytes() == second.read_bytes(), "not deterministic"
+        sha = (first.parent / (first.name + ".sha256")).read_text()
+        assert sha == hashlib.sha256(first.read_bytes()).hexdigest() + "  " + first.name + "\n"
+        with tarfile.open(first) as archive:
+            names = archive.getnames()
+            members = {m.name: m for m in archive.getmembers()}
+            sums = archive.extractfile("wena-desktop-linux-arm64/SHA256SUMS").read().decode()
+            readme = archive.extractfile("wena-desktop-linux-arm64/README.txt").read().decode()
+            for name in names[1:]:
+                if not name.endswith("SHA256SUMS"):
+                    data = archive.extractfile(name).read()
+                    assert hashlib.sha256(data).hexdigest() + "  " + name.split("/", 1)[1] + "\n" in sums, name
+        assert names[0] == "wena-desktop-linux-arm64"
+        assert members["wena-desktop-linux-arm64/wena-desktop"].mode == 0o755
+        assert {n.split("/", 1)[1] for n in names[1:]} == {"wena-desktop", "README.txt", "SHA256SUMS", *package.FILES}
+        assert "libsdl2" in readme and "Linux arm64" in readme
+        # Negative: an unknown platform, Windows among them, and an empty binary.
+        for target in ("windows-amd64", "linux-i686"):
+            try:
+                package.package(target, binary, Path(temp) / "c")
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(target)
+        binary.write_bytes(b"")
+        try:
+            package.package("macos-arm64", binary, Path(temp) / "d")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("empty binary packaged")
+    # The workflow builds, smoke-tests and packages exactly those platforms.
+    workflow = (ROOT / ".github" / "workflows" / "release-desktop.yml").read_text(encoding="utf-8")
+    targets = re.findall(r"- target: ([a-z0-9-]+)", workflow)
+    assert sorted(targets) == sorted(package.TARGETS)
+    assert "python3 scripts/wena.py build desktop" in workflow
+    assert workflow.count("dist/desktop/wena-desktop --smoke") == 2
+    assert 'package_desktop_release.py "$TARGET" dist/desktop/wena-desktop release-desktop' in workflow
+    assert f'test "${{#assets[@]}}" -eq {2 * len(package.TARGETS)}' in workflow
+    assert "workflow_dispatch:" in workflow and "tag:" in workflow
+    assert "git push" not in workflow
 
 
 def main():
     test_runner()
+    test_release()
+    test_desktop_release_packaging()
     test_run()
     assert wena.host_target("Linux", "x86_64") == "linux-amd64"
     assert wena.host_target("Darwin", "arm64") == "macos-arm64"

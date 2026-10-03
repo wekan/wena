@@ -287,7 +287,8 @@ static int selected_active(WenaLabelMutation *adapter,const char *board,const ch
             wena_sqlite_list_active(adapter->persistence.database,board,list)&&
             wena_sqlite_swimlane_active(adapter->persistence.database,board,lane)&&sqlite3_step(query)==SQLITE_DONE;
     }
-    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(query)!=SQLITE_OK)ok=0;
+    return ok;
 }
 int wena_label_mutation_selected_load(void *context,const char *board,const WenaId *ids,
     size_t count,WenaLabelSelectionSnapshot **output)

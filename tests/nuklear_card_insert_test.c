@@ -29,7 +29,8 @@ static void click(struct nk_context *ctx,WenaCardMoveState *state,WenaBoardLayou
  nk_foreach(command,ctx)if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
   if((size_t)text->length==strlen(label)&&!memcmp(text->string,label,(size_t)text->length)){
    point=nk_vec2(text->x+text->w*.5f,text->y+text->h*.5f);found=1;break;}}
- if(!found)fprintf(stderr,"Missing control: %s\n",label);assert(found);click_at(ctx,state,layout,point);
+ if(!found)fprintf(stderr,"Missing control: %s\n",label);
+ assert(found);click_at(ctx,state,layout,point);
 }
 static void increment(struct nk_context *ctx,WenaCardMoveState *state,WenaBoardLayout *layout)
 {

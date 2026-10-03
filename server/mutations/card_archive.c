@@ -35,7 +35,8 @@ int wena_sqlite_archive_time_after(sqlite3 *db,sqlite3_int64 prior,sqlite3_int64
     time=sqlite3_column_int64(s,0);ok=ok&&time>prior;
     if(ok)ok=sqlite3_step(s)==SQLITE_DONE;
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
-    if(ok)*at=time;return ok;
+    if(ok)*at=time;
+    return ok;
 }
 int wena_sqlite_card_archive_change(sqlite3 *db,const char *board,const char *card,
     unsigned long expected,int archived,sqlite3_int64 floor)
@@ -51,7 +52,8 @@ int wena_sqlite_card_archive_change(sqlite3 *db,const char *board,const char *ca
             "ON CONFLICT(card_id) DO UPDATE SET archived_at=excluded.archived_at WHERE card_archive_state.board_id=excluded.board_id",-1,&s,NULL)!=SQLITE_OK)return 0;
         ok=sqlite3_bind_text(s,1,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(s,2,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
             sqlite3_bind_int64(s,3,desired)==SQLITE_OK&&sqlite3_step(s)==SQLITE_DONE&&sqlite3_changes(db)==1;
-        if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;if(!ok)return 0;
+        if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+        if(!ok)return 0;
     }
     if(sqlite3_prepare_v2(db,"UPDATE cards SET archived=?1,version=version+1 WHERE id=?2 AND board_id=?3 AND version=?4 AND archived=?5",-1,&s,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_int(s,1,archived)==SQLITE_OK&&sqlite3_bind_text(s,2,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&

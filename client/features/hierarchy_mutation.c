@@ -687,7 +687,8 @@ static int transfer_version(sqlite3 *db,const char *board,unsigned long *output)
     ok=sqlite3_bind_text(s,1,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(s)==SQLITE_ROW&&sqlite3_column_type(s,0)==SQLITE_INTEGER;
     version=ok?sqlite3_column_int64(s,0):0;ok=ok&&version>0&&version<=(sqlite3_int64)WENA_VERSION_MUTATE_MAX&&sqlite3_step(s)==SQLITE_DONE;
     if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
-    if(ok)*output=(unsigned long)version;return ok;
+    if(ok)*output=(unsigned long)version;
+    return ok;
 }
 int wena_hierarchy_transfer_load(void *context,const char *board,const WenaId *ids,size_t count,
     const char *target,WenaCardTransferSelection **output)

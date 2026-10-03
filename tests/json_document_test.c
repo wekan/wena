@@ -49,7 +49,8 @@ int main(void)
  assert(wena_json_parse("{\"kept\":true}",13,&doc));
  for(i=0;i<sizeof(bad)/sizeof(bad[0]);++i)reject(&doc,bad[i],strlen(bad[i]));
  reject(&doc,(const char*)raw_nul,sizeof(raw_nul));reject(&doc,NULL,1);reject(&doc,"{}",(size_t)-1);
- for(i=0;i<32;++i)depth[i]='[';depth[32]='0';for(i=0;i<32;++i)depth[33+i]=']';
+ for(i=0;i<32;++i)depth[i]='[';
+ depth[32]='0';for(i=0;i<32;++i)depth[33+i]=']';
  assert(wena_json_parse(depth,65,&doc));structure(doc);
  memmove(depth+1,depth,65);depth[0]='[';depth[66]=']';old=doc;assert(!wena_json_parse(depth,67,&doc)&&doc==old);
  large=(char*)malloc(WENA_JSON_MAX_BYTES+1UL);assert(large);

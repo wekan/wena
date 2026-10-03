@@ -1,6 +1,33 @@
 # Upcoming Wena release
 
 <details>
+<summary>Release menu option and a desktop release workflow; the desktop builds with gcc again</summary>
+
+- Menu option 3) Release (`build.sh release [desktop|bootstrap|all] [TAG]`)
+  starts the GitHub workflows with `gh`: `release-desktop.yml` for the desktop,
+  `release-all.yml` for the bootstrap targets, or both. It never pushes:
+  commits not yet on GitHub stop it with the push command, since the workflow
+  would build older code. Tests, Server and Tools move to 4, 5 and 6.
+- `release-desktop.yml` builds `wena-desktop` on native Linux amd64/arm64 and
+  macOS arm64/amd64 runners, smoke-tests it headless twice, packages it with
+  `scripts/package_desktop_release.py` (deterministic tar.gz with licenses,
+  provenance, a README of the system libraries and SHA256SUMS, plus a
+  `.sha256`) and attaches the files to the given or newest release.
+- gcc 13 rejected 27 one-line `if (...) a; b;` statements under
+  `-Werror=misleading-indentation`, so the desktop and five suites did not
+  build on Ubuntu 24.04; each is now one statement per line. A WeKan source
+  lookup no longer raises when the checkout is one folder deep. On Ubuntu
+  24.04, 163 suites pass; `capability-runtime` needs Node.js and the LD_PRELOAD
+  part of `desktop` still fails (it never built there before).
+- Tests: release dispatch with gh and git replaced (every refusal starts
+  nothing, retries, both workflows, the tag only for the desktop), packaging
+  determinism, contents, checksums and negatives, and the workflow's targets.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Drag the bar below a swimlane to change its height</summary>
 
 - Each expanded swimlane has a bar below it. Dragging it up or down resizes

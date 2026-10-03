@@ -72,7 +72,8 @@ static int binary_valid(const char *s,size_t length)
     used=0;ended=0;
     for(i=0;i<length;++i){
         c=(unsigned char)s[i];if(c=='\r'||c=='\n')continue;
-        if(ended)return 0;group[used++]=c;
+        if(ended)return 0;
+        group[used++]=c;
         if(used!=4)continue;
         if(!base64_digit(group[0])||!base64_digit(group[1])||
             (!base64_digit(group[2])&&group[2]!='=')||

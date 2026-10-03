@@ -28,7 +28,8 @@ static int label(struct nk_context *ctx,const char *value,struct nk_vec2 *point)
  nk_foreach(command,ctx)if(command->type==NK_COMMAND_TEXT){
   const struct nk_command_text *text;text=(const struct nk_command_text *)command;
   if((size_t)text->length==strlen(value)&&!memcmp(text->string,value,(size_t)text->length)){
-   if(point)*point=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);return 1;
+   if(point)*point=nk_vec2(text->x+text->w*0.5f,text->y+text->h*0.5f);
+   return 1;
   }
  }
  return 0;

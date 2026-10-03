@@ -178,6 +178,96 @@ def run(args=(), root=ROOT, database=None, now=None):
     return status
 
 
+RELEASE_WORKFLOWS = {
+    "desktop": ["release-desktop.yml"],
+    "bootstrap": ["release-all.yml"],
+    "all": ["release-desktop.yml", "release-all.yml"],
+}
+
+
+def git_output(*args, root=ROOT):
+    result = subprocess.run(["git", "-C", str(root), *args], text=True, capture_output=True)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def github_repository(remote):
+    """OWNER/REPO from an SSH or HTTPS GitHub remote, or None."""
+    for prefix in ("git@github.com:", "https://github.com/", "ssh://git@github.com/"):
+        if remote and remote.startswith(prefix):
+            name = remote[len(prefix):]
+            name = name[:-4] if name.endswith(".git") else name
+            return name if name.count("/") == 1 and all(name.split("/")) else None
+    return None
+
+
+def release(selection="desktop", tag="", root=ROOT, run=subprocess.run, sleep=None):
+    """Start the GitHub release workflows with gh, for the pushed branch.
+
+    desktop: release-desktop.yml builds wena-desktop for Linux and macOS;
+    bootstrap: release-all.yml builds the bootstrap targets; all: both. Both
+    attach their files to `tag`, or to the newest existing release. Nothing is
+    pushed: commits that are not on GitHub yet stop it, with the command."""
+    import time
+    sleep = sleep or time.sleep
+    workflows = RELEASE_WORKFLOWS.get(selection)
+    if workflows is None:
+        print(f"unknown release selection: {selection} (desktop, bootstrap or all)", file=sys.stderr)
+        return 2
+    if tag and not all(c.isalnum() or c in "._-" for c in tag):
+        print(f"invalid release tag: {tag}", file=sys.stderr)
+        return 2
+    if not shutil.which("gh"):
+        print("Release needs the GitHub CLI: https://cli.github.com (brew install gh)", file=sys.stderr)
+        return 1
+    if run(["gh", "auth", "status", "-h", "github.com"], capture_output=True).returncode != 0:
+        print("gh is not logged in to github.com. Run: gh auth login", file=sys.stderr)
+        return 1
+    repository = github_repository(git_output("remote", "get-url", "origin", root=root))
+    branch = git_output("rev-parse", "--abbrev-ref", "HEAD", root=root)
+    if not repository or not branch or branch == "HEAD":
+        print("Release needs a branch with a GitHub origin remote.", file=sys.stderr)
+        return 1
+    run(["git", "-C", str(root), "fetch", "--quiet", "origin", branch], capture_output=True)
+    ahead = git_output("rev-list", "--count", f"origin/{branch}..HEAD", root=root)
+    if ahead is None:
+        print(f"origin/{branch} does not exist yet. Push it first: git push -u origin {branch}", file=sys.stderr)
+        return 1
+    if ahead != "0":
+        print(f"{ahead} local commit(s) are not on GitHub, so the workflows would build older code.\n"
+              f"Push first: git -C {root} push origin {branch}", file=sys.stderr)
+        return 1
+    for workflow in workflows:
+        command = ["gh", "workflow", "run", workflow, "-R", repository, "--ref", branch]
+        if tag:
+            command += ["-f", f"tag={tag}"] if workflow == "release-desktop.yml" else []
+        print(f"Starting {workflow} on {repository} ({branch}){' for ' + tag if tag else ''}", flush=True)
+        for attempt in range(1, 4):
+            if run(command).returncode == 0:
+                break
+            if attempt < 3:
+                print(f"Attempt {attempt}/3 failed; retrying in 5 seconds.", file=sys.stderr)
+                sleep(5)
+        else:
+            print(f"Could not start {workflow}. A token needs the workflow scope "
+                  "(gh auth refresh -h github.com -s workflow), and the workflow must be on "
+                  f"{branch}. Start it at https://github.com/{repository}/actions", file=sys.stderr)
+            return 1
+    print(f"Started. Follow it at https://github.com/{repository}/actions", flush=True)
+    return 0
+
+
+def release_menu():
+    answer = choose("Release (runs GitHub workflows with gh)", [
+        ("d", "Desktop app for Linux and macOS (release-desktop.yml)"),
+        ("t", "Bootstrap targets (release-all.yml)"),
+        ("a", "Both"), ("b", "Back")])
+    if answer == "b":
+        return
+    result = release({"d": "desktop", "t": "bootstrap", "a": "all"}[answer])
+    if result:
+        print(f"Release did not start (exit code {result}).")
+
+
 def list_targets():
     for item in targets():
         print("{target}\t{status}\t{name}".format(**item))
@@ -441,7 +531,8 @@ def test_prerequisite(name):
     if name in {"nuklear-swimlane-resize", "nuklear-card-selection", "nuklear-hierarchy-drag", "nuklear-cross-board-destination", "nuklear-directory-picker", "nuklear-card-drag", "nuklear-reorder-drag", "nuklear-checklist-contents", "nuklear-paginated-table", "svg", "nuklear-checklist-item-move", "nuklear-checklist-move", "desktop", "desktop-package", "nuklear-board", "collapse-preferences", "nuklear-checklists", "nuklear-labels", "nuklear-board-settings", "label-badges", "nuklear-checklist-batch", "nuklear-checklist-order", "board-filter", "nuklear-editor", "nuklear-card-create", "nuklear-card-move", "nuklear-card-reorder", "nuklear-card-description", "nuklear-title-keys", "panel-escape", "nuklear-card-archives", "language-picker", "hierarchy-title", "nuklear-hierarchy-move", "native-theme", "native-font", "dependency-check", "native-feature-i18n", "sdl-text-input", "nuklear"} and not (ROOT / "third_party" / "nuklear" / "nuklear.h").is_file():
         return "requires initialized third_party/nuklear submodule"
     if name in SOURCE_SUITES:
-        source = Path(os.environ.get("WEKAN_ROOT", str(ROOT.parents[1])))
+        parent = ROOT.parents[1] if len(ROOT.parents) > 1 else ROOT.parent
+        source = Path(os.environ.get("WEKAN_ROOT", str(parent)))
         if not (source / "imports" / "lib" / "legacyHtml4.js").is_file():
             return "requires pinned WeKan source checkout at " + str(source)
     return None
@@ -514,8 +605,9 @@ def run_test(name):
 
 def menu():
     while True:
-        answer = choose("Wena", [("1", "Build"), ("2", "Run"), ("3", "Tests"),
-                                  ("4", "Server"), ("5", "Tools"), ("q", "Quit")])
+        answer = choose("Wena", [("1", "Build"), ("2", "Run"), ("3", "Release"),
+                                  ("4", "Tests"), ("5", "Server"), ("6", "Tools"),
+                                  ("q", "Quit")])
         if answer == "1":
             build_menu()
         elif answer == "2":
@@ -523,17 +615,19 @@ def menu():
             if result:
                 print(f"Run ended with exit code {result}.")
         elif answer == "3":
-            tests_menu()
+            release_menu()
         elif answer == "4":
-            server_menu()
+            tests_menu()
         elif answer == "5":
+            server_menu()
+        elif answer == "6":
             tools_menu()
         else:
             return 0
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | release [desktop|bootstrap|all] [TAG] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 
@@ -546,6 +640,8 @@ def main(argv):
         return build(argv[1])
     if argv[:1] == ["run"]:
         return run(argv[1:])
+    if argv[:1] == ["release"] and len(argv) <= 3:
+        return release(argv[1] if len(argv) > 1 else "desktop", argv[2] if len(argv) > 2 else "")
     if argv == ["tests", "--list"]:
         print("all\tAll native/static suites (four parallel workers; shared builds serial)")
         print("sanitizers\tOptional ASan/UBSan native model, UI and SQLite regression subset")

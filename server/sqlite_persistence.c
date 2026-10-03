@@ -434,7 +434,8 @@ static int board_order_read(sqlite3 *db,const char *board,WenaBoardOrderRow **ou
         sprintf(number,"/%lu/%d;",row->card.version,row->card.archived);
         wena_sha256_update(&hash,(const unsigned char*)number,strlen(number));++count;
     }
-    if(status!=SQLITE_DONE)ok=0;if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
+    if(status!=SQLITE_DONE)ok=0;
+    if(sqlite3_finalize(statement)!=SQLITE_OK)ok=0;
     if(!ok){free(rows);return 0;}
     wena_sha256_final_hex(&hash,fingerprint);*output=rows;*length=count;return 1;
 }
@@ -462,7 +463,9 @@ static int transfer_hash_rows(sqlite3 *db,const char *query,const char *board,co
             if(bytes)wena_sha256_update(hash,text,(size_t)bytes);
         }
     }
-    if(status!=SQLITE_DONE)ok=0;if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;return ok;
+    if(status!=SQLITE_DONE)ok=0;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+    return ok;
 }
 static int transfer_guard(sqlite3 *db,const char *board,const char *card,WenaTransferGuard *guard)
 {
@@ -516,7 +519,8 @@ static int transfer_owned_row(sqlite3 *db,const char *board,const char *card,con
             if(!phase)present=1;
             if(sqlite3_step(s)!=SQLITE_DONE)ok=0;
         }else ok=status==SQLITE_DONE&&(!phase||!present);
-        if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;if(!ok)return 0;
+        if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+        if(!ok)return 0;
         if(!phase&&target&&present&&!run(db,archive?
             "UPDATE card_archive_state SET board_id=?3 WHERE card_id=?1 AND board_id=?2":
             "UPDATE card_descriptions SET board_id=?3 WHERE card_id=?1 AND board_id=?2",card,board,target,0))return 0;
@@ -532,7 +536,8 @@ static int transfer_card_row(sqlite3 *db,const char *source,const char *target,c
         sqlite3_bind_text(s,3,lane,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_int64(s,4,position)==SQLITE_OK&&
         sqlite3_bind_text(s,5,source,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(s,6,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
         sqlite3_bind_int64(s,7,(sqlite3_int64)version)==SQLITE_OK&&sqlite3_step(s)==SQLITE_DONE&&sqlite3_changes(db)==1;
-    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(s)!=SQLITE_OK)ok=0;
+    return ok;
 }
 static int transfer_order_compare(const void *a,const void *b)
 {return strcmp(((const WenaBoardOrderRow*)a)->card.id,((const WenaBoardOrderRow*)b)->card.id);}
@@ -613,7 +618,8 @@ static int transfer_selected_cards(sqlite3 *db,const WenaDomainCommand *c,const 
     dest_count+=n;maximum+=(sqlite3_int64)n;
     for(i=0;i<order_count;++i){
         for(j=0;j<dest_count;++j)if(!strcmp(ordered[i],destination[j].card.id))break;
-        if(j==dest_count)goto done;ordered_rows[i]=destination[j].card;destination[j].card.position=(sqlite3_int64)i;
+        if(j==dest_count)goto done;
+        ordered_rows[i]=destination[j].card;destination[j].card.position=(sqlite3_int64)i;
     }
     if(!write_card_column(db,target,list,lane,ordered_rows,order_count,maximum,NULL)||
         !wena_sqlite_list_wip_check_batch(db,target,list,n,n)||!wena_sqlite_list_active(db,target,list)||!wena_sqlite_swimlane_active(db,target,lane)||

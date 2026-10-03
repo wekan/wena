@@ -85,7 +85,8 @@ int wena_sqlite_card_people_read_staged(sqlite3 *db,const char *board,const char
                 candidate->position=sqlite3_column_int64(q,6);candidate->archived=sqlite3_column_int(q,2);ok=sqlite3_step(q)==SQLITE_DONE;}
         }
     }
-    if(q&&sqlite3_finalize(q)!=SQLITE_OK)ok=0;q=NULL;
+    if(q&&sqlite3_finalize(q)!=SQLITE_OK)ok=0;
+    q=NULL;
     if(ok)ok=sqlite3_prepare_v2(db,
         "SELECT p.board_id,p.field,p.actor_id,p.position,a.version FROM card_people p "
         "LEFT JOIN actors a ON a.id=p.actor_id WHERE p.card_id=?1 ORDER BY p.field COLLATE BINARY,p.position,p.actor_id COLLATE BINARY LIMIT 4097",

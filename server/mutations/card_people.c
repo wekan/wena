@@ -21,7 +21,8 @@ static int row_write(sqlite3 *db,const WenaCardPeopleSnapshot *card,int field,
         sqlite3_bind_text(q,4,actor,-1,SQLITE_TRANSIENT)==SQLITE_OK;
     if(ok&&enabled)ok=sqlite3_bind_int64(q,5,(sqlite3_int64)position)==SQLITE_OK;
     if(ok)ok=sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;
-    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;
+    return ok;
 }
 static int advance(sqlite3 *db,const WenaCardPeopleSnapshot *card)
 {
@@ -31,7 +32,8 @@ static int advance(sqlite3 *db,const WenaCardPeopleSnapshot *card)
         sqlite3_bind_text(q,2,card->card_id,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
         sqlite3_bind_int64(q,3,(sqlite3_int64)card->card_version)==SQLITE_OK&&
         sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;
-    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;
+    return ok;
 }
 int wena_card_person_plan(const WenaMemberRoster *roster,const WenaCardPeopleSnapshot *current,
     int field,const char *actor,int enabled,WenaCardPeopleSnapshot *output)
@@ -94,7 +96,8 @@ static int reboard_rows(sqlite3 *db,const char *board,const char *card,const cha
     if(sqlite3_prepare_v2(db,"UPDATE card_people SET board_id=?3 WHERE board_id=?1 AND card_id=?2",-1,&q,NULL)!=SQLITE_OK)return 0;
     ok=sqlite3_bind_text(q,1,board,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_bind_text(q,2,card,-1,SQLITE_TRANSIENT)==SQLITE_OK&&
         sqlite3_bind_text(q,3,target,-1,SQLITE_TRANSIENT)==SQLITE_OK&&sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==(int)count;
-    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;return ok;
+    if(sqlite3_finalize(q)!=SQLITE_OK)ok=0;
+    return ok;
 }
 int wena_sqlite_card_people_reboard(sqlite3 *db,const char *board,const char *card,const char *target)
 {
