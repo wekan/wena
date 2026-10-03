@@ -184,7 +184,9 @@ def log_directory(root=ROOT, now=None):
 
 def run(args=(), root=ROOT, database=None, now=None):
     """2) Run: the native Nuklear desktop. Given arguments are passed as they are;
-    without any, the local board at workspace_path() opens (and is created once)."""
+    without any, it opens as a double-click does: WeKan's files - WRITABLE_PATH,
+    else wekan-files beside the program - with db/wekan.sqlite in FerretDB's
+    format. `database` names a Wena workspace file instead."""
     binary = desktop_binary(root)
     if not binary.is_file():
         print(f"{binary.relative_to(root)} is not built yet; build it first with 1) Build, "
@@ -194,11 +196,17 @@ def run(args=(), root=ROOT, database=None, now=None):
         print(f"{binary.relative_to(root)} exists but is not executable.", file=sys.stderr)
         return 1
     args = list(args)
-    if not args:
-        database = Path(database) if database else workspace_path()
+    if not args and database:
+        database = Path(database)
         database.parent.mkdir(parents=True, exist_ok=True)
         args = desktop_arguments(database)
         print(f"Opening board {DEFAULT_BOARD} in {database}", flush=True)
+    elif not args:
+        writable = os.environ.get("WRITABLE_PATH")
+        files = Path(writable) if writable else binary.parent / "wekan-files"
+        if writable and files.name not in ("files", "wekan-files"):
+            files = files / "files"
+        print(f"Opening WeKan's files in {files} (database {files / 'db' / 'wekan.sqlite'})", flush=True)
     logs = log_directory(root, now)
     logs.mkdir(parents=True, exist_ok=True)
     command = [str(binary), *args]
@@ -518,6 +526,7 @@ TEST_SUITES = (
     ('json-edit', 'test_json_edit.sh', 'Atomic shared JSON edits and typed SJSON replacements'),
     ('json-document', 'test_json_document.sh', 'Bounded shared JSON reader preserving numeric precision and object order'),
     ('ferretdb-scan', 'test_ferretdb_scan.sh', 'Bounded read-only typed scans of every mapped FerretDB collection'),
+    ('wekan-sync', 'test_wekan_sync.sh', "WeKan's documents and Wena's tables: import, changed fields only, new documents, deletes"),
     ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
     ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),
     ('theme-parity', 'test_theme_color_parity.py', 'Theme parity regression checks'),
@@ -566,7 +575,7 @@ TEST_SUITES = (
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
     ('wekan-files', 'test_wekan_files.sh', "WeKan's files directory: WRITABLE_PATH, wekan-files beside the executable, db/wekan.sqlite"),
     ('ferretdb-sqlite', 'test_ferretdb_sqlite.sh', "FerretDB's SQLite storage: table names, DDL and documents with their $s"),
-    ('ferretdb-compat', 'test_ferretdb_compat.py', 'FerretDB reads what Wena writes and Wena keeps what FerretDB wrote (skips without FerretDB)'),
+    ('ferretdb-roundtrip', 'test_ferretdb_roundtrip.py', 'FerretDB reads what Wena writes and Wena keeps what FerretDB wrote (skips without FerretDB)'),
     ('generated-sources', 'test_generated_sources.py', 'Generated headers (notices, translations, font, SVGs) match their sources'),
     ('wekan-ui-parity', 'test_wekan_ui_parity.py', 'Colors match WeKan, from its captured board UI and stylesheets'),
     ('amiga-desktop', 'test_amiga_desktop.py', 'AmigaOS 4, AROS and AmigaOS 3 desktop builds: pinned images and sources, platform branches, SQLite without WAL'),

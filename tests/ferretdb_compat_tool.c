@@ -1,4 +1,4 @@
-/* The Wena side of tests/test_ferretdb_compat.py:
+/* The Wena side of tests/test_ferretdb_roundtrip.py:
  *   write DIR    a new wekan.sqlite with a board, written by Wena
  *   update DIR   change the document FerretDB inserted, Wena's way */
 #include "../server/ferretdb_sqlite.h"

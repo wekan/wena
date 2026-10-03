@@ -46,6 +46,9 @@
 #include "../server/sqlite_workspace.h"
 #include "../server/embedded_migration.h"
 #include "../server/executable_path.h"
+#include "../server/wekan_sync.h"
+#include "../server/mutations/common.h"
+#include "platform/wekan_files.h"
 #include "../imports/i18n/ui_catalog.h"
 #include "../imports/i18n/locale.h"
 #include "../imports/preferences/collapse.h"
@@ -723,6 +726,68 @@ unsigned long __stack = DESKTOP_STACK;
 #define DESKTOP_DEFAULT_BOARD "my-board"
 #define DESKTOP_DEFAULT_TITLE "My board"
 
+/* WeKan's files: the board the user sees first - theirs, by title - or, in
+ * a file without one, a new board with WeKan's "Default" swimlane, as WeKan
+ * makes a new board. */
+static int desktop_wekan_board(sqlite3 *db, const char *actor, char *board, size_t capacity)
+{
+    sqlite3_stmt *query = NULL;
+    const unsigned char *found;
+    int ok = 0;
+    if (sqlite3_prepare_v2(db, "SELECT b.id FROM boards b JOIN board_members m ON m.board_id = b.id "
+        "AND m.actor_id = ?1 AND m.active ORDER BY b.title COLLATE NOCASE, b.id LIMIT 1", -1, &query, NULL) != SQLITE_OK)
+        return 0;
+    if (sqlite3_bind_text(query, 1, actor, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_ROW &&
+        (found = sqlite3_column_text(query, 0)) != NULL && strlen((const char *)found) < capacity) {
+        strcpy(board, (const char *)found);
+        ok = 1;
+    }
+    sqlite3_finalize(query);
+    return ok;
+}
+
+static void desktop_meteor_id(char out[18])
+{
+    static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
+    unsigned char random[17];
+    int index;
+    sqlite3_randomness(17, random);
+    for (index = 0; index < 17; ++index) out[index] = alphabet[random[index] % (sizeof(alphabet) - 1)];
+    out[17] = '\0';
+}
+
+static int desktop_wekan_starter(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity)
+{
+    char lane[18];
+    sqlite3_stmt *query = NULL;
+    int ok;
+    if (capacity < 18) return 0;
+    desktop_meteor_id(board);
+    desktop_meteor_id(lane);
+    ok = sqlite3_exec(db, "BEGIN", NULL, NULL, NULL) == SQLITE_OK &&
+         sqlite3_prepare_v2(db, "INSERT INTO boards(id, title, version) VALUES (?1, ?2, 1)", -1, &query, NULL) == SQLITE_OK &&
+         sqlite3_bind_text(query, 1, board, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(query, 2, title, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
+    sqlite3_finalize(query); query = NULL;
+    ok = ok && sqlite3_prepare_v2(db, "INSERT INTO swimlanes(id, board_id, title, position, version) "
+        "VALUES (?1, ?2, 'Default', 0, 1)", -1, &query, NULL) == SQLITE_OK &&
+         sqlite3_bind_text(query, 1, lane, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(query, 2, board, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
+    sqlite3_finalize(query);
+    if (!ok) { sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL); return 0; }
+    if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) return 0;
+    /* Written with its creator as its admin (a board without member rows is
+     * exported so), then the membership Wena keeps: the export merges it with
+     * the written member, which stays as it is. */
+    if (wena_wekan_sync_export(db, actor) < 0) return 0;
+    ok = sqlite3_prepare_v2(db, "INSERT INTO board_members(board_id, actor_id, active, version, created_at, "
+        "updated_at) VALUES (?1, ?2, 1, 1, 0, 0)", -1, &query, NULL) == SQLITE_OK &&
+         sqlite3_bind_text(query, 1, board, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(query, 2, actor, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
+    sqlite3_finalize(query);
+    return ok;
+}
+
 static void desktop_usage(FILE *output)
 {
     fputs("Usage: wena-desktop [--database ABS_PATH --actor ID --board ID]\n"
@@ -887,6 +952,10 @@ int DESKTOP_MAIN(int argc, char **argv)
     size_t language_count;
     int create_workspace, smoke, i, status, running, frames, width, height, sdl_started;
     const char *screenshot, *show;
+    /* WeKan's files (wekan-files/db/wekan.sqlite), the default; else Wena's own file. */
+    int wekan_mode;
+    char wekan_actor[WENA_ID_CAPACITY], wekan_board[WENA_ID_CAPACITY];
+    int synced_changes;
     char executable[WENA_EXECUTABLE_PATH_CAPACITY];
     char language_path[512], detected_locale[64];
     char collapse_path[WENA_EXECUTABLE_PATH_CAPACITY];
@@ -960,6 +1029,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     database_path = NULL; actor_id = NULL; board_id = NULL;
     board_title = NULL; requested_language = NULL;
     smoke = 0; create_workspace = 0; screenshot = NULL; show = NULL;
+    wekan_mode = 0; wekan_actor[0] = wekan_board[0] = '\0'; synced_changes = 0;
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--smoke") && !smoke) smoke = 1;
         /* A smoke run whose last frame is kept: UI comparisons with WeKan. */
@@ -996,34 +1066,51 @@ int DESKTOP_MAIN(int argc, char **argv)
     }
     /* No workspace named - double-clicked, opened from a file manager, or only
      * --smoke/--language given: the local board, created on the first run. */
-    if (database_path == NULL && actor_id == NULL && board_id == NULL &&
-        !create_workspace && board_title == NULL) {
+    if (database_path == NULL && actor_id == NULL && !create_workspace && board_title == NULL) {
         char database_env[WENA_EXECUTABLE_PATH_CAPACITY], home[WENA_EXECUTABLE_PATH_CAPACITY];
-        char xdg[WENA_EXECUTABLE_PATH_CAPACITY];
-        if (!wena_desktop_default_database(
-                wena_environment("WENA_DATABASE", database_env, sizeof(database_env)) ? database_env : NULL,
-                desktop_home(home, sizeof(home)) ? home : NULL,
-                wena_environment("XDG_DATA_HOME", xdg, sizeof(xdg)) ? xdg : NULL,
-                DESKTOP_SYSTEM, default_database, sizeof(default_database)) ||
-            !wena_make_parent_directories(default_database)) {
-            wena_debug_log("no default board file: set WENA_DATABASE to an absolute path");
-            fputs("Cannot name a folder for the local board; set WENA_DATABASE to an absolute path\n", stderr);
-            wena_debug_log_close();
-            return 2;
+        char xdg[WENA_EXECUTABLE_PATH_CAPACITY], writable[WENA_EXECUTABLE_PATH_CAPACITY];
+        char executable[WENA_EXECUTABLE_PATH_CAPACITY], root[WENA_EXECUTABLE_PATH_CAPACITY];
+        if (!wena_environment("WENA_DATABASE", database_env, sizeof(database_env))) {
+            /* WeKan's files, as a WeKan FerretDB bundle keeps them:
+             * WRITABLE_PATH, else wekan-files beside this program. */
+            if (!wena_wekan_files_root(wena_environment("WRITABLE_PATH", writable, sizeof(writable)) ? writable : NULL,
+                    wena_executable_path_current(executable, sizeof(executable)) ? executable : NULL,
+                    desktop_home(home, sizeof(home)) ? home : NULL, DESKTOP_SYSTEM, root, sizeof(root)) ||
+                !wena_wekan_files_prepare(root, DESKTOP_SYSTEM) ||
+                !wena_wekan_files_database(root, DESKTOP_SYSTEM, default_database, sizeof(default_database))) {
+                wena_debug_log("no wekan-files folder: set WRITABLE_PATH to an absolute path");
+                fputs("Cannot make the wekan-files folder; set WRITABLE_PATH to an absolute path\n", stderr);
+                wena_debug_log_close();
+                return 2;
+            }
+            database_path = default_database;
+            wekan_mode = 1;
+            wena_debug_log("WeKan's files in %s, database %s", root, database_path);
+        } else if (board_id == NULL) {
+            if (!wena_desktop_default_database(database_env,
+                    desktop_home(home, sizeof(home)) ? home : NULL,
+                    wena_environment("XDG_DATA_HOME", xdg, sizeof(xdg)) ? xdg : NULL,
+                    DESKTOP_SYSTEM, default_database, sizeof(default_database)) ||
+                !wena_make_parent_directories(default_database)) {
+                wena_debug_log("no default board file: set WENA_DATABASE to an absolute path");
+                fputs("Cannot name a folder for the local board; set WENA_DATABASE to an absolute path\n", stderr);
+                wena_debug_log_close();
+                return 2;
+            }
+            database_path = default_database;
+            actor_id = DESKTOP_DEFAULT_ACTOR; board_id = DESKTOP_DEFAULT_BOARD;
+            if (wena_file_kind(default_database) == WENA_FILE_MISSING) {
+                create_workspace = 1; board_title = DESKTOP_DEFAULT_TITLE;
+            }
+            wena_debug_log("default board %s in %s%s", board_id, database_path,
+                           create_workspace ? " (creating it)" : "");
         }
-        database_path = default_database;
-        actor_id = DESKTOP_DEFAULT_ACTOR; board_id = DESKTOP_DEFAULT_BOARD;
-        if (wena_file_kind(default_database) == WENA_FILE_MISSING) {
-            create_workspace = 1; board_title = DESKTOP_DEFAULT_TITLE;
-        }
-        wena_debug_log("default board %s in %s%s", board_id, database_path,
-                       create_workspace ? " (creating it)" : "");
     }
-    if (database_path == NULL || !wena_path_absolute(database_path) ||
+    if (!wekan_mode && (database_path == NULL || !wena_path_absolute(database_path) ||
         strlen(database_path) >= WENA_EXECUTABLE_PATH_CAPACITY ||
         !wena_model_identifier_valid(actor_id) || !wena_model_identifier_valid(board_id) ||
         (board_title != NULL && !create_workspace) ||
-        (!create_workspace && wena_file_kind(database_path) != WENA_FILE_REGULAR)) {
+        (!create_workspace && wena_file_kind(database_path) != WENA_FILE_REGULAR))) {
         fputs("An absolute database path, actor and board are required; use --create for a new workspace\n", stderr);
         wena_debug_log("refused: an absolute database path, actor and board are required");
         wena_debug_log_close();
@@ -1062,41 +1149,78 @@ int DESKTOP_MAIN(int argc, char **argv)
         requested_language != NULL ? requested_language : detected_locale,
         languages, language_count)) DESKTOP_FAIL();
     wena_ui_set_translator(wena_ui_catalog_translate, &language);
-    if (create_workspace) {
-        seed.actor_id = actor_id; seed.actor_name = actor_id;
-        seed.board_id = board_id;
-        seed.board_title = board_title == NULL ? board_id : board_title;
-        seed.swimlane_id = "default-lane";
-        seed.swimlane_title = wena_ui_text(WENA_UI_TEXT_SWIMLANE);
-        seed.list_id = "default-list";
-        seed.list_title = wena_ui_text(WENA_UI_TEXT_LIST);
-        if (!wena_sqlite_workspace_create(database_path, migration.bytes,
-            migration.length, migration.sha256, &seed)) DESKTOP_FAIL();
+    if (wekan_mode) {
+        char wanted[WENA_ID_CAPACITY + 64], salt[33];
+        unsigned char random[16];
+        int index;
+        /* Wena's tables in memory over WeKan's file, read in; what Wena
+         * changes is written back after each frame that changed something. */
+        if (!wena_sqlite_open(":memory:", migration.bytes, migration.length, migration.sha256, &database) ||
+            !wena_wekan_sync_attach(database, database_path) ||
+            !wena_wekan_sync_user(database, wena_environment("WENA_USER", wanted, sizeof(wanted)) ? wanted : NULL,
+                                  wekan_actor, sizeof(wekan_actor)) ||
+            !wena_wekan_sync_import(database)) {
+            wena_debug_log("WeKan's database %s: %s", database_path, wena_wekan_sync_error());
+            DESKTOP_FAIL();
+        }
+        actor_id = wekan_actor;
+        if (board_id == NULL) {
+            if (!desktop_wekan_board(database, actor_id, wekan_board, sizeof(wekan_board))) {
+                if (!desktop_wekan_starter(database, actor_id, DESKTOP_DEFAULT_TITLE, wekan_board, sizeof(wekan_board)) ||
+                    wena_wekan_sync_export(database, actor_id) < 0) {
+                    wena_debug_log("new board in %s: %s", database_path, wena_wekan_sync_error());
+                    DESKTOP_FAIL();
+                }
+                wena_debug_log("made board %s for %s", wekan_board, actor_id);
+            }
+            board_id = wekan_board;
+        }
+        sqlite3_randomness(16, random);
+        for (index = 0; index < 16; ++index) sprintf(salt + index * 2, "%02x", random[index]);
+        wena_mutation_identity_salt(salt);
+        synced_changes = sqlite3_total_changes(database);
+        if (!actor_exists(database, actor_id) || !wena_sqlite_board_load(database, board_id, snapshot)) {
+            wena_debug_log("board %s for %s is not in %s", board_id, actor_id, database_path);
+            DESKTOP_FAIL();
+        }
+        wena_debug_log("user %s, board %s", actor_id, board_id);
+    } else {
+        if (create_workspace) {
+            seed.actor_id = actor_id; seed.actor_name = actor_id;
+            seed.board_id = board_id;
+            seed.board_title = board_title == NULL ? board_id : board_title;
+            seed.swimlane_id = "default-lane";
+            seed.swimlane_title = wena_ui_text(WENA_UI_TEXT_SWIMLANE);
+            seed.list_id = "default-list";
+            seed.list_title = wena_ui_text(WENA_UI_TEXT_LIST);
+            if (!wena_sqlite_workspace_create(database_path, migration.bytes,
+                migration.length, migration.sha256, &seed)) DESKTOP_FAIL();
+        }
+        /* Query-only scope preflight prevents invalid actor/board launches from
+         * creating a file, a schema or any domain records. Not SQLITE_OPEN_READONLY:
+         * a read-only handle cannot read a WAL database whose -wal file a clean
+         * exit removed ("unable to open database file"), so every launch after a
+         * normal quit failed. Without SQLITE_OPEN_CREATE a missing file still
+         * fails, and query_only refuses every write. */
+        if (sqlite3_open_v2(database_path, &database, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
+            DESKTOP_FAIL();
+        if (!wena_sqlite_connection_harden(database) ||
+            sqlite3_exec(database, "PRAGMA query_only=ON", NULL, NULL, NULL) != SQLITE_OK) DESKTOP_FAIL();
+        if (!actor_exists(database, actor_id)) {
+            wena_debug_log("actor %s is not in %s: %s", actor_id, database_path, sqlite3_errmsg(database));
+            DESKTOP_FAIL();
+        }
+        if (!wena_sqlite_board_load(database, board_id, snapshot)) {
+            wena_debug_log("board %s is not in %s", board_id, database_path);
+            DESKTOP_FAIL();
+        }
+        if (sqlite3_close(database) != SQLITE_OK) DESKTOP_FAIL();
+        database = NULL;
+        if (!wena_sqlite_open(database_path, migration.bytes, migration.length,
+                              migration.sha256, &database) ||
+            !actor_exists(database, actor_id) ||
+            !wena_sqlite_board_load(database, board_id, snapshot)) DESKTOP_FAIL();
     }
-    /* Query-only scope preflight prevents invalid actor/board launches from
-     * creating a file, a schema or any domain records. Not SQLITE_OPEN_READONLY:
-     * a read-only handle cannot read a WAL database whose -wal file a clean
-     * exit removed ("unable to open database file"), so every launch after a
-     * normal quit failed. Without SQLITE_OPEN_CREATE a missing file still
-     * fails, and query_only refuses every write. */
-    if (sqlite3_open_v2(database_path, &database, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK)
-        DESKTOP_FAIL();
-    if (!wena_sqlite_connection_harden(database) ||
-        sqlite3_exec(database, "PRAGMA query_only=ON", NULL, NULL, NULL) != SQLITE_OK) DESKTOP_FAIL();
-    if (!actor_exists(database, actor_id)) {
-        wena_debug_log("actor %s is not in %s: %s", actor_id, database_path, sqlite3_errmsg(database));
-        DESKTOP_FAIL();
-    }
-    if (!wena_sqlite_board_load(database, board_id, snapshot)) {
-        wena_debug_log("board %s is not in %s", board_id, database_path);
-        DESKTOP_FAIL();
-    }
-    if (sqlite3_close(database) != SQLITE_OK) DESKTOP_FAIL();
-    database = NULL;
-    if (!wena_sqlite_open(database_path, migration.bytes, migration.length,
-                          migration.sha256, &database) ||
-        !actor_exists(database, actor_id) ||
-        !wena_sqlite_board_load(database, board_id, snapshot)) DESKTOP_FAIL();
     if (requested_language != NULL && !smoke && language_path[0] != '\0' &&
         !wena_language_set(&language, language_path, requested_language,
             languages, language_count)) DESKTOP_FAIL();
@@ -1749,6 +1873,12 @@ int DESKTOP_MAIN(int argc, char **argv)
             if (screenshot != NULL && frames == 2 && !desktop_screenshot(renderer, screenshot))
                 DESKTOP_FAIL();
             SDL_RenderPresent(renderer);
+        }
+        /* WeKan's file gets what this frame changed. */
+        if (wekan_mode && sqlite3_total_changes(database) != synced_changes) {
+            if (wena_wekan_sync_export(database, actor_id) < 0)
+                wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
+            synced_changes = sqlite3_total_changes(database);
         }
         if (smoke) {
             ++frames;

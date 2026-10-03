@@ -128,14 +128,30 @@ static int has_value(const WenaDomainCommand *command, const char *name)
     return 0;
 }
 
+/* A session's salt for new ids, when the request counters behind them start
+ * again each session (Wena's working tables over WeKan's file are made anew
+ * at every start): without it, the first card of each session would get the
+ * same id. Empty keeps ids the same from run to run. */
+static char identity_salt[65];
+
+void wena_mutation_identity_salt(const char *salt)
+{
+    identity_salt[0] = '\0';
+    if (salt != NULL && strlen(salt) < sizeof(identity_salt)) strcpy(identity_salt, salt);
+}
+
 static void create_identity(const WenaDomainCommand *command,
                             const char *operation, char *id)
 {
-    char identity[400];
+    char identity[480];
     sprintf(identity, "%s|%lu:%s%lu:%s%lu", operation,
         (unsigned long)strlen(command->user_id), command->user_id,
         (unsigned long)strlen(command->route), command->route,
         command->request_version);
+    if (identity_salt[0] != '\0') {
+        strcat(identity, "|");
+        strcat(identity, identity_salt);
+    }
     wena_sha256_hex((const unsigned char *)identity, strlen(identity), id);
 }
 

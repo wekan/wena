@@ -1,6 +1,46 @@
 # Upcoming Wena release
 
 <details>
+<summary>Wena keeps WeKan's own files: wekan-files/db/wekan.sqlite as FerretDB writes it, a drop-in for WeKan's bundles</summary>
+
+- Opened without a workspace (double-clicked, or 2) Run), Wena uses WeKan's
+  files directory: `WRITABLE_PATH` when set - with `files` added unless it
+  already ends in `files` or `wekan-files`, as WeKan's `start-wekan.sh` and
+  `.bat` do - else `wekan-files` beside the program, as WeKan's Windows
+  executable has it. It makes `attachments`, `avatars` and `db`, and keeps
+  the board in `db/wekan.sqlite`: the file WeKan's FerretDB bundles
+  (AppImage, Snap, Docker, Windows) open as database `wekan`.
+- That file is FerretDB's SQLite format, written directly with SQL
+  (`server/ferretdb_sqlite.c`): the `_ferretdb_collections` table, one
+  `<collection>_<FNV-1a>` table per collection with its `_id_` index, byte
+  for byte as FerretDB makes them, and documents with their `$s` type
+  schema. Wena reads it with double-quoted strings off, as release builds
+  of SQLite are.
+- WeKan's documents are read into Wena's tables in memory
+  (`server/wekan_sync.c`): users, boards with their members, labels and
+  settings, swimlanes and lists with archive state, color and WIP limit,
+  cards with description, labels, members, assignees and archive state,
+  checklists and their items. After each frame that changed something,
+  only the changed fields go back to WeKan's documents, each with its type,
+  so the fields of a document Wena does not show stay as they were; new
+  documents get the fields WeKan requires, and a title Wena had to shorten
+  is not written back unless it was edited.
+- The user is `WENA_USER` (an `_id` or username), else the first admin; a
+  new file gets a user "admin" and a board "My board" with WeKan's
+  "Default" swimlane. `WENA_DATABASE` and `--database` still open a Wena
+  workspace file.
+- Tests: `wekan-files`, `ferretdb-sqlite` (DDL text, `$s` on insert, update,
+  unset, delete), `wekan-sync` (import, changed fields only, WeKan's fields
+  kept, new documents, deletes, rollback, the user) and `ferretdb-roundtrip`,
+  which runs the FerretDB binary WeKan bundles: FerretDB serves through the
+  MongoDB driver what Wena wrote, and Wena reads, changes and adds to what
+  FerretDB wrote. Not yet run against a WeKan server itself.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>The release builds again: v0.03 stopped on every platform on a stale compiled-in license file</summary>
 
 - wena4 log: every job of the v0.03 release stopped before compiling with

@@ -11,4 +11,6 @@ int wena_mutation_decimal(const char *text,int allow_zero,unsigned long maximum,
     unsigned long *result);
 void wena_mutation_identity(const WenaDomainCommand *command,
     const char *operation,char *id);
+/* A session's salt mixed into new ids; NULL or "" for none (see sqlite_persistence.c). */
+void wena_mutation_identity_salt(const char *salt);
 #endif

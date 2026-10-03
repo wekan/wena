@@ -38,11 +38,29 @@ def node(script, port, modules):
     return json.loads(run.stdout)
 
 
+def start(ferretdb, directory, port):
+    server = subprocess.Popen([str(ferretdb), "--handler=sqlite", f"--sqlite-url=file:{directory}/",
+                               f"--listen-addr=127.0.0.1:{port}", "--telemetry=disable", "--log-level=error"],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
+            break
+        except OSError:
+            time.sleep(0.1)
+    return server
+
+
+def stop(server):
+    server.terminate()
+    server.wait(timeout=30)
+
+
 def main():
     ferretdb = Path(os.environ.get("FERRETDB_BIN") or ROOT.parent / "FerretDB" / "bin" / "ferretdb")
     modules = Path(os.environ.get("WENA_NODE_MODULES") or ROOT.parents[1] / "node_modules")
     if not ferretdb.is_file() or shutil.which("node") is None or not (modules / "mongodb").is_dir():
-        print("ferretdb-compat: skipped (needs FerretDB, node and the mongodb driver)")
+        print("ferretdb-roundtrip: skipped (needs FerretDB, node and the mongodb driver)")
         return
     with tempfile.TemporaryDirectory() as temp:
         temp = Path(temp)
@@ -111,7 +129,57 @@ const { MongoClient } = require('mongodb');
         finally:
             server.terminate()
             server.wait(timeout=30)
-    print("ferretdb-compat: FerretDB reads Wena's documents and Wena keeps FerretDB's fields")
+        # WeKan's documents written through FerretDB, Wena's whole path over
+        # them (import, change, export), and FerretDB serving the result.
+        sync_tool = temp / "sync"
+        subprocess.run(["cc", "-std=c89", "-pedantic-errors", "-Wall", "-Wextra", "-Werror",
+                        str(ROOT / "tests" / "wekan_sync_tool.c"), str(ROOT / "server" / "wekan_sync.c"),
+                        str(ROOT / "server" / "ferretdb_sqlite.c"), str(ROOT / "server" / "sqlite_storage.c"),
+                        str(ROOT / "server" / "sha256.c"), "-lsqlite3", "-o", str(sync_tool)], check=True)
+        wekan = temp / "wekan"
+        wekan.mkdir()
+        server = start(ferretdb, wekan, port)
+        try:
+            node("""
+const { MongoClient } = require('mongodb');
+(async () => { const c = new MongoClient('mongodb://127.0.0.1:PORT/wekan?directConnection=true');
+  await c.connect(); const db = c.db('wekan'); const now = new Date(1700000000000);
+  await db.collection('users').insertOne({_id: 'u1', username: 'ada', profile: {fullname: 'Ada'}, isAdmin: true, createdAt: now});
+  await db.collection('boards').insertOne({_id: 'b1', title: 'WeKan board', slug: 'wekan-board', archived: false, type: 'board',
+    permission: 'private', color: 'belize', members: [{userId: 'u1', isAdmin: true, isActive: true}], labels: [], createdAt: now});
+  await db.collection('swimlanes').insertOne({_id: 's1', title: 'Default', boardId: 'b1', sort: 0, archived: false, createdAt: now});
+  await db.collection('lists').insertOne({_id: 'l1', title: 'To Do', boardId: 'b1', sort: 0, archived: false, createdAt: now});
+  await db.collection('cards').insertOne({_id: 'c1', title: 'From WeKan', boardId: 'b1', listId: 'l1', swimlaneId: 's1',
+    sort: 0, archived: false, type: 'cardType-card', userId: 'u1', dueAt: now, createdAt: now, labelIds: []});
+  await db.collection('checklists').insertOne({_id: 'k1', cardId: 'c1', boardId: 'b1', title: 'Steps', sort: 0, createdAt: now});
+  await db.collection('checklistItems').insertOne({_id: 'i1', checklistId: 'k1', cardId: 'c1', boardId: 'b1', title: 'One',
+    sort: 0, isFinished: false, createdAt: now});
+  console.log('{}'); await c.close(); })().catch(e => { console.error(e); process.exit(1); });
+""", port, modules)
+        finally:
+            stop(server)
+        subprocess.run([str(sync_tool), str(wekan)], check=True)
+        server = start(ferretdb, wekan, port)
+        try:
+            got = node("""
+const { MongoClient } = require('mongodb');
+(async () => { const c = new MongoClient('mongodb://127.0.0.1:PORT/wekan?directConnection=true');
+  await c.connect(); const db = c.db('wekan');
+  const c1 = await db.collection('cards').findOne({_id: 'c1'});
+  const made = await db.collection('cards').findOne({_id: 'wena-new'});
+  const item = await db.collection('checklistItems').findOne({_id: 'i1'});
+  const onBoard = await db.collection('cards').find({boardId: 'b1', archived: false}).sort({sort: 1}).toArray();
+  console.log(JSON.stringify({c1, made, item, titles: onBoard.map(x => x.title),
+    due: c1.dueAt instanceof Date, created: made.createdAt instanceof Date}));
+  await c.close(); })().catch(e => { console.error(e); process.exit(1); });
+""", port, modules)
+        finally:
+            stop(server)
+        assert got["c1"]["title"] == "Renamed in Wena" and got["due"], got
+        assert got["made"]["title"] == "Made in Wena" and got["made"]["type"] == "cardType-card", got
+        assert got["made"]["userId"] == "u1" and got["made"]["listId"] == "l1" and got["created"], got
+        assert got["item"]["isFinished"] is True and got["titles"] == ["Renamed in Wena", "Made in Wena"], got
+    print("ferretdb-roundtrip: FerretDB reads Wena's documents and Wena keeps FerretDB's fields")
 
 
 if __name__ == "__main__":

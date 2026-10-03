@@ -4,6 +4,7 @@
 from contextlib import redirect_stdout
 import importlib.util
 import io
+import os
 import json
 import sys
 import threading
@@ -201,6 +202,17 @@ def test_run():
             assert f"Debug log: {logs}" in printed.getvalue()
             database.write_bytes(b"")
             assert "--create" not in wena.desktop_arguments(database)
+            # Without arguments or a workspace file it opens as a double-click
+            # does: WeKan's files beside the program, no arguments passed.
+            binary.write_text("#!/bin/sh\necho \"ran [$*]\"\nexit 0\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()) as printed, patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("WRITABLE_PATH", None)
+                assert wena.run((), root, None, wena.datetime(2026, 10, 3, 15, 4, 7)) == 0
+            assert "ran []" in printed.getvalue()
+            assert f"Opening WeKan's files in {binary.parent / 'wekan-files'}" in printed.getvalue()
+            with redirect_stdout(io.StringIO()) as printed, patch.dict(os.environ, {"WRITABLE_PATH": "/srv/wekan"}):
+                assert wena.run((), root, None, wena.datetime(2026, 10, 3, 15, 4, 8)) == 0
+            assert "Opening WeKan's files in /srv/wekan/files (database /srv/wekan/files/db/wekan.sqlite)" in printed.getvalue()
             # A crash is recorded as the signal that ended it.
             binary.write_text("#!/bin/sh\nkill -SEGV $$\n", encoding="utf-8")
             with redirect_stdout(io.StringIO()):

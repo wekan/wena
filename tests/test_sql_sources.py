@@ -46,6 +46,9 @@ APP_SQL_TEXT = {
     "server/sqlite_persistence.c": "a constant clause chosen by a flag",
     "server/sqlite_storage.c": "an integer migration version",
     "server/ferretdb_scan.c": "a table name quoted with sqlite3_mprintf %w",
+    "server/ferretdb_sqlite.c": "schema/table names refused when they hold a quote, and field names "
+                                "limited to [A-Za-z0-9_$-] before they reach a JSON path",
+    "server/wekan_sync.c": "collection table names FerretDB derives (FNV-1a), into fixed SQL of this file",
 }
 
 
