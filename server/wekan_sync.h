@@ -59,6 +59,21 @@ int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int 
  * admin - in Wena's tables and written to WeKan's file. Writes its _id. */
 int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity);
 
+/* The user's language as WeKan keeps it (users.profile.language); 0 when
+ * not set. Setting writes it there. */
+int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, size_t capacity);
+int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language);
+
+/* A per-board map in the user's profile, as WeKan keeps collapsed lists and
+ * swimlanes and swimlane heights: profile.<field>.<board>.<id> = value.
+ * Reading calls `entry` with each id and its value (true is 1); writing
+ * replaces this board's map with `map` (a JSON object), the other boards'
+ * staying as they are. */
+int wena_wekan_sync_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
+                                      void (*entry)(void *context, const char *id, int value), void *context);
+int wena_wekan_sync_set_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
+                                          const char *map);
+
 /* What the last failed statement said, for the debug log. */
 const char *wena_wekan_sync_error(void);
 

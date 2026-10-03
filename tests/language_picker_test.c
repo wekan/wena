@@ -16,6 +16,16 @@ static float text_width(nk_handle handle, float height,
     (void)handle; (void)text;
     return height * (float)length * 0.5f;
 }
+static char stored[64];
+static int store_refuses;
+static int store_language(void *context, const char *tag)
+{
+    (void)context;
+    if (store_refuses) return 0;
+    strcpy(stored, tag);
+    return 1;
+}
+
 static size_t language_index(const WenaLanguagePicker *picker, const char *tag)
 {
     size_t i;
@@ -119,6 +129,36 @@ int main(int argc, char **argv)
     assert(memcmp(&language, &before, sizeof(language)) == 0);
     assert(wena_language_picker_select(&failed, fi));
     assert(!failed.error && memcmp(&language, &before, sizeof(language)) == 0);
+    /* WeKan's profile.language: a store instead of a file. Its choice is
+     * made only when the store keeps it, and no settings file is written. */
+    {
+        WenaLanguagePicker kept;
+        assert(wena_language_picker_init(&kept, &language, NULL, 1) && !kept.writable);
+        wena_language_picker_set_store(&kept, store_language, NULL);
+        assert(kept.writable);
+        stored[0] = '\0';
+        assert(wena_language_picker_select(&kept, language_index(&kept, "de")));
+        assert(!strcmp(language.current, "de") && !strcmp(stored, "de") && language.explicit_override);
+        store_refuses = 1;
+        before = language;
+        assert(!wena_language_picker_select(&kept, language_index(&kept, "sv")));
+        assert(kept.error && memcmp(&language, &before, sizeof(language)) == 0 && !strcmp(stored, "de"));
+        store_refuses = 0;
+        assert(wena_language_init(&loaded, path, "en", available, count));
+        assert(strcmp(loaded.current, "fi") == 0);
+        assert(wena_language_choose(&language, "fi", available, count) && !strcmp(language.current, "fi"));
+        /* A language WeKan's profile names that Wena has not: resolved to one it has. */
+        assert(wena_language_choose(&language, "not-a-language", available, count));
+        {
+            size_t at;
+            int known = 0;
+            for (at = 0; at < count; ++at) if (!strcmp(available[at], language.current)) known = 1;
+            assert(known);
+        }
+        assert(!wena_language_choose(NULL, "fi", available, count));
+        /* As the rest of this test expects it. */
+        assert(wena_language_choose(&language, "fi", available, count));
+    }
     /* Null state cannot rewrite or remove an existing language setting. */
     assert(!wena_language_set(NULL, path, "ar", available, count));
     assert(!wena_language_clear(NULL, path, "ar", available, count));

@@ -16,6 +16,10 @@ typedef struct WenaLanguagePicker {
     char settings_path[WENA_LANGUAGE_PICKER_PATH_CAPACITY];
     int writable;
     int error;
+    /* Where a choice is kept instead of the settings file, when set: WeKan's
+     * profile.language. A choice it does not keep is not made. */
+    int (*store)(void *context, const char *language);
+    void *store_context;
 } WenaLanguagePicker;
 
 /* Caller keeps language alive. Paths are copied; catalog pointers are static. */
@@ -24,6 +28,9 @@ int wena_language_picker_init(WenaLanguagePicker *state,
 /* A same-language selection succeeds without rewriting settings. Failed
  * selection never changes language, persisted settings, or selected index. */
 int wena_language_picker_select(WenaLanguagePicker *state, size_t index);
+/* A picker whose choices `store` keeps (it is writable without a file). */
+void wena_language_picker_set_store(WenaLanguagePicker *state,
+    int (*store)(void *context, const char *language), void *context);
 /* Toolbar callback: caller owns the current Nuklear window. */
 void wena_language_picker_render(struct nk_context *context, void *state);
 

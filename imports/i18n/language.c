@@ -166,6 +166,15 @@ int wena_language_set(WenaLanguageState *state, const char *settings_path,
     return 1;
 }
 
+int wena_language_choose(WenaLanguageState *state, const char *requested,
+                         const char *const *available, size_t available_count)
+{
+    WenaLanguageState changed;
+    if (state == NULL || !wena_language_apply(&changed, requested, available, available_count, 1)) return 0;
+    *state = changed;
+    return 1;
+}
+
 int wena_language_clear(WenaLanguageState *state, const char *settings_path,
                         const char *detected_locale,
                         const char *const *available, size_t available_count)

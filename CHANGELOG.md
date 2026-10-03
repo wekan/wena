@@ -1,6 +1,27 @@
 # Upcoming Wena release
 
 <details>
+<summary>The language and collapsed lists and swimlanes are the user's, where WeKan keeps them</summary>
+
+- With WeKan's files, the language comes from the user's
+  `profile.language` and the language picker writes it there, through a
+  store the picker can now be given instead of its settings file. A
+  language WeKan names that Wena does not have resolves to one it has.
+- Collapsed lists and swimlanes and swimlane heights are the user's
+  `profile.collapsedLists`, `profile.collapsedSwimlanes` and
+  `profile.swimlaneHeights` (`{board: {id: value}}`): read when a board
+  opens and written when they change, the other boards' entries kept.
+- So nothing of Wena's goes into WeKan's `db` folder: it holds
+  `wekan.sqlite` (and SQLite's -wal and -shm) only, which `desktop` checks.
+- Tests: `language-picker` (the store, a refused store changing nothing, an
+  unknown language), `wekan-sync` (profile.language, the per-board maps,
+  another board's map kept, only WeKan's fields).
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Wena opens on WeKan's All Boards page, and goes from board to board in one window</summary>
 
 - With WeKan's files, the first page is All Boards as WeKan draws it

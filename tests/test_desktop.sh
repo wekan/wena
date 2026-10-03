@@ -425,6 +425,13 @@ assert 'board ' + first[0][0] + '\n' in log and log.count('window open') == 2, l
 shot = directory / 'all-boards.bmp'
 run = subprocess.run([exe, '--screenshot', str(shot)], env=wekan_env, capture_output=True, text=True, timeout=30)
 assert run.returncode == 0 and shot.stat().st_size > 1000, run.stderr
+# Nothing of Wena's in WeKan's db folder: the language and collapsed lists
+# are the user's profile fields there, as WeKan keeps them.
+assert sorted(f.name for f in (files / 'db').iterdir() if not f.name.endswith(('-wal', '-shm'))) == ['wekan.sqlite'], \
+    list((files / 'db').iterdir())
+run = subprocess.run([exe, '--smoke', '--language', 'fi'], env=wekan_env, capture_output=True, text=True, timeout=30)
+assert run.returncode == 0, run.stderr
+assert sorted(f.name for f in (files / 'db').iterdir() if not f.name.endswith(('-wal', '-shm'))) == ['wekan.sqlite']
 # Negative: a relative WRITABLE_PATH makes nothing.
 run = subprocess.run([exe, '--smoke'], env=dict(wekan_env, WRITABLE_PATH='relative/path'),
                      capture_output=True, text=True, timeout=30)

@@ -984,3 +984,105 @@ int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title,
     strcpy(board, id);
     return 1;
 }
+
+int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, size_t capacity)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[256];
+    sqlite3_stmt *statement = NULL;
+    const unsigned char *found;
+    int ok = 0;
+    if (db == NULL || actor == NULL || language == NULL || capacity == 0 || !table_of(db, "users", table)) return 0;
+    language[0] = '\0';
+    sprintf(sql, "SELECT _ferretdb_sjson ->> '$.profile.language' FROM " WENA_WEKAN_SCHEMA ".\"%s\" "
+                 "WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW && (found = sqlite3_column_text(statement, 0)) != NULL &&
+        found[0] != '\0' && strlen((const char *)found) < capacity) {
+        strcpy(language, (const char *)found);
+        ok = 1;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    WenaFerretField field;
+    char *value;
+    int ok;
+    if (db == NULL || actor == NULL || language == NULL || !table_of(db, "users", table) ||
+        (value = json_string(db, language)) == NULL) return 0;
+    field.key = "profile.language";
+    field.element = WENA_FERRET_STRING;
+    field.value = value;
+    ok = wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+    sqlite3_free(value);
+    return ok;
+}
+
+static int profile_field(const char *field)
+{
+    return field != NULL && (!strcmp(field, "collapsedLists") || !strcmp(field, "collapsedSwimlanes") ||
+                             !strcmp(field, "swimlaneHeights"));
+}
+
+int wena_wekan_sync_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
+                                      void (*entry)(void *context, const char *id, int value), void *context)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[512];
+    sqlite3_stmt *statement = NULL;
+    if (db == NULL || actor == NULL || board == NULL || entry == NULL || !profile_field(field) ||
+        !table_of(db, "users", table)) return 0;
+    sprintf(sql, "SELECT m.key, CAST(m.value AS INTEGER) FROM " WENA_WEKAN_SCHEMA ".\"%s\" u, json_each(u._ferretdb_sjson, "
+                 "'$.profile.%s.\"' || ?2 || '\"') m WHERE u._ferretdb_sjson->'_id' = json_quote(?1)", table, field);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    while (sqlite3_step(statement) == SQLITE_ROW) {
+        const char *id = (const char *)sqlite3_column_text(statement, 0);
+        if (id != NULL) entry(context, id, sqlite3_column_int(statement, 1));
+    }
+    sqlite3_finalize(statement);
+    return 1;
+}
+
+int wena_wekan_sync_set_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
+                                          const char *map)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[640], key[64];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField update;
+    char *value = NULL, *element = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || board == NULL || map == NULL || !profile_field(field) ||
+        !table_of(db, "users", table)) return 0;
+    /* The whole map, with this board's entry replaced (or added). */
+    sprintf(sql, "SELECT json_set(coalesce(u._ferretdb_sjson -> '$.profile.%s', '{}'), '$.\"' || ?2 || '\"', json(?3)) "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" u WHERE u._ferretdb_sjson->'_id' = json_quote(?1)", field, table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 3, map, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW && sqlite3_column_text(statement, 0) != NULL)
+        value = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+    sqlite3_finalize(statement);
+    statement = NULL;
+    if (value != NULL && sqlite3_prepare_v2(db, "SELECT wena_sjson_element(?1)", -1, &statement, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(statement, 1, value, -1, SQLITE_STATIC);
+        if (sqlite3_step(statement) == SQLITE_ROW)
+            element = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+    }
+    sqlite3_finalize(statement);
+    if (value != NULL && element != NULL) {
+        sprintf(key, "profile.%s", field);
+        update.key = key;
+        update.element = element;
+        update.value = value;
+        ok = wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &update, 1);
+    }
+    sqlite3_free(value);
+    sqlite3_free(element);
+    return ok;
+}

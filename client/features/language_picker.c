@@ -56,7 +56,15 @@ int wena_language_picker_select(WenaLanguagePicker *state, size_t index)
         state->error = 0;
         return 1;
     }
-    if (!wena_language_set(state->language, state->settings_path,
+    if (state->store != NULL) {
+        WenaLanguageState chosen = *state->language;
+        if (!wena_language_choose(&chosen, state->items[index], state->items, state->count) ||
+            !state->store(state->store_context, chosen.current)) {
+            state->error = 1;
+            return 0;
+        }
+        *state->language = chosen;
+    } else if (!wena_language_set(state->language, state->settings_path,
                            state->items[index], state->items, state->count)) {
         state->error = 1;
         return 0;
@@ -96,4 +104,13 @@ void wena_language_picker_render(struct nk_context *context, void *opaque)
         nk_layout_row_dynamic(context, 24.0f, 1);
         nk_label(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED), NK_TEXT_LEFT);
     }
+}
+
+void wena_language_picker_set_store(WenaLanguagePicker *state,
+    int (*store)(void *context, const char *language), void *context)
+{
+    if (state == NULL) return;
+    state->store = store;
+    state->store_context = context;
+    state->writable = store != NULL;
 }

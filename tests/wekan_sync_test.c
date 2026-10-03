@@ -43,6 +43,11 @@ static void doc(sqlite3 *db, const char *collection, const char *json)
     x(db, sql);
 }
 
+static void count_entry(void *context, const char *id, int value)
+{
+    if (!strcmp(id, "li1") && value == 1) ++*(int *)context;
+}
+
 int main(int argc, char **argv)
 {
     unsigned char *bundle;
@@ -197,6 +202,29 @@ int main(int argc, char **argv)
                              "WHERE y->>'boardId' = x->>'_id') FROM (SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) "
                              "WHERE x->>'title' = 'Fresh'"), "boardtruefreshDefault"));
         assert(wena_wekan_sync_export(db, "u1") == 0);
+    }
+    /* The user's language and per-board maps, where WeKan keeps them. */
+    {
+        char language[64];
+        int seen = 0;
+        assert(!wena_wekan_sync_language(db, "u1", language, sizeof(language)));
+        assert(wena_wekan_sync_set_language(db, "u1", "fi"));
+        assert(wena_wekan_sync_language(db, "u1", language, sizeof(language)) && !strcmp(language, "fi"));
+        assert(wena_wekan_sync_set_profile_board_map(db, "u1", "collapsedLists", "b1", "{\"li1\":true}"));
+        assert(wena_wekan_sync_set_profile_board_map(db, "u1", "collapsedLists", "other", "{\"x\":false}"));
+        assert(wena_wekan_sync_set_profile_board_map(db, "u1", "swimlaneHeights", "b1", "{\"s1\":480}"));
+        assert(wena_wekan_sync_profile_board_map(db, "u1", "collapsedLists", "b1", count_entry, &seen) && seen == 1);
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> '$.profile.collapsedLists') || "
+                             "(_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.swimlaneHeights') FROM fdb.users_5e7cc513 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"),
+                       "{\"b1\":{\"li1\":true},\"other\":{\"x\":false}}{\"t\":\"object\",\"$s\":{\"p\":{\"b1\":"
+                       "{\"t\":\"object\",\"$s\":{\"p\":{\"s1\":{\"t\":\"int\"}},\"$k\":[\"s1\"]}}},\"$k\":[\"b1\"]}}"));
+        /* Replacing one board's map keeps the others. */
+        assert(wena_wekan_sync_set_profile_board_map(db, "u1", "collapsedLists", "b1", "{}"));
+        assert(!strcmp(q(db, "SELECT _ferretdb_sjson -> '$.profile.collapsedLists' FROM fdb.users_5e7cc513 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"), "{\"b1\":{},\"other\":{\"x\":false}}"));
+        /* Negative: only WeKan's own fields. */
+        assert(!wena_wekan_sync_set_profile_board_map(db, "u1", "services", "b1", "{}"));
     }
     /* The user: asked for by username, else the admin, and one is made in a
      * file without users. */

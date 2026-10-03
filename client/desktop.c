@@ -772,6 +772,81 @@ static int desktop_add_board(struct nk_context *context, WenaDesktopAddBoard *ad
     return result;
 }
 
+/* The language picker's choice, kept as WeKan keeps it. */
+typedef struct WenaDesktopLanguageStore {
+    sqlite3 *database;
+    const char *actor;
+} WenaDesktopLanguageStore;
+
+static int desktop_language_store(void *context, const char *language)
+{
+    WenaDesktopLanguageStore *store = (WenaDesktopLanguageStore *)context;
+    if (!wena_wekan_sync_set_language(store->database, store->actor, language)) {
+        wena_debug_log("language %s: %s", language, wena_wekan_sync_error());
+        return 0;
+    }
+    return 1;
+}
+
+/* Collapsed lists and swimlanes and swimlane heights, as WeKan keeps them in
+ * the user's profile: profile.collapsedLists.<board>.<list> = true ... */
+typedef struct WenaDesktopCollapseLoad {
+    WenaBoardCollapseState *collapse;
+    const WenaBoardLayout *layout;
+    int kind;   /* 0 lists, 1 swimlanes, 2 heights */
+} WenaDesktopCollapseLoad;
+
+static void desktop_collapse_entry(void *context, const char *id, int value)
+{
+    WenaDesktopCollapseLoad *load = (WenaDesktopCollapseLoad *)context;
+    if (load->kind == 2) {
+        if (value > 0) (void)wena_board_swimlane_height_set(load->collapse, load->layout, id, (unsigned int)value);
+    } else if (value) {
+        (void)wena_board_collapse_set(load->collapse, load->layout,
+                                      load->kind == 0 ? WENA_COLLAPSE_LIST : WENA_COLLAPSE_SWIMLANE, id, 1);
+    }
+}
+
+static void desktop_wekan_collapse_load(sqlite3 *db, const char *actor, const char *board,
+                                        WenaBoardCollapseState *collapse, const WenaBoardLayout *layout)
+{
+    static const char *const fields[] = {"collapsedLists", "collapsedSwimlanes", "swimlaneHeights"};
+    WenaDesktopCollapseLoad load;
+    int index;
+    load.collapse = collapse;
+    load.layout = layout;
+    for (index = 0; index < 3; ++index) {
+        load.kind = index;
+        (void)wena_wekan_sync_profile_board_map(db, actor, fields[index], board, desktop_collapse_entry, &load);
+    }
+}
+
+static int desktop_wekan_collapse_save(sqlite3 *db, const char *actor, const WenaBoardCollapseState *collapse)
+{
+    char map[WENA_BOARD_COLLAPSE_CAPACITY * (WENA_ID_CAPACITY + 16) + 4];
+    size_t index, used;
+    int kind, ok = 1;
+    for (kind = 0; kind < 3 && ok; ++kind) {
+        size_t count = kind == 0 ? collapse->list_count : kind == 1 ? collapse->swimlane_count : collapse->height_count;
+        used = 0;
+        map[used++] = '{';
+        /* Ids are [A-Za-z0-9_-]: no JSON escaping needed. */
+        for (index = 0; index < count; ++index) {
+            const char *id = kind == 0 ? collapse->list_ids[index] : kind == 1 ? collapse->swimlane_ids[index] :
+                             collapse->height_ids[index];
+            if (kind == 2) used += (size_t)sprintf(map + used, "%s\"%s\":%u", index > 0 ? "," : "", id,
+                                                   collapse->heights[index]);
+            else used += (size_t)sprintf(map + used, "%s\"%s\":true", index > 0 ? "," : "", id);
+        }
+        map[used++] = '}';
+        map[used] = '\0';
+        ok = wena_wekan_sync_set_profile_board_map(db, actor, kind == 0 ? "collapsedLists" :
+                                                   kind == 1 ? "collapsedSwimlanes" : "swimlaneHeights",
+                                                   collapse->board_id, map);
+    }
+    return ok;
+}
+
 static void desktop_display_name(sqlite3 *db, const char *actor, char *out, size_t capacity)
 {
     sqlite3_stmt *query = NULL;
@@ -980,6 +1055,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaWekanBoardTile *tiles;
     size_t tile_count;
     WenaDesktopAddBoard add_board;
+    WenaDesktopLanguageStore language_store;
     char next_board[WENA_ID_CAPACITY], session_board[WENA_ID_CAPACITY], user_name[WENA_TITLE_CAPACITY];
     char executable[WENA_EXECUTABLE_PATH_CAPACITY];
     char language_path[512], detected_locale[64];
@@ -1169,12 +1245,14 @@ int DESKTOP_MAIN(int argc, char **argv)
     detected_locale[0] = '\0';
     desktop_locale(detected_locale, sizeof(detected_locale));
     language_path[0] = '\0';
-    /* Leave room for both ".language" and the settings writer's ".tmp". */
-    if (strlen(database_path) + 14 < sizeof(language_path)) {
+    /* Leave room for both ".language" and the settings writer's ".tmp". In
+     * WeKan's files the language is the user's profile.language instead: no
+     * file of Wena's goes into WeKan's db folder. */
+    if (!wekan_mode && strlen(database_path) + 14 < sizeof(language_path)) {
         strcpy(language_path, database_path);
         strcat(language_path, ".language");
     }
-    if (!wena_language_init(&language, requested_language != NULL ? NULL : language_path,
+    if (!wena_language_init(&language, requested_language != NULL || language_path[0] == '\0' ? NULL : language_path,
         requested_language != NULL ? requested_language : detected_locale,
         languages, language_count)) DESKTOP_FAIL();
     wena_ui_set_translator(wena_ui_catalog_translate, &language);
@@ -1213,6 +1291,14 @@ int DESKTOP_MAIN(int argc, char **argv)
             DESKTOP_FAIL();
         }
         wena_debug_log("user %s, board %s", actor_id, board_id);
+        {
+            char profile_language[64];
+            if (requested_language == NULL &&
+                wena_wekan_sync_language(database, actor_id, profile_language, sizeof(profile_language)))
+                (void)wena_language_choose(&language, profile_language, languages, language_count);
+            else if (requested_language != NULL)
+                (void)wena_language_choose(&language, requested_language, languages, language_count);
+        }
         tiles = (WenaWekanBoardTile *)calloc(WENA_WEKAN_TILE_CAPACITY, sizeof(*tiles));
         if (tiles == NULL) DESKTOP_FAIL();
         desktop_display_name(database, actor_id, user_name, sizeof(user_name));
@@ -1260,6 +1346,11 @@ int DESKTOP_MAIN(int argc, char **argv)
             languages, language_count)) DESKTOP_FAIL();
     if (!wena_language_picker_init(&language_picker, &language, language_path,
         smoke || language_path[0] == '\0')) DESKTOP_FAIL();
+    if (wekan_mode && !smoke) {
+        language_store.database = database;
+        language_store.actor = actor_id;
+        wena_language_picker_set_store(&language_picker, desktop_language_store, &language_store);
+    }
 board_session:
     single_selection=(WenaCardSelection*)calloc(1,sizeof(*single_selection));
     if(!single_selection)DESKTOP_FAIL();
@@ -1275,7 +1366,12 @@ board_session:
     wena_board_sidebar_init(&sidebar);
     wena_board_collapse_init(&collapse);
     collapse_path[0] = '\0';
-    if (wena_collapse_preferences_path(database_path, actor_id, board_id,
+    if (wekan_mode) {
+        /* WeKan keeps these per user, in the profile, not in a file. */
+        if (!wena_board_collapse_sync(&collapse, &layout)) DESKTOP_FAIL();
+        desktop_wekan_collapse_load(database, actor_id, board_id, &collapse, &layout);
+        toolbar.collapse_writable = !smoke;
+    } else if (wena_collapse_preferences_path(database_path, actor_id, board_id,
                                       collapse_path, sizeof(collapse_path))) {
         toolbar.collapse_error = wena_collapse_preferences_load(collapse_path,
             database_path, actor_id, board_id, &collapse) == WENA_COLLAPSE_PREFS_ERROR;
@@ -1950,14 +2046,15 @@ window_ready:
             (void)wena_card_selection_panel_poll(&editors.selection);
             (void)wena_card_selection_panel_poll(&editors.card_transfer);
             (void)wena_board_presentation_poll(&label_view);
-            if (!smoke && collapse_path[0] != '\0' &&
+            if (!smoke && (collapse_path[0] != '\0' || wekan_mode) &&
                 (toolbar.collapse_retry ||
                  desktop_collapse_changed(&collapse, &observed_collapse))) {
                 /* Remember the attempted state even on failure. Retry occurs
                  * only after another change or the explicit Save button. */
                 observed_collapse = collapse;
-                toolbar.collapse_error = !wena_collapse_preferences_save(
-                    collapse_path, database_path, actor_id, &collapse);
+                toolbar.collapse_error = wekan_mode ?
+                    !desktop_wekan_collapse_save(database, actor_id, &collapse) :
+                    !wena_collapse_preferences_save(collapse_path, database_path, actor_id, &collapse);
             }
             if (SDL_SetRenderDrawColor(renderer, 41, 128, 185, 255) != 0 ||
                 SDL_RenderClear(renderer) != 0) DESKTOP_FAIL();
