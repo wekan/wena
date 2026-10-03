@@ -526,6 +526,7 @@ TEST_SUITES = (
     ('json-edit', 'test_json_edit.sh', 'Atomic shared JSON edits and typed SJSON replacements'),
     ('json-document', 'test_json_document.sh', 'Bounded shared JSON reader preserving numeric precision and object order'),
     ('ferretdb-scan', 'test_ferretdb_scan.sh', 'Bounded read-only typed scans of every mapped FerretDB collection'),
+    ('all-boards', 'test_all_boards.sh', "WeKan's All Boards page: sections, counts, open, star, Add Board, archive"),
     ('wekan-sync', 'test_wekan_sync.sh', "WeKan's documents and Wena's tables: import, changed fields only, new documents, deletes"),
     ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
     ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),

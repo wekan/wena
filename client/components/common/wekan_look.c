@@ -291,6 +291,33 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         /* fa-window-minimize: a bar at the bottom. */
         nk_fill_rect(out, nk_rect(x + P(2), y + P(11), P(12), P(2.5f)), P(1), c);
         break;
+    case WENA_ICON_STAR:
+    case WENA_ICON_STAR_O: {
+        /* fa-star / fa-star-o: five points, filled or drawn. */
+        /* The unit star's ten points, outer then inner (radius 3.2/7.5). */
+        static const float unit[10][2] = {{0.0f, -1.0f}, {0.2508f, -0.3452f}, {0.9511f, -0.309f}, {0.4058f, 0.1318f}, {0.5878f, 0.809f}, {0.0f, 0.4267f}, {-0.5878f, 0.809f}, {-0.4058f, 0.1318f}, {-0.9511f, -0.309f}, {-0.2508f, -0.3452f}};
+        float cx = x + P(8), cy = y + P(8.5f), r = P(7.5f);
+        int k;
+        for (k = 0; k < 10; ++k) {
+            points[k * 2] = cx + r * unit[k][0];
+            points[k * 2 + 1] = cy + r * unit[k][1];
+        }
+        if (icon == WENA_ICON_STAR) nk_fill_polygon(out, points, 10, c);
+        else {
+            for (k = 0; k < 10; ++k)
+                line(out, points[k * 2], points[k * 2 + 1], points[((k + 1) % 10) * 2], points[((k + 1) % 10) * 2 + 1],
+                     t * 0.7f, c);
+        }
+        break;
+    }
+    case WENA_ICON_FOLDER:
+        nk_fill_rect(out, nk_rect(x + P(1), y + P(3), P(6), P(3)), P(1), c);
+        nk_fill_rect(out, nk_rect(x + P(1), y + P(5), P(14), P(9)), P(1), c);
+        break;
+    case WENA_ICON_CLIPBOARD:
+        nk_stroke_rect(out, nk_rect(x + P(3), y + P(3), P(10), P(12)), P(1), t * 0.8f, c);
+        nk_fill_rect(out, nk_rect(x + P(5.5f), y + P(1.5f), P(5), P(3)), P(1), c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;
@@ -564,6 +591,32 @@ int wena_wekan_checkbox(struct nk_context *context, int checked, const char *tex
                      text, (int)strlen(text), face, nk_rgba(0, 0, 0, 0),
                      color_of(checked ? WENA_WEKAN_ICON_ACTIVE : WENA_WEKAN_TEXT));
     return clicked;
+}
+
+int wena_wekan_area(struct nk_context *context, const char *name)
+{
+    struct nk_rect bounds;
+    if (context == NULL || context->current == NULL) return 0;
+    bounds = nk_widget_bounds(context);
+    if (name != NULL) wena_ui_control_record(NULL, name, bounds.x, bounds.y, bounds.w, bounds.h);
+    return invisible_button(context);
+}
+
+void wena_wekan_draw_wrapped(struct nk_context *context, const char *text, WenaWekanFont font, int color,
+                             float x, float y, float w, float h)
+{
+    const struct nk_user_font *face;
+    struct nk_command_buffer *out;
+    int length;
+    float line_y;
+    if (context == NULL || text == NULL || (face = wena_wekan_font(context, font)) == NULL ||
+        (out = nk_window_get_canvas(context)) == NULL) return;
+    for (line_y = y; *text != '\0' && line_y + face->height <= y + h + 0.5f; line_y += face->height + 4.0f) {
+        length = wrap_line(face, text, w);
+        nk_draw_text(out, nk_rect(x, line_y, w, face->height), text, length, face, nk_rgba(0, 0, 0, 0), color_of(color));
+        text += length;
+        while (*text == ' ' || *text == '\n') ++text;
+    }
 }
 
 int wena_wekan_button(struct nk_context *context, const char *text, int color)

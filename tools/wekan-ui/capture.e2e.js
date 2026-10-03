@@ -14,6 +14,9 @@ const OUT = process.env.WENA_CAPTURE_DIR || path.join(__dirname, 'capture');
 // Areas of the page, nearest first: a control belongs to the first that contains it.
 const REGIONS = [
   ['popup', '.js-pop-over'],
+  ['all-boards-menu', '.boards-left-menu'],
+  ['board-tile', '.js-board, .js-add-board'],
+  ['all-boards', '.boards-right-grid, .board-list'],
   ['card-details', '.js-card-details'],
   ['sidebar', '.sidebar.is-open, .board-sidebar.is-open'],
   ['composer', '.js-inlined-form, .js-card-composer, .list-composer'],
@@ -95,7 +98,12 @@ async function snapshot(page, name) {
       ['card-details-item-title', '.card-details-item-title'],
       ['popup', '.js-pop-over'], ['popup-header', '.js-pop-over .header'], ['popup-item', '.js-pop-over li a'],
       ['sidebar', '.sidebar.is-open, .board-sidebar.is-open'], ['button-primary', '.button.primary, button.primary, .js-submit, button[type=submit]'],
-      ['input', 'textarea, input[type=text]']]) {
+      ['input', 'textarea, input[type=text]'],
+      ['all-boards-menu', '.boards-left-menu'], ['all-boards-menu-item', '.boards-left-menu .menu-item a'],
+      ['all-boards-menu-active', '.boards-left-menu .menu-item.active a'],
+      ['all-boards-menu-count', '.boards-left-menu .menu-count'],
+      ['board-tile', '.js-board .board-list-item'], ['board-tile-title', '.js-board .board-list-item-name'],
+      ['add-board-tile', '.js-add-board .board-list-item'], ['pane-title', '.boards-right-grid h1, .pane-title, .boards-right-grid .title']]) {
       const el = [...document.querySelectorAll(selector)].find(visible);
       if (!el) continue;
       const r = el.getBoundingClientRect();
@@ -112,6 +120,14 @@ test('capture the WeKan board UI for the native desktop', async ({ boardPage: pa
   const [first] = board.listIds;
   await page.locator('.js-minicard').first().waitFor();
   await snapshot(page, '01-board');
+
+  // All Boards, WeKan's first page; then back to the board.
+  const boardUrl = page.url();
+  await page.goto('/');
+  await page.locator('.js-board, .js-add-board').first().waitFor();
+  await snapshot(page, '00-all-boards');
+  await page.goto(boardUrl);
+  await page.locator('.js-minicard').first().waitFor();
 
   await boards.openListMenu(first);
   await snapshot(page, '02-list-menu');

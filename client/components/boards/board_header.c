@@ -48,13 +48,20 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     width = area.w;
     wena_wekan_fill(context, area.x, area.y, area.w, area.h, WENA_WEKAN_HEADER, 0.0f);
 
-    /* First row: the board title at the left, as WeKan's .header-page-title. */
+    /* First row: All Boards' house when there is All Boards, then the board
+     * title, as WeKan's header (the title at x=81 after the house). */
+    if (info != NULL && info->all_boards) {
+        nk_layout_space_push(context, nk_rect(16.0f, 16.0f, 32.0f, 24.0f));
+        if (wena_wekan_icon_button(context, WENA_ICON_HOME, wena_ui_text(WENA_UI_TEXT_ALL_BOARDS), 18.0f,
+                                   WENA_WEKAN_HEADER_TEXT))
+            action |= WENA_BOARD_HEADER_ALL_BOARDS;
+    }
     title_width = text_width(context, WENA_WEKAN_FONT_BODY, board->title) + 4.0f;
     /* A vector decorator draws its icon before the title: room for both. */
     if (title_renderer && context->style.font != NULL)
         title_width += context->style.font->height * 1.5f + 6.0f;
     if (title_width > width * 0.5f) title_width = width * 0.5f;
-    nk_layout_space_push(context, nk_rect(16.0f, 14.0f, title_width, 28.0f));
+    nk_layout_space_push(context, nk_rect(info != NULL && info->all_boards ? 81.0f : 16.0f, 14.0f, title_width, 28.0f));
     if (title_renderer) title_renderer(context, board->title);
     else if (wena_wekan_link(context, WENA_ICON_NONE, board->title, WENA_WEKAN_FONT_BODY,
                              WENA_WEKAN_HEADER_TEXT))

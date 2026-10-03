@@ -106,6 +106,7 @@ typedef struct WenaBoardLayout {
     /* WeKan's header bar: the user and filter state it shows, and what was
      * clicked in it this frame (WENA_BOARD_HEADER_*), when not NULL. */
     const char *header_actor;
+    int header_all_boards;          /* WeKan's house to All Boards in the header */
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

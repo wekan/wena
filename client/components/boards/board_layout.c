@@ -672,6 +672,7 @@ int wena_board_layout_render(struct nk_context *context,
     if (layout->swimlane_resize != NULL) layout->swimlane_resize->hovered = 0;
     info.actor_name = layout->header_actor;
     info.filter_active = layout->header_filter_active;
+    info.all_boards = layout->header_all_boards;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {

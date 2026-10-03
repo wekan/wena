@@ -49,6 +49,7 @@
 #include "../server/wekan_sync.h"
 #include "../server/mutations/common.h"
 #include "platform/wekan_files.h"
+#include "components/boards/all_boards.h"
 #include "../imports/i18n/ui_catalog.h"
 #include "../imports/i18n/locale.h"
 #include "../imports/preferences/collapse.h"
@@ -726,6 +727,63 @@ unsigned long __stack = DESKTOP_STACK;
 #define DESKTOP_DEFAULT_BOARD "my-board"
 #define DESKTOP_DEFAULT_TITLE "My board"
 
+/* WeKan's "Add Board": the new board's title, then Add (or Enter). Returns 1
+ * with the title when added, -1 when closed. */
+typedef struct WenaDesktopAddBoard {
+    int visible, focus, length;
+    char title[WENA_NATIVE_EDIT_CAPACITY(WENA_TITLE_CAPACITY)];
+} WenaDesktopAddBoard;
+
+static int desktop_add_board(struct nk_context *context, WenaDesktopAddBoard *add, float width, float height)
+{
+    int result = 0;
+    unsigned int keys;
+    float w = width < 380.0f ? width : 380.0f;
+    if (!add->visible) return 0;
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+                             nk_style_item_color(nk_rgb(255, 255, 255)));
+    if (nk_begin(context, "Wena add board", nk_rect((width - w) / 2.0f, height * 0.25f, w, 150.0f),
+                 NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
+        nk_layout_row_begin(context, NK_DYNAMIC, 28.0f, 2);
+        nk_layout_row_push(context, 0.88f);
+        wena_wekan_text(context, wena_ui_text(WENA_UI_TEXT_ADD_BOARD), WENA_WEKAN_FONT_BOLD,
+                        WENA_WEKAN_POPUP_HEADER_TEXT, NK_TEXT_CENTERED);
+        nk_layout_row_push(context, 0.10f);
+        if (wena_wekan_icon_button(context, WENA_ICON_TIMES, wena_ui_text(WENA_UI_TEXT_CLOSE), 14.0f, WENA_WEKAN_ICON))
+            result = -1;
+        nk_layout_row_end(context);
+        nk_layout_row_dynamic(context, 34.0f, 1);
+        if (add->focus) { nk_edit_focus(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER); add->focus = 0; }
+        keys = wena_title_input_keys(context, nk_edit_string(context, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER,
+                                     add->title, &add->length, (int)sizeof(add->title), nk_filter_default));
+        nk_layout_row_begin(context, NK_STATIC, 32.0f, 1);
+        nk_layout_row_push(context, 80.0f);
+        if ((wena_wekan_button(context, wena_ui_text(WENA_UI_TEXT_ADD), WENA_WEKAN_BUTTON_ADD) ||
+             (keys & WENA_TITLE_INPUT_COMMIT) != 0u) && add->length > 0) {
+            add->title[add->length] = '\0';
+            if (wena_model_title_string_valid(add->title, WENA_TITLE_CAPACITY)) result = 1;
+        }
+        nk_layout_row_end(context);
+        if ((keys & WENA_TITLE_INPUT_CANCEL) != 0u) result = -1;
+    }
+    nk_end(context);
+    nk_style_pop_style_item(context);
+    if (result != 0) add->visible = 0;
+    return result;
+}
+
+static void desktop_display_name(sqlite3 *db, const char *actor, char *out, size_t capacity)
+{
+    sqlite3_stmt *query = NULL;
+    const unsigned char *name;
+    out[0] = '\0';
+    if (sqlite3_prepare_v2(db, "SELECT display_name FROM actors WHERE id = ?1", -1, &query, NULL) == SQLITE_OK &&
+        sqlite3_bind_text(query, 1, actor, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_ROW &&
+        (name = sqlite3_column_text(query, 0)) != NULL && strlen((const char *)name) < capacity)
+        strcpy(out, (const char *)name);
+    sqlite3_finalize(query);
+}
+
 /* WeKan's files: the board the user sees first - theirs, by title - or, in
  * a file without one, a new board with WeKan's "Default" swimlane, as WeKan
  * makes a new board. */
@@ -746,47 +804,6 @@ static int desktop_wekan_board(sqlite3 *db, const char *actor, char *board, size
     return ok;
 }
 
-static void desktop_meteor_id(char out[18])
-{
-    static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
-    unsigned char random[17];
-    int index;
-    sqlite3_randomness(17, random);
-    for (index = 0; index < 17; ++index) out[index] = alphabet[random[index] % (sizeof(alphabet) - 1)];
-    out[17] = '\0';
-}
-
-static int desktop_wekan_starter(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity)
-{
-    char lane[18];
-    sqlite3_stmt *query = NULL;
-    int ok;
-    if (capacity < 18) return 0;
-    desktop_meteor_id(board);
-    desktop_meteor_id(lane);
-    ok = sqlite3_exec(db, "BEGIN", NULL, NULL, NULL) == SQLITE_OK &&
-         sqlite3_prepare_v2(db, "INSERT INTO boards(id, title, version) VALUES (?1, ?2, 1)", -1, &query, NULL) == SQLITE_OK &&
-         sqlite3_bind_text(query, 1, board, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_text(query, 2, title, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
-    sqlite3_finalize(query); query = NULL;
-    ok = ok && sqlite3_prepare_v2(db, "INSERT INTO swimlanes(id, board_id, title, position, version) "
-        "VALUES (?1, ?2, 'Default', 0, 1)", -1, &query, NULL) == SQLITE_OK &&
-         sqlite3_bind_text(query, 1, lane, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_text(query, 2, board, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
-    sqlite3_finalize(query);
-    if (!ok) { sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL); return 0; }
-    if (sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) return 0;
-    /* Written with its creator as its admin (a board without member rows is
-     * exported so), then the membership Wena keeps: the export merges it with
-     * the written member, which stays as it is. */
-    if (wena_wekan_sync_export(db, actor) < 0) return 0;
-    ok = sqlite3_prepare_v2(db, "INSERT INTO board_members(board_id, actor_id, active, version, created_at, "
-        "updated_at) VALUES (?1, ?2, 1, 1, 0, 0)", -1, &query, NULL) == SQLITE_OK &&
-         sqlite3_bind_text(query, 1, board, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_text(query, 2, actor, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(query) == SQLITE_DONE;
-    sqlite3_finalize(query);
-    return ok;
-}
 
 static void desktop_usage(FILE *output)
 {
@@ -806,8 +823,9 @@ static void desktop_usage(FILE *output)
           "--dependency-info reports linked libraries without opening a workspace.\n"
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
-    fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST or sidebar\n"
-          "(with --smoke or --screenshot), as WeKan's UI capture does.\n", output);
+    fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
+          "all-boards or open:BOARD (a board chosen on All Boards) first, with --smoke or\n"
+          "--screenshot, as WeKan's UI capture does.\n", output);
 }
 
 /* The frame drawn so far, read back from the renderer before it is shown. */
@@ -956,6 +974,13 @@ int DESKTOP_MAIN(int argc, char **argv)
     int wekan_mode;
     char wekan_actor[WENA_ID_CAPACITY], wekan_board[WENA_ID_CAPACITY];
     int synced_changes;
+    /* WeKan's All Boards page, the first page in WeKan's files. */
+    int all_boards_page, tiles_stale;
+    WenaAllBoardsView all_boards_view;
+    WenaWekanBoardTile *tiles;
+    size_t tile_count;
+    WenaDesktopAddBoard add_board;
+    char next_board[WENA_ID_CAPACITY], session_board[WENA_ID_CAPACITY], user_name[WENA_TITLE_CAPACITY];
     char executable[WENA_EXECUTABLE_PATH_CAPACITY];
     char language_path[512], detected_locale[64];
     char collapse_path[WENA_EXECUTABLE_PATH_CAPACITY];
@@ -1030,6 +1055,10 @@ int DESKTOP_MAIN(int argc, char **argv)
     board_title = NULL; requested_language = NULL;
     smoke = 0; create_workspace = 0; screenshot = NULL; show = NULL;
     wekan_mode = 0; wekan_actor[0] = wekan_board[0] = '\0'; synced_changes = 0;
+    all_boards_page = 0; tiles_stale = 1; tiles = NULL; tile_count = 0;
+    memset(&all_boards_view, 0, sizeof(all_boards_view));
+    memset(&add_board, 0, sizeof(add_board));
+    next_board[0] = session_board[0] = user_name[0] = '\0';
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--smoke") && !smoke) smoke = 1;
         /* A smoke run whose last frame is kept: UI comparisons with WeKan. */
@@ -1166,7 +1195,7 @@ int DESKTOP_MAIN(int argc, char **argv)
         actor_id = wekan_actor;
         if (board_id == NULL) {
             if (!desktop_wekan_board(database, actor_id, wekan_board, sizeof(wekan_board))) {
-                if (!desktop_wekan_starter(database, actor_id, DESKTOP_DEFAULT_TITLE, wekan_board, sizeof(wekan_board)) ||
+                if (!wena_wekan_sync_new_board(database, actor_id, DESKTOP_DEFAULT_TITLE, wekan_board, sizeof(wekan_board)) ||
                     wena_wekan_sync_export(database, actor_id) < 0) {
                     wena_debug_log("new board in %s: %s", database_path, wena_wekan_sync_error());
                     DESKTOP_FAIL();
@@ -1184,6 +1213,11 @@ int DESKTOP_MAIN(int argc, char **argv)
             DESKTOP_FAIL();
         }
         wena_debug_log("user %s, board %s", actor_id, board_id);
+        tiles = (WenaWekanBoardTile *)calloc(WENA_WEKAN_TILE_CAPACITY, sizeof(*tiles));
+        if (tiles == NULL) DESKTOP_FAIL();
+        desktop_display_name(database, actor_id, user_name, sizeof(user_name));
+        all_boards_page = board_id == wekan_board &&
+            (show == NULL || !strcmp(show, "all-boards") || !strncmp(show, "open:", 5));
     } else {
         if (create_workspace) {
             seed.actor_id = actor_id; seed.actor_name = actor_id;
@@ -1226,6 +1260,7 @@ int DESKTOP_MAIN(int argc, char **argv)
             languages, language_count)) DESKTOP_FAIL();
     if (!wena_language_picker_init(&language_picker, &language, language_path,
         smoke || language_path[0] == '\0')) DESKTOP_FAIL();
+board_session:
     single_selection=(WenaCardSelection*)calloc(1,sizeof(*single_selection));
     if(!single_selection)DESKTOP_FAIL();
     wena_card_selection_panel_init(&editors.card_transfer,single_selection);
@@ -1297,6 +1332,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     layout.toolbar_context = &toolbar;
     layout.swimlane_interaction = &swimlane_interaction;
     layout.header_actor = actor_id;
+    layout.header_all_boards = wekan_mode;
     layout.header_actions = &toolbar.header_actions;
     layout.card_drag_area = desktop_card_drag_area;
     layout.list_drag_area = desktop_list_drag_area;
@@ -1399,6 +1435,8 @@ int DESKTOP_MAIN(int argc, char **argv)
                                             wena_card_mutation_save, &mutation);
         wena_card_details_set_archive_adapter(&editors.details, wena_card_mutation_archive);
     }
+    /* Once: a board switch comes back to board_session with the window open. */
+    if (window != NULL) goto window_ready;
     if (SDL_Init(SDL_INIT_VIDEO) != 0) DESKTOP_FAIL();
     sdl_started = 1;
     window = SDL_CreateWindow("WeKan Native", SDL_WINDOWPOS_CENTERED,
@@ -1461,6 +1499,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     /* Up-down arrows over the bar between swimlanes; optional decoration. */
     resize_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
     arrow_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+window_ready:
     wena_debug_log("window open, board %s loaded%s", board_id, smoke ? " (smoke)" : "");
     running = 1; frames = 0;
     while (running) {
@@ -1501,6 +1540,11 @@ int DESKTOP_MAIN(int argc, char **argv)
                 strcpy(add.swimlane_id, snapshot->swimlanes[0].id);
                 (void)wena_card_create_open(&editors.create, &layout, &add);
             } else if (!strcmp(show, "sidebar")) sidebar.visible = 1;
+            else if (!strncmp(show, "open:", 5) && all_boards_page && strlen(id) < sizeof(next_board)) {
+                /* A tile chosen on All Boards: the same switch a click makes. */
+                if (!strcmp(id, board_id)) all_boards_page = 0;
+                else { strcpy(next_board, id); running = 0; }
+            } else if (!strcmp(show, "all-boards")) {}
             else wena_debug_log("--show %s: nothing to show", show);
         }
         SDL_GetWindowSize(window, &width, &height);
@@ -1526,6 +1570,56 @@ int DESKTOP_MAIN(int argc, char **argv)
             }
         }
 #endif
+        if (all_boards_page && width > 0 && height > 0 && !paused) {
+            char chosen[WENA_ID_CAPACITY], made[WENA_ID_CAPACITY];
+            unsigned int page_action;
+            int added;
+            if (tiles_stale) {
+                tile_count = 0;
+                if (!wena_wekan_sync_boards(database, actor_id, tiles, WENA_WEKAN_TILE_CAPACITY, &tile_count))
+                    wena_debug_log("All Boards: %s", wena_wekan_sync_error());
+                tiles_stale = 0;
+            }
+            wena_ui_controls_begin();
+            page_action = wena_all_boards_render(context, &all_boards_view, tiles, tile_count, user_name,
+                                                 (float)width, (float)height, chosen, sizeof(chosen));
+            added = desktop_add_board(context, &add_board, (float)width, (float)height);
+            if ((page_action & WENA_ALL_BOARDS_ADD) != 0u) {
+                add_board.visible = 1; add_board.focus = 1; add_board.length = 0; add_board.title[0] = '\0';
+            }
+            if ((page_action & WENA_ALL_BOARDS_STAR) != 0u && !smoke) {
+                size_t index;
+                for (index = 0; index < tile_count; ++index)
+                    if (!strcmp(tiles[index].id, chosen) &&
+                        !wena_wekan_sync_star(database, actor_id, chosen, !tiles[index].starred))
+                        wena_debug_log("star %s: %s", chosen, wena_wekan_sync_error());
+                tiles_stale = 1;
+            }
+            if (added > 0 && !smoke) {
+                if (wena_wekan_sync_new_board(database, actor_id, add_board.title, made, sizeof(made))) {
+                    strcpy(next_board, made);
+                    running = 0;
+                } else wena_debug_log("new board: %s", wena_wekan_sync_error());
+                tiles_stale = 1;
+            }
+            if ((page_action & WENA_ALL_BOARDS_OPEN) != 0u) {
+                if (!strcmp(chosen, board_id)) all_boards_page = 0;
+                else { strcpy(next_board, chosen); running = 0; }
+            }
+            if (SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255) != 0 || SDL_RenderClear(renderer) != 0)
+                DESKTOP_FAIL();
+            nk_sdl_render(NK_ANTI_ALIASING_ON);
+            if (screenshot != NULL && frames == 2 && !desktop_screenshot(renderer, screenshot)) DESKTOP_FAIL();
+            SDL_RenderPresent(renderer);
+            if (wekan_mode && sqlite3_total_changes(database) != synced_changes) {
+                if (wena_wekan_sync_export(database, actor_id) < 0)
+                    wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
+                synced_changes = sqlite3_total_changes(database);
+            }
+            if (smoke) { ++frames; if (frames >= 3) running = 0; }
+            if (!smoke) SDL_Delay(16);
+            continue;
+        }
         if (width > 0 && height > 0 && !paused) {
             opened_panel = DESKTOP_PANEL_NONE;
             if(selection->count)(void)wena_card_selection_sync(selection,snapshot->cards,snapshot->card_count);
@@ -1561,6 +1655,10 @@ int DESKTOP_MAIN(int argc, char **argv)
                 if (menu_panel != DESKTOP_PANEL_NONE) opened_panel = menu_panel;
                 /* WeKan's header: the title renames, Filter opens its panel,
                  * the user's name its menu. */
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_ALL_BOARDS) != 0u) {
+                    all_boards_page = 1;
+                    tiles_stale = 1;
+                }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_RENAME) != 0u)
                     toolbar.actions |= DESKTOP_RENAME_BOARD;
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_FILTER) != 0u)
@@ -1886,9 +1984,52 @@ int DESKTOP_MAIN(int argc, char **argv)
         }
         if (!smoke) SDL_Delay(16);
     }
+    /* Another board from All Boards: this one's state goes, the window and
+     * the database stay, and the board session starts again with it. */
+    if (next_board[0] != '\0') {
+        if (wekan_mode && sqlite3_total_changes(database) != synced_changes &&
+            wena_wekan_sync_export(database, actor_id) < 0)
+            wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
+        desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
+        wena_card_move_close(&editors.move);
+        wena_card_drag_cancel(&preview.card_drag);
+        wena_card_destination_close(&checklist_destination);
+        wena_board_presentation_close(&label_view);
+        free(selection_traversal); free(selection); free(single_selection);
+        selection_traversal = NULL; selection = NULL; single_selection = NULL;
+        memset(&layout, 0, sizeof(layout));
+        memset(&preview, 0, sizeof(preview));
+        memset(&editors, 0, sizeof(editors));
+        memset(&card_interaction, 0, sizeof(card_interaction));
+        memset(&list_interaction, 0, sizeof(list_interaction));
+        memset(&swimlane_interaction, 0, sizeof(swimlane_interaction));
+        memset(&label_view, 0, sizeof(label_view));
+        memset(&swimlane_resize, 0, sizeof(swimlane_resize));
+        {
+            /* The toolbar keeps the language; the rest is the board's. */
+            WenaLanguagePicker *language_kept = toolbar.language;
+            memset(&toolbar, 0, sizeof(toolbar));
+            toolbar.language = language_kept;
+        }
+        strcpy(session_board, next_board);
+        next_board[0] = '\0';
+        board_id = session_board;
+        if (!wena_sqlite_board_load(database, board_id, snapshot)) {
+            wena_debug_log("board %s is not there", board_id);
+            DESKTOP_FAIL();
+        }
+        all_boards_page = 0;
+        tiles_stale = 1;
+        wena_debug_log("board %s", board_id);
+        goto board_session;
+    }
     status = 0;
 cleanup:
     if (status != 0 && sdl_started && SDL_GetError()[0] != '\0') wena_debug_log("SDL: %s", SDL_GetError());
+    if (wekan_mode && database != NULL && sqlite3_total_changes(database) != synced_changes &&
+        wena_wekan_sync_export(database, actor_id) < 0)
+        wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
+    free(tiles);
     wena_card_drag_cancel(&preview.card_drag);
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);

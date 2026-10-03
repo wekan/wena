@@ -1,6 +1,34 @@
 # Upcoming Wena release
 
 <details>
+<summary>Wena opens on WeKan's All Boards page, and goes from board to board in one window</summary>
+
+- With WeKan's files, the first page is All Boards as WeKan draws it
+  (`client/components/boards/all_boards.c`, measured from WeKan's own page,
+  `tests/fixtures/wekan-ui/00-all-boards.json`): the header with the house
+  and the user, the left menu of sections - Remaining, Starred, Home,
+  Templates, Archive - with their counts, and the boards as tiles in their
+  board color, "Add Board" first, each with its star.
+- The boards are the user's from WeKan's documents: their own and template
+  containers, archived ones in Archive, starred ones from the user's
+  `profile.starredBoards` - which the star writes, one level into the
+  user's profile with FerretDB's types. "Add Board" makes a board as WeKan
+  does, with its "Default" swimlane and the user its admin.
+- A tile opens its board; the house before the board's title goes back.
+  Opening another board releases the board's state and starts its session
+  again in the same window, with the same database.
+- `--show all-boards` and `--show open:BOARD` (a tile chosen) with
+  `--screenshot` or `--smoke`.
+- Tests: `all-boards` (sections, counts, open, star, Add Board, the archived
+  and Home negatives, colors), `wekan-sync` (the board list, stars, a new
+  board) and `desktop` (the files layout, FerretDB's metadata, the first
+  run's admin and board, reopening, a board switch, All Boards drawn).
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Wena keeps WeKan's own files: wekan-files/db/wekan.sqlite as FerretDB writes it, a drop-in for WeKan's bundles</summary>
 
 - Opened without a workspace (double-clicked, or 2) Run), Wena uses WeKan's

@@ -159,6 +159,45 @@ int main(int argc, char **argv)
     x(db, "DROP TRIGGER fdb.refuse");
     assert(wena_wekan_sync_export(db, "u1") == 1);
 
+    /* All Boards: Ada's boards - the one she can open, an archived one, a
+     * template container - and not those she is no member of or WeKan's
+     * helper boards; starring writes her profile.starredBoards. */
+    {
+        WenaWekanBoardTile tiles[8];
+        size_t count;
+        char made[64];
+        doc(db, "boards", "{\"_id\":\"arch\",\"title\":\"Archived one\",\"type\":\"board\",\"archived\":true,"
+            "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
+        doc(db, "boards", "{\"_id\":\"tc\",\"title\":\"Templates\",\"type\":\"template-container\","
+            "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
+        doc(db, "boards", "{\"_id\":\"help\",\"title\":\"^Templates^\",\"type\":\"board\","
+            "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
+        doc(db, "boards", "{\"_id\":\"other\",\"title\":\"Bobs\",\"type\":\"board\","
+            "\"members\":[{\"userId\":\"u2\",\"isAdmin\":true,\"isActive\":true}]}");
+        doc(db, "boards", "{\"_id\":\"left\",\"title\":\"Left\",\"type\":\"board\","
+            "\"members\":[{\"userId\":\"u1\",\"isAdmin\":false,\"isActive\":false}]}");
+        assert(wena_wekan_sync_boards(db, "u1", tiles, 8, &count) && count == 3);
+        assert(!strcmp(tiles[0].id, "arch") && tiles[0].archived && !tiles[0].openable);
+        assert(!strcmp(tiles[1].id, "b1") && tiles[1].openable && !strcmp(tiles[1].color, "belize") && !tiles[1].starred);
+        assert(!strcmp(tiles[2].id, "tc") && tiles[2].template_board);
+        assert(wena_wekan_sync_star(db, "u1", "b1", 1) && wena_wekan_sync_star(db, "u1", "tc", 1));
+        assert(wena_wekan_sync_boards(db, "u1", tiles, 8, &count) && tiles[1].starred && tiles[2].starred);
+        assert(wena_wekan_sync_star(db, "u1", "b1", 0));
+        assert(!strcmp(q(db, "SELECT _ferretdb_sjson -> '$.profile' FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u1\"'"),
+                       "{\"fullname\":\"Ada L\",\"starredBoards\":[\"tc\"]}"));
+        /* Negative: a user without a profile object is not given a broken one. */
+        assert(!wena_wekan_sync_star(db, "u2", "b1", 1));
+        /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
+        assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
+        assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));
+        assert(wena_wekan_sync_boards(db, "u1", tiles, 8, &count) && count == 4 && !strcmp(tiles[2].title, "Fresh") &&
+               tiles[2].openable);
+        assert(!strcmp(q(db, "SELECT (x->>'type') || (x -> '$.members[0].isAdmin') || (x->>'slug') || "
+                             "(SELECT y->>'title' FROM (SELECT _ferretdb_sjson AS y FROM fdb.swimlanes_d9d57a4c) "
+                             "WHERE y->>'boardId' = x->>'_id') FROM (SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) "
+                             "WHERE x->>'title' = 'Fresh'"), "boardtruefreshDefault"));
+        assert(wena_wekan_sync_export(db, "u1") == 0);
+    }
     /* The user: asked for by username, else the admin, and one is made in a
      * file without users. */
     assert(wena_wekan_sync_user(db, "bob", user, sizeof(user)) && !strcmp(user, "u2"));

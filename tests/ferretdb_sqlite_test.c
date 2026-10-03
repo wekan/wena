@@ -98,6 +98,26 @@ int main(int argc, char **argv)
     assert(!wena_ferretdb_update(db, "main", "boards_7c666488", "b1", fields, 1));
     fields[0].key = "title";
     assert(!wena_ferretdb_update(db, "main", "boards_7c666488", "missing", fields, 1));
+    /* One level into an object: the field and its type go into the object's
+     * own "$s" - as WeKan's users.profile.starredBoards. */
+    fields[0].key = "profile";
+    fields[0].element = "{\"t\":\"object\",\"$s\":{\"p\":{\"fullname\":{\"t\":\"string\"}},\"$k\":[\"fullname\"]}}";
+    fields[0].value = "{\"fullname\":\"Ada\"}";
+    assert(wena_ferretdb_update(db, "main", "boards_7c666488", "b1", fields, 1));
+    fields[0].key = "profile.starredBoards";
+    fields[0].element = "{\"t\":\"array\",\"i\":[{\"t\":\"string\"}]}";
+    fields[0].value = "[\"b1\"]";
+    assert(wena_ferretdb_update(db, "main", "boards_7c666488", "b1", fields, 1));
+    assert(!strcmp(scalar(db, "SELECT (_ferretdb_sjson -> 'profile') || (_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".\"$k\"') "
+                              "|| (_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.starredBoards.t') FROM boards_7c666488"),
+                   "{\"fullname\":\"Ada\",\"starredBoards\":[\"b1\"]}[\"fullname\",\"starredBoards\"]\"array\""));
+    /* Negative: no parent object to put it in, two levels, and unset of a nested field. */
+    fields[0].key = "missing.child";
+    assert(!wena_ferretdb_update(db, "main", "boards_7c666488", "b1", fields, 1));
+    fields[0].key = "profile.a.b";
+    assert(!wena_ferretdb_update(db, "main", "boards_7c666488", "b1", fields, 1));
+    removed[0] = "profile.fullname";
+    assert(!wena_ferretdb_unset(db, "main", "boards_7c666488", "b1", removed, 1));
     /* The _id lookup uses FerretDB's index. */
     assert(strstr(scalar(db, "EXPLAIN QUERY PLAN SELECT 1 FROM boards_7c666488 WHERE _ferretdb_sjson->'_id' = json_quote('b1')"),
                   "USING INDEX boards_7c666488__id_") != NULL);

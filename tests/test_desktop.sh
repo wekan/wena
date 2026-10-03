@@ -368,5 +368,67 @@ if sys.platform.startswith('linux'):
     print('Linux real SDL sidebar/create, hierarchy move, descriptions, checklists, labels and scoped collapse persistence passed')
 else:
     print('Linux LD_PRELOAD event regression not applicable to this platform')
+# WeKan's files: without a workspace and without WENA_DATABASE the desktop
+# opens WRITABLE_PATH (with "files" added) as a WeKan FerretDB bundle keeps it,
+# on All Boards; a new file gets an admin and a starter board.
+wekan_root = directory / 'wekan-root'
+wekan_env = dict(env, WRITABLE_PATH=str(wekan_root), WENA_LOG_DIR=str(directory / 'wekan-logs'))
+wekan_env.pop('WENA_DATABASE', None)
+run = subprocess.run([exe, '--smoke'], env=wekan_env, capture_output=True, text=True, timeout=30)
+assert run.returncode == 0, (run.stdout, run.stderr)
+files = wekan_root / 'files'
+for folder in ('attachments', 'avatars', 'db'):
+    assert (files / folder).is_dir(), folder
+wekan_db = files / 'db' / 'wekan.sqlite'
+with sqlite3.connect(wekan_db) as db:
+    tables = dict(db.execute('SELECT name, table_name FROM _ferretdb_collections').fetchall())
+    assert tables['boards'] == 'boards_7c666488' and tables['cards'] == 'cards_81f16044', tables
+    assert db.execute("SELECT sql FROM sqlite_schema WHERE name='boards_7c666488__id_'").fetchone()[0] == \
+        'CREATE UNIQUE INDEX "boards_7c666488__id_" ON "boards_7c666488" (_ferretdb_sjson->"_id")'
+    user = db.execute("SELECT _ferretdb_sjson->>'_id', _ferretdb_sjson->>'username', "
+                      "_ferretdb_sjson->>'isAdmin' FROM users_5e7cc513").fetchall()
+    assert len(user) == 1 and user[0][1] == 'admin' and user[0][2] == 1, user
+    first = db.execute("SELECT _ferretdb_sjson->>'_id', _ferretdb_sjson->>'title', _ferretdb_sjson->'members' "
+                       "FROM boards_7c666488").fetchall()
+    assert len(first) == 1 and first[0][1] == 'My board', first
+    assert json.loads(first[0][2]) == [{'userId': user[0][0], 'isAdmin': True, 'isActive': True,
+                                        'isNoComments': False, 'isCommentOnly': False, 'isWorker': False}]
+    assert db.execute("SELECT _ferretdb_sjson->>'title' FROM swimlanes_d9d57a4c").fetchone()[0] == 'Default'
+log = (directory / 'wekan-logs' / 'desktop.log').read_text()
+assert "WeKan's files in " + str(files) in log and 'made board' in log, log
+# Opened again: the same board, no second one.
+run = subprocess.run([exe, '--smoke'], env=wekan_env, capture_output=True, text=True, timeout=30)
+assert run.returncode == 0, run.stderr
+with sqlite3.connect(wekan_db) as db:
+    assert db.execute('SELECT count(*) FROM boards_7c666488').fetchone()[0] == 1
+# A second board WeKan made, chosen on All Boards: the board session starts
+# again on it in the same window.
+second = ('{"$s":{"p":{"_id":{"t":"string"},"title":{"t":"string"},"type":{"t":"string"},"members":{"t":"array",'
+          '"i":[{"t":"object","$s":{"p":{"userId":{"t":"string"},"isAdmin":{"t":"bool"},"isActive":{"t":"bool"}},'
+          '"$k":["userId","isAdmin","isActive"]}}]}},"$k":["_id","title","type","members"]},"_id":"second-board",'
+          '"title":"Another","type":"board","members":[{"userId":"' + user[0][0] + '","isAdmin":true,"isActive":true}]}')
+lane = ('{"$s":{"p":{"_id":{"t":"string"},"title":{"t":"string"},"boardId":{"t":"string"}},'
+        '"$k":["_id","title","boardId"]},"_id":"second-lane","title":"Default","boardId":"second-board"}')
+with sqlite3.connect(wekan_db) as db:
+    db.execute('INSERT INTO boards_7c666488 VALUES (?)', (second,))
+    db.execute('INSERT INTO swimlanes_d9d57a4c VALUES (?)', (lane,))
+(directory / 'wekan-logs' / 'desktop.log').unlink()
+# "Another" comes first by title, so the session starts on it; "My board"
+# is the other one.
+run = subprocess.run([exe, '--smoke', '--show', 'open:' + first[0][0]], env=wekan_env, capture_output=True,
+                     text=True, timeout=30)
+assert run.returncode == 0, (run.stdout, run.stderr)
+log = (directory / 'wekan-logs' / 'desktop.log').read_text()
+assert 'user ' + user[0][0] + ', board second-board' in log, log
+assert 'board ' + first[0][0] + '\n' in log and log.count('window open') == 2, log
+# All Boards, drawn: the page a WeKan bundle opens on.
+shot = directory / 'all-boards.bmp'
+run = subprocess.run([exe, '--screenshot', str(shot)], env=wekan_env, capture_output=True, text=True, timeout=30)
+assert run.returncode == 0 and shot.stat().st_size > 1000, run.stderr
+# Negative: a relative WRITABLE_PATH makes nothing.
+run = subprocess.run([exe, '--smoke'], env=dict(wekan_env, WRITABLE_PATH='relative/path'),
+                     capture_output=True, text=True, timeout=30)
+assert run.returncode != 0 and not Path('relative').exists()
+print("WeKan's files: wekan-files layout, FerretDB metadata, admin and starter board, reopening, a board switch and All Boards passed")
 print('Desktop smoke, long paths, explicit initialization, canonical locale seeds and negative startup checks passed')
 PY

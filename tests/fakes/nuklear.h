@@ -14,7 +14,7 @@ enum nk_keys { NK_KEY_ENTER, NK_KEY_TEXT_RESET_MODE };
 enum nk_buttons { NK_BUTTON_LEFT, NK_BUTTON_MIDDLE, NK_BUTTON_RIGHT };
 enum nk_widget_layout_states { NK_WIDGET_INVALID, NK_WIDGET_VALID };
 struct nk_mouse_button { int down; unsigned int clicked; struct nk_vec2 clicked_pos; };
-struct nk_mouse { struct nk_vec2 pos; struct nk_mouse_button buttons[3]; };
+struct nk_mouse { struct nk_vec2 pos; struct nk_mouse_button buttons[3]; struct nk_vec2 scroll_delta; };
 struct nk_input { unsigned int pressed_keys; struct nk_mouse mouse; };
 
 /* What WeKan's board look (client/components/common/wekan_look.c) reads of

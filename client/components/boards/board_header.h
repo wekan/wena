@@ -14,11 +14,13 @@ struct nk_context;
 #define WENA_BOARD_HEADER_RENAME 2u        /* the board title */
 #define WENA_BOARD_HEADER_FILTER 4u
 #define WENA_BOARD_HEADER_MEMBER_MENU 8u   /* the user's name */
+#define WENA_BOARD_HEADER_ALL_BOARDS 16u   /* the house before the title */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
     const char *actor_name;   /* NULL hides the user */
     int filter_active;        /* "Filter is on" */
+    int all_boards;           /* WeKan's house to All Boards before the title */
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

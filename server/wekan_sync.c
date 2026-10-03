@@ -855,3 +855,132 @@ int wena_wekan_sync_user(sqlite3 *db, const char *wanted, char *id, size_t capac
         return 1;
     }
 }
+
+/* All Boards ------------------------------------------------------------ */
+
+static const char *const boards_query[] = {
+    "SELECT " ID ", wena_title(x->>'title', 128), coalesce(x->>'color', 'belize'), ",
+    "CASE WHEN coalesce(x->>'archived', 0) THEN 1 ELSE 0 END, ",
+    "CASE WHEN " ID " IN (SELECT s.value FROM {users} u, json_each(u._ferretdb_sjson, '$.profile.starredBoards') s ",
+    "WHERE u._ferretdb_sjson->'_id' = json_quote(?1)) THEN 1 ELSE 0 END, ",
+    "CASE WHEN x->>'type' = 'template-container' THEN 1 ELSE 0 END, ",
+    "CASE WHEN " ID " IN (SELECT id FROM boards) THEN 1 ELSE 0 END ",
+    "FROM (SELECT _ferretdb_sjson AS x FROM {boards}) WHERE " VALID_ID(ID),
+    " AND coalesce(x->>'type', 'board') IN ('board', 'template-container') ",
+    "AND (coalesce(x->>'title', '') NOT GLOB '^*^' OR coalesce(x->>'archived', 0)) ",
+    "AND EXISTS (SELECT 1 FROM json_each(x, '$.members') m WHERE m.value->>'userId' = ?1 ",
+    "AND coalesce(m.value->>'isActive', 1)) ORDER BY lower(x->>'title'), " ID,
+    NULL};
+
+int wena_wekan_sync_boards(sqlite3 *db, const char *actor, WenaWekanBoardTile *tiles, size_t capacity,
+                           size_t *count)
+{
+    char joined[4096], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    size_t found = 0;
+    int step;
+    if (db == NULL || actor == NULL || tiles == NULL || count == NULL || !join(boards_query, joined, sizeof(joined)) ||
+        !expand(db, joined, sql, sizeof(sql)) || sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK)
+        return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW && found < capacity) {
+        WenaWekanBoardTile *tile = &tiles[found];
+        const char *id = (const char *)sqlite3_column_text(statement, 0);
+        const char *title = (const char *)sqlite3_column_text(statement, 1);
+        const char *color = (const char *)sqlite3_column_text(statement, 2);
+        if (id == NULL || title == NULL || strlen(id) >= sizeof(tile->id) || strlen(title) >= sizeof(tile->title))
+            continue;
+        strcpy(tile->id, id);
+        strcpy(tile->title, title);
+        tile->color[0] = '\0';
+        if (color != NULL && strlen(color) < sizeof(tile->color)) strcpy(tile->color, color);
+        tile->archived = sqlite3_column_int(statement, 3);
+        tile->starred = sqlite3_column_int(statement, 4);
+        tile->template_board = sqlite3_column_int(statement, 5);
+        tile->openable = sqlite3_column_int(statement, 6);
+        ++found;
+    }
+    sqlite3_finalize(statement);
+    if (step != SQLITE_ROW && step != SQLITE_DONE) return 0;
+    *count = found;
+    return 1;
+}
+
+int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int starred)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[1024];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField field;
+    char *value = NULL, *element = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || board == NULL || !table_of(db, "users", table)) return 0;
+    /* The stars without this board, and with it at the end when starring. */
+    sprintf(sql, "SELECT json_group_array(value), wena_sjson_element(json_group_array(value)) FROM ("
+                 "SELECT s.value FROM " WENA_WEKAN_SCHEMA ".\"%s\" u, json_each(u._ferretdb_sjson, "
+                 "'$.profile.starredBoards') s WHERE u._ferretdb_sjson->'_id' = json_quote(?1) AND s.value <> ?2 "
+                 "UNION ALL SELECT ?2 WHERE ?3)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(statement, 3, starred != 0);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        value = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+        element = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+    }
+    sqlite3_finalize(statement);
+    if (value != NULL && element != NULL) {
+        field.key = "profile.starredBoards";
+        field.element = element;
+        field.value = value;
+        ok = wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+    }
+    sqlite3_free(value);
+    sqlite3_free(element);
+    return ok;
+}
+
+static void meteor_id(char out[18])
+{
+    static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
+    unsigned char random[17];
+    int index;
+    sqlite3_randomness(17, random);
+    for (index = 0; index < 17; ++index) out[index] = alphabet[random[index] % (sizeof(alphabet) - 1)];
+    out[17] = '\0';
+}
+
+static int insert_row(sqlite3 *db, const char *sql, const char *a, const char *b, const char *c)
+{
+    sqlite3_stmt *statement = NULL;
+    int ok = sqlite3_prepare_v2(db, sql, -1, &statement, NULL) == SQLITE_OK &&
+             sqlite3_bind_text(statement, 1, a, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+             (b == NULL || sqlite3_bind_text(statement, 2, b, -1, SQLITE_TRANSIENT) == SQLITE_OK) &&
+             (c == NULL || sqlite3_bind_text(statement, 3, c, -1, SQLITE_TRANSIENT) == SQLITE_OK) &&
+             sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity)
+{
+    char lane[18], id[18];
+    if (db == NULL || actor == NULL || title == NULL || board == NULL || capacity < sizeof(id)) return 0;
+    meteor_id(id);
+    meteor_id(lane);
+    if (!exec(db, "SAVEPOINT wena_new_board")) return 0;
+    if (!insert_row(db, "INSERT INTO boards(id, title, version) VALUES (?1, wena_title(?2, 128), 1)", id, title, NULL) ||
+        !insert_row(db, "INSERT INTO swimlanes(id, board_id, title, position, version) VALUES (?1, ?2, 'Default', 0, 1)",
+                    lane, id, NULL)) {
+        exec(db, "ROLLBACK TO wena_new_board");
+        exec(db, "RELEASE wena_new_board");
+        return 0;
+    }
+    /* Written with its creator as admin - a board without member rows is
+     * exported so - then the membership Wena keeps, which the export merges
+     * with that member and so leaves as it is. */
+    if (!exec(db, "RELEASE wena_new_board") || wena_wekan_sync_export(db, actor) < 0 ||
+        !insert_row(db, "INSERT INTO board_members(board_id, actor_id, active, version, created_at, updated_at) "
+                        "VALUES (?1, ?2, 1, 1, 0, 0)", id, actor, NULL)) return 0;
+    strcpy(board, id);
+    return 1;
+}

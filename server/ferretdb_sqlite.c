@@ -36,14 +36,21 @@ static int plain(const char *name)
     return name != NULL && name[0] != '\0' && strchr(name, '"') == NULL && strlen(name) < 128;
 }
 
-/* A top-level field name used inside a JSON path. */
+/* A field name used inside a JSON path: a top-level one, or "parent.child"
+ * one level into an object. */
 static int field_name(const char *key)
 {
     const char *c;
-    if (key == NULL || key[0] == '\0' || strlen(key) > 100) return 0;
-    for (c = key; *c != '\0'; ++c)
+    int dots = 0;
+    if (key == NULL || key[0] == '\0' || key[0] == '.' || strlen(key) > 100) return 0;
+    for (c = key; *c != '\0'; ++c) {
+        if (*c == '.') {
+            if (++dots > 1 || c[1] == '\0') return 0;
+            continue;
+        }
         if (!((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9') ||
               *c == '_' || *c == '$' || *c == '-')) return 0;
+    }
     return 1;
 }
 
@@ -148,27 +155,42 @@ int wena_ferretdb_collection(sqlite3 *db, const char *schema, const char *collec
 }
 
 /* One field set: its type in "$s".p, its value, and its name at the end of
- * "$k" when it is new. */
+ * "$k" when it is new. "parent.child" does the same in the parent object's
+ * own "$s"; the parent must already be an object with fields. */
 static int set_field(sqlite3 *db, const char *schema, const char *table, const char *id,
                      const WenaFerretField *field)
 {
-    char sql[1400];
+    char sql[1800], value_path[240], type_path[280], order_path[240], parent[110];
+    const char *dot, *name;
     sqlite3_stmt *statement = NULL;
     int ok;
     if (!field_name(field->key) || field->element == NULL || field->value == NULL) return 0;
+    dot = strchr(field->key, '.');
+    if (dot == NULL) {
+        sprintf(value_path, "$.\"%s\"", field->key);
+        sprintf(type_path, "$.\"$s\".p.\"%s\"", field->key);
+        strcpy(order_path, "$.\"$s\".\"$k\"");
+        name = field->key;
+    } else {
+        memcpy(parent, field->key, (size_t)(dot - field->key));
+        parent[dot - field->key] = '\0';
+        name = dot + 1;
+        sprintf(value_path, "$.\"%s\".\"%s\"", parent, name);
+        sprintf(type_path, "$.\"$s\".p.\"%s\".\"$s\".p.\"%s\"", parent, name);
+        sprintf(order_path, "$.\"$s\".p.\"%s\".\"$s\".\"$k\"", parent);
+    }
     sprintf(sql,
         "UPDATE \"%s\".\"%s\" SET _ferretdb_sjson = CASE "
-        "WHEN json_type(_ferretdb_sjson, '$.\"$s\".p.\"%s\"') IS NULL THEN "
-        "json_insert(json_set(_ferretdb_sjson, '$.\"$s\".p.\"%s\"', json(?2), '$.\"%s\"', json(?3)), "
-        "'$.\"$s\".\"$k\"[#]', ?4) "
-        "ELSE json_set(_ferretdb_sjson, '$.\"$s\".p.\"%s\"', json(?2), '$.\"%s\"', json(?3)) END "
-        "WHERE _ferretdb_sjson->'_id' = json_quote(?1)",
-        schema, table, field->key, field->key, field->key, field->key, field->key);
+        "WHEN json_type(_ferretdb_sjson, '%s') IS NULL THEN "
+        "json_insert(json_set(_ferretdb_sjson, '%s', json(?2), '%s', json(?3)), '%s[#]', ?4) "
+        "ELSE json_set(_ferretdb_sjson, '%s', json(?2), '%s', json(?3)) END "
+        "WHERE _ferretdb_sjson->'_id' = json_quote(?1) AND json_type(_ferretdb_sjson, '%s') = 'array'",
+        schema, table, type_path, type_path, value_path, order_path, type_path, value_path, order_path);
     if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
     ok = sqlite3_bind_text(statement, 1, id, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
          sqlite3_bind_text(statement, 2, field->element, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
          sqlite3_bind_text(statement, 3, field->value, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_text(statement, 4, field->key, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 4, name, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
          sqlite3_step(statement) == SQLITE_DONE && sqlite3_changes(db) == 1;
     sqlite3_finalize(statement);
     return ok;
@@ -200,7 +222,11 @@ int wena_ferretdb_unset(sqlite3 *db, const char *schema, const char *table, cons
     if (db == NULL || !plain(schema) || !plain(table) || id == NULL || (count > 0 && keys == NULL)) return 0;
     if (!exec(db, "SAVEPOINT wena_ferretdb_unset")) return 0;
     for (index = 0; index < count && ok; ++index) {
-        if (!field_name(keys[index]) || strcmp(keys[index], "_id") == 0) { ok = 0; break; }
+        /* Top-level fields only. */
+        if (!field_name(keys[index]) || strchr(keys[index], '.') != NULL || strcmp(keys[index], "_id") == 0) {
+            ok = 0;
+            break;
+        }
         sprintf(sql,
             "UPDATE \"%s\".\"%s\" SET _ferretdb_sjson = json_set(json_remove(_ferretdb_sjson, '$.\"%s\"', "
             "'$.\"$s\".p.\"%s\"'), '$.\"$s\".\"$k\"', json((SELECT json_group_array(value) FROM "

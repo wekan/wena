@@ -37,6 +37,28 @@ int wena_wekan_sync_export(sqlite3 *db, const char *actor);
  * gets one, "admin" as WeKan's first registered user is. Writes its _id. */
 int wena_wekan_sync_user(sqlite3 *db, const char *wanted, char *id, size_t capacity);
 
+/* A board on WeKan's All Boards page, read from WeKan's documents. */
+#define WENA_WEKAN_TILE_CAPACITY 512
+typedef struct WenaWekanBoardTile {
+    char id[65];
+    char title[129];
+    char color[33];       /* WeKan's board color: belize, nephritis ... */
+    int archived;
+    int starred;          /* in the user's profile.starredBoards */
+    int template_board;   /* WeKan's template container */
+    int openable;         /* a board Wena has read in and can show */
+} WenaWekanBoardTile;
+/* The boards `actor` is an active member of - WeKan's own and template
+ * containers, archived or not, without WeKan's helper boards - by title. */
+int wena_wekan_sync_boards(sqlite3 *db, const char *actor, WenaWekanBoardTile *tiles, size_t capacity,
+                           size_t *count);
+
+/* Stars or unstars a board for `actor`: WeKan's users.profile.starredBoards. */
+int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int starred);
+/* A new board as WeKan makes one - with its "Default" swimlane, `actor` its
+ * admin - in Wena's tables and written to WeKan's file. Writes its _id. */
+int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity);
+
 /* What the last failed statement said, for the debug log. */
 const char *wena_wekan_sync_error(void);
 

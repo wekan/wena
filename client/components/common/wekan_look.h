@@ -71,6 +71,7 @@ typedef enum WenaIcon {
     WENA_ICON_BRUSH, WENA_ICON_LIST, WENA_ICON_ALIGN_LEFT, WENA_ICON_CHECK,
     WENA_ICON_BAN, WENA_ICON_GLOBE, WENA_ICON_PENCIL, WENA_ICON_REFRESH, WENA_ICON_HISTORY,
     WENA_ICON_WINDOW_MAXIMIZE, WENA_ICON_WINDOW_MINIMIZE,
+    WENA_ICON_STAR, WENA_ICON_STAR_O, WENA_ICON_FOLDER, WENA_ICON_CLIPBOARD,
     WENA_ICON_COUNT
 } WenaIcon;
 
@@ -128,6 +129,12 @@ int wena_wekan_section_header(struct nk_context *context, int open, WenaIcon ico
  * Returns 1 when clicked and `interactive`. */
 int wena_wekan_checkbox(struct nk_context *context, int checked, const char *text,
                         int interactive);
+/* The next slot as one invisible control named `name`: a tile, a menu row.
+ * Draw it yourself; returns 1 when clicked. */
+int wena_wekan_area(struct nk_context *context, const char *name);
+/* Text word-wrapped into a rectangle of the current window, drawn only. */
+void wena_wekan_draw_wrapped(struct nk_context *context, const char *text, WenaWekanFont font, int color,
+                             float x, float y, float w, float h);
 /* WeKan's filled button: "Add", "Save". */
 int wena_wekan_button(struct nk_context *context, const char *text, int color);
 /* The screen rectangle of the row an nk_layout_space_begin just started:

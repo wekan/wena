@@ -1,0 +1,862 @@
+{
+ "controls": [
+  {
+   "classes": [
+    "header-home-link"
+   ],
+   "draggable": false,
+   "icon": "\"\uf015\"",
+   "rect": [
+    16,
+    16,
+    32,
+    24
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 14px Roboto",
+    "radius": "4px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "All Boards"
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-toggle-header-icons-collapsed"
+   ],
+   "draggable": false,
+   "icon": "\"\uf100\"",
+   "rect": [
+    52,
+    14,
+    25,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "Collapse/expand header icons (mobile/desktop toggle to notifications)"
+  },
+  {
+   "classes": [
+    "js-header-collapsible-icon"
+   ],
+   "draggable": false,
+   "icon": "\"\uf390\"",
+   "rect": [
+    258,
+    13,
+    50,
+    30
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 12px Roboto",
+    "radius": "0px"
+   },
+   "tag": "div",
+   "text": "",
+   "title": null
+  },
+  {
+   "classes": [
+    "desktop-icon"
+   ],
+   "draggable": false,
+   "icon": "\"\uf390\"",
+   "rect": [
+    268,
+    17,
+    31,
+    22
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgb(41, 128, 185)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "700 14px Roboto",
+    "radius": "4px"
+   },
+   "tag": "i",
+   "text": "",
+   "title": null
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-toggle-desktop-drag-handles",
+    "js-header-collapsible-icon"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0b2\"",
+   "rect": [
+    316,
+    14,
+    34,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "Show desktop drag handles"
+  },
+  {
+   "classes": [
+    "header-star-group",
+    "js-header-collapsible-icon"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0d7\"",
+   "rect": [
+    358,
+    14,
+    58,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 12px Roboto",
+    "radius": "4px"
+   },
+   "tag": "div",
+   "text": "0",
+   "title": null
+  },
+  {
+   "classes": [],
+   "draggable": false,
+   "icon": "\"\uf0d7\"",
+   "rect": [
+    364,
+    22,
+    8,
+    13
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "900 13px \"Font Awesome 6 Free\"",
+    "radius": "0px"
+   },
+   "tag": "i",
+   "text": "",
+   "title": null
+  },
+  {
+   "classes": [],
+   "draggable": false,
+   "icon": "\"\uf005\"",
+   "rect": [
+    395,
+    22,
+    15,
+    13
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 13px \"Font Awesome 6 Free\"",
+    "radius": "0px"
+   },
+   "tag": "i",
+   "text": "",
+   "title": null
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-create-board",
+    "js-header-collapsible-icon"
+   ],
+   "draggable": false,
+   "icon": "\"+\"",
+   "rect": [
+    425,
+    15,
+    28,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(212, 212, 212)",
+    "borderWidth": "0px",
+    "color": "rgb(212, 212, 212)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "Add Board"
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-open-boards-sort"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0dc\"",
+   "rect": [
+    462,
+    14,
+    94,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "Sort Boards",
+   "title": "Sort Boards"
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-all-boards-sidebar-search"
+   ],
+   "draggable": false,
+   "icon": "\"\uf002\"",
+   "rect": [
+    564,
+    14,
+    114,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "Search boards",
+   "title": "Search boards"
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-all-boards-sidebar-multiselection"
+   ],
+   "draggable": false,
+   "icon": "\"\uf14a\"",
+   "rect": [
+    685,
+    14,
+    115,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "Multi-Selection",
+   "title": "Multi-Selection"
+  },
+  {
+   "classes": [
+    "board-header-btn",
+    "js-open-all-boards-view"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0d7\"",
+   "rect": [
+    808,
+    14,
+    67,
+    28
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 13px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "Lists",
+   "title": "Lists"
+  },
+  {
+   "classes": [],
+   "draggable": false,
+   "icon": "\"\uf0f3\"",
+   "rect": [
+    883,
+    14,
+    94,
+    28
+   ],
+   "region": "board-header",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 12px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Notifications",
+   "title": "Notifications"
+  },
+  {
+   "classes": [
+    "header-user-bar-name",
+    "js-open-header-member-menu"
+   ],
+   "draggable": false,
+   "icon": null,
+   "rect": [
+    898,
+    50,
+    104,
+    25
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(242, 242, 242)",
+    "borderWidth": "0px",
+    "color": "rgb(242, 242, 242)",
+    "font": "400 12px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "E2E Test User",
+   "title": "Member Settings"
+  },
+  {
+   "classes": [
+    "left-menu-collapse-indicator",
+    "js-collapse-left-menu"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0d7\"",
+   "rect": [
+    0,
+    93,
+    259,
+    26
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "Collapse"
+  },
+  {
+   "classes": [
+    "js-select-menu"
+   ],
+   "draggable": false,
+   "icon": "\"\uf07b\"",
+   "rect": [
+    4,
+    121,
+    251,
+    46
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgb(41, 128, 185)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Remaining 1",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-select-menu"
+   ],
+   "draggable": false,
+   "icon": "\"\uf005\"",
+   "rect": [
+    4,
+    169,
+    251,
+    46
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Starred 0",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-select-menu",
+    "js-home-menu"
+   ],
+   "draggable": false,
+   "icon": "\"\uf015\"",
+   "rect": [
+    4,
+    217,
+    251,
+    46
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Home 0",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-select-menu"
+   ],
+   "draggable": false,
+   "icon": "\"\uf0ea\"",
+   "rect": [
+    4,
+    265,
+    251,
+    46
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Templates 0",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-select-menu",
+    "js-open-archived-board"
+   ],
+   "draggable": false,
+   "icon": "\"\uf187\"",
+   "rect": [
+    4,
+    313,
+    251,
+    46
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "Archive 0",
+   "title": null
+  },
+  {
+   "classes": [],
+   "draggable": false,
+   "icon": "\"\uf07c\"",
+   "rect": [
+    18,
+    394,
+    14,
+    12
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "900 12px \"Font Awesome 6 Free\"",
+    "radius": "0px"
+   },
+   "tag": "i",
+   "text": "",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-add-workspace"
+   ],
+   "draggable": false,
+   "icon": null,
+   "rect": [
+    215,
+    389,
+    24,
+    22
+   ],
+   "region": "all-boards-menu",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "700 12px Roboto",
+    "radius": "4px"
+   },
+   "tag": "a",
+   "text": "+",
+   "title": "Add Workspace"
+  },
+  {
+   "classes": [
+    "left-menu-resize-handle",
+    "js-left-menu-resize",
+    "nodragscroll"
+   ],
+   "draggable": false,
+   "icon": null,
+   "rect": [
+    257,
+    85,
+    6,
+    635
+   ],
+   "region": "page",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "div",
+   "text": "",
+   "title": "Drag to resize left menu"
+  },
+  {
+   "classes": [
+    "board-list",
+    "js-boards",
+    "dragscroll"
+   ],
+   "draggable": false,
+   "icon": "\"+\"",
+   "rect": [
+    284,
+    133,
+    718,
+    126
+   ],
+   "region": "all-boards",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(0, 0, 0)",
+    "borderWidth": "0px",
+    "color": "rgb(0, 0, 0)",
+    "font": "400 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "ul",
+   "text": "Add Board E2E Board",
+   "title": null
+  },
+  {
+   "classes": [
+    "board-list-item",
+    "label"
+   ],
+   "draggable": false,
+   "icon": "\"+\"",
+   "rect": [
+    284,
+    133,
+    234,
+    126
+   ],
+   "region": "board-tile",
+   "style": {
+    "background": "rgb(153, 153, 153)",
+    "border": "rgb(255, 255, 255)",
+    "borderWidth": "0px",
+    "color": "rgb(255, 255, 255)",
+    "font": "400 16px Roboto",
+    "radius": "3px"
+   },
+   "tag": "a",
+   "text": "Add Board",
+   "title": "Add Board"
+  },
+  {
+   "classes": [
+    "js-open-board"
+   ],
+   "draggable": true,
+   "icon": null,
+   "rect": [
+    534,
+    157,
+    218,
+    75
+   ],
+   "region": "board-tile",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(246, 246, 246)",
+    "borderWidth": "0px",
+    "color": "rgb(246, 246, 246)",
+    "font": "700 16px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "E2E Board",
+   "title": null
+  },
+  {
+   "classes": [
+    "js-star-board"
+   ],
+   "draggable": true,
+   "icon": "\"\uf005\"",
+   "rect": [
+    726,
+    133,
+    34,
+    36
+   ],
+   "region": "board-tile",
+   "style": {
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "rgb(246, 246, 246)",
+    "borderWidth": "0px",
+    "color": "rgb(246, 246, 246)",
+    "font": "700 14px Roboto",
+    "radius": "0px"
+   },
+   "tag": "a",
+   "text": "",
+   "title": "Click to star this board. It will show up at top of your boards list."
+  }
+ ],
+ "surfaces": {
+  "add-board-tile": {
+   "background": "rgb(153, 153, 153)",
+   "border": "rgb(255, 255, 255)",
+   "borderWidth": "0px",
+   "color": "rgb(255, 255, 255)",
+   "font": "400 16px Roboto",
+   "radius": "3px",
+   "rect": [
+    284,
+    133,
+    234,
+    126
+   ]
+  },
+  "all-boards-menu": {
+   "background": "rgb(247, 247, 247)",
+   "border": "rgb(0, 0, 0)",
+   "borderWidth": "0px",
+   "color": "rgb(0, 0, 0)",
+   "font": "400 14px Roboto",
+   "radius": "0px",
+   "rect": [
+    0,
+    85,
+    260,
+    635
+   ]
+  },
+  "all-boards-menu-active": {
+   "background": "rgb(41, 128, 185)",
+   "border": "rgb(255, 255, 255)",
+   "borderWidth": "0px",
+   "color": "rgb(255, 255, 255)",
+   "font": "400 14px Roboto",
+   "radius": "0px",
+   "rect": [
+    4,
+    121,
+    251,
+    46
+   ]
+  },
+  "all-boards-menu-count": {
+   "background": "rgba(255, 255, 255, 0.3)",
+   "border": "rgb(255, 255, 255)",
+   "borderWidth": "0px",
+   "color": "rgb(255, 255, 255)",
+   "font": "700 12px Roboto",
+   "radius": "12px",
+   "rect": [
+    222,
+    133,
+    23,
+    22
+   ]
+  },
+  "all-boards-menu-item": {
+   "background": "rgb(41, 128, 185)",
+   "border": "rgb(255, 255, 255)",
+   "borderWidth": "0px",
+   "color": "rgb(255, 255, 255)",
+   "font": "400 14px Roboto",
+   "radius": "0px",
+   "rect": [
+    4,
+    121,
+    251,
+    46
+   ]
+  },
+  "board-tile": {
+   "background": "rgb(41, 128, 185)",
+   "border": "rgb(246, 246, 246)",
+   "borderWidth": "0px",
+   "color": "rgb(246, 246, 246)",
+   "font": "700 16px Roboto",
+   "radius": "0px",
+   "rect": [
+    526,
+    133,
+    234,
+    126
+   ]
+  },
+  "board-tile-title": {
+   "background": "rgba(0, 0, 0, 0)",
+   "border": "rgb(246, 246, 246)",
+   "borderWidth": "0px",
+   "color": "rgb(246, 246, 246)",
+   "font": "700 16px Roboto",
+   "radius": "0px",
+   "rect": [
+    534,
+    157,
+    218,
+    44
+   ]
+  },
+  "body": {
+   "background": "rgb(222, 222, 222)",
+   "border": "rgb(0, 0, 0)",
+   "borderWidth": "0px",
+   "color": "rgb(0, 0, 0)",
+   "font": "400 14px Roboto",
+   "radius": "0px",
+   "rect": [
+    0,
+    0,
+    1024,
+    720
+   ]
+  },
+  "header-quick-access": {
+   "background": "rgb(41, 128, 185)",
+   "border": "rgb(255, 255, 255)",
+   "borderWidth": "0px",
+   "color": "rgb(255, 255, 255)",
+   "font": "400 12px Roboto",
+   "radius": "0px",
+   "rect": [
+    0,
+    0,
+    1024,
+    85
+   ]
+  },
+  "pane-title": {
+   "background": "rgba(0, 0, 0, 0)",
+   "border": "rgb(0, 0, 0)",
+   "borderWidth": "0px",
+   "color": "rgb(0, 0, 0)",
+   "font": "700 20px Roboto",
+   "radius": "0px",
+   "rect": [
+    283,
+    95,
+    727,
+    26
+   ]
+  }
+ },
+ "url": "/",
+ "viewport": [
+  1024,
+  720
+ ]
+}
