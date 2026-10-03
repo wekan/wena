@@ -10,6 +10,7 @@ import time
 from unittest.mock import patch
 from pathlib import Path
 import subprocess
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,8 +91,59 @@ def test_runner():
             raise AssertionError("unbounded worker count accepted")
 
 
+def test_run():
+    # 2) Run starts the binary 1) Build > Current host wrote for this computer.
+    assert wena.host_binary("/r", "macos-arm64") == Path("/r/dist/macos-arm64/wena")
+    assert wena.host_binary("/r", "linux-amd64") == Path("/r/dist/linux-amd64/wena")
+    assert wena.host_binary("/r", "windows-amd64") == Path("/r/dist/windows-amd64/wena.exe")
+    assert wena.host_binary() == ROOT / "dist" / wena.host_target() / (
+        "wena.exe" if wena.host_target().startswith("windows-") else "wena")
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        # Negative: nothing built yet says how to build it, and runs nothing.
+        errors = io.StringIO()
+        with patch.object(wena.subprocess, "call") as call, patch.object(sys, "stderr", errors):
+            assert wena.run((), root, "linux-amd64") == 1
+        call.assert_not_called()
+        assert "not built yet" in errors.getvalue() and "1) Build" in errors.getvalue()
+        binary = root / "dist" / "linux-amd64" / "wena"
+        binary.parent.mkdir(parents=True)
+        binary.write_text("#!/bin/sh\necho \"ran $*\"\nexit 7\n", encoding="utf-8")
+        if sys.platform != "win32":
+            # Negative: a file that cannot be executed is refused.
+            binary.chmod(0o644)
+            with patch.object(wena.subprocess, "call") as call, patch.object(sys, "stderr", io.StringIO()):
+                assert wena.run((), root, "linux-amd64") == 1
+            call.assert_not_called()
+            binary.chmod(0o755)
+            # The real file runs from the repository root with the arguments
+            # given, and its exit code is returned.
+            out = subprocess.run([sys.executable, "-c",
+                                  "import importlib.util,sys;"
+                                  f"s=importlib.util.spec_from_file_location('w',{str(ROOT / 'scripts' / 'wena.py')!r});"
+                                  "w=importlib.util.module_from_spec(s);s.loader.exec_module(w);"
+                                  f"sys.exit(w.run(['a','b'],{temp!r},'linux-amd64'))"],
+                                 text=True, capture_output=True)
+            assert out.returncode == 7, out.stderr
+            assert "ran a b" in out.stdout
+    # The menu: 1) Build, 2) Run, and the rest one number lower than before.
+    answers = iter(["2", "3", "4", "5", "q"])
+    printed = io.StringIO()
+    with patch("builtins.input", lambda _prompt: next(answers)), \
+            patch.object(wena, "run", return_value=0) as ran, \
+            patch.object(wena, "tests_menu") as tests, \
+            patch.object(wena, "server_menu") as server, \
+            patch.object(wena, "tools_menu") as tools, redirect_stdout(printed):
+        assert wena.menu() == 0
+    ran.assert_called_once_with()
+    assert (tests.call_count, server.call_count, tools.call_count) == (1, 1, 1)
+    text = printed.getvalue()
+    assert "1) Build\n  2) Run\n  3) Tests\n  4) Server\n  5) Tools\n  q) Quit" in text
+
+
 def main():
     test_runner()
+    test_run()
     assert wena.host_target("Linux", "x86_64") == "linux-amd64"
     assert wena.host_target("Darwin", "arm64") == "macos-arm64"
     assert wena.host_target("Windows", "AMD64") == "windows-amd64"
@@ -158,7 +210,7 @@ def main():
     assert "ready target is missing" in dispatcher
     assert "exists but is not executable" in dispatcher
     assert "verify_i18n_catalog.py" in dispatcher
-    for category in ("Build", "Tests", "Server", "Tools"):
+    for category in ("Build", "Run", "Tests", "Server", "Tools"):
         assert category in dispatcher
 
 

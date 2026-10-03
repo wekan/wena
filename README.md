@@ -57,7 +57,13 @@ this path; complete theme/responsive parity remains in the roadmap.
 ./build.sh tests sanitizers
 ./build.sh --list
 ./build.sh build host
+./build.sh run
 ```
+
+`./build.sh run` (`build.bat run` on Windows, or menu option 2) Run) starts the
+binary that `build host` (menu 1) Build, then h) Current host) wrote for this
+computer, `dist/<target>/wena` or `wena.exe`, passing any further arguments to
+it. It refuses to run, and says how to build it, when that file is missing.
 
 The test runner executes independent native suites in parallel, serializes
 shared artifact builds, and reports failures and missing prerequisites

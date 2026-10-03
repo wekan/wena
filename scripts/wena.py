@@ -93,6 +93,26 @@ def build(selection):
     return 0
 
 
+def host_binary(root=ROOT, target=None):
+    """The binary Build > Current host writes for this computer."""
+    target = target or host_target()
+    name = "wena.exe" if target.startswith("windows-") else "wena"
+    return Path(root) / "dist" / target / name
+
+
+def run(args=(), root=ROOT, target=None):
+    binary = host_binary(root, target)
+    if not binary.is_file():
+        print(f"{binary.relative_to(root)} is not built yet; build it first with 1) Build, "
+              "then h) Current host.", file=sys.stderr)
+        return 1
+    if sys.platform != "win32" and not os.access(binary, os.X_OK):
+        print(f"{binary.relative_to(root)} exists but is not executable.", file=sys.stderr)
+        return 1
+    print(f"Running {binary.relative_to(root)}", flush=True)
+    return subprocess.call([str(binary), *args], cwd=root)
+
+
 def list_targets():
     for item in targets():
         print("{target}\t{status}\t{name}".format(**item))
@@ -426,22 +446,26 @@ def run_test(name):
 
 def menu():
     while True:
-        answer = choose("Wena", [("1", "Build"), ("2", "Tests"),
-                                  ("3", "Server"), ("4", "Tools"), ("q", "Quit")])
+        answer = choose("Wena", [("1", "Build"), ("2", "Run"), ("3", "Tests"),
+                                  ("4", "Server"), ("5", "Tools"), ("q", "Quit")])
         if answer == "1":
             build_menu()
         elif answer == "2":
-            tests_menu()
+            result = run()
+            if result:
+                print(f"Run ended with exit code {result}.")
         elif answer == "3":
-            server_menu()
+            tests_menu()
         elif answer == "4":
+            server_menu()
+        elif answer == "5":
             tools_menu()
         else:
             return 0
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 
@@ -452,6 +476,8 @@ def main(argv):
         return menu()
     if len(argv) == 2 and argv[0] == "build":
         return build(argv[1])
+    if argv[:1] == ["run"]:
+        return run(argv[1:])
     if argv == ["tests", "--list"]:
         print("all\tAll native/static suites (four parallel workers; shared builds serial)")
         print("sanitizers\tOptional ASan/UBSan native model, UI and SQLite regression subset")
