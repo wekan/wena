@@ -369,6 +369,12 @@ int main(void)
         header.view = 2;
         context.button_to_press = "Lists";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_VIEW);
+        /* WeKan's Notifications; hidden when not given. */
+        context.button_to_press = "Notifications";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.notifications = 2;
+        context.button_to_press = "Notifications";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NOTIFICATIONS);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

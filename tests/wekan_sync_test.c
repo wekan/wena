@@ -294,6 +294,48 @@ int main(int argc, char **argv)
         /* Negative: only WeKan's own fields. */
         assert(!wena_wekan_sync_set_profile_board_map(db, "u1", "services", "b1", "{}"));
     }
+    /* WeKan's notifications drawer: newest first, an entry whose activity
+     * is gone left out, who did it and on which card or board; the read
+     * checkbox sets that entry's read to a date or null, the others kept. */
+    {
+        WenaWekanNotification items[4];
+        size_t count = 9;
+        char card_title[200];
+        /* Negative: a file without activities has none. */
+        assert(wena_wekan_sync_notifications(db, "u1", items, 4, &count) && count == 0);
+        doc(db, "users", "{\"_id\":\"u3\",\"username\":\"carol\",\"profile\":{\"fullname\":\"Carol\","
+            "\"notifications\":[{\"activity\":\"a1\",\"read\":null},{\"activity\":\"gone\"},{\"activity\":\"a2\"}]}}");
+        doc(db, "activities", "{\"_id\":\"a1\",\"activityType\":\"createCard\",\"userId\":\"u1\",\"cardId\":\"c1\","
+            "\"boardId\":\"b1\",\"createdAt\":1700000000000}");
+        doc(db, "activities", "{\"_id\":\"a2\",\"activityType\":\"addChecklist\",\"userId\":\"u2\",\"boardId\":\"b1\","
+            "\"createdAt\":1700000100000}");
+        strcpy(card_title, q(db, "SELECT _ferretdb_sjson ->> 'title' FROM fdb.cards_81f16044 WHERE _ferretdb_sjson->'_id' = '\"c1\"'"));
+        assert(wena_wekan_sync_notifications(db, "u3", items, 4, &count) && count == 2);
+        assert(items[0].index == 2 && !strcmp(items[0].type, "addChecklist") && !strcmp(items[0].user, "bob") &&
+               !strcmp(items[0].title, "Board") && items[0].at == (sqlite3_int64)1700000100 * 1000 && !items[0].read);
+        assert(items[1].index == 0 && !strcmp(items[1].user, "Ada L") && !strcmp(items[1].title, card_title) &&
+               !items[1].read);
+        /* Read: a date, typed as WeKan's; an entry without "read" gets it
+         * in its keys; unread again: null. */
+        assert(wena_wekan_sync_set_notification_read(db, "u3", 0, 1) && wena_wekan_sync_set_notification_read(db, "u3", 1, 1));
+        assert(wena_wekan_sync_notifications(db, "u3", items, 4, &count) && count == 2 && items[1].read && !items[0].read);
+        assert(!strcmp(q(db, "SELECT (x -> '$.\"$s\".p.profile.\"$s\".p.notifications.i[0].\"$s\".p.read.t') || "
+                             "(x -> '$.\"$s\".p.profile.\"$s\".p.notifications.i[1].\"$s\".\"$k\"') || "
+                             "(x ->> '$.profile.notifications[2].activity') || typeof(x ->> '$.profile.notifications[0].read') "
+                             "FROM (SELECT _ferretdb_sjson AS x FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u3\"')"),
+                       "\"date\"[\"activity\",\"read\"]a2integer"));
+        assert(wena_wekan_sync_set_notification_read(db, "u3", 0, 0));
+        assert(!strcmp(q(db, "SELECT (x -> '$.\"$s\".p.profile.\"$s\".p.notifications.i[0].\"$s\".p.read.t') || "
+                             "json_type(x, '$.profile.notifications[0].read') FROM (SELECT _ferretdb_sjson AS x "
+                             "FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u3\"')"), "\"null\"null"));
+        /* Negative: an entry not there, a user not there, no arguments. */
+        assert(!wena_wekan_sync_set_notification_read(db, "u3", 3, 1) && !wena_wekan_sync_set_notification_read(db, "u3", -1, 1));
+        assert(!wena_wekan_sync_set_notification_read(db, "nobody", 0, 1));
+        assert(wena_wekan_sync_notifications(db, "nobody", items, 4, &count) && count == 0);
+        assert(!wena_wekan_sync_notifications(db, "u3", NULL, 4, &count));
+        /* Capacity: the newest only. */
+        assert(wena_wekan_sync_notifications(db, "u3", items, 1, &count) && count == 1 && items[0].index == 2);
+    }
     /* The user: asked for by username, else the admin, and one is made in a
      * file without users. */
     assert(wena_wekan_sync_user(db, "bob", user, sizeof(user)) && !strcmp(user, "u2"));

@@ -1183,6 +1183,112 @@ int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, int lists)
     return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
 }
 
+static const char *const notifications_query[] = {
+    "SELECT n.key, coalesce(a.x->>'activityType', ''), coalesce(nullif(trim(u.x->>'$.profile.fullname'), ''), ",
+    "u.x->>'username', ''), coalesce(c.x->>'title', b.x->>'title', ''), coalesce(a.x->>'createdAt', 0), ",
+    "CASE WHEN n.value->>'read' IS NULL THEN 0 ELSE 1 END ",
+    "FROM (SELECT _ferretdb_sjson AS x FROM {users} WHERE _ferretdb_sjson->'_id' = json_quote(?1)) me, ",
+    "json_each(me.x, '$.profile.notifications') n ",
+    "JOIN (SELECT _ferretdb_sjson AS x FROM {activities}) a ON a.x->>'_id' = n.value->>'activity' ",
+    "LEFT JOIN (SELECT _ferretdb_sjson AS x FROM {users}) u ON u.x->>'_id' = a.x->>'userId' ",
+    "LEFT JOIN (SELECT _ferretdb_sjson AS x FROM {cards}) c ON c.x->>'_id' = a.x->>'cardId' ",
+    "LEFT JOIN (SELECT _ferretdb_sjson AS x FROM {boards}) b ON b.x->>'_id' = a.x->>'boardId' ",
+    "ORDER BY n.key DESC",
+    NULL};
+
+static void copy_text(char *out, size_t capacity, const unsigned char *text)
+{
+    size_t length = text != NULL ? strlen((const char *)text) : 0;
+    if (length >= capacity) length = capacity - 1;
+    /* Cut at a character, not inside one. */
+    while (length > 0 && length < strlen((const char *)text) && (text[length] & 0xC0u) == 0x80u) --length;
+    if (length > 0) memcpy(out, text, length);
+    out[length] = '\0';
+}
+
+int wena_wekan_sync_notifications(sqlite3 *db, const char *actor, WenaWekanNotification *out, size_t capacity,
+                                  size_t *count)
+{
+    char joined[2048], sql[2048], expanded[2048], activities[WENA_FERRETDB_TABLE_CAPACITY + 16];
+    sqlite3_stmt *statement = NULL;
+    size_t found = 0;
+    int step;
+    char *at;
+    if (db == NULL || actor == NULL || out == NULL || count == NULL) return 0;
+    *count = 0;
+    /* WeKan makes activities as it goes; a file without them has no
+     * notifications, and Wena does not make the collection. */
+    if (!wena_ferretdb_collection(db, WENA_WEKAN_SCHEMA, "activities", 0, activities + 5, WENA_FERRETDB_TABLE_CAPACITY))
+        return 1;
+    memcpy(activities, WENA_WEKAN_SCHEMA ".\"", 5);
+    strcat(activities, "\"");
+    if (!join(notifications_query, joined, sizeof(joined)) || !expand(db, joined, expanded, sizeof(expanded)) ||
+        (at = strstr(expanded, "{activities}")) == NULL ||
+        strlen(expanded) + strlen(activities) >= sizeof(sql)) return 0;
+    *at = '\0';
+    sprintf(sql, "%s%s%s", expanded, activities, at + strlen("{activities}"));
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW && found < capacity) {
+        WenaWekanNotification *item = &out[found++];
+        item->index = sqlite3_column_int(statement, 0);
+        copy_text(item->type, sizeof(item->type), sqlite3_column_text(statement, 1));
+        copy_text(item->user, sizeof(item->user), sqlite3_column_text(statement, 2));
+        copy_text(item->title, sizeof(item->title), sqlite3_column_text(statement, 3));
+        item->at = sqlite3_column_int64(statement, 4);
+        item->read = sqlite3_column_int(statement, 5);
+    }
+    sqlite3_finalize(statement);
+    if (step != SQLITE_ROW && step != SQLITE_DONE) return 0;
+    *count = found;
+    return 1;
+}
+
+/* The notifications with entry ?2's read set to ?3 (null when not read), and
+ * their stored types with that entry's read a date - or null - and in its
+ * keys; the other entries as they were. */
+static const char *const notification_read_query[] = {
+    "SELECT json_set(n, '$[' || ?2 || '].read', ?3), json_set(e, '$.i[' || ?2 || '].\"$s\".p.read', ",
+    "json(CASE WHEN ?3 IS NULL THEN '{\"t\":\"null\"}' ELSE '{\"t\":\"date\"}' END), ",
+    "'$.i[' || ?2 || '].\"$s\".\"$k\"', json(CASE WHEN EXISTS (SELECT 1 FROM json_each(e, '$.i[' || ?2 || '].\"$s\".\"$k\"') ",
+    "WHERE value = 'read') THEN e -> ('$.i[' || ?2 || '].\"$s\".\"$k\"') ELSE json_insert(e -> ('$.i[' || ?2 || ",
+    "'].\"$s\".\"$k\"'), '$[#]', 'read') END)) FROM (SELECT x -> '$.profile.notifications' AS n, ",
+    "x -> '$.\"$s\".p.profile.\"$s\".p.notifications' AS e FROM (SELECT _ferretdb_sjson AS x FROM {users} ",
+    "WHERE _ferretdb_sjson->'_id' = json_quote(?1))) WHERE ?2 >= 0 AND ?2 < json_array_length(n) ",
+    "AND json_array_length(e, '$.i') = json_array_length(n)",
+    NULL};
+
+int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int index, int read)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], joined[2048], sql[2048];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField field;
+    char *value = NULL, *element = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || index < 0 || !table_of(db, "users", table) ||
+        !join(notification_read_query, joined, sizeof(joined)) || !expand(db, joined, sql, sizeof(sql)) ||
+        sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(statement, 2, index);
+    if (read) sqlite3_bind_int64(statement, 3, wena_ferretdb_now_ms());
+    else sqlite3_bind_null(statement, 3);
+    if (sqlite3_step(statement) == SQLITE_ROW && sqlite3_column_text(statement, 0) != NULL &&
+        sqlite3_column_text(statement, 1) != NULL) {
+        value = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+        element = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+    }
+    sqlite3_finalize(statement);
+    if (value != NULL && element != NULL) {
+        field.key = "profile.notifications";
+        field.element = element;
+        field.value = value;
+        ok = wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+    }
+    sqlite3_free(value);
+    sqlite3_free(element);
+    return ok;
+}
+
 int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language)
 {
     char table[WENA_FERRETDB_TABLE_CAPACITY];

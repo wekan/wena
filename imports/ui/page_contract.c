@@ -78,6 +78,8 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_BOARD_VIEW_GANTT, "board-view-gantt", "Gantt"},
     {WENA_UI_TEXT_BOARD_VIEW_TABLE, "board-view-table", "Table"},
     {WENA_UI_TEXT_BOARD_VIEW_TITLE, "boardChangeViewPopup-title", "Board View"},
+    {WENA_UI_TEXT_NOTIFICATIONS, "notifications", "Notifications"},
+    {WENA_UI_TEXT_MARK_ALL_READ, "mark-all-as-read", "Mark all as read"},
     {WENA_UI_TEXT_SELECTED, "selected-label", "Selected:"},
     {WENA_UI_TEXT_SELECT_LIST_CARDS, "list-select-cards", "Select all cards in this list"},
     {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},

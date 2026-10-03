@@ -23,6 +23,7 @@
 #include "features/card_archives.h"
 #include "features/card_selection_panel.h"
 #include "components/sidebar/search_sidebar.h"
+#include "components/sidebar/notifications_drawer.h"
 #include "../server/board_search.h"
 #include "features/card_description.h"
 #include "features/card_description_mutation.h"
@@ -975,7 +976,7 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, sort, sorted, view, lists-view, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, sort, sorted, view, lists-view, notifications, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1130,6 +1131,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     int all_boards_page, tiles_stale;
     WenaAllBoardsView all_boards_view;
     WenaSearchSidebar search;
+    WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
+    size_t notification_count;
+    int notifications_open;
     WenaWekanBoardTile *tiles;
     size_t tile_count;
     WenaDesktopAddBoard add_board;
@@ -1212,6 +1216,8 @@ int DESKTOP_MAIN(int argc, char **argv)
     all_boards_page = 0; tiles_stale = 1; tiles = NULL; tile_count = 0;
     memset(&all_boards_view, 0, sizeof(all_boards_view));
     memset(&search, 0, sizeof(search));
+    notification_count = 0;
+    notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
     next_board[0] = session_board[0] = user_name[0] = '\0';
     for (i = 1; i < argc; ++i) {
@@ -1513,6 +1519,11 @@ board_session:
     if (wekan_mode) {
         desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
         layout.lists_view = wena_wekan_sync_board_view(database, actor_id) == 1;
+        if (!wena_wekan_sync_notifications(database, actor_id, notifications, WENA_WEKAN_NOTIFICATIONS,
+                                           &notification_count)) {
+            notification_count = 0;
+            wena_debug_log("notifications: %s", sqlite3_errmsg(database));
+        }
     }
     layout.header_actions = &toolbar.header_actions;
     layout.card_drag_area = desktop_card_drag_area;
@@ -1733,6 +1744,7 @@ window_ready:
             }
             else if (!strcmp(show, "sorted")) toolbar.card_sort = WENA_BOARD_SORT_TITLE;
             else if (!strcmp(show, "lists-view")) layout.lists_view = 1;
+            else if (!strcmp(show, "notifications")) notifications_open = 1;
             else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
             else if (!strcmp(show, "visibility") || !strcmp(show, "watch") || !strcmp(show, "sort")) {
                 toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH :
@@ -1846,6 +1858,8 @@ window_ready:
             layout.header_filter_active = filter.query[0] != '\0';
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             layout.header_search = search.visible ? 2 : 1;
+            layout.header_notifications = !wekan_mode ? 0 : notifications_open ? 3 :
+                wena_notifications_unread(notifications, notification_count) > 0 ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
             layout.header_view = layout.lists_view ? 2 : 1;
             layout.header_sort = toolbar.card_sort != WENA_BOARD_SORT_NONE ? 2 : 1;
@@ -1890,6 +1904,10 @@ window_ready:
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SEARCH) != 0u) {
                     if (search.visible) search.visible = 0;
                     else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_NOTIFICATIONS) != 0u) {
+                    notifications_open = !notifications_open;
+                    if (notifications_open) { search.visible = 0; sidebar.visible = 0; }
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_VIEW) != 0u) {
                     toolbar.menu.kind = DESKTOP_MENU_VIEW;
@@ -2136,6 +2154,25 @@ window_ready:
             if(opened_panel!=DESKTOP_PANEL_SELECTION)
                 (void)wena_card_selection_panel_render_board(context,&editors.selection,
                     &layout,(float)width,(float)height);
+            if (notifications_open && (search.visible || sidebar.visible)) notifications_open = 0;
+            if (notifications_open) {
+                int chosen_index;
+                size_t n;
+                unsigned int drawer = wena_notifications_drawer_render(context, notifications, notification_count,
+                                                                       (float)width, (float)height, &chosen_index);
+                if ((drawer & WENA_NOTIFICATIONS_CLOSE) != 0u) notifications_open = 0;
+                /* WeKan's read checkbox and Mark all as read, written to the
+                 * user's profile.notifications. */
+                for (n = 0; n < notification_count && !smoke; ++n)
+                    if (((drawer & WENA_NOTIFICATIONS_TOGGLE_READ) != 0u && notifications[n].index == chosen_index) ||
+                        ((drawer & WENA_NOTIFICATIONS_MARK_ALL_READ) != 0u && !notifications[n].read))
+                        if (!wena_wekan_sync_set_notification_read(database, actor_id, notifications[n].index,
+                                                                   !notifications[n].read))
+                            wena_debug_log("notification %d: %s", notifications[n].index, wena_wekan_sync_error());
+                if ((drawer & (WENA_NOTIFICATIONS_TOGGLE_READ | WENA_NOTIFICATIONS_MARK_ALL_READ)) != 0u &&
+                    !wena_wekan_sync_notifications(database, actor_id, notifications, WENA_WEKAN_NOTIFICATIONS,
+                                                   &notification_count)) notification_count = 0;
+            }
             if (search.visible) {
                 char found[WENA_ID_CAPACITY];
                 const WenaCard *shown;

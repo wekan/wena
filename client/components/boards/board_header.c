@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 19);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 20);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -180,6 +180,20 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         if (wena_wekan_link(context, info->view == 2 ? WENA_ICON_LIST : WENA_ICON_GRID, view, WENA_WEKAN_FONT_LINK,
                             WENA_WEKAN_HEADER_LINK))
             action |= WENA_BOARD_HEADER_VIEW;
+        second_x += 12.0f + view_width + 8.0f;
+    }
+    /* WeKan's Notifications: the bell, white with unread ones, darker while
+     * the drawer is open. */
+    if (info != NULL && info->notifications >= 1 && info->notifications <= 3) {
+        const char *name = wena_ui_text(WENA_UI_TEXT_NOTIFICATIONS);
+        float name_width = text_width(context, WENA_WEKAN_FONT_SMALL, name) + 22.0f;
+        if (info->notifications == 3)
+            wena_wekan_fill(context, area.x + second_x - 4.0f, area.y + 50.0f, name_width + 8.0f, 28.0f,
+                            0x1236D9D, 3.0f);
+        nk_layout_space_push(context, nk_rect(second_x, 50.0f, name_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_BELL, name, WENA_WEKAN_FONT_SMALL,
+                            info->notifications == 2 ? WENA_WEKAN_HEADER_TEXT : WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_NOTIFICATIONS;
     }
 
     /* Second row, right: the user's avatar - WeKan's initials in a gray

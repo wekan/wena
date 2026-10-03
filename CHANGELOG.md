@@ -385,6 +385,33 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's Notifications button and drawer, from the user's own notifications</summary>
+
+- After the board view on the header's second row, as in WeKan: the bell
+  and "Notifications", white while some are unread, darker while the drawer
+  is open. The drawer is at the right under the header: "Notifications"
+  with the unread count, Mark all as read, then each notification newest
+  first - its read checkbox, who did it and on which card (or board), and
+  when.
+- It is WeKan's own data: `users.profile.notifications` and the
+  `activities` they point to, an entry whose activity is gone left out as
+  WeKan does (#5325). The read checkbox writes that entry's `read` as WeKan
+  does - now as a Date, or null - keeping the other entries and their
+  types; a file without activities has none, and Wena does not make that
+  collection.
+- `--show notifications` renders the drawer.
+- Tests: `wekan-sync` lists them newest first without the gone one, with
+  who and which card or board, marks read and unread with the date type and
+  the entry's keys, and refuses an entry or user not there; the new
+  `notifications-drawer` suite covers the lines, the unread count, the
+  checkbox, Mark all as read, closing and the negatives; `board-feature`
+  clicks the bell.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

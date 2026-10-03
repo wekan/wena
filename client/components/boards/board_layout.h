@@ -126,6 +126,7 @@ typedef struct WenaBoardLayout {
      * swimlanes' bars. */
     int lists_view;
     int header_view;                /* 0 none, 1 Swimlanes, 2 Lists */
+    int header_notifications;       /* 0 none, 1 bell, 2 unread ones, 3 open */
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

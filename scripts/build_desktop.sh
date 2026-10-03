@@ -51,6 +51,7 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   "$root_dir/client/components/boards/board_layout.c" "$root_dir/client/components/boards/swimlane_resize.c" \
   "$root_dir/client/components/boards/board_header.c" "$root_dir/client/components/boards/all_boards.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/sidebar/search_sidebar.c" \
+  "$root_dir/client/components/sidebar/notifications_drawer.c" \
   "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/components/lists/list_header.c" "$root_dir/client/components/common/color_heading.c" \
   "$root_dir/client/components/cards/card_body.c" "$root_dir/client/components/common/reorder_drag.c" "$root_dir/client/components/common/wekan_look.c" "$root_dir/client/features/checklists/drag.c" \

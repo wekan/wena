@@ -529,6 +529,7 @@ TEST_SUITES = (
     ('all-boards', 'test_all_boards.sh', "WeKan's All Boards page: sections, counts, open, star, Add Board, archive"),
     ('board-search', 'test_board_search.sh', "WeKan's board Search: lists and cards by title or description"),
     ('search-sidebar', 'test_search_sidebar.sh', "WeKan's Search sidebar: field, Enter, results, opening a card"),
+    ('notifications-drawer', 'test_notifications_drawer.sh', "WeKan's notifications drawer: lines, unread count, read"),
     ('wekan-sync', 'test_wekan_sync.sh', "WeKan's documents and Wena's tables: import, changed fields only, new documents, deletes"),
     ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
     ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),

@@ -212,7 +212,9 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_BOARD_VIEW_CALENDAR,
     WENA_UI_TEXT_BOARD_VIEW_GANTT,
     WENA_UI_TEXT_BOARD_VIEW_TABLE,
-    WENA_UI_TEXT_BOARD_VIEW_TITLE
+    WENA_UI_TEXT_BOARD_VIEW_TITLE,
+    WENA_UI_TEXT_NOTIFICATIONS,
+    WENA_UI_TEXT_MARK_ALL_READ
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

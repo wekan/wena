@@ -87,6 +87,23 @@ int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *lan
 int wena_wekan_sync_board_view(sqlite3 *db, const char *actor);
 int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, int lists);
 
+/* The user's notifications as WeKan's drawer lists them: newest first, those
+ * whose activity is gone left out (#5325). `index` is the entry's place in
+ * users.profile.notifications, which marking it read uses. */
+#define WENA_WEKAN_NOTIFICATIONS 64
+typedef struct WenaWekanNotification {
+    int index;
+    char type[48];            /* the activity's activityType */
+    char user[129];           /* who did it: full name, else username */
+    char title[129];          /* its card's title, else its board's */
+    sqlite3_int64 at;         /* when, in milliseconds */
+    int read;
+} WenaWekanNotification;
+int wena_wekan_sync_notifications(sqlite3 *db, const char *actor, WenaWekanNotification *out, size_t capacity,
+                                  size_t *count);
+/* WeKan's read checkbox: the entry's `read` becomes now (a Date) or null. */
+int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int index, int read);
+
 /* A per-board map in the user's profile, as WeKan keeps collapsed lists and
  * swimlanes and swimlane heights: profile.<field>.<board>.<id> = value.
  * Reading calls `entry` with each id and its value (true is 1); writing
