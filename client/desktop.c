@@ -9,6 +9,7 @@
 #include "platform/dependencies.h"
 #include "platform/font.h"
 #include "platform/debug_log.h"
+#include "components/boards/swimlane_resize.h"
 #include "features/board.h"
 #include "features/board_filter.h"
 #include "features/card_mutation.h"
@@ -304,6 +305,10 @@ static int desktop_collapse_changed(const WenaBoardCollapseState *current,
         if (strcmp(current->list_ids[index], previous->list_ids[index])) return 1;
     for (index = 0; index < current->swimlane_count; ++index)
         if (strcmp(current->swimlane_ids[index], previous->swimlane_ids[index])) return 1;
+    if (current->height_count != previous->height_count) return 1;
+    for (index = 0; index < current->height_count; ++index)
+        if (strcmp(current->height_ids[index], previous->height_ids[index]) ||
+            current->heights[index] != previous->heights[index]) return 1;
     return 0;
 }
 
@@ -395,6 +400,9 @@ int main(int argc, char **argv)
     WenaDesktopEditors editors;
     WenaDesktopPanel opened_panel;
     SDL_Window *window;
+    SDL_Cursor *resize_cursor, *arrow_cursor;
+    int resize_cursor_shown;
+    WenaSwimlaneResize swimlane_resize;
     SDL_Renderer *renderer;
     SDL_Event event;
     struct nk_context *context;
@@ -477,6 +485,8 @@ int main(int argc, char **argv)
     memset(&swimlane_interaction, 0, sizeof(swimlane_interaction));
     memset(&toolbar, 0, sizeof(toolbar));
     memset(&label_view, 0, sizeof(label_view));
+    resize_cursor = NULL; arrow_cursor = NULL; resize_cursor_shown = 0;
+    memset(&swimlane_resize, 0, sizeof(swimlane_resize));
     database = NULL; window = NULL; renderer = NULL; context = NULL;single_selection=NULL;selection=NULL;selection_traversal=NULL;
     sdl_started = 0; status = 1;
     if (!wena_executable_path_current(executable, sizeof(executable)) ||
@@ -552,6 +562,8 @@ int main(int argc, char **argv)
     if (!wena_board_filter_sync(&filter, snapshot->board.id)) DESKTOP_FAIL();
     wena_card_details_init(&editors.details);
     layout.sidebar = &sidebar; layout.collapse = &collapse;
+    layout.swimlane_resize = &swimlane_resize;
+    layout.swimlane_resize_bar = wena_swimlane_resize_bar;
     layout.sidebar_as_window = 1;
     layout.card_interaction = &card_interaction;
     layout.list_interaction = &list_interaction;
@@ -695,6 +707,9 @@ int main(int argc, char **argv)
     if (!wena_native_theme_apply(context)) DESKTOP_FAIL();
     wena_board_header_set_title_renderer(wena_svg_board_title);
     SDL_StartTextInput();
+    /* Up-down arrows over the bar between swimlanes; optional decoration. */
+    resize_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+    arrow_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
     wena_debug_log("window open, board %s loaded%s", board_id, smoke ? " (smoke)" : "");
     running = 1; frames = 0;
     while (running) {
@@ -729,6 +744,11 @@ int main(int argc, char **argv)
             wena_card_selection_traversal_begin(selection_traversal,selection);
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) DESKTOP_FAIL();
+            if (resize_cursor != NULL && arrow_cursor != NULL &&
+                (swimlane_resize.hovered || swimlane_resize.active) != resize_cursor_shown) {
+                resize_cursor_shown = swimlane_resize.hovered || swimlane_resize.active;
+                SDL_SetCursor(resize_cursor_shown ? resize_cursor : arrow_cursor);
+            }
             wena_reorder_drag_end(context, &preview.drag.gesture);
             wena_card_drag_end(context, &preview.card_drag);
             wena_hierarchy_drag_end(context,&preview.hierarchy_drag);
@@ -991,6 +1011,8 @@ cleanup:
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
     if (context != NULL) nk_sdl_shutdown();
+    if (resize_cursor != NULL) SDL_FreeCursor(resize_cursor);
+    if (arrow_cursor != NULL) SDL_FreeCursor(arrow_cursor);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
     if (window != NULL) SDL_DestroyWindow(window);
     if (sdl_started) { SDL_StopTextInput(); SDL_Quit(); }

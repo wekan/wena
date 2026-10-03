@@ -1,6 +1,25 @@
 # Upcoming Wena release
 
 <details>
+<summary>Drag the bar below a swimlane to change its height</summary>
+
+- Each expanded swimlane has a bar below it. Dragging it up or down resizes
+  the lane live, with the up-down resize cursor; release keeps the height,
+  Escape cancels. Heights are clamped to 160-2000 pixels, the default 360
+  needs no entry, and the lists inside grow with the lane.
+- Heights are saved per actor and board with collapsed lanes and lists. The
+  preferences file is version 2 exactly when it holds heights, so version 1
+  files keep loading; heights of lanes the board no longer has are dropped.
+- Tests: a real Nuklear drag test (press, drag, release, Escape, both clamps,
+  back to the default, a collapsed lane and a layout without the bar), and
+  preference round trips with strict negatives for every malformed height
+  line, a full file, and pruning.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Fix the desktop crash when the mouse reaches a list or swimlane drag handle</summary>
 
 - 42 sources included `<nuklear.h>` without the `NK_INCLUDE_*` options that

@@ -25,7 +25,8 @@ renaming the board; reordering lists and swimlanes; moving, archiving and restor
 cards; editing card descriptions and checklists with confirmed deletion and
 whole-checklist transfers between active cards on the same board;
 filtering card titles; and
-remembering collapsed lists and swimlanes per local actor and board. Changes use guarded SQLite transactions and survive reopening.
+remembering collapsed lists and swimlanes, and swimlane heights set by dragging
+the bar below a lane, per local actor and board. Changes use guarded SQLite transactions and survive reopening.
 The language selector changes canonical WeKan labels immediately and remembers
 the selection. Local access trusts the operating-system user; the actor argument
 is not a login mechanism.

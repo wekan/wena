@@ -104,8 +104,83 @@ int wena_board_collapse_sync(WenaBoardCollapseState *state,
                         WENA_COLLAPSE_SWIMLANE);
     wena_collapse_prune(state->list_ids, &state->list_count, layout,
                         WENA_COLLAPSE_LIST);
+    if (state->height_count > WENA_BOARD_COLLAPSE_CAPACITY) return 0;
+    {
+        size_t read_index, write_index = 0;
+        for (read_index = 0; read_index < state->height_count; ++read_index) {
+            if (wena_collapse_active(layout, WENA_COLLAPSE_SWIMLANE,
+                                     state->height_ids[read_index])) {
+                if (write_index != read_index) {
+                    memcpy(state->height_ids[write_index], state->height_ids[read_index],
+                           sizeof(WenaId));
+                    state->heights[write_index] = state->heights[read_index];
+                }
+                ++write_index;
+            }
+        }
+        state->height_count = write_index;
+    }
     return 1;
 }
+
+unsigned int wena_board_swimlane_height_clamp(long height)
+{
+    if (height < (long)WENA_SWIMLANE_HEIGHT_MIN) return WENA_SWIMLANE_HEIGHT_MIN;
+    if (height > (long)WENA_SWIMLANE_HEIGHT_MAX) return WENA_SWIMLANE_HEIGHT_MAX;
+    return (unsigned int)height;
+}
+
+unsigned int wena_board_swimlane_height(const WenaBoardCollapseState *state,
+                                        const char *board_id, const char *swimlane_id)
+{
+    size_t index;
+    if (state == NULL || board_id == NULL || swimlane_id == NULL ||
+        !wena_same_id(state->board_id, board_id) ||
+        state->height_count > WENA_BOARD_COLLAPSE_CAPACITY) return WENA_SWIMLANE_HEIGHT_DEFAULT;
+    for (index = 0; index < state->height_count; ++index)
+        if (wena_same_id(state->height_ids[index], swimlane_id))
+            return wena_board_swimlane_height_clamp((long)state->heights[index]);
+    return WENA_SWIMLANE_HEIGHT_DEFAULT;
+}
+
+int wena_board_swimlane_height_set(WenaBoardCollapseState *state,
+                                   const WenaBoardLayout *layout,
+                                   const char *swimlane_id, unsigned int height)
+{
+    WenaId validated;
+    size_t index;
+
+    if (state == NULL || !wena_collapse_layout_valid(layout) ||
+        !wena_same_id(state->board_id, layout->board->id) ||
+        state->height_count > WENA_BOARD_COLLAPSE_CAPACITY ||
+        !wena_model_set_required(validated, sizeof(validated), swimlane_id) ||
+        !wena_collapse_active(layout, WENA_COLLAPSE_SWIMLANE, validated)) {
+        return 0;
+    }
+    height = wena_board_swimlane_height_clamp((long)height);
+    for (index = 0; index < state->height_count; ++index) {
+        if (wena_same_id(state->height_ids[index], validated)) {
+            if (height == WENA_SWIMLANE_HEIGHT_DEFAULT) {
+                --state->height_count;
+                if (index < state->height_count) {
+                    memmove(state->height_ids[index], state->height_ids[index + 1],
+                            (state->height_count - index) * sizeof(WenaId));
+                    memmove(&state->heights[index], &state->heights[index + 1],
+                            (state->height_count - index) * sizeof(state->heights[0]));
+                }
+            } else {
+                state->heights[index] = height;
+            }
+            return 1;
+        }
+    }
+    if (height == WENA_SWIMLANE_HEIGHT_DEFAULT) return 1;
+    if (state->height_count == WENA_BOARD_COLLAPSE_CAPACITY) return 0;
+    strcpy(state->height_ids[state->height_count], validated);
+    state->heights[state->height_count++] = height;
+    return 1;
+}
+
 
 int wena_board_is_collapsed(const WenaBoardCollapseState *state,
                              const char *board_id, WenaBoardCollapseKind kind,
@@ -265,7 +340,8 @@ static void wena_render_cards(struct nk_context *context,
 
 static void wena_render_lists(struct nk_context *context,
                               const WenaBoardLayout *layout,
-                              const WenaSwimlane *swimlane)
+                              const WenaSwimlane *swimlane,
+                              float lane_height)
 {
     size_t index;
     size_t visible_count;
@@ -285,7 +361,8 @@ static void wena_render_lists(struct nk_context *context,
         return;
     }
     /* Fixed-width columns stay readable; the containing lane scrolls sideways. */
-    nk_layout_row_begin(context, NK_STATIC, 270.0f, (int)visible_count);
+    /* The lane's header rows take 90 pixels; the lists fill the rest. */
+    nk_layout_row_begin(context, NK_STATIC, lane_height - 90.0f, (int)visible_count);
     for (index = 0; index < layout->list_count; ++index) {
         const WenaList *list = &layout->lists[index];
 
@@ -358,6 +435,7 @@ int wena_board_layout_render(struct nk_context *context,
         !wena_board_collapse_sync(layout->collapse, layout)) {
         return 0;
     }
+    if (layout->swimlane_resize != NULL) layout->swimlane_resize->hovered = 0;
     header_action = wena_board_header_render(context, layout->board);
     if (layout->toolbar != NULL) {
         layout->toolbar(context, layout->toolbar_context);
@@ -382,15 +460,22 @@ int wena_board_layout_render(struct nk_context *context,
     }
     for (index = 0; index < layout->swimlane_count; ++index) {
         const WenaSwimlane *swimlane = &layout->swimlanes[index];
+        unsigned int lane_height;
+        int lane_collapsed;
 
         if (swimlane->archived ||
             !wena_same_id(swimlane->board_id, layout->board->id)) {
             continue;
         }
-        nk_layout_row_dynamic(context,
-            wena_board_is_collapsed(layout->collapse, layout->board->id,
-                WENA_COLLAPSE_SWIMLANE, swimlane->id) ?
-                (layout->swimlane_drag_handle ? 112.0f : 80.0f) : 360.0f, 1);
+        lane_collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
+            WENA_COLLAPSE_SWIMLANE, swimlane->id);
+        lane_height = wena_board_swimlane_height(layout->collapse, layout->board->id,
+                                                 swimlane->id);
+        if (layout->swimlane_resize != NULL && layout->swimlane_resize->active &&
+            wena_same_id(layout->swimlane_resize->swimlane_id, swimlane->id))
+            lane_height = layout->swimlane_resize->height;
+        nk_layout_row_dynamic(context, lane_collapsed ?
+                (layout->swimlane_drag_handle ? 112.0f : 80.0f) : (float)lane_height, 1);
         if (wena_model_group_begin(context, "lane/", layout->board->id,
                                     "", swimlane->id)) {
             nk_layout_row_dynamic(context, 26.0f,
@@ -408,10 +493,13 @@ int wena_board_layout_render(struct nk_context *context,
                 layout->hierarchy_drag_context,swimlane,index);
             if (!wena_collapse_control(context, layout, WENA_COLLAPSE_SWIMLANE,
                                        swimlane->id)) {
-                wena_render_lists(context, layout, swimlane);
+                wena_render_lists(context, layout, swimlane, (float)lane_height);
             }
             nk_group_end(context);
         }
+        if (layout->swimlane_resize_bar != NULL && layout->swimlane_resize != NULL &&
+            layout->collapse != NULL && !lane_collapsed)
+            layout->swimlane_resize_bar(context, layout, swimlane, lane_height);
     }
     if (!layout->sidebar_as_window)
         (void)wena_board_sidebar_render(context, layout->sidebar);

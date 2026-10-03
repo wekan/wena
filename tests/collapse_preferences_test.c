@@ -147,6 +147,70 @@ int main(int argc, char **argv)
     assert(state.swimlane_count == 1 && state.list_count == 0);
     /* Pruning is in-memory only until an explicit user save. */
     assert(read_data(path, data) == baseline_length && !memcmp(data, baseline, baseline_length));
+    /* Swimlane heights (version 2): saved, reloaded, and pruned with the lane. */
+    write_data(path, baseline, baseline_length);
+    state = original; strcpy(state.height_ids[0], "lane"); state.heights[0] = 500; state.height_count = 1;
+    assert(wena_collapse_preferences_save(path, workspace, "actor", &state));
+    length = read_data(path, data);
+    assert(!strncmp(data, "WENA-COLLAPSE 2\n", 16) && strstr(data, "\nheight lane 500\nend\n"));
+    memset(&empty, 0, sizeof(empty));
+    assert(wena_collapse_preferences_load(path, workspace, "actor", "board", &empty));
+    assert(!memcmp(&state, &empty, sizeof(state)));
+    {
+        char heights[24576];
+        memcpy(heights, data, length + 1);
+        /* Negative: out of range, the default, signs and zeros, duplicates,
+         * no value, text, an entry before the lists, and the wrong version. */
+        p = strstr(heights, "height lane 500"); strcpy(p, "height lane 100\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 2001\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 360\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 0500\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane +500\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 500x\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 500\nheight lane 600\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height bad/id 500\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "height lane 500\nlist late\nend\n"); bad_file(heights, strlen(heights));
+        strcpy(p, "end\n"); bad_file(heights, strlen(heights));
+        memcpy(heights, data, length + 1); heights[14] = '1'; bad_file(heights, length);
+    }
+    write_data(path, data, length);
+    state.heights[0] = 360; assert(!wena_collapse_preferences_save(path, workspace, "actor", &state));
+    state.heights[0] = 159; assert(!wena_collapse_preferences_save(path, workspace, "actor", &state));
+    state.heights[0] = 500; state.height_count = 2; strcpy(state.height_ids[1], "lane"); state.heights[1] = 600;
+    assert(!wena_collapse_preferences_save(path, workspace, "actor", &state));
+    assert(read_data(path, data) == length);
+    /* Every collapse and height slot full still fits the file. */
+    memset(&state, 0, sizeof(state)); strcpy(state.board_id, "board");
+    state.list_count = state.swimlane_count = state.height_count = WENA_BOARD_COLLAPSE_CAPACITY;
+    for (i = 0; i < WENA_BOARD_COLLAPSE_CAPACITY; ++i) {
+        memset(state.list_ids[i], 'a', WENA_ID_CAPACITY-1);
+        state.list_ids[i][WENA_ID_CAPACITY-1] = 0;
+        state.list_ids[i][0] = (char)('A' + i / 26);
+        state.list_ids[i][1] = (char)('A' + i % 26);
+        strcpy(state.swimlane_ids[i], state.list_ids[i]);
+        strcpy(state.height_ids[i], state.list_ids[i]);
+        state.heights[i] = WENA_SWIMLANE_HEIGHT_MAX - (unsigned int)i;
+    }
+    assert(wena_collapse_preferences_save(path, workspace, "actor", &state));
+    memset(&empty, 0, sizeof(empty));
+    assert(wena_collapse_preferences_load(path, workspace, "actor", "board", &empty));
+    assert(!memcmp(&state, &empty, sizeof(state)));
+    /* A height for a lane the board no longer has is dropped on sync. */
+    state = original; strcpy(state.height_ids[0], "gone"); state.heights[0] = 500;
+    strcpy(state.height_ids[1], "lane"); state.heights[1] = 700; state.height_count = 2;
+    assert(wena_board_collapse_sync(&state, &layout));
+    assert(state.height_count == 1 && !strcmp(state.height_ids[0], "lane") && state.heights[0] == 700);
+    assert(wena_board_swimlane_height(&state, "board", "lane") == 700);
+    assert(wena_board_swimlane_height(&state, "board", "other") == WENA_SWIMLANE_HEIGHT_DEFAULT);
+    assert(wena_board_swimlane_height(&state, "other-board", "lane") == WENA_SWIMLANE_HEIGHT_DEFAULT);
+    /* Setting clamps, the default removes the entry, an unknown lane fails. */
+    assert(wena_board_swimlane_height_set(&state, &layout, "lane", 5000) && state.heights[0] == WENA_SWIMLANE_HEIGHT_MAX);
+    assert(wena_board_swimlane_height_set(&state, &layout, "lane", 1) && state.heights[0] == WENA_SWIMLANE_HEIGHT_MIN);
+    assert(wena_board_swimlane_height_set(&state, &layout, "lane", WENA_SWIMLANE_HEIGHT_DEFAULT) && state.height_count == 0);
+    assert(!wena_board_swimlane_height_set(&state, &layout, "gone", 500) && state.height_count == 0);
+    assert(!wena_board_swimlane_height_set(&state, &layout, "bad/id", 500));
+    write_data(path, baseline, baseline_length);
     assert(!wena_collapse_preferences_reset(path, workspace, "actor", "board", NULL));
     assert(!wena_collapse_preferences_save(path, workspace, "actor", NULL));
     assert(!wena_collapse_preferences_load(path, workspace, "actor", "board", NULL));

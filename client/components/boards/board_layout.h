@@ -16,13 +16,33 @@ typedef enum WenaBoardCollapseKind {
     WENA_COLLAPSE_LIST
 } WenaBoardCollapseKind;
 
+/* Swimlane heights in pixels, set by dragging the bar below a lane. A lane
+ * without an entry is drawn at the default; setting the default removes it. */
+#define WENA_SWIMLANE_HEIGHT_DEFAULT 360u
+#define WENA_SWIMLANE_HEIGHT_MIN 160u
+#define WENA_SWIMLANE_HEIGHT_MAX 2000u
+
 typedef struct WenaBoardCollapseState {
     WenaId board_id;
     WenaId swimlane_ids[WENA_BOARD_COLLAPSE_CAPACITY];
     size_t swimlane_count;
     WenaId list_ids[WENA_BOARD_COLLAPSE_CAPACITY];
     size_t list_count;
+    WenaId height_ids[WENA_BOARD_COLLAPSE_CAPACITY];
+    unsigned int heights[WENA_BOARD_COLLAPSE_CAPACITY];
+    size_t height_count;
 } WenaBoardCollapseState;
+
+/* Caller-owned gesture state for the bar below each swimlane. While active the
+ * lane is drawn at `height`; on release the height is stored in the layout's
+ * collapse state (and so saved with it). Escape cancels. `hovered` reports a
+ * bar under the mouse this frame, for a resize cursor. */
+typedef struct WenaSwimlaneResize {
+    int active, hovered;
+    WenaId swimlane_id;
+    float start_y;
+    unsigned int start_height, height;
+} WenaSwimlaneResize;
 
 typedef struct WenaBoardLayout {
     const WenaBoard *board;
@@ -75,6 +95,11 @@ typedef struct WenaBoardLayout {
     unsigned int (*card_contents)(struct nk_context *context, void *user_data,
                         const WenaCard *card);
     void *card_contents_context;
+    /* Optional: a resize bar below each expanded swimlane (swimlane_resize.h
+     * wena_swimlane_resize_bar), with its gesture state. Needs collapse. */
+    WenaSwimlaneResize *swimlane_resize;
+    void (*swimlane_resize_bar)(struct nk_context *context, const struct WenaBoardLayout *layout,
+                                const WenaSwimlane *swimlane, unsigned int height);
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {
@@ -108,6 +133,16 @@ int wena_board_collapse_set(WenaBoardCollapseState *state,
 int wena_board_is_collapsed(const WenaBoardCollapseState *state,
                              const char *board_id, WenaBoardCollapseKind kind,
                              const char *id);
+
+/* The lane's height: its stored one, or the default. */
+unsigned int wena_board_swimlane_height(const WenaBoardCollapseState *state,
+                                        const char *board_id, const char *swimlane_id);
+/* Store a height for an active lane, clamped to MIN..MAX; the default removes
+ * the entry. Failure (inactive lane, full state) leaves state unchanged. */
+int wena_board_swimlane_height_set(WenaBoardCollapseState *state,
+                                   const WenaBoardLayout *layout,
+                                   const char *swimlane_id, unsigned int height);
+unsigned int wena_board_swimlane_height_clamp(long height);
 
 int wena_board_layout_render(struct nk_context *context,
                              const WenaBoardLayout *layout);

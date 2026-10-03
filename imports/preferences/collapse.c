@@ -3,6 +3,7 @@
 #include "../../server/sha256.h"
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #if defined(_WIN32)
 #include <windows.h>
@@ -58,7 +59,15 @@ static int state_valid(const WenaBoardCollapseState *state)
     size_t i, j;
     if (!state || !wena_model_identifier_valid(state->board_id) ||
         state->list_count > WENA_BOARD_COLLAPSE_CAPACITY ||
-        state->swimlane_count > WENA_BOARD_COLLAPSE_CAPACITY) return 0;
+        state->swimlane_count > WENA_BOARD_COLLAPSE_CAPACITY ||
+        state->height_count > WENA_BOARD_COLLAPSE_CAPACITY) return 0;
+    for (i = 0; i < state->height_count; ++i) {
+        if (!wena_model_identifier_valid(state->height_ids[i]) ||
+            state->heights[i] < WENA_SWIMLANE_HEIGHT_MIN ||
+            state->heights[i] > WENA_SWIMLANE_HEIGHT_MAX ||
+            state->heights[i] == WENA_SWIMLANE_HEIGHT_DEFAULT) return 0;
+        for (j = 0; j < i; ++j) if (!strcmp(state->height_ids[i], state->height_ids[j])) return 0;
+    }
     for (i = 0; i < state->list_count; ++i) {
         if (!wena_model_identifier_valid(state->list_ids[i])) return 0;
         for (j = 0; j < i; ++j) if (!strcmp(state->list_ids[i], state->list_ids[j])) return 0;
@@ -91,22 +100,43 @@ static int parse(char *data, const char *workspace, const char *actor,
     const char *board, WenaBoardCollapseState *state)
 {
     WenaBoardCollapseState candidate;
-    char expected[2 * WENA_EXECUTABLE_PATH_CAPACITY], *cursor, *value;
-    int lists;
+    char expected[2 * WENA_EXECUTABLE_PATH_CAPACITY], *cursor, *value, *space, *end;
+    int lists, version, heights;
+    long height;
     memset(&candidate, 0, sizeof(candidate)); strcpy(candidate.board_id, board);
     cursor = data;
-    value = line(&cursor); if (!value || strcmp(value, "WENA-COLLAPSE 1")) return 0;
+    /* Version 2 adds swimlane heights; version 1 files read as before. */
+    value = line(&cursor); if (!value) return 0;
+    if (!strcmp(value, "WENA-COLLAPSE 1")) version = 1;
+    else if (!strcmp(value, "WENA-COLLAPSE 2")) version = 2;
+    else return 0;
     hex_workspace(workspace, expected);
     value = line(&cursor); if (!value || strncmp(value, "workspace ", 10) || strcmp(value+10, expected)) return 0;
     value = line(&cursor); if (!value || strncmp(value, "actor ", 6) || strcmp(value+6, actor)) return 0;
     value = line(&cursor); if (!value || strncmp(value, "board ", 6) || strcmp(value+6, board)) return 0;
-    lists = 0;
+    lists = 0; heights = 0;
     while ((value = line(&cursor)) != NULL) {
         if (!strcmp(value, "end")) {
-            if (*cursor || !state_valid(&candidate)) return 0;
+            /* One spelling per state: version 2 exactly when there are heights. */
+            if (*cursor || !state_valid(&candidate) ||
+                (version == 2) != (candidate.height_count != 0)) return 0;
             *state = candidate; return 1;
         }
-        if (!strncmp(value, "swimlane ", 9) && !lists) {
+        if (!strncmp(value, "height ", 7) && version == 2) {
+            /* height <swimlane id> <pixels>, after the collapsed lists */
+            heights = 1;
+            space = strchr(value + 7, ' ');
+            if (!space || candidate.height_count == WENA_BOARD_COLLAPSE_CAPACITY) return 0;
+            *space = 0;
+            if (!wena_model_identifier_valid(value + 7) || space[1] < '1' || space[1] > '9') return 0;
+            height = strtol(space + 1, &end, 10);
+            if (*end || height < (long)WENA_SWIMLANE_HEIGHT_MIN ||
+                height > (long)WENA_SWIMLANE_HEIGHT_MAX) return 0;
+            strcpy(candidate.height_ids[candidate.height_count], value + 7);
+            candidate.heights[candidate.height_count++] = (unsigned int)height;
+        } else if (heights) {
+            return 0;
+        } else if (!strncmp(value, "swimlane ", 9) && !lists) {
             if (candidate.swimlane_count == WENA_BOARD_COLLAPSE_CAPACITY ||
                 !wena_model_identifier_valid(value+9)) return 0;
             strcpy(candidate.swimlane_ids[candidate.swimlane_count++], value+9);
@@ -205,12 +235,18 @@ int wena_collapse_preferences_save(const char *path, const char *workspace,
     status = wena_collapse_preferences_load(path, workspace, actor, state->board_id, &old);
     if (status == WENA_COLLAPSE_PREFS_ERROR) return 0;
     hex_workspace(workspace, hex);
-    sprintf(data, "WENA-COLLAPSE 1\nworkspace %s\nactor %s\nboard %s\n", hex, actor, state->board_id);
+    sprintf(data, "WENA-COLLAPSE %d\nworkspace %s\nactor %s\nboard %s\n",
+            state->height_count ? 2 : 1, hex, actor, state->board_id);
     for (i = 0; i < state->swimlane_count; ++i) {
         strcat(data, "swimlane "); strcat(data, state->swimlane_ids[i]); strcat(data, "\n");
     }
     for (i = 0; i < state->list_count; ++i) {
         strcat(data, "list "); strcat(data, state->list_ids[i]); strcat(data, "\n");
+    }
+    for (i = 0; i < state->height_count; ++i) {
+        char pixels[16];
+        sprintf(pixels, " %u\n", state->heights[i]);
+        strcat(data, "height "); strcat(data, state->height_ids[i]); strcat(data, pixels);
     }
     strcat(data, "end\n"); length = strlen(data);
     strcpy(temporary, path); strcat(temporary, ".tmp");
