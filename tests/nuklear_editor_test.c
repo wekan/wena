@@ -120,7 +120,7 @@ int main(void)
     wena_card_details_set_title_adapter(&state, load, save, &store);
     assert(wena_card_details_open(&state, &card));
     render(&ctx, &state, &card);
-    click(&ctx, &state, &card, "Edit title");
+    click(&ctx, &state, &card, "Initial"); /* WeKan: the title edits itself */
     assert(state.editing_title && state.title_version == 1ul);
     /* A following frame lays out the newly opened editor. */
     nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);
@@ -134,7 +134,7 @@ int main(void)
 
     nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);
     render(&ctx, &state, &card);
-    click(&ctx, &state, &card, "Edit title");
+    click(&ctx, &state, &card, "Initial"); /* WeKan: the title edits itself */
     nk_clear(&ctx); nk_input_begin(&ctx); nk_input_end(&ctx);
     render(&ctx, &state, &card);
     click_at(&ctx, &state, &card, nk_vec2(420.0f, 20.0f));

@@ -1,5 +1,6 @@
 #include "../client/features/card_create.h"
 #include "../client/components/lists/list_header.h"
+#include "../client/components/common/wekan_look.h"
 #include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
@@ -21,6 +22,39 @@ static int create(void *data, const char *board, const char *list,
     if (store->fail) return 0;
     strcpy(store->title, title);
     return 1;
+}
+
+static const WenaBoardLayout *current_layout;
+static int top_calls, top_fail, composer_calls;
+static int to_top(void *data, const WenaBoardLayout *layout)
+{
+    (void)layout;
+    ++*(int *)data;
+    return !top_fail;
+}
+static int inline_frame(WenaCardCreateState *state, WenaBoardLayout *layout,
+    const WenaSwimlane *lane, int bottom, const char *button, const char *input)
+{
+    struct nk_context context;
+    memset(&context, 0, sizeof(context));
+    context.current = &context.window; context.window.layout = &context.panel;
+    context.button_to_press = button; context.edit_text = input;
+    return wena_card_create_render_inline(&context, state, layout, &layout->lists[0], lane, bottom);
+}
+static int composer(struct nk_context *context, void *data, const WenaList *list,
+                    const WenaSwimlane *lane, int bottom)
+{
+    ++composer_calls;
+    return wena_card_create_render_inline(context, (WenaCardCreateState *)data, current_layout,
+                                          list, lane, bottom);
+}
+static int control(const char *name)
+{
+    size_t count, index;
+    const WenaUiControl *controls = wena_ui_controls(&count);
+    for (index = 0; index < count; ++index)
+        if (!strcmp(controls[index].name, name)) return 1;
+    return 0;
 }
 
 static void frame(WenaCardCreateState *state, WenaBoardLayout *layout,
@@ -115,5 +149,52 @@ int main(void)
     assert(interaction.actions == 0u && interaction.board_id[0] == 0 &&
            interaction.swimlane_id[0] == 0 && interaction.list_id[0] == 0);
     assert(!wena_card_create_open(&state, &layout, &interaction));
+
+    /* WeKan's inline composer. "+ Add Card" asks for the bottom one. */
+    memset(&context, 0, sizeof(context));
+    context.button_to_press = "Add Card";
+    assert(wena_board_layout_render(&context, &layout));
+    assert(interaction.actions == (WENA_LIST_HEADER_ADD_CARD | WENA_LIST_HEADER_ADD_CARD_BOTTOM));
+    assert(!strcmp(interaction.swimlane_id, "second"));
+    assert(wena_card_create_open(&state, &layout, &interaction) && state.bottom && state.focus);
+    /* Only its own list, swimlane and end draw it. */
+    memset(&context, 0, sizeof(context));
+    assert(!inline_frame(&state, &layout, &lanes[1], 0, NULL, NULL));
+    assert(!inline_frame(&state, &layout, &lanes[0], 1, NULL, NULL));
+    assert(inline_frame(&state, &layout, &lanes[1], 1, NULL, NULL) && !state.focus);
+    /* Add creates it and keeps the composer open, empty, for the next card. */
+    top_calls = 0; state.to_top = to_top; state.to_top_context = &top_calls;
+    assert(inline_frame(&state, &layout, &lanes[1], 1, "Add", "Inline card"));
+    assert(store.calls == 3 && !strcmp(store.title, "Inline card"));
+    assert(state.visible && state.title_length == 0 && !state.error && top_calls == 0);
+    /* Negative: an empty title creates nothing and says so. */
+    assert(inline_frame(&state, &layout, &lanes[1], 1, "Add", ""));
+    assert(store.calls == 3 && state.error && state.visible);
+    /* The cross closes it. */
+    assert(inline_frame(&state, &layout, &lanes[1], 1, "Close", NULL) && !state.visible);
+    /* While the composer is at the bottom it replaces "+ Add Card". */
+    assert(wena_card_create_open(&state, &layout, &interaction));
+    layout.card_composer = composer; layout.card_composer_context = &state; current_layout = &layout;
+    memset(&context, 0, sizeof(context));
+    wena_ui_controls_begin();
+    assert(wena_board_layout_render(&context, &layout));
+    assert(composer_calls == 2 && !control("Add Card") && control("Add Card to Bottom of List"));
+    /* Add Card to Top of List: the composer above the cards, and the new card
+     * moved first. */
+    wena_card_create_close(&state);
+    interaction.actions = WENA_LIST_HEADER_ADD_CARD;
+    strcpy(interaction.board_id, "board"); strcpy(interaction.list_id, "list");
+    strcpy(interaction.swimlane_id, "second");
+    assert(wena_card_create_open(&state, &layout, &interaction) && !state.bottom);
+    state.to_top = to_top; state.to_top_context = &top_calls;
+    memset(&context, 0, sizeof(context));
+    assert(!inline_frame(&state, &layout, &lanes[1], 1, NULL, NULL));
+    assert(inline_frame(&state, &layout, &lanes[1], 0, "Add", "On top"));
+    assert(store.calls == 4 && top_calls == 1 && !state.error);
+    /* Negative: a card that could not be moved first is reported. */
+    top_fail = 1;
+    assert(inline_frame(&state, &layout, &lanes[1], 0, "Add", "Left last"));
+    assert(store.calls == 5 && top_calls == 2 && state.error && state.title_length == 0);
+    layout.card_composer = NULL;
     return 0;
 }

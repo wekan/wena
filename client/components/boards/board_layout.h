@@ -122,6 +122,12 @@ typedef struct WenaBoardLayout {
     /* A list's free space below its cards: a card dropped there goes last. */
     void (*card_drop_area)(struct nk_context *context, void *user_data, const WenaList *list,
                            const WenaSwimlane *lane, const struct nk_rect *area);
+    /* WeKan's inline Add Card composer, asked for each list twice: above its
+     * cards (bottom 0) and below them (bottom 1), where it replaces
+     * "+ Add Card". Returns 1 when it drew there. */
+    int (*card_composer)(struct nk_context *context, void *user_data, const WenaList *list,
+                         const WenaSwimlane *lane, int bottom);
+    void *card_composer_context;
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {

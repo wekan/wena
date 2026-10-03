@@ -35,6 +35,7 @@ struct nk_rect nk_widget_bounds(struct nk_context *c) { (void)c; return nk_rect(
 enum nk_widget_layout_states nk_widget(struct nk_rect *r, const struct nk_context *c) { (void)c; *r = nk_rect(0, 0, 0, 0); return NK_WIDGET_INVALID; }
 int nk_widget_is_hovered(struct nk_context *c) { (void)c; return 0; }
 void nk_spacing(struct nk_context *c, int n) { (void)c; (void)n; }
+void nk_spacer(struct nk_context *c) { (void)c; }
 int nk_input_is_mouse_hovering_rect(const struct nk_input *i, struct nk_rect r) { (void)i; (void)r; return 0; }
 int nk_input_is_mouse_pressed(const struct nk_input *i, enum nk_buttons b) { (void)i; (void)b; return 0; }
 int nk_input_is_mouse_released(const struct nk_input *i, enum nk_buttons b) { (void)i; (void)b; return 0; }
@@ -48,7 +49,13 @@ int nk_button_text_styled(struct nk_context *context, const struct nk_style_butt
     const WenaUiControl *controls;
     (void)style; (void)text; (void)length;
     controls = wena_ui_controls(&count);
-    return count > 0 ? nk_button_label(context, controls[count - 1].name) : nk_button_label(context, "");
+    if (count == 0) return nk_button_label(context, "");
+    /* The registry keeps a name's first WENA_UI_CONTROL_NAME - 1 bytes: a
+     * longer one (a 128-character title) is pressed by its full text. */
+    if (context->button_to_press != NULL && strlen(controls[count - 1].name) == WENA_UI_CONTROL_NAME - 1 &&
+        strncmp(context->button_to_press, controls[count - 1].name, WENA_UI_CONTROL_NAME - 1) == 0)
+        return nk_button_label(context, context->button_to_press);
+    return nk_button_label(context, controls[count - 1].name);
 }
 int nk_button_label_styled(struct nk_context *context, const struct nk_style_button *style, const char *title)
 {
@@ -83,3 +90,6 @@ void nk_stroke_arc(struct nk_command_buffer *b, float x, float y, float r, float
 void nk_draw_text(struct nk_command_buffer *b, struct nk_rect r, const char *t, int n,
                   const struct nk_user_font *f, struct nk_color bg, struct nk_color fg)
 { (void)r; (void)t; (void)n; (void)f; (void)bg; (void)fg; ++b->commands; }
+int nk_style_push_float(struct nk_context *c, float *a, float v) { (void)c; (void)a; (void)v; return 1; }
+int nk_style_pop_float(struct nk_context *c) { (void)c; return 1; }
+void nk_edit_focus(struct nk_context *c, unsigned int flags) { (void)c; (void)flags; }

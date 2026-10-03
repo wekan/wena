@@ -533,17 +533,28 @@ static void wena_render_lists(struct nk_context *context,
             if (!collapsed) {
                 nk_layout_row_dynamic(context, 8.0f, 1);
                 nk_spacing(context, 1);
+                /* WeKan's inline composer: above the cards for "Add Card to
+                 * Top of List", in place of "+ Add Card" for the bottom. */
+                wena_ui_region("composer");
+                if (layout->card_composer)
+                    (void)layout->card_composer(context, layout->card_composer_context, list, swimlane, 0);
                 wena_ui_region("minicard");
                 wena_render_cards(context, layout, list, swimlane);
+                wena_ui_region("composer");
+                if (!layout->card_composer ||
+                    !layout->card_composer(context, layout->card_composer_context, list, swimlane, 1)) {
+                    wena_ui_region("list");
+                    nk_layout_row_begin(context, NK_STATIC, 28.0f, 2);
+                    nk_layout_row_push(context, 21.0f);
+                    nk_spacing(context, 1);
+                    nk_layout_row_push(context, 120.0f);
+                    if (wena_wekan_link(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_CARD),
+                                        WENA_WEKAN_FONT_LINK, WENA_WEKAN_ADD_CARD))
+                        wena_list_interaction(layout, WENA_LIST_HEADER_ADD_CARD | WENA_LIST_HEADER_ADD_CARD_BOTTOM,
+                                              swimlane, list);
+                    nk_layout_row_end(context);
+                }
                 wena_ui_region("list");
-                nk_layout_row_begin(context, NK_STATIC, 28.0f, 2);
-                nk_layout_row_push(context, 21.0f);
-                nk_spacing(context, 1);
-                nk_layout_row_push(context, 120.0f);
-                if (wena_wekan_link(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_CARD),
-                                    WENA_WEKAN_FONT_LINK, WENA_WEKAN_ADD_CARD))
-                    wena_list_interaction(layout, WENA_LIST_HEADER_ADD_CARD, swimlane, list);
-                nk_layout_row_end(context);
                 /* Below the cards: a card dropped there goes last in this list. */
                 panel = context->current->layout;
                 rest = nk_rect(panel->bounds.x, panel->at_y, panel->bounds.w,

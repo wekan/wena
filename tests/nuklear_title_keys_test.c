@@ -216,7 +216,7 @@ static void initialize(Fixture *f, int mode)
         wena_card_details_init(&f->details);
         wena_card_details_set_title_adapter(&f->details, load, save, f);
         assert(wena_card_details_open(&f->details, &f->card));
-        frame(f); click(f, label_center(f, "Edit title")); frame(f);
+        frame(f); click(f, label_center(f, "Original")); frame(f); /* WeKan: the title edits itself */
         assert(f->details.editing_title);
     } else if (mode == 1) {
         wena_card_create_init(&f->create, create_card, f);

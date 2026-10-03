@@ -92,16 +92,16 @@ static void test_title_editor(void)
     wena_card_details_init(&state);
     wena_card_details_set_title_adapter(&state, load_title, save_title, &store);
     assert(wena_card_details_open(&state, &card));
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     assert(state.editing_title && state.title_version == 1ul);
     editor_frame(&state, &card, "Save", "Updated & + title");
     assert(!state.editing_title && store.saves == 1);
     assert(strcmp(card.title, "Updated & + title") == 0);
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     editor_frame(&state, &card, "Cancel", "Cancelled");
     assert(!state.editing_title && store.saves == 1);
     assert(strcmp(card.title, "Updated & + title") == 0);
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     editor_frame(&state, &card, "Save", "");
     assert(state.title_error && state.editing_title && store.saves == 1);
     memset(too_long, 'x', sizeof(too_long));
@@ -127,12 +127,12 @@ static void test_title_editor(void)
     assert(state.title_error && state.editing_title && store.saves == 2);
     assert(strcmp(card.title, "Updated & + title") == 0);
     editor_frame(&state, &card, "Cancel", NULL);
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     memset(exact, 'x', sizeof(exact));
     exact[sizeof(exact) - 1] = '\0';
     editor_frame(&state, &card, "Save", exact);
     assert(!state.editing_title && strlen(card.title) == 128);
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     store.fail = 1;
     editor_frame(&state, &card, "Save", "Failed");
     assert(state.title_error && strlen(card.title) == 128);
@@ -141,10 +141,10 @@ static void test_title_editor(void)
     assert(!state.visible && !state.editing_title && state.title_input[0] == '\0');
     assert(wena_card_details_open(&state, &card));
     store.fail = 1;
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     assert(!state.editing_title && state.title_error);
     store.fail = 0;
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     assert(state.editing_title);
     strcpy(card.board_id, "wrong");
     memset(&context, 0, sizeof(context));
@@ -152,7 +152,7 @@ static void test_title_editor(void)
     assert(!state.visible && !state.editing_title);
     strcpy(card.board_id, "board");
     assert(wena_card_details_open(&state, &card));
-    editor_frame(&state, &card, "Edit title", NULL);
+    editor_frame(&state, &card, card.title, NULL); /* the title edits itself */
     strcpy(card.id, "wrong");
     assert(!wena_card_details_render(&context, &state, &card, 1, 800, 600));
     assert(!state.visible);
@@ -238,9 +238,10 @@ int main(void)
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(list_interaction.actions == WENA_LIST_HEADER_ADD_CARD);
     assert(strcmp(list_interaction.list_id, "doing") == 0);
+    /* "+ Add Card" under the cards asks for the composer at the bottom. */
     context.button_to_press = "Add Card";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
-    assert(list_interaction.actions == WENA_LIST_HEADER_ADD_CARD);
+    assert(list_interaction.actions == (WENA_LIST_HEADER_ADD_CARD | WENA_LIST_HEADER_ADD_CARD_BOTTOM));
     context.button_to_press = "Add List";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(list_interaction.actions == WENA_LIST_HEADER_ADD_LIST);
@@ -270,40 +271,61 @@ int main(void)
     assert(strcmp(card_interaction.card_id, "one") == 0);
     assert(card_details.visible);
     assert(strcmp(card_details.card_id, "one") == 0);
-    context.button_to_press = "Edit title";
-    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
-                                                600.0f, &card_details));
+    /* WeKan's details: the title itself edits it (the minicard's title opens
+     * the details, so the details are drawn on their own here). */
+    context.button_to_press = "One";
+    assert(wena_card_details_render(&context, &card_details, cards, 3, 800.0f, 600.0f));
     assert(card_details.interaction.actions == WENA_CARD_DETAILS_EDIT_TITLE);
     assert(strcmp(card_details.interaction.card_id, "one") == 0);
+    assert(has_control("Collapse") && has_control("Card Actions") && has_control("Maximize Card") &&
+           has_control("Close Card") && has_control("Labels") && has_control("Description") &&
+           has_control("Checklists"));
+    /* Negative: the old button column is gone. */
+    assert(!has_control("Edit title") && !has_control("Archive card") && !has_control("Move card to"));
     assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
                                                 600.0f, &card_details));
     assert(card_details.interaction.actions == WENA_CARD_DETAILS_NO_ACTION);
     assert(card_details.visible);
-    context.button_to_press = "Archive card";
-    assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
-                                                600.0f, &card_details));
-    assert(card_details.interaction.actions == WENA_CARD_DETAILS_ARCHIVE);
+    /* Card Actions in the details' header asks for WeKan's popup. */
+    context.button_to_press = "Card Actions";
+    assert(wena_card_details_render(&context, &card_details, cards, 3, 800.0f, 600.0f));
+    assert(card_details.interaction.actions == WENA_CARD_DETAILS_OPEN_MENU);
     assert(strcmp(card_details.interaction.card_id, "one") == 0);
+    /* Maximize, then Collapse: the window is the board's width, and only
+     * the header is left. */
+    context.button_to_press = "Maximize Card";
+    assert(wena_card_details_render(&context, &card_details, cards, 3, 800.0f, 600.0f));
+    assert(card_details.view.maximized && card_details.visible);
+    wena_ui_controls_begin();
+    context.button_to_press = "Collapse";
+    assert(wena_card_details_render(&context, &card_details, cards, 3, 800.0f, 600.0f));
+    assert(card_details.view.collapsed);
+    wena_ui_controls_begin();
+    assert(wena_card_details_render(&context, &card_details, cards, 3, 800.0f, 600.0f));
+    assert(has_control("Minimize Card") && !has_control("Labels"));
+    card_details.view.maximized = 0;
     wena_card_details_close(&card_details);
+    /* The minicard's Card Actions asks for the popup, and does not open
+     * the details (WeKan's minicard hamburger). */
     context.button_to_press = "Card Actions";
     assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
                                                 600.0f, &card_details));
     assert(card_interaction.actions == WENA_CARD_BODY_OPEN_MENU);
     assert(strcmp(card_interaction.card_id, "one") == 0);
-    assert(card_details.visible);
-    assert(strcmp(card_details.card_id, "one") == 0);
+    assert(!card_details.visible);
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(card_interaction.actions == WENA_CARD_BODY_NO_ACTION);
     assert(card_interaction.card_id[0] == '\0');
-    assert(card_details.visible);
-    context.button_to_press = "Close details";
+    /* Opening the details again shows their header uncollapsed. */
+    assert(wena_card_details_open(&card_details, &cards[0]) && !card_details.view.collapsed);
+    context.button_to_press = "Close Card";
     assert(wena_card_details_render(&context, &card_details, cards, 3,
                                     800.0f, 600.0f));
     assert(!card_details.visible && card_details.card_id[0] == '\0');
     assert(card_details.interaction.actions == WENA_CARD_DETAILS_CLOSE);
     assert(strcmp(card_details.interaction.card_id, "one") == 0);
     assert(!wena_card_details_open(NULL, &cards[0]));
-    assert(wena_card_details_canvas_render(NULL, &cards[0]) ==
+    assert(wena_card_details_canvas_render(NULL, &cards[0], &card_details.view) ==
            WENA_CARD_DETAILS_NO_ACTION);
     cards[0].archived = 1;
     assert(wena_card_body_render(&context, &cards[0]) ==
@@ -343,12 +365,34 @@ int main(void)
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(sidebar.visible);
     assert(sidebar.section == WENA_SIDEBAR_ACTIVITIES);
+    /* WeKan's sidebar home: Board Settings, then foldable Members, Labels
+     * and Activities, and the Archive. */
+    wena_ui_controls_begin();
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(has_control("Board Settings") && has_control("Members") && has_control("Labels") &&
+           has_control("Activities") && has_control("Ada") && has_control("Close"));
     context.button_to_press = "Labels";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
-    assert(sidebar.section == WENA_SIDEBAR_LABELS);
+    assert(sidebar.folded[WENA_SIDEBAR_FOLD_LABELS] && sidebar.section == WENA_SIDEBAR_ACTIVITIES);
+    context.button_to_press = "Labels";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(!sidebar.folded[WENA_SIDEBAR_FOLD_LABELS]);
+    /* Labels' "+" opens the board's labels. */
     context.button_to_press = "Add label";
     assert((wena_board_sidebar_render(&context, &sidebar) &
-            WENA_SIDEBAR_ADD_LABEL) != 0u);
+            (WENA_SIDEBAR_ADD_LABEL | WENA_SIDEBAR_SECTION_CHANGED)) ==
+           (WENA_SIDEBAR_ADD_LABEL | WENA_SIDEBAR_SECTION_CHANGED));
+    assert(sidebar.section == WENA_SIDEBAR_LABELS);
+    context.button_to_press = "Board Settings";
+    assert(wena_board_sidebar_render(&context, &sidebar) & WENA_SIDEBAR_SECTION_CHANGED);
+    assert(sidebar.section == WENA_SIDEBAR_SETTINGS);
+    /* Negative: a folded section draws neither its items nor its "+". */
+    sidebar.folded[WENA_SIDEBAR_FOLD_MEMBERS] = 1;
+    wena_ui_controls_begin();
+    context.button_to_press = "Add member";
+    assert(!(wena_board_sidebar_render(&context, &sidebar) & WENA_SIDEBAR_ADD_MEMBER));
+    assert(!has_control("Ada") && !has_control("Add member"));
+    sidebar.folded[WENA_SIDEBAR_FOLD_MEMBERS] = 0;
     sidebar.section = WENA_SIDEBAR_ACTIVITIES;
     context.button_to_press = "Refresh";
     assert((wena_board_sidebar_render(&context, &sidebar) &
@@ -372,9 +416,9 @@ int main(void)
         memset(&context, 0, sizeof(context)); context.button_to_press = "Next Page";
         assert(wena_board_sidebar_render(&context, &sidebar) == WENA_SIDEBAR_NO_ACTION);
         assert(sidebar.table.page == 2);
-        memset(&context, 0, sizeof(context)); context.button_to_press = "Members";
+        memset(&context, 0, sizeof(context)); context.button_to_press = "Archives";
         assert(wena_board_sidebar_render(&context, &sidebar) & WENA_SIDEBAR_SECTION_CHANGED);
-        assert(sidebar.table.page == 0);
+        assert(sidebar.table.page == 0 && sidebar.section == WENA_SIDEBAR_ARCHIVES);
         sidebar.items.activities = activities; sidebar.items.activity_count = 1;
     }
     context.button_to_press = "Close";

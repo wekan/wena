@@ -17,6 +17,12 @@ typedef struct WenaCardCreateState {
     WenaId swimlane_id;
     WenaCardCreateApply apply;
     void *context;
+    int bottom;   /* "+ Add Card" / Add Card to Bottom of List; else the top */
+    int focus;    /* the composer takes the keyboard when it opens */
+    /* Moves the card just created to the top of its list (Add Card to Top of
+     * List); NULL leaves it last. */
+    int (*to_top)(void *context, const WenaBoardLayout *layout);
+    void *to_top_context;
 } WenaCardCreateState;
 
 void wena_card_create_init(WenaCardCreateState *state,
@@ -27,4 +33,10 @@ int wena_card_create_open(WenaCardCreateState *state,
 int wena_card_create_render(struct nk_context *context,
     WenaCardCreateState *state, const WenaBoardLayout *layout,
     float width, float height);
+/* WeKan's inline composer in the list it adds to (the layout's card_composer
+ * hook): the new card's textarea on a white minicard, "Add" and the close
+ * cross. Draws and returns 1 only for its own list, swimlane and end. */
+int wena_card_create_render_inline(struct nk_context *context,
+    WenaCardCreateState *state, const WenaBoardLayout *layout,
+    const WenaList *list, const WenaSwimlane *lane, int bottom);
 #endif

@@ -64,6 +64,29 @@ int main(int argc,char **argv)
     assert(scalar(db,"SELECT position FROM cards WHERE id='card'")==0);
     assert(scalar(db,"SELECT version FROM cards WHERE id='card'")==3);
     assert(scalar(db,"SELECT position FROM cards WHERE id='out'")==0);
+    /* WeKan's Card Actions "Move card to bottom" and "Move card to top", in one
+     * step: the last slot of the card's own column (archived slots count), then
+     * the first, each one version-checked mutation. */
+    assert(wena_card_mutation_init(&adapter,db,"actor","board",snapshot->cards,snapshot->card_count));
+    wena_card_move_init(&state,wena_card_mutation_load,wena_card_mutation_move,&adapter);
+    wena_card_move_set_reorder_adapter(&state,wena_card_mutation_reorder);
+    keys=scalar(db,"SELECT count(*) FROM idempotency_keys");
+    assert(wena_card_move_to_end(&state,&layout,"card",1));
+    assert(!state.visible&&state.order==NULL);
+    assert(scalar(db,"SELECT position FROM cards WHERE id='card'")==2);
+    assert(scalar(db,"SELECT position FROM cards WHERE id='last'")<2);
+    assert(scalar(db,"SELECT list_id='first-list' FROM cards WHERE id='card'")==1);
+    assert(wena_sqlite_board_load(db,"board",snapshot));
+    assert(wena_card_move_to_end(&state,&layout,"last",0));
+    assert(scalar(db,"SELECT position FROM cards WHERE id='last'")==0);
+    assert(scalar(db,"SELECT count(*) FROM idempotency_keys")==keys+2);
+    /* Negative: an unknown or archived card, or no reorder adapter, moves
+     * nothing and leaves no panel open. */
+    assert(wena_sqlite_board_load(db,"board",snapshot));
+    assert(!wena_card_move_to_end(&state,&layout,"missing",0)&&!state.visible);
+    assert(!wena_card_move_to_end(&state,&layout,"old",0)&&!state.visible);
+    state.reorder=NULL;assert(!wena_card_move_to_end(&state,&layout,"card",0));
+    assert(scalar(db,"SELECT count(*) FROM idempotency_keys")==keys+2);
     assert(sqlite3_close(db)==SQLITE_OK);free(snapshot);
     puts("Indexed card movement UI gap, archive, no-op, conflict, rollback and reopen passed");return 0;
 }

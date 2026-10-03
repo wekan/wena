@@ -9,7 +9,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/tests/nuklear_hierarchy_move_test.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/features/hierarchy_move.c" \
-  "$root_dir/client/components/cards/card_details_canvas.c" \
+  "$root_dir/client/components/cards/card_details_canvas.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" \
   "$root_dir/models/model.c" "$root_dir/models/card.c" \
   "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" \

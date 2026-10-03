@@ -266,3 +266,22 @@ int wena_card_move_render(struct nk_context *context, WenaCardMoveState *state,
     if (close_requested) wena_card_move_close(state);
     return 1;
 }
+
+/* WeKan's Card Actions "Move card to top" and "Move card to bottom": the card
+ * to the first or last place of its own list and swimlane, in one step, with
+ * the same version and order checks as the panel. */
+int wena_card_move_to_end(WenaCardMoveState *state, const WenaBoardLayout *layout,
+    const char *card_id, int bottom)
+{
+    int moved;
+    if (state == NULL || state->reorder == NULL) return 0;
+    if (!wena_card_move_open(state, layout, card_id)) {
+        wena_card_move_close(state);
+        return 0;
+    }
+    moved = state->order_count > 0 && order_current(state, layout) &&
+        state->reorder(state->context, state->board_id, state->card_id, state->version,
+                       bottom ? (unsigned long)(state->order_count - 1) : 0ul);
+    wena_card_move_close(state);
+    return moved;
+}

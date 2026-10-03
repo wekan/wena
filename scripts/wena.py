@@ -546,6 +546,7 @@ TEST_SUITES = (
     ('nuklear-card-insert', 'test_nuklear_card_insert.sh', 'Real Move form exact insertion, bounded input and snapshot guards'),
     ('nuklear-card-reorder', 'test_nuklear_card_reorder.sh', 'Real Nuklear indexed card destination and position selection'),
     ('card-move-reorder-sqlite', 'test_card_move_reorder_sqlite.sh', 'Indexed card reorder UI integration and persistence'),
+    ('card-actions', 'test_card_actions.sh', "WeKan's Card Actions popup: items, top, bottom, move, archive and negatives"),
     ('nuklear-card-selection', 'test_nuklear_card_selection.sh', 'Shared paginated native card selection panel'),
     ('card-selection', 'test_card_selection.sh', 'Shared scoped card multiselection and pruning'),
     ('card-order', 'test_card_order.sh', 'Shared ordered card snapshots and stale detection'),

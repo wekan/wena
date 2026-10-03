@@ -1,5 +1,6 @@
 #include "card_details.h"
 #include "../components/forms/text_form.h"
+#include "../components/common/wekan_look.h"
 
 #include "../../imports/ui/page_contract.h"
 
@@ -60,6 +61,7 @@ int wena_card_details_open(WenaCardDetailsState *state, const WenaCard *card)
         return 0;
     }
     state->visible = 1;
+    state->view.collapsed = 0;
     if (state->load_title != NULL && state->archive_card != NULL) {
         if (!state->load_title(state->title_context, state->board_id,
             state->card_id, state->title_input,
@@ -99,6 +101,8 @@ int wena_card_details_render(struct nk_context *context,
     unsigned int edit_keys;
     int save_clicked;
     int cancel_clicked;
+    float panel_width;
+    int opened;
 
     if (state == NULL) {
         return 0;
@@ -125,9 +129,22 @@ int wena_card_details_render(struct nk_context *context,
         return 0;
     }
     action = WENA_CARD_DETAILS_NO_ACTION;
-    if (nk_begin_titled(context, "Card details", wena_ui_text(WENA_UI_TEXT_CARD_DETAILS),
-                 nk_rect(width * 0.5f, 0.0f, width * 0.5f, height),
-                 NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR)) {
+    /* WeKan's card details: a 520px panel over the board (the window wide
+     * when maximized), #f7f7f7, scrolling when its sections are taller. */
+    panel_width = state->view.maximized || width < 536.0f ? width - 16.0f : 520.0f;
+    if (panel_width < 1.0f) panel_width = width;
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+                             nk_style_item_color(nk_rgb((wena_wekan_rgb(WENA_WEKAN_PANEL) >> 16) & 255,
+                                                        (wena_wekan_rgb(WENA_WEKAN_PANEL) >> 8) & 255,
+                                                        wena_wekan_rgb(WENA_WEKAN_PANEL) & 255)));
+    nk_style_push_vec2(context, &context->style.window.padding, nk_vec2(10.0f, 8.0f));
+    opened = nk_begin(context, "Card details",
+                 nk_rect(state->view.maximized ? 8.0f : (width - panel_width) / 2.0f, 8.0f,
+                         panel_width, height > 16.0f ? height - 16.0f : height),
+                 NK_WINDOW_BORDER);
+    nk_style_pop_vec2(context);
+    nk_style_pop_style_item(context);
+    if (opened) {
         if (state->editing_title) {
             nk_layout_row_dynamic(context, 32.0f, 1);
             edit_keys = wena_title_input_keys(context,
@@ -166,7 +183,7 @@ int wena_card_details_render(struct nk_context *context,
             if (nk_button_label(context, wena_ui_control_text(WENA_UI_CLOSE)))
                 action = WENA_CARD_DETAILS_CLOSE;
         } else {
-            action = wena_card_details_canvas_render(context, selected);
+            action = wena_card_details_canvas_render(context, selected, &state->view);
             if ((wena_title_input_keys(context, 0u) & WENA_TITLE_INPUT_CANCEL) != 0u)
                 action = WENA_CARD_DETAILS_CLOSE;
             if ((action & WENA_CARD_DETAILS_EDIT_TITLE) != 0u &&

@@ -11,6 +11,7 @@ struct nk_rect;
 #define WENA_LIST_HEADER_OPEN_MENU 2u
 #define WENA_LIST_HEADER_ADD_LIST 4u      /* WeKan's "Add List", after this one */
 #define WENA_LIST_HEADER_EDIT_TITLE 8u    /* the title clicked */
+#define WENA_LIST_HEADER_ADD_CARD_BOTTOM 16u /* with ADD_CARD: "+ Add Card" under the cards */
 #define WENA_LIST_HEADER_HEIGHT 98.0f
 
 /* active_count includes the entire list across lanes, before UI filtering. */

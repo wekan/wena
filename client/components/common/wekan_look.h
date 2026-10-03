@@ -70,6 +70,7 @@ typedef enum WenaIcon {
     WENA_ICON_ARCHIVE, WENA_ICON_ARROW_RIGHT, WENA_ICON_ARROW_UP, WENA_ICON_ARROW_DOWN,
     WENA_ICON_BRUSH, WENA_ICON_LIST, WENA_ICON_ALIGN_LEFT, WENA_ICON_CHECK,
     WENA_ICON_BAN, WENA_ICON_GLOBE, WENA_ICON_PENCIL, WENA_ICON_REFRESH, WENA_ICON_HISTORY,
+    WENA_ICON_WINDOW_MAXIMIZE, WENA_ICON_WINDOW_MINIMIZE,
     WENA_ICON_COUNT
 } WenaIcon;
 
@@ -109,6 +110,24 @@ void wena_wekan_text(struct nk_context *context, const char *text,
 /* The same, wrapped over as many lines as the slot holds. */
 void wena_wekan_text_wrap(struct nk_context *context, const char *text,
                           WenaWekanFont font, int color);
+/* Lines `text` takes at `width` in `font`, word-wrapped as a browser does. */
+int wena_wekan_wrapped_lines(struct nk_context *context, const char *text,
+                             WenaWekanFont font, float width);
+/* Text wrapped over the next slot that is itself one control, named by the
+ * text: WeKan's card title, whose click edits it. Returns 1 when clicked. */
+int wena_wekan_text_button(struct nk_context *context, const char *text,
+                           WenaWekanFont font, int color);
+/* WeKan's card section heading (cardSectionHeader): the caret - down when
+ * open -, the section's icon and its name in 16px bold gray, one control
+ * named by the name. Returns 1 when clicked. */
+int wena_wekan_section_header(struct nk_context *context, int open, WenaIcon icon,
+                              const char *label);
+/* WeKan's checklist item (.materialCheckBox and its text): the box, ticked
+ * when `checked`, then the text. Recorded by the text in the region
+ * "checklist-checked" or "checklist-item", so its state can be read back.
+ * Returns 1 when clicked and `interactive`. */
+int wena_wekan_checkbox(struct nk_context *context, int checked, const char *text,
+                        int interactive);
 /* WeKan's filled button: "Add", "Save". */
 int wena_wekan_button(struct nk_context *context, const char *text, int color);
 /* The screen rectangle of the row an nk_layout_space_begin just started:

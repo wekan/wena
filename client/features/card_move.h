@@ -56,4 +56,8 @@ int wena_card_move_open(WenaCardMoveState *state,
     const WenaBoardLayout *layout, const char *card_id);
 int wena_card_move_render(struct nk_context *context, WenaCardMoveState *state,
     const WenaBoardLayout *layout, float width, float height);
+/* Moves the card to the top (bottom 0) or bottom of its own list without the
+ * panel; needs the reorder adapter. Returns 1 when it moved. */
+int wena_card_move_to_end(WenaCardMoveState *state, const WenaBoardLayout *layout,
+    const char *card_id, int bottom);
 #endif

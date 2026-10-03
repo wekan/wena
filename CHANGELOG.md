@@ -30,6 +30,47 @@ Thanks to xet7.
 </details>
 
 <details>
+<summary>Card details, Card Actions, the Add Card composer and the sidebar look and work like WeKan's</summary>
+
+- Card details are WeKan's panel instead of a column of buttons: a header
+  with the caret that collapses it, the title (click it to edit, as in
+  WeKan), Card Actions, Maximize and Close Card, then the Labels,
+  Description and Checklists sections, each with WeKan's caret, icon and
+  16px gray heading and each foldable. They show the card's label chips, its
+  description and its checklists, whose items can be ticked there.
+- Card Actions (the hamburger on a minicard and in the details) is WeKan's
+  popup with the items Wena carries out, in WeKan's order and groups: Move to
+  Top, Move to Bottom, Move Card and Move Card to Archive. Move to Top and
+  Bottom are new: one version-checked reorder within the card's list. As in
+  WeKan, the minicard's hamburger no longer opens the details.
+- Add Card is WeKan's inline composer in the list: a white card with the
+  text box, the blue Add and the close cross, above the cards for Add Card
+  to Top of List and in place of "+ Add Card" for the bottom. Enter adds and
+  the composer stays for the next card; a card added to the top is moved
+  there, and a move that fails is reported.
+- The sidebar is WeKan's home view, 420px under the header: the close
+  cross, Board Settings, then foldable Members (the board's members and its
+  own user), Labels (WeKan's colored chips) and Activities, and the Archive.
+- Label chips on minicards and in the details are WeKan's: bold text on the
+  label's color, 4px rounded, side by side. Checklists show their title in
+  bold with a finished/total count, and items as WeKan's checkboxes.
+- `--show card:ID`, `card-menu:ID`, `list-menu:ID`, `add-card:LIST` or
+  `sidebar` with `--screenshot` renders each state WeKan's capture has, for
+  comparison.
+- Fixed on the way: Nuklear's `nk_spacing` on a one-column row starts a
+  new row, which left an empty row after each read-only checklist item;
+  raw colors in the look module were drawn black.
+- Tests: `card-actions` (suite) drives the popup's items against SQLite,
+  with disabled items and unknown cards as negatives; move to top and bottom
+  are in `card-move-reorder-sqlite`; the composer, details header and
+  sections, sidebar folds and chips are in `card-create`, `board-feature`,
+  `card-description`, `nuklear-checklist-contents` and `nuklear-board`.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>The AROS x86-64 release file is wena-aros-amd64, named for its CPU as every other file is</summary>
 
 - `wena-aros-x86` was an x86-64 file (`ELF 64-bit LSB relocatable, x86-64`),

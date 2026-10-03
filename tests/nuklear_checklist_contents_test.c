@@ -4,6 +4,7 @@
 #include <nuklear.h>
 #include "../client/components/cards/checklist_contents.h"
 #include "../client/components/cards/card_body.h"
+#include "../client/components/common/wekan_look.h"
 #include "../client/features/checklist_mutation.h"
 #include "../client/features/checklists.h"
 #include "../imports/preferences/sections.h"
@@ -35,10 +36,21 @@ static int label(struct nk_context *ctx,const char *value,struct nk_vec2 *point)
  }
  return 0;
 }
+/* A checklist item drawn as WeKan's checkbox: its text, and its state as the
+ * region the checkbox recorded ("checklist-checked" or "checklist-item"). */
+static int item(struct nk_context *ctx,const char *title,int checked)
+{
+ size_t count,i;const WenaUiControl *controls;
+ if(!label(ctx,title,NULL))return 0;
+ controls=wena_ui_controls(&count);
+ for(i=0;i<count;++i)if(!strcmp(controls[i].name,title)&&
+  !strcmp(controls[i].region,checked?"checklist-checked":"checklist-item"))return 1;
+ return 0;
+}
 static unsigned int draw(struct nk_context *ctx,WenaChecklistBoardContents *contents,
  WenaCard *card,int board_default)
 {
- unsigned int action;action=0;
+ unsigned int action;action=0;wena_ui_controls_begin();
  if(active_drag)wena_reorder_drag_begin(ctx,&active_drag->gesture);
  if(nk_begin(ctx,"Preview",nk_rect(0,0,600,700),NK_WINDOW_BORDER)) {
   action=wena_checklist_contents_render_editable(ctx,contents,card,board_default,active_intent,active_sections,active_edit,active_drag);
@@ -57,7 +69,14 @@ static void click_item(struct nk_context *ctx,WenaChecklistBoardContents *conten
  WenaCard *card,const char *text)
 {
  struct nk_vec2 point;int down;
- assert(label(ctx,text,&point));
+ if(!label(ctx,text,&point)){
+  /* Icon-only controls (the caret, the pencil) by the name they record. */
+  size_t count,i;const WenaUiControl *controls;int found=0;
+  controls=wena_ui_controls(&count);
+  for(i=0;i<count&&!found;++i)if(!strncmp(controls[i].name,text,WENA_UI_CONTROL_NAME-1)){
+   point=nk_vec2(controls[i].x+controls[i].w*0.5f,controls[i].y+controls[i].h*0.5f);found=1;}
+  assert(found);
+ }
  for(down=1;down>=0;--down){
   nk_clear(ctx);nk_input_begin(ctx);nk_input_motion(ctx,(int)point.x,(int)point.y);
   nk_input_button(ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(ctx);
@@ -80,9 +99,9 @@ static void shared_sections(sqlite3 *db,struct nk_context *ctx,WenaChecklistBoar
  assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
  active_sections=&controls;active_intent=NULL;
  statements=0;assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
- frame(ctx,*contents,card,1);assert(label(ctx,"[ ] Todo",NULL));
+ frame(ctx,*contents,card,1);assert(item(ctx,"Todo",0));
  click_item(ctx,*contents,card,"Collapse");assert(controls.pending&&controls.collapsed&&!strcmp(controls.key,"checklist-inherit"));
- frame(ctx,*contents,card,1);assert(!label(ctx,"[ ] Todo",NULL)&&!statements);
+ frame(ctx,*contents,card,1);assert(!item(ctx,"Todo",0)&&!statements);
  assert(sqlite3_trace_v2(db,0,NULL,NULL)==SQLITE_OK);
  assert(wena_card_section_save(db,"u","b",controls.card_id,controls.key,controls.version,controls.collapsed));controls.pending=0;
  assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
@@ -94,7 +113,7 @@ static void shared_sections(sqlite3 *db,struct nk_context *ctx,WenaChecklistBoar
  assert(controls.pending&&!controls.collapsed&&controls.version==1);
  assert(wena_card_section_save(db,"u","b",controls.card_id,controls.key,controls.version,controls.collapsed));controls.pending=0;
  assert(wena_card_sections_load(db,"u","b",&preferences));controls.snapshot=preferences;
- wena_checklists_close(&panel);frame(ctx,*contents,card,1);assert(label(ctx,"[ ] Todo",NULL));
+ wena_checklists_close(&panel);frame(ctx,*contents,card,1);assert(item(ctx,"Todo",0));
  controls.readonly=1;frame(ctx,*contents,card,1);click_item(ctx,*contents,card,"Collapse");assert(!controls.pending);
  active_sections=NULL;wena_card_sections_free(preferences);
 }
@@ -325,8 +344,8 @@ int main(int argc,char **argv)
  assert(sqlite3_trace_v2(db,SQLITE_TRACE_STMT,trace,NULL)==SQLITE_OK);
  for(i=0;i<100;++i)frame(&ctx,contents,&card,1);
  assert(!statements&&label(&ctx,"Inherited",NULL)&&label(&ctx,"Shown",NULL));
- assert(label(&ctx,"[ ] Todo",NULL)&&label(&ctx,"[x] Done",NULL));
- assert(!label(&ctx,"Hidden",NULL)&&!label(&ctx,"[ ] Invisible",NULL));
+ assert(item(&ctx,"Todo",0)&&item(&ctx,"Done",1));
+ assert(!label(&ctx,"Hidden",NULL)&&!item(&ctx,"Invisible",0));
  frame(&ctx,contents,&card,0);assert(!label(&ctx,"Inherited",NULL)&&label(&ctx,"Shown",NULL));
  assert(label(&ctx,"Shown",&point));action=0;
  for(down=1;down>=0;--down){nk_clear(&ctx);nk_input_begin(&ctx);nk_input_motion(&ctx,(int)point.x,(int)point.y);nk_input_button(&ctx,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(&ctx);action|=draw(&ctx,contents,&card,0);}
@@ -368,10 +387,10 @@ int main(int argc,char **argv)
  assert(!wena_checklist_contents_find(contents,"c")->items[0].is_finished);
  active_intent=NULL;
  sql(db,"UPDATE checklists SET hide_checked_items=1 WHERE id='inherit'");assert(wena_checklist_contents_load(db,"u","b",&contents));
- frame(&ctx,contents,&card,1);assert(label(&ctx,"[ ] Todo",NULL)&&!label(&ctx,"[x] Done",NULL));
+ frame(&ctx,contents,&card,1);assert(item(&ctx,"Todo",0)&&!item(&ctx,"Done",1));
  assert(contents->summary.cards[0].progress.finished==1&&contents->summary.cards[0].progress.total==3);
  sql(db,"UPDATE checklists SET hide_all_items=1 WHERE id='inherit'");assert(wena_checklist_contents_load(db,"u","b",&contents));
- frame(&ctx,contents,&card,1);assert(label(&ctx,"Inherited",NULL)&&!label(&ctx,"[ ] Todo",NULL));
+ frame(&ctx,contents,&card,1);assert(label(&ctx,"Inherited",NULL)&&!item(&ctx,"Todo",0));
  shared_sections(db,&ctx,&contents,&adapter,&card);
  inline_forms(db,&ctx,&contents,&adapter,&card);
  drag_reordering(db,&ctx,&contents,&adapter,&card);

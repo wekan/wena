@@ -9,7 +9,7 @@ python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
   "$test_dir/schema.sql"
 cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
  "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_hierarchy_drag_test.c" "$root_dir/client/features/hierarchy_drag.c" "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
- "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" "$root_dir/client/components/cards/card_details_canvas.c" \
+ "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" "$root_dir/client/components/cards/card_details_canvas.c" "$root_dir/client/components/common/wekan_look.c" \
  "$root_dir/client/components/common/reorder_drag.c" "$root_dir/imports/ui/page_contract.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
  "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/card_people.c" "$root_dir/server/mutations/selected_people.c" "$root_dir/server/card_people_store.c" "$root_dir/models/card_people.c" "$root_dir/models/card_order.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \

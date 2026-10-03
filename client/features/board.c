@@ -13,8 +13,8 @@ static int wena_board_open_card_details(const WenaBoardLayout *layout,
     size_t index;
 
     if (card_details == NULL || layout->card_interaction == NULL ||
-        (layout->card_interaction->actions & (WENA_CARD_BODY_OPEN_DETAILS |
-                                              WENA_CARD_BODY_OPEN_MENU)) == 0u) {
+        (layout->card_interaction->actions & WENA_CARD_BODY_OPEN_DETAILS) == 0u) {
+        /* Card Actions opens WeKan's Card Actions popup, not the details. */
         return 0;
     }
     for (index = 0; index < layout->card_count; ++index) {
@@ -37,19 +37,24 @@ static void wena_board_sidebar_window(struct nk_context *context,
 
     if (!layout->sidebar_as_window || layout->sidebar == NULL ||
         !layout->sidebar->visible) return;
-    panel_width = width < 360.0f ? width : 360.0f;
+    /* WeKan's sidebar: 420px at the right, under the header, #f7f7f7. */
+    panel_width = width < 420.0f ? width : 420.0f;
     /* Keep the opening header click outside the new menu's controls, so its
        release cannot accidentally select a section in the newly shown window. */
     panel_top = height > WENA_BOARD_HEADER_HEIGHT ? WENA_BOARD_HEADER_HEIGHT : 0.0f;
     panel_height = height - panel_top;
     content_height = panel_height > 24.0f ? panel_height - 24.0f : 1.0f;
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+        nk_style_item_color(nk_rgb((wena_wekan_rgb(WENA_WEKAN_PANEL) >> 16) & 255,
+                                   (wena_wekan_rgb(WENA_WEKAN_PANEL) >> 8) & 255,
+                                   wena_wekan_rgb(WENA_WEKAN_PANEL) & 255)));
     if (nk_begin(context, "Wena board menu",
-        nk_rect(width - panel_width, panel_top, panel_width, panel_height),
-        NK_WINDOW_BORDER)) {
+        nk_rect(width - panel_width, panel_top, panel_width, panel_height), 0)) {
         nk_layout_row_dynamic(context, content_height, 1);
         (void)wena_board_sidebar_render(context, layout->sidebar);
     }
     nk_end(context);
+    nk_style_pop_style_item(context);
 }
 
 int wena_board_feature_render(struct nk_context *context,

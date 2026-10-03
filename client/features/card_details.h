@@ -40,6 +40,9 @@ typedef struct WenaCardDetailsState {
     WenaCardDetailsArchive archive_card;
     void *title_context;
     WenaCardDetailsInteraction interaction;
+    /* WeKan's header toggles and folded sections, and the host's section
+     * contents (view.body); they stay from one card to the next. */
+    WenaCardDetailsView view;
 } WenaCardDetailsState;
 
 void wena_card_details_set_title_adapter(WenaCardDetailsState *state,

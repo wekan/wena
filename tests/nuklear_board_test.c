@@ -558,8 +558,31 @@ int main(void)
     assert(menu != NULL && menu->bounds.x == 0.0f && menu->bounds.w == 320.0f);
     /* Below WeKan's 88px header, so it never covers the toggle that opened it. */
     assert(menu->bounds.y == 88.0f && menu->bounds.h == 212.0f);
-    assert(visible_text(&context, "Activities", 320.0f, 300.0f, NULL));
-    assert(visible_text(&context, "Archives", 320.0f, 300.0f, NULL));
+    /* The top of WeKan's sidebar shows; the rest scrolls. */
+    assert(visible_text(&context, "Board Settings", 320.0f, 300.0f, NULL));
+    assert(visible_text(&context, "Members", 320.0f, 300.0f, NULL));
+    /* The sidebar's labels are WeKan's chips in their own colors (a raw
+     * color reaching the canvas), and an unknown color is gray, not black. */
+    {
+        const char *chip_names[2] = {"Urgent", "Odd"};
+        const char *chip_colors[2] = {"red", "no-such-color"};
+        unsigned char red[3];
+        const struct nk_command *command;
+        int saw_red = 0, saw_gray = 0;
+        assert(wena_color_rgb("red", red));
+        sidebar.items.labels = chip_names; sidebar.items.label_colors = chip_colors;
+        sidebar.items.label_count = 2;
+        nk_clear(&context); nk_input_begin(&context); nk_input_end(&context);
+        assert(wena_board_feature_render(&context, &layout, 640.0f, 900.0f));
+        nk_foreach(command, &context) if (command->type == NK_COMMAND_RECT_FILLED) {
+            const struct nk_command_rect_filled *rect = (const struct nk_command_rect_filled *)command;
+            if (rect->h == 22 && same_rgb(rect->color, red)) saw_red = 1;
+            if (rect->h == 22 && rect->color.r == 0xa6 && rect->color.g == 0xa6 && rect->color.b == 0xa6) saw_gray = 1;
+        }
+        assert(saw_red && saw_gray);
+        assert(visible_text(&context, "Urgent", 640.0f, 900.0f, NULL));
+        sidebar.items.labels = NULL; sidebar.items.label_colors = NULL; sidebar.items.label_count = 0;
+    }
     /* Hovering an icon shows its name and the rest of the frame still draws:
      * nk_tooltip from inside the header's row used to corrupt the command
      * list, so nothing after the hovered icon was drawn. */

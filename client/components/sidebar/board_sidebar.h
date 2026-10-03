@@ -20,16 +20,25 @@ typedef struct WenaSidebarItems {
     const char *const *members;
     size_t member_count;
     const char *const *labels;
+    const char *const *label_colors;   /* optional: WeKan's chips in their colors */
     size_t label_count;
     const char *const *archives;
     size_t archive_count;
 } WenaSidebarItems;
 
+/* WeKan's foldable sidebar sections (homeSidebar). */
+typedef enum WenaSidebarFold {
+    WENA_SIDEBAR_FOLD_MEMBERS,
+    WENA_SIDEBAR_FOLD_LABELS,
+    WENA_SIDEBAR_FOLD_ACTIVITIES,
+    WENA_SIDEBAR_FOLD_COUNT
+} WenaSidebarFold;
 typedef struct WenaBoardSidebar {
     int visible;
     WenaSidebarSection section;
     WenaSidebarItems items;
     WenaTableState table;
+    int folded[WENA_SIDEBAR_FOLD_COUNT];
 } WenaBoardSidebar;
 
 #define WENA_SIDEBAR_NO_ACTION 0u

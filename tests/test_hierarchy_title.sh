@@ -13,7 +13,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/card_archives.c" "$root_dir/client/features/card_selection_panel.c" "$root_dir/models/directory.c" "$root_dir/client/features/directory_picker.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/client/components/forms/hierarchy_destination.c" "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" "$root_dir/models/card_selection.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/features/hierarchy_mutation.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
-  "$root_dir/client/components/cards/card_details_canvas.c" \
+  "$root_dir/client/components/cards/card_details_canvas.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/imports/ui/page_contract.c" \
   "$root_dir/models/model.c" "$root_dir/models/board.c" \
   "$root_dir/models/swimlane.c" "$root_dir/models/list.c" "$root_dir/models/card.c" \

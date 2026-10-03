@@ -60,6 +60,10 @@ int main(void)
     assert(!wena_card_description_open(&state,&card));card.archived=0;
     assert(wena_card_description_open(&state,&card));duplicates[0]=card;duplicates[1]=card;
     assert(!wena_card_description_render(&context,&state,duplicates,2,800,600)&&!state.visible);
-    context.button_to_press="Description";assert(wena_card_details_canvas_render(&context,&card)==WENA_CARD_DETAILS_DESCRIPTION);
+    /* WeKan's card details: the Description section's pencil ("Edit"). */
+    {WenaCardDetailsView view;memset(&view,0,sizeof(view));context.current=&context.window;context.window.layout=&context.panel;
+     context.button_to_press="Edit";assert(wena_card_details_canvas_render(&context,&card,&view)==WENA_CARD_DETAILS_DESCRIPTION);
+     view.closed[WENA_CARD_DETAILS_SECTION_DESCRIPTION]=1;context.button_to_press="Edit";
+     assert(wena_card_details_canvas_render(&context,&card,&view)==WENA_CARD_DETAILS_NO_ACTION);}
     return 0;
 }

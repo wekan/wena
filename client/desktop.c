@@ -17,6 +17,7 @@
 #include "features/card_mutation.h"
 #include "features/card_drag.h"
 #include "features/boards/reload.h"
+#include "features/card_actions.h"
 #include "features/card_create.h"
 #include "features/card_move.h"
 #include "features/card_archives.h"
@@ -93,6 +94,59 @@ static unsigned int desktop_card_contents(struct nk_context *context,
         preview->view->contents, card, preview->view->settings.show_checklists,
         preview->readonly || preview->error ? NULL : &preview->intent, &preview->sections,
         preview->readonly || preview->error ? NULL : &preview->inline_edit, preview->readonly || preview->error ? NULL : &preview->drag) : WENA_CARD_BODY_NO_ACTION;
+}
+
+/* Card details' sections, from what the board already has loaded: the label
+ * chips, the checklists (items can be ticked, as on the minicard), and the
+ * description, read once per card and again only after a write. */
+typedef struct WenaDesktopCardDetails {
+    WenaDesktopChecklistPreview *preview;
+    WenaCardDescriptionMutation *descriptions;
+    WenaId card_id;
+    sqlite3_int64 changes;
+    int loaded;
+    char description[WENA_DESCRIPTION_CAPACITY];
+} WenaDesktopCardDetails;
+
+static unsigned int desktop_card_details_section(struct nk_context *context, void *opaque,
+    const WenaCard *card, WenaCardDetailsSection section)
+{
+    WenaDesktopCardDetails *details = (WenaDesktopCardDetails *)opaque;
+    WenaBoardPresentation *view = details->preview->view;
+    unsigned long version;
+    struct nk_rect row;
+    int lines;
+    if (section == WENA_CARD_DETAILS_SECTION_LABELS) {
+        return view->valid && (wena_label_badges_render(context, view->badges, card) &
+                               WENA_CARD_BODY_OPEN_LABELS) != 0u ?
+            WENA_CARD_DETAILS_LABELS : WENA_CARD_DETAILS_NO_ACTION;
+    }
+    if (section == WENA_CARD_DETAILS_SECTION_CHECKLISTS) {
+        return view->summary_valid && (wena_checklist_contents_render_actions(context,
+                view->contents, card, 1, details->preview->readonly ? NULL : &details->preview->intent) &
+                WENA_CARD_BODY_OPEN_CHECKLISTS) != 0u ?
+            WENA_CARD_DETAILS_CHECKLISTS : WENA_CARD_DETAILS_NO_ACTION;
+    }
+    if (!details->loaded || strcmp(details->card_id, card->id) != 0 ||
+        details->changes != view->observed_changes) {
+        details->description[0] = '\0';
+        version = 0ul;
+        if (!wena_card_description_mutation_load(details->descriptions, card->board_id, card->id,
+                details->description, sizeof(details->description), &version))
+            details->description[0] = '\0';
+        strcpy(details->card_id, card->id);
+        details->changes = view->observed_changes;
+        details->loaded = 1;
+    }
+    if (details->description[0] == '\0') return WENA_CARD_DETAILS_NO_ACTION;
+    nk_layout_row_dynamic(context, 1.0f, 1);
+    row = nk_widget_bounds(context);
+    nk_spacer(context); /* one slot: nk_spacing wraps to a new row */
+    lines = wena_wekan_wrapped_lines(context, details->description, WENA_WEKAN_FONT_BODY, row.w);
+    nk_layout_row_dynamic(context, (float)lines * 18.0f + 4.0f, 1);
+    /* Clicking the text edits it, as in WeKan. */
+    return wena_wekan_text_button(context, details->description, WENA_WEKAN_FONT_BODY,
+                                  WENA_WEKAN_TEXT) ? WENA_CARD_DETAILS_DESCRIPTION : WENA_CARD_DETAILS_NO_ACTION;
 }
 
 static void desktop_card_drag(struct nk_context *context,void *opaque,
@@ -201,11 +255,12 @@ static int desktop_card_collapsed(struct nk_context *context,
 #define DESKTOP_BOARD_SETTINGS 8u
 /* WeKan's popups: List Actions, Swimlane Actions, the user's menu. */
 typedef enum WenaDesktopMenuKind {
-    DESKTOP_MENU_NONE, DESKTOP_MENU_LIST, DESKTOP_MENU_SWIMLANE, DESKTOP_MENU_MEMBER
+    DESKTOP_MENU_NONE, DESKTOP_MENU_LIST, DESKTOP_MENU_SWIMLANE, DESKTOP_MENU_MEMBER,
+    DESKTOP_MENU_CARD
 } WenaDesktopMenuKind;
 typedef struct WenaDesktopMenu {
     WenaDesktopMenuKind kind;
-    WenaId list_id, swimlane_id;
+    WenaId list_id, swimlane_id, card_id;
 } WenaDesktopMenu;
 typedef struct WenaDesktopToolbar {
     WenaLanguagePicker *language;
@@ -217,6 +272,7 @@ typedef struct WenaDesktopToolbar {
     WenaDesktopChecklistPreview *preview;
     int filter_changed;
     int board_refresh;
+    int card_menu_error;      /* a Card Actions item that could not be done */
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -255,6 +311,14 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
             toolbar->preview->sections.error = 0;
             toolbar->labels->sections_pending = 1;
         }
+    }
+    if (toolbar->card_menu_error) {
+        nk_layout_row_dynamic(context, 22.0f, 1);
+        nk_label(context, wena_ui_text(WENA_UI_TEXT_CARD_ACTIONS), NK_TEXT_LEFT);
+        nk_layout_row_dynamic(context, 28.0f, 2);
+        nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
+        if (nk_button_label(context, wena_ui_text(WENA_UI_TEXT_CLOSE)))
+            toolbar->card_menu_error = 0;
     }
     if (toolbar->collapse_error) {
         nk_layout_row_dynamic(context, 22.0f, 2);
@@ -327,6 +391,88 @@ static void desktop_close_other_editors(WenaDesktopEditors *editors,
         wena_hierarchy_move_close(&editors->hierarchy_move);
 }
 
+/* What WeKan's sidebar lists: the board's members (read when it opens: its
+ * active members and the board's own user) and its labels (from the label
+ * catalogue the board already has). */
+#define DESKTOP_SIDEBAR_MEMBERS 32
+typedef struct WenaDesktopSidebarData {
+    int was_visible;
+    size_t member_count;
+    char member_names[DESKTOP_SIDEBAR_MEMBERS][WENA_TITLE_CAPACITY];
+    const char *members[DESKTOP_SIDEBAR_MEMBERS];
+    const char *labels[WENA_BOARD_LABEL_CAPACITY];
+    const char *label_colors[WENA_BOARD_LABEL_CAPACITY];
+} WenaDesktopSidebarData;
+
+static void desktop_sidebar_members(WenaDesktopSidebarData *data, sqlite3 *database,
+                                    const char *actor, const char *board)
+{
+    sqlite3_stmt *query;
+    const unsigned char *name;
+    data->member_count = 0;
+    query = NULL;
+    if (sqlite3_prepare_v2(database,
+        "SELECT display_name FROM actors WHERE id=?1 UNION "
+        "SELECT a.display_name FROM board_members m JOIN actors a ON a.id=m.actor_id "
+        "WHERE m.board_id=?2 AND m.active=1 ORDER BY 1 LIMIT 32", -1, &query, NULL) != SQLITE_OK) return;
+    if (sqlite3_bind_text(query, 1, actor, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+        sqlite3_bind_text(query, 2, board, -1, SQLITE_TRANSIENT) == SQLITE_OK) {
+        while (data->member_count < DESKTOP_SIDEBAR_MEMBERS && sqlite3_step(query) == SQLITE_ROW) {
+            name = sqlite3_column_text(query, 0);
+            if (name == NULL || strlen((const char *)name) >= WENA_TITLE_CAPACITY) continue;
+            strcpy(data->member_names[data->member_count], (const char *)name);
+            data->members[data->member_count] = data->member_names[data->member_count];
+            ++data->member_count;
+        }
+    }
+    sqlite3_finalize(query);
+}
+
+static void desktop_sidebar_fill(WenaDesktopSidebarData *data, WenaBoardSidebar *sidebar,
+    const WenaBoardPresentation *view, sqlite3 *database, const char *actor, const char *board)
+{
+    size_t index, count;
+    if (sidebar->visible && !data->was_visible) desktop_sidebar_members(data, database, actor, board);
+    data->was_visible = sidebar->visible;
+    count = view->valid ? view->badges->catalogue.label_count : 0;
+    if (count > WENA_BOARD_LABEL_CAPACITY) count = WENA_BOARD_LABEL_CAPACITY;
+    for (index = 0; index < count; ++index) {
+        data->labels[index] = view->badges->catalogue.labels[index].name;
+        data->label_colors[index] = view->badges->catalogue.labels[index].color;
+    }
+    sidebar->items.members = data->members;
+    sidebar->items.member_count = data->member_count;
+    sidebar->items.labels = data->labels;
+    sidebar->items.label_colors = data->label_colors;
+    sidebar->items.label_count = count;
+}
+
+/* WeKan's inline Add Card composer, in the list it adds to. */
+typedef struct WenaDesktopComposer {
+    WenaDesktopEditors *editors;
+    WenaCardMutation *mutation;
+    const WenaBoardLayout *layout;
+    const size_t *card_count;   /* the snapshot's, already counting a new card */
+} WenaDesktopComposer;
+
+static int desktop_card_composer(struct nk_context *context, void *opaque, const WenaList *list,
+                                 const WenaSwimlane *lane, int bottom)
+{
+    WenaDesktopComposer *composer = (WenaDesktopComposer *)opaque;
+    return wena_card_create_render_inline(context, &composer->editors->create, composer->layout,
+                                          list, lane, bottom);
+}
+
+/* Add Card to Top of List: the card just created, first in its list. */
+static int desktop_card_to_top(void *opaque, const WenaBoardLayout *layout)
+{
+    WenaDesktopComposer *composer = (WenaDesktopComposer *)opaque;
+    WenaBoardLayout current = *layout;
+    current.card_count = *composer->card_count;
+    return wena_card_move_to_end(&composer->editors->move, &current,
+                                 composer->mutation->persistence.created_card_id, 0);
+}
+
 /* WeKan's popups and panels over the board: the List and Swimlane Actions
  * menus (their items carry out the same actions as Wena's panels), the
  * user's menu with the language, and the Filter panel at the right. Returns
@@ -369,6 +515,10 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         DESKTOP_ITEM(WENA_ICON_ARCHIVE, WENA_UI_TEXT_ARCHIVE_SWIMLANE, !readonly, 1);
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_SWIMLANE_ACTIONS), 32.0f, 12.0f,
                                  menu_width, 2, items, count);
+    } else if (menu->kind == DESKTOP_MENU_CARD) {
+        count = wena_card_actions_items(items, &editors->move, &editors->details);
+        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CARD_ACTIONS), 32.0f, 12.0f,
+                                 menu_width, 3, items, count);
     } else if (menu->kind == DESKTOP_MENU_MEMBER) {
         DESKTOP_ITEM(WENA_ICON_GLOBE, WENA_UI_TEXT_CHANGE_LANGUAGE, 1, 0);
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_MEMBER_SETTINGS),
@@ -384,9 +534,20 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         strcpy(target.swimlane_id, menu->swimlane_id);
         if (menu->kind == DESKTOP_MENU_MEMBER) {
             toolbar->language_visible = 1;
+        } else if (menu->kind == DESKTOP_MENU_CARD) {
+            menu->kind = DESKTOP_MENU_NONE;
+            desktop_close_other_editors(editors, chosen == WENA_CARD_ACTION_MOVE ?
+                DESKTOP_PANEL_MOVE_CARD : DESKTOP_PANEL_NONE);
+            switch (wena_card_actions_apply((WenaCardAction)chosen, &editors->move, &editors->details,
+                                            layout, menu->card_id)) {
+            case WENA_CARD_ACTIONS_OPEN_MOVE: return DESKTOP_PANEL_MOVE_CARD;
+            case WENA_CARD_ACTIONS_FAILED: toolbar->card_menu_error = 1; break;
+            default: break;
+            }
+            return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_LIST && chosen <= 1) {
             desktop_close_other_editors(editors, DESKTOP_PANEL_CREATE_CARD);
-            target.actions = WENA_LIST_HEADER_ADD_CARD;
+            target.actions = WENA_LIST_HEADER_ADD_CARD | (chosen == 1 ? WENA_LIST_HEADER_ADD_CARD_BOTTOM : 0u);
             menu->kind = DESKTOP_MENU_NONE;
             return wena_card_create_open(&editors->create, layout, &target) ?
                 DESKTOP_PANEL_CREATE_CARD : DESKTOP_PANEL_NONE;
@@ -580,6 +741,8 @@ static void desktop_usage(FILE *output)
           "--dependency-info reports linked libraries without opening a workspace.\n"
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
+    fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST or sidebar\n"
+          "(with --smoke or --screenshot), as WeKan's UI capture does.\n", output);
 }
 
 /* The frame drawn so far, read back from the renderer before it is shown. */
@@ -723,7 +886,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     const char *const *languages;
     size_t language_count;
     int create_workspace, smoke, i, status, running, frames, width, height, sdl_started;
-    const char *screenshot;
+    const char *screenshot, *show;
     char executable[WENA_EXECUTABLE_PATH_CAPACITY];
     char language_path[512], detected_locale[64];
     char collapse_path[WENA_EXECUTABLE_PATH_CAPACITY];
@@ -750,6 +913,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaSqliteDirectoryReader directory_reader;
     WenaBoardPresentation label_view;
     WenaDesktopChecklistPreview preview;
+    WenaDesktopCardDetails card_details_view;
+    WenaDesktopComposer composer;
+    WenaDesktopSidebarData sidebar_data;
     int completion_result;
     const WenaCard *selected_card;
     WenaListInteraction list_interaction;
@@ -793,13 +959,17 @@ int DESKTOP_MAIN(int argc, char **argv)
         fprintf(stderr, "Wena debug log: %s/desktop.log\n", wena_debug_log_directory());
     database_path = NULL; actor_id = NULL; board_id = NULL;
     board_title = NULL; requested_language = NULL;
-    smoke = 0; create_workspace = 0; screenshot = NULL;
+    smoke = 0; create_workspace = 0; screenshot = NULL; show = NULL;
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--smoke") && !smoke) smoke = 1;
         /* A smoke run whose last frame is kept: UI comparisons with WeKan. */
         else if (!strcmp(argv[i], "--screenshot") && screenshot == NULL && i + 1 < argc) {
             screenshot = argv[++i]; smoke = 1;
         }
+        /* The state to open first, as WeKan's captured ones: card:ID,
+         * card-menu:ID, list-menu:ID, add-card:LIST or sidebar. Only with a
+         * smoke run. */
+        else if (!strcmp(argv[i], "--show") && show == NULL && i + 1 < argc) show = argv[++i];
         else if (!strcmp(argv[i], "--create") && !create_workspace) create_workspace = 1;
         else if (!strcmp(argv[i], "--title") && board_title == NULL && i + 1 < argc)
             board_title = argv[++i];
@@ -817,6 +987,12 @@ int DESKTOP_MAIN(int argc, char **argv)
             wena_debug_log_close();
             return 2;
         }
+    }
+    if (show != NULL && !smoke) {
+        fputs("--show needs --smoke or --screenshot\n", stderr);
+        wena_debug_log("refused: --show without --smoke or --screenshot");
+        wena_debug_log_close();
+        return 2;
     }
     /* No workspace named - double-clicked, opened from a file manager, or only
      * --smoke/--language given: the local board, created on the first run. */
@@ -965,6 +1141,18 @@ int DESKTOP_MAIN(int argc, char **argv)
     toolbar.preview = &preview;
     preview.view = &label_view;
     preview.layout = &layout;
+    composer.editors = &editors;
+    composer.mutation = &mutation;
+    composer.layout = &layout;
+    composer.card_count = &snapshot->card_count;
+    layout.card_composer = desktop_card_composer;
+    layout.card_composer_context = &composer;
+    memset(&sidebar_data, 0, sizeof(sidebar_data));
+    memset(&card_details_view, 0, sizeof(card_details_view));
+    card_details_view.preview = &preview;
+    card_details_view.descriptions = &description_mutation;
+    editors.details.view.body = desktop_card_details_section;
+    editors.details.view.body_context = &card_details_view;
     preview.readonly = smoke;
     layout.card_contents = desktop_card_contents;
     layout.card_contents_context = &preview;
@@ -1067,6 +1255,8 @@ int DESKTOP_MAIN(int argc, char **argv)
         if (!wena_card_mutation_set_create_cache(&mutation, &snapshot->card_count,
             WENA_SQLITE_BOARD_MAX_CARDS)) DESKTOP_FAIL();
         wena_card_create_init(&editors.create, wena_card_mutation_create, &mutation);
+        editors.create.to_top = desktop_card_to_top;
+        editors.create.to_top_context = &composer;
         wena_card_move_init(&editors.move, wena_card_mutation_load,
                             wena_card_mutation_move, &mutation);
         wena_card_move_set_reorder_adapter(&editors.move,
@@ -1163,6 +1353,32 @@ int DESKTOP_MAIN(int argc, char **argv)
             if (!smoke) (void)wena_sdl_handle_event(context, &event);
         }
         nk_input_end(context);
+        if (show != NULL && frames == 0) {
+            const WenaCard *shown;
+            const char *id = strchr(show, ':') != NULL ? strchr(show, ':') + 1 : "";
+            if (!strncmp(show, "card:", 5) && (shown = desktop_selected_card(snapshot, id)) != NULL)
+                (void)wena_card_details_open(&editors.details, shown);
+            else if (!strncmp(show, "card-menu:", 10) && desktop_selected_card(snapshot, id) != NULL &&
+                     strlen(id) < sizeof(toolbar.menu.card_id)) {
+                toolbar.menu.kind = DESKTOP_MENU_CARD;
+                strcpy(toolbar.menu.card_id, id);
+            } else if (!strncmp(show, "list-menu:", 10) && snapshot->swimlane_count > 0 &&
+                       strlen(id) < sizeof(toolbar.menu.list_id)) {
+                toolbar.menu.kind = DESKTOP_MENU_LIST;
+                strcpy(toolbar.menu.list_id, id);
+                strcpy(toolbar.menu.swimlane_id, snapshot->swimlanes[0].id);
+            } else if (!strncmp(show, "add-card:", 9) && snapshot->swimlane_count > 0 &&
+                       strlen(id) < sizeof(list_interaction.list_id)) {
+                WenaListInteraction add;
+                memset(&add, 0, sizeof(add));
+                add.actions = WENA_LIST_HEADER_ADD_CARD;
+                strcpy(add.board_id, snapshot->board.id);
+                strcpy(add.list_id, id);
+                strcpy(add.swimlane_id, snapshot->swimlanes[0].id);
+                (void)wena_card_create_open(&editors.create, &layout, &add);
+            } else if (!strcmp(show, "sidebar")) sidebar.visible = 1;
+            else wena_debug_log("--show %s: nothing to show", show);
+        }
         SDL_GetWindowSize(window, &width, &height);
         if (input_scale != 1.0f) {
             width = (int)((float)width / input_scale);
@@ -1210,6 +1426,8 @@ int DESKTOP_MAIN(int argc, char **argv)
             wena_card_selection_traversal_begin(selection_traversal,selection);
             layout.header_filter_active = filter.query[0] != '\0';
             wena_ui_controls_begin();
+            desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
+                                 snapshot->board.id);
             if (!wena_board_feature_render_with_state(context, &layout,
                 (float)width, (float)height, &editors.details)) DESKTOP_FAIL();
             {
@@ -1232,6 +1450,15 @@ int DESKTOP_MAIN(int argc, char **argv)
                 }
                 if ((list_interaction.actions & WENA_LIST_HEADER_ADD_LIST) != 0u)
                     toolbar.actions |= DESKTOP_ADD_LIST;
+                if ((card_interaction.actions & WENA_CARD_BODY_OPEN_MENU) != 0u) {
+                    toolbar.menu.kind = DESKTOP_MENU_CARD;
+                    strcpy(toolbar.menu.card_id, card_interaction.card_id);
+                }
+                /* Card Actions in the card details' header: the same popup. */
+                if ((editors.details.interaction.actions & WENA_CARD_DETAILS_OPEN_MENU) != 0u) {
+                    toolbar.menu.kind = DESKTOP_MENU_CARD;
+                    strcpy(toolbar.menu.card_id, editors.details.interaction.card_id);
+                }
                 if ((swimlane_interaction.actions & WENA_SWIMLANE_OPEN_MENU) != 0u) {
                     toolbar.menu.kind = DESKTOP_MENU_SWIMLANE;
                     toolbar.menu.list_id[0] = '\0';
@@ -1389,9 +1616,8 @@ int DESKTOP_MAIN(int argc, char **argv)
                     sidebar.section = WENA_SIDEBAR_ACTIVITIES;
                 }
             }
-            if (opened_panel != DESKTOP_PANEL_CREATE_CARD)
-                (void)wena_card_create_render(context, &editors.create, &layout,
-                                          (float)width, (float)height);
+            /* Add Card is WeKan's inline composer, drawn with the board
+             * (layout.card_composer), not a panel of its own. */
             if (opened_panel != DESKTOP_PANEL_MOVE_CARD)
                 (void)wena_card_move_render(context, &editors.move, &layout,
                                         (float)width, (float)height);
