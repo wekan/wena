@@ -69,7 +69,15 @@ first run, as actor `local-user` and board `my-board`, in
 `$XDG_DATA_HOME/wena/wena.sqlite` (default `~/.local/share/wena/wena.sqlite`)
 elsewhere, or the absolute path in `WENA_DATABASE`. Arguments after `run` are
 passed to `wena-desktop` instead. It says how to build the app when it is
-missing.
+missing. Started without arguments, for example by double-clicking it,
+`wena-desktop` opens the same board itself.
+
+Each run writes a debug folder, `.tools/log/wena/YYYY-MM-DD_HH-MM-SS`, in the
+`.tools` folder Wena is checked out in (or `WENA_LOG_DIR`): `desktop.log`
+records the arguments, the board opened, the source line of any startup
+failure with SDL's error, the window closing, the exit status and a fatal
+signal such as a crash; `run.log`, written by `build.sh run`, keeps everything
+the app printed and how it ended.
 
 The test runner executes independent native suites in parallel, serializes
 shared artifact builds, and reports failures and missing prerequisites

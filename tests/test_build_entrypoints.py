@@ -124,15 +124,30 @@ def test_run():
             call.assert_not_called()
             binary.chmod(0o755)
             # Without arguments it opens the default board, creating its folder;
-            # its exit code is returned.
-            with patch.object(wena.subprocess, "call", return_value=7) as call, redirect_stdout(io.StringIO()):
-                assert wena.run((), root, database) == 7
-            assert call.call_args.args[0] == [str(binary), *wena.desktop_arguments(database)]
-            assert call.call_args.kwargs["cwd"] == root
+            # its exit code is returned and its output kept in this run's log.
+            now = wena.datetime(2026, 10, 3, 15, 4, 5)
+            logs = wena.log_directory(root, now)
+            assert logs == root / ".tools" / "log" / "wena" / "2026-10-03_15-04-05"
+            assert wena.log_directory(Path("/r/.tools/wena"), now) == Path("/r/.tools/log/wena/2026-10-03_15-04-05")
+            binary.write_text("#!/bin/sh\necho \"ran $*\"\necho \"log $WENA_LOG_DIR\"\nexit 7\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()) as printed:
+                assert wena.run((), root, database, now) == 7
             assert database.parent.is_dir()
+            record = (logs / "run.log").read_text(encoding="utf-8")
+            assert record.startswith("command: " + " ".join([str(binary), *wena.desktop_arguments(database)]))
+            assert "ran --database " + str(database) in record and f"log {logs}" in record
+            assert record.rstrip().endswith("ended: exit code 7")
+            assert f"Debug log: {logs}" in printed.getvalue()
             database.write_bytes(b"")
             assert "--create" not in wena.desktop_arguments(database)
+            # A crash is recorded as the signal that ended it.
+            binary.write_text("#!/bin/sh\nkill -SEGV $$\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                assert wena.run(("--smoke",), root, database, wena.datetime(2026, 10, 3, 15, 4, 6)) < 0
+            assert "ended: killed by signal 11" in (
+                wena.log_directory(root, wena.datetime(2026, 10, 3, 15, 4, 6)) / "run.log").read_text(encoding="utf-8")
             # Given arguments are passed as they are, to the real file.
+            binary.write_text("#!/bin/sh\necho \"ran $*\"\nexit 7\n", encoding="utf-8")
             out = subprocess.run([sys.executable, "-c",
                                   "import importlib.util,sys;"
                                   f"s=importlib.util.spec_from_file_location('w',{str(ROOT / 'scripts' / 'wena.py')!r});"

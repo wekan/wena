@@ -2,6 +2,7 @@
 """Shared local and CI command dispatcher for Wena."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import os
 import platform
 from pathlib import Path
@@ -128,7 +129,15 @@ def desktop_arguments(database):
     return arguments
 
 
-def run(args=(), root=ROOT, database=None):
+def log_directory(root=ROOT, now=None):
+    """This run's debug folder: .tools/log/wena/YYYY-MM-DD_HH-MM-SS, in the
+    .tools folder Wena is checked out in, or the one inside it otherwise."""
+    root = Path(root)
+    tools = root.parent if root.parent.name == ".tools" else root / ".tools"
+    return tools / "log" / "wena" / (now or datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def run(args=(), root=ROOT, database=None, now=None):
     """2) Run: the native Nuklear desktop. Given arguments are passed as they are;
     without any, the local board at workspace_path() opens (and is created once)."""
     binary = desktop_binary(root)
@@ -145,8 +154,28 @@ def run(args=(), root=ROOT, database=None):
         database.parent.mkdir(parents=True, exist_ok=True)
         args = desktop_arguments(database)
         print(f"Opening board {DEFAULT_BOARD} in {database}", flush=True)
+    logs = log_directory(root, now)
+    logs.mkdir(parents=True, exist_ok=True)
+    command = [str(binary), *args]
     print(f"Running {binary.relative_to(root)}", flush=True)
-    return subprocess.call([str(binary), *args], cwd=root)
+    print(f"Debug log: {logs}", flush=True)
+    # The desktop writes desktop.log there (WENA_LOG_DIR); everything it prints
+    # is also kept in run.log, with how it ended.
+    with open(logs / "run.log", "w", encoding="utf-8") as record:
+        record.write("command: " + " ".join(command) + "\n")
+        record.flush()
+        process = subprocess.Popen(command, cwd=root, env=dict(os.environ, WENA_LOG_DIR=str(logs)),
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, errors="replace")
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            record.write(line)
+            record.flush()
+        status = process.wait()
+        ended = f"killed by signal {-status}" if status < 0 else f"exit code {status}"
+        record.write(f"ended: {ended}\n")
+    return status
 
 
 def list_targets():
@@ -264,6 +293,7 @@ TEST_SUITES = (
     ('checklist-models', 'test_checklist_models.sh', 'Pure checklist and item scope, defaults and validation models'),
     ('colors', 'test_colors.sh', 'Canonical palette, strict custom colors and independently checked readable contrast'),
     ('model-text', 'test_model_text.sh', 'Shared ECMAScript trim and bounded label-name normalization'),
+    ('debug-log', 'test_debug_log.sh', 'Desktop debug log folder, default board file and crash signal record'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),

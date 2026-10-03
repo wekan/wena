@@ -8,6 +8,7 @@
 #include "platform/theme.h"
 #include "platform/dependencies.h"
 #include "platform/font.h"
+#include "platform/debug_log.h"
 #include "features/board.h"
 #include "features/board_filter.h"
 #include "features/card_mutation.h"
@@ -319,14 +320,31 @@ static int actor_exists(sqlite3 *database, const char *actor)
     return valid;
 }
 
+/* Every failure path names its line in the debug log before cleaning up. */
+#define DESKTOP_FAIL() do { \
+        wena_debug_log("failed at %s:%d", __FILE__, __LINE__); goto cleanup; \
+    } while (0)
+
+#if defined(__APPLE__)
+#define DESKTOP_APPLE 1
+#else
+#define DESKTOP_APPLE 0
+#endif
+#define DESKTOP_DEFAULT_ACTOR "local-user"
+#define DESKTOP_DEFAULT_BOARD "my-board"
+#define DESKTOP_DEFAULT_TITLE "My board"
+
 static void desktop_usage(FILE *output)
 {
-    fputs("Usage: wena-desktop --database ABS_PATH --actor ID --board ID\n"
+    fputs("Usage: wena-desktop [--database ABS_PATH --actor ID --board ID]\n"
           "                    [--create [--title TITLE]] [--language LOCALE] [--smoke]\n"
           "       wena-desktop --dependency-info\n"
           "       wena-desktop --help\n"
           "\n"
-          "--create initializes a new local workspace without replacing files.\n"
+          "Without arguments it opens board my-board as local-user in WENA_DATABASE or\n"
+          "the user's data folder, creating it on the first run.\n",
+          output);
+    fputs("--create initializes a new local workspace without replacing files.\n"
           "Omit --create and --title to reopen it. The parent directory must exist.\n"
           "--smoke renders three frames with editor writes disabled.\n"
           "--dependency-info reports linked libraries without opening a workspace.\n",
@@ -342,6 +360,7 @@ int main(int argc, char **argv)
     char executable[WENA_EXECUTABLE_PATH_CAPACITY];
     char language_path[512], detected_locale[64];
     char collapse_path[WENA_EXECUTABLE_PATH_CAPACITY];
+    char default_database[WENA_EXECUTABLE_PATH_CAPACITY];
     struct stat info;
     sqlite3 *database;
     WenaEmbeddedMigration migration;
@@ -387,6 +406,11 @@ int main(int argc, char **argv)
     }
     if (argc == 2 && !strcmp(argv[1], "--dependency-info"))
         return wena_desktop_dependency_report(stdout) ? 0 : 1;
+    (void)wena_debug_log_open(wena_executable_path_current(executable, sizeof(executable)) ? executable : NULL);
+    wena_debug_log("wena-desktop starting, %d argument(s)", argc - 1);
+    for (i = 1; i < argc; ++i) wena_debug_log("argument %d: %s", i, argv[i]);
+    if (wena_debug_log_directory()[0] != '\0')
+        fprintf(stderr, "Wena debug log: %s/desktop.log\n", wena_debug_log_directory());
     database_path = NULL; actor_id = NULL; board_id = NULL;
     board_title = NULL; requested_language = NULL;
     smoke = 0; create_workspace = 0;
@@ -404,9 +428,30 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--board") && board_id == NULL && i + 1 < argc)
             board_id = argv[++i];
         else {
+            wena_debug_log("unknown or repeated argument: %s", argv[i]);
             desktop_usage(stderr);
+            wena_debug_log_close();
             return 2;
         }
+    }
+    /* Started without arguments - double-clicked, or opened from a file
+     * manager: the local board, created on the first run. */
+    if (argc == 1) {
+        if (!wena_desktop_default_database(getenv("WENA_DATABASE"), getenv("HOME"),
+                getenv("XDG_DATA_HOME"), DESKTOP_APPLE, default_database, sizeof(default_database)) ||
+            !wena_make_parent_directories(default_database)) {
+            wena_debug_log("no default board file: set WENA_DATABASE to an absolute path");
+            fputs("Cannot name a folder for the local board; set WENA_DATABASE to an absolute path\n", stderr);
+            wena_debug_log_close();
+            return 2;
+        }
+        database_path = default_database;
+        actor_id = DESKTOP_DEFAULT_ACTOR; board_id = DESKTOP_DEFAULT_BOARD;
+        if (stat(default_database, &info) != 0) {
+            create_workspace = 1; board_title = DESKTOP_DEFAULT_TITLE;
+        }
+        wena_debug_log("default board %s in %s%s", board_id, database_path,
+                       create_workspace ? " (creating it)" : "");
     }
     if (database_path == NULL || database_path[0] != '/' ||
         strlen(database_path) >= WENA_EXECUTABLE_PATH_CAPACITY ||
@@ -414,6 +459,8 @@ int main(int argc, char **argv)
         (board_title != NULL && !create_workspace) ||
         (!create_workspace && (stat(database_path, &info) != 0 || !S_ISREG(info.st_mode)))) {
         fputs("An absolute database path, actor and board are required; use --create for a new workspace\n", stderr);
+        wena_debug_log("refused: an absolute database path, actor and board are required");
+        wena_debug_log_close();
         return 2;
     }
     memset(&migration, 0, sizeof(migration));
@@ -433,7 +480,7 @@ int main(int argc, char **argv)
     sdl_started = 0; status = 1;
     if (!wena_executable_path_current(executable, sizeof(executable)) ||
         !wena_i18n_catalog_open(&catalog, executable) ||
-        !wena_embedded_migration_load(executable, &migration)) goto cleanup;
+        !wena_embedded_migration_load(executable, &migration)) DESKTOP_FAIL();
     languages = wena_ui_catalog_languages(&language_count);
     detected_locale[0] = '\0';
     (void)wena_locale_detect(detected_locale, sizeof(detected_locale));
@@ -445,7 +492,7 @@ int main(int argc, char **argv)
     }
     if (!wena_language_init(&language, requested_language != NULL ? NULL : language_path,
         requested_language != NULL ? requested_language : detected_locale,
-        languages, language_count)) goto cleanup;
+        languages, language_count)) DESKTOP_FAIL();
     wena_ui_set_translator(wena_ui_catalog_translate, &language);
     if (create_workspace) {
         seed.actor_id = actor_id; seed.actor_name = actor_id;
@@ -456,32 +503,32 @@ int main(int argc, char **argv)
         seed.list_id = "default-list";
         seed.list_title = wena_ui_text(WENA_UI_TEXT_LIST);
         if (!wena_sqlite_workspace_create(database_path, migration.bytes,
-            migration.length, migration.sha256, &seed)) goto cleanup;
+            migration.length, migration.sha256, &seed)) DESKTOP_FAIL();
     }
     /* Read-only scope preflight prevents invalid actor/board launches from
      * creating a schema, WAL or any domain records. */
     if (sqlite3_open_v2(database_path, &database, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK)
-        goto cleanup;
+        DESKTOP_FAIL();
     if (!wena_sqlite_connection_harden(database) ||
         !actor_exists(database, actor_id) ||
-        !wena_sqlite_board_load(database, board_id, snapshot)) goto cleanup;
-    if (sqlite3_close(database) != SQLITE_OK) goto cleanup;
+        !wena_sqlite_board_load(database, board_id, snapshot)) DESKTOP_FAIL();
+    if (sqlite3_close(database) != SQLITE_OK) DESKTOP_FAIL();
     database = NULL;
     if (!wena_sqlite_open(database_path, migration.bytes, migration.length,
                           migration.sha256, &database) ||
         !actor_exists(database, actor_id) ||
-        !wena_sqlite_board_load(database, board_id, snapshot)) goto cleanup;
+        !wena_sqlite_board_load(database, board_id, snapshot)) DESKTOP_FAIL();
     if (requested_language != NULL && !smoke && language_path[0] != '\0' &&
         !wena_language_set(&language, language_path, requested_language,
-            languages, language_count)) goto cleanup;
+            languages, language_count)) DESKTOP_FAIL();
     if (!wena_language_picker_init(&language_picker, &language, language_path,
-        smoke || language_path[0] == '\0')) goto cleanup;
+        smoke || language_path[0] == '\0')) DESKTOP_FAIL();
     single_selection=(WenaCardSelection*)calloc(1,sizeof(*single_selection));
-    if(!single_selection)goto cleanup;
+    if(!single_selection)DESKTOP_FAIL();
     wena_card_selection_panel_init(&editors.card_transfer,single_selection);
     selection=(WenaCardSelection*)malloc(sizeof(*selection));
     selection_traversal=(WenaCardSelectionTraversal*)calloc(1,sizeof(*selection_traversal));
-    if(!selection_traversal||!selection||!wena_card_selection_init(selection,board_id))goto cleanup;
+    if(!selection_traversal||!selection||!wena_card_selection_init(selection,board_id))DESKTOP_FAIL();
     wena_card_selection_panel_init(&editors.selection,selection);
     layout.board = &snapshot->board;
     layout.swimlanes = snapshot->swimlanes; layout.swimlane_count = snapshot->swimlane_count;
@@ -498,10 +545,10 @@ int main(int argc, char **argv)
     } else toolbar.collapse_error = 1;
     /* Prune only against the complete validated board snapshot. Loading and
      * pruning never rewrite preferences; only explicit interaction does. */
-    if (!wena_board_collapse_sync(&collapse, &layout)) goto cleanup;
+    if (!wena_board_collapse_sync(&collapse, &layout)) DESKTOP_FAIL();
     observed_collapse = collapse;
     wena_board_filter_init(&filter);
-    if (!wena_board_filter_sync(&filter, snapshot->board.id)) goto cleanup;
+    if (!wena_board_filter_sync(&filter, snapshot->board.id)) DESKTOP_FAIL();
     wena_card_details_init(&editors.details);
     layout.sidebar = &sidebar; layout.collapse = &collapse;
     layout.sidebar_as_window = 1;
@@ -542,26 +589,26 @@ int main(int argc, char **argv)
     wena_hierarchy_title_init(&editors.hierarchy);
     wena_hierarchy_move_init(&editors.hierarchy_move, NULL, NULL, NULL);
     if (!wena_card_mutation_init(&mutation, database, actor_id, board_id,
-                                 snapshot->cards, snapshot->card_count)) goto cleanup;
+                                 snapshot->cards, snapshot->card_count)) DESKTOP_FAIL();
     if (!wena_card_description_mutation_init(&description_mutation, database,
-                                             actor_id, board_id)) goto cleanup;
+                                             actor_id, board_id)) DESKTOP_FAIL();
     wena_card_description_init(&editors.description,
         wena_card_description_mutation_load,
         smoke ? NULL : wena_card_description_mutation_save,
         &description_mutation);
     if (!wena_checklist_mutation_init(&checklist_mutation, database,
-                                      actor_id, board_id)) goto cleanup;
+                                      actor_id, board_id)) DESKTOP_FAIL();
     wena_checklists_init(&editors.checklists, wena_checklist_mutation_load,
         smoke ? NULL : wena_checklist_mutation_save, &checklist_mutation);
     if (!wena_sqlite_directory_reader_init(&directory_reader,database,actor_id) ||
         !wena_card_destination_init(&checklist_destination,4,wena_sqlite_directory_read,&directory_reader))
-        goto cleanup;
+        DESKTOP_FAIL();
     editors.checklists.destination = &checklist_destination;
     editors.checklists.load_destination = wena_checklist_mutation_load_destination;
     editors.checklists.destination_context = &checklist_mutation;
     editors.checklists.sections = &preview.sections;
     if (!wena_board_presentation_init(&label_view, database, actor_id, board_id) ||
-        !label_view.valid) goto cleanup;
+        !label_view.valid) DESKTOP_FAIL();
     wena_labels_init(&editors.labels, wena_board_presentation_labels_load,
         smoke ? NULL : wena_board_presentation_labels_save, &label_view);
     wena_board_settings_init(&editors.board_settings, wena_board_presentation_settings_load,
@@ -569,9 +616,9 @@ int main(int argc, char **argv)
     editors.board_settings.save_all = smoke ? NULL : wena_board_presentation_settings_save_all;
     if (!smoke) {
         if (!wena_hierarchy_mutation_init(&hierarchy_mutation, database,
-            actor_id, board_id, snapshot)) goto cleanup;
+            actor_id, board_id, snapshot)) DESKTOP_FAIL();
         if (!wena_hierarchy_move_mutation_init(&hierarchy_move_mutation,
-            database, actor_id, board_id, snapshot)) goto cleanup;
+            database, actor_id, board_id, snapshot)) DESKTOP_FAIL();
         wena_hierarchy_drag_init(&preview.hierarchy_drag,
             wena_hierarchy_move_mutation_load,wena_hierarchy_move_mutation_move,&hierarchy_move_mutation);
         wena_hierarchy_move_init(&editors.hierarchy_move,
@@ -594,12 +641,12 @@ int main(int argc, char **argv)
             wena_hierarchy_mutation_selected_move,&hierarchy_mutation);
         if(!wena_hierarchy_transfer_init(&transfer,&hierarchy_mutation,transfer_snapshot)||
             !wena_card_selection_panel_set_transfer(&editors.selection,wena_hierarchy_transfer_load,wena_hierarchy_transfer_save,
-                wena_hierarchy_transfer_view,&transfer,wena_sqlite_directory_read,&directory_reader))goto cleanup;
+                wena_hierarchy_transfer_view,&transfer,wena_sqlite_directory_read,&directory_reader))DESKTOP_FAIL();
         wena_card_selection_panel_set_move(&editors.card_transfer,wena_hierarchy_mutation_selected_move_load,
             wena_hierarchy_mutation_selected_move,&hierarchy_mutation);
         if(!wena_card_selection_panel_set_transfer(&editors.card_transfer,wena_hierarchy_transfer_load,
             wena_hierarchy_transfer_save,wena_hierarchy_transfer_view,&transfer,
-            wena_sqlite_directory_read,&directory_reader))goto cleanup;
+            wena_sqlite_directory_read,&directory_reader))DESKTOP_FAIL();
         editors.hierarchy.selection_enabled=1;
         layout.card_selected=wena_card_selection_selected;layout.card_selected_context=selection;
         layout.card_selection=wena_card_selection_traversal_control;layout.card_selection_context=selection_traversal;
@@ -607,7 +654,7 @@ int main(int argc, char **argv)
             wena_hierarchy_mutation_list_cards_load,wena_hierarchy_mutation_list_cards_archive);
         wena_hierarchy_title_set_wip_adapters(&editors.hierarchy,wena_hierarchy_mutation_wip_load,wena_hierarchy_mutation_wip_save);
         if (!wena_card_mutation_set_create_cache(&mutation, &snapshot->card_count,
-            WENA_SQLITE_BOARD_MAX_CARDS)) goto cleanup;
+            WENA_SQLITE_BOARD_MAX_CARDS)) DESKTOP_FAIL();
         wena_card_create_init(&editors.create, wena_card_mutation_create, &mutation);
         wena_card_move_init(&editors.move, wena_card_mutation_load,
                             wena_card_mutation_move, &mutation);
@@ -627,31 +674,32 @@ int main(int argc, char **argv)
                                             wena_card_mutation_save, &mutation);
         wena_card_details_set_archive_adapter(&editors.details, wena_card_mutation_archive);
     }
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) goto cleanup;
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) DESKTOP_FAIL();
     sdl_started = 1;
     window = SDL_CreateWindow("WeKan Native", SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED, 1024, 720, SDL_WINDOW_RESIZABLE |
         (smoke ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
-    if (window == NULL) goto cleanup;
+    if (window == NULL) DESKTOP_FAIL();
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-    if (renderer == NULL) goto cleanup;
+    if (renderer == NULL) DESKTOP_FAIL();
     context = nk_sdl_init(window, renderer);
-    if (context == NULL) goto cleanup;
+    if (context == NULL) DESKTOP_FAIL();
     wena_sdl_install_clipboard(context);
     nk_sdl_font_stash_begin(&atlas);
     font = wena_native_font_add(atlas, 14.0f);
     if (font == NULL) font = nk_font_atlas_add_default(atlas, 14.0f, NULL);
-    if (font == NULL) goto cleanup;
+    if (font == NULL) DESKTOP_FAIL();
     nk_sdl_font_stash_end();
     nk_style_set_font(context, &font->handle);
-    if (!wena_native_theme_apply(context)) goto cleanup;
+    if (!wena_native_theme_apply(context)) DESKTOP_FAIL();
     wena_board_header_set_title_renderer(wena_svg_board_title);
     SDL_StartTextInput();
+    wena_debug_log("window open, board %s loaded%s", board_id, smoke ? " (smoke)" : "");
     running = 1; frames = 0;
     while (running) {
         nk_input_begin(context);
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) running = 0;
+            if (event.type == SDL_QUIT) { running = 0; wena_debug_log("window closed"); }
             if (!smoke) (void)wena_sdl_handle_event(context, &event);
         }
         nk_input_end(context);
@@ -679,7 +727,7 @@ int main(int argc, char **argv)
             layout.swimlane_count = snapshot->swimlane_count;
             wena_card_selection_traversal_begin(selection_traversal,selection);
             if (!wena_board_feature_render_with_state(context, &layout,
-                (float)width, (float)height, &editors.details)) goto cleanup;
+                (float)width, (float)height, &editors.details)) DESKTOP_FAIL();
             wena_reorder_drag_end(context, &preview.drag.gesture);
             wena_card_drag_end(context, &preview.card_drag);
             wena_hierarchy_drag_end(context,&preview.hierarchy_drag);
@@ -925,7 +973,7 @@ int main(int argc, char **argv)
                     collapse_path, database_path, actor_id, &collapse);
             }
             if (SDL_SetRenderDrawColor(renderer, 41, 128, 185, 255) != 0 ||
-                SDL_RenderClear(renderer) != 0) goto cleanup;
+                SDL_RenderClear(renderer) != 0) DESKTOP_FAIL();
             nk_sdl_render(NK_ANTI_ALIASING_ON);
             SDL_RenderPresent(renderer);
         }
@@ -937,6 +985,7 @@ int main(int argc, char **argv)
     }
     status = 0;
 cleanup:
+    if (status != 0 && sdl_started && SDL_GetError()[0] != '\0') wena_debug_log("SDL: %s", SDL_GetError());
     wena_card_drag_cancel(&preview.card_drag);
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);
@@ -952,7 +1001,13 @@ cleanup:
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;
     wena_embedded_migration_free(&migration);
     wena_i18n_catalog_close(&catalog);
-    if (status != 0) fputs("Unable to open the local Wena desktop\n", stderr);
+    if (status != 0) {
+        fputs("Unable to open the local Wena desktop\n", stderr);
+        if (wena_debug_log_directory()[0] != '\0')
+            fprintf(stderr, "See %s/desktop.log\n", wena_debug_log_directory());
+    }
     else if (smoke) puts("Wena desktop smoke passed");
+    wena_debug_log("exit status %d", status);
+    wena_debug_log_close();
     return status;
 }

@@ -17,7 +17,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   -I"$root_dir/third_party/nuklear" $(sdl2-config --cflags) \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/imports/preferences/collapse.c" \
-  "$root_dir/client/platform/font.c" \
+  "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" \
   "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" \

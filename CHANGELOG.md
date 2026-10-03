@@ -1,6 +1,26 @@
 # Upcoming Wena release
 
 <details>
+<summary>Debug log for every desktop run, and the desktop opens its board when double-clicked</summary>
+
+- Each run writes `.tools/log/wena/YYYY-MM-DD_HH-MM-SS/desktop.log`: the
+  arguments, the board opened, the source line of any startup failure with
+  SDL's error, the window closing, the exit status, and a fatal signal, written
+  with async-signal-safe calls before the default action, so a crash is visible.
+  `build.sh run` adds `run.log` with everything the app printed and whether it
+  exited or was killed by a signal. `WENA_LOG_DIR` chooses another folder.
+- Started without arguments, as a double-click does, `wena-desktop` opened
+  nothing and printed that it needs a database, actor and board. It now opens
+  the same local board as Run, created on the first run.
+- Tests cover the log folder and default board rules with their negative
+  cases, a written line and a recorded crash in a child process, and run.log's
+  output, exit code and signal.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Run opens the native Nuklear desktop, and the desktop builds on macOS again</summary>
 
 - Menu option 2) Run and `build.sh run` open `dist/desktop/wena-desktop` on a
