@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_directory.h"
 #include <assert.h>
 #include <stdio.h>
@@ -17,10 +18,10 @@ static int trace(unsigned int kind,void *data,void *query,void *extra)
 }
 int main(int argc,char **argv)
 {
- sqlite3 *db;FILE *file;char *schema,query[256];long size;
+ sqlite3 *db;char *schema,query[256];long size;
  WenaDirectoryPage page,before;int i;
- assert(argc==3);file=fopen(argv[1],"rb");assert(file&&!fseek(file,0,SEEK_END));size=ftell(file);assert(size>0);rewind(file);
- schema=(char *)malloc((size_t)size+1);assert(schema&&fread(schema,1,(size_t)size,file)==(size_t)size);schema[size]=0;fclose(file);
+ /* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==3);schema=wena_test_file_copy(argv[1],&size);assert(size>0);
  assert(sqlite3_open(argv[2],&db)==SQLITE_OK);sql(db,schema);free(schema);sql(db,"PRAGMA journal_mode=WAL;INSERT INTO actors VALUES('u','Local user',1)");
  assert(wena_sqlite_directory_load(db,"u",WENA_DIRECTORY_BOARDS,0,16,&page)&&!page.total&&!page.count);
  sql(db,"BEGIN");

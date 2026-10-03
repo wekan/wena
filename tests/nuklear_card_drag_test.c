@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
@@ -148,11 +149,11 @@ static void insertions(Fixture *f)
 }
 int main(int argc,char **argv)
 {
- Fixture f;FILE *file;unsigned char *schema;long size;WenaCard before[4];
+ Fixture f;unsigned char *schema;long size;WenaCard before[4];
  const char *hash="e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
  memset(&f,0,sizeof(f));assert(argc==2);
- file=fopen(argv[1],"rb");assert(file);assert(!fseek(file,0,SEEK_END));size=ftell(file);assert(size>0);rewind(file);
- schema=(unsigned char *)malloc((size_t)size);assert(schema&&fread(schema,1,(size_t)size,file)==(size_t)size);fclose(file);
+ /* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
+ schema=(unsigned char *)wena_test_file_copy(argv[1],&size);assert(size>0);
  assert(wena_sqlite_open(":memory:",schema,(size_t)size,hash,&f.db));free(schema);
  sql(f.db,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO lists VALUES('l1','b','One',0,1),('l2','b','Two',1,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1)");
  sql(f.db,"INSERT INTO cards VALUES('c0','b','s','l1','Same title',0,0,1),('c1','b','s','l1','Archived',3,1,1),('c2','b','s','l1','Same title',8,0,1),('other','b','s','l2','Other',0,0,1)");

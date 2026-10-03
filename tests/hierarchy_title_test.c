@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_archives.h"
 #include "../client/features/card_selection_panel.h"
 #include "../client/features/labels/mutation.h"
@@ -595,11 +596,10 @@ static void selection_labels(struct nk_context *ctx,WenaCardSelectionPanel *pane
 
 int main(int argc, char **argv)
 {
-    unsigned char migration[65536];
+    const unsigned char *migration;
     size_t length;
     char hash[65];
     char path[4096];
-    FILE *file;
     sqlite3 *database;
     WenaSqliteBoardSnapshot *snapshot;
     WenaHierarchyMutation adapter;
@@ -621,10 +621,9 @@ int main(int argc, char **argv)
     int count;
 
     assert(argc == 3 && strlen(argv[2]) < 4000);
-    file = fopen(argv[1], "rb"); assert(file);
-    length = fread(migration, 1, sizeof(migration), file);
-    assert(length > 0 && length < sizeof(migration));
-    assert(fclose(file) == 0);
+    /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+    migration = (const unsigned char *)wena_test_file(argv[1], &length);
+    assert(length > 0 && length < 65536);
     wena_sha256_hex(migration, length, hash);
     sprintf(path, "%s/hierarchy.sqlite", argv[2]);
     assert(wena_sqlite_open(path, migration, length, hash, &database));

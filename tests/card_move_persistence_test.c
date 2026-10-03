@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_mutation.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sqlite_board.h"
@@ -26,7 +27,6 @@ static int scalar(sqlite3 *db, const char *sql)
 int main(int argc, char **argv)
 {
     const char *hash = "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
-    FILE *file;
     unsigned char *sql;
     long length;
     sqlite3 *db;
@@ -37,10 +37,7 @@ int main(int argc, char **argv)
     size_t count, index, visible;
     unsigned long version;
     assert(argc == 3);
-    file = fopen(argv[1], "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); length = ftell(file); assert(length > 0);
-    rewind(file); sql = (unsigned char *)malloc((size_t)length); assert(sql);
-    assert(fread(sql, 1, (size_t)length, file) == (size_t)length); fclose(file);
+    sql = (unsigned char *)wena_test_file_copy(argv[1], &length); assert(length > 0);
     sprintf(path, "%s/move.sqlite", argv[2]);
     assert(wena_sqlite_open(path, sql, (size_t)length, hash, &db));
     execute(db, "INSERT INTO actors VALUES('u1','One',1);"

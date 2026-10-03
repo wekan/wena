@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/mutations/list_wip.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
@@ -237,7 +238,7 @@ static void batch_guard(sqlite3 *db)
 
 int main(int argc,char **argv)
 {
- FILE *f;unsigned char *migration;long length;char hash[65],path[1024],q[512];
+ unsigned char *migration;long length;char hash[65],path[1024],q[512];
  sqlite3 *db;WenaSqlitePersistence store;WenaWipLimit limit,before;size_t count,i;
  const char *invalid[]={"action=value&value=0","action=value&value=100","action=value&value=-1","action=value&value=1.5","action=value&value=NaN","action=value&value=1%00","action=value&value=2&value=3","action=unknown","action=enabled&action=soft","action=value","action=soft&listId=other"};
  const char *triggers[]={
@@ -246,8 +247,8 @@ int main(int argc,char **argv)
  "CREATE TRIGGER failure AFTER INSERT ON list_wip_limits BEGIN UPDATE list_wip_limits SET soft=1;END",
  "CREATE TRIGGER failure BEFORE UPDATE ON lists BEGIN SELECT RAISE(IGNORE);END",
  "CREATE TRIGGER failure AFTER INSERT ON list_wip_limits BEGIN UPDATE cards SET archived=1;END"};
- assert(argc==3);f=fopen(argv[1],"rb");assert(f&&!fseek(f,0,SEEK_END));length=ftell(f);assert(length>0);rewind(f);
- migration=(unsigned char*)malloc((size_t)length);assert(migration&&fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);
+ /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==3);migration=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
  wena_sha256_hex(migration,(size_t)length,hash);sprintf(path,"%s/wip.sqlite",argv[2]);
  assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));
  sql(db,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1),('other','Other',1);"

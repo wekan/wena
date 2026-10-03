@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/hierarchy_move_mutation.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
@@ -12,14 +13,14 @@ static void unchanged(sqlite3*d,WenaSqliteBoardSnapshot*s,WenaSqliteBoardSnapsho
 int main(int argc,char**argv)
 {
     char hash[65];
-    FILE*f;unsigned char*migration;long length;sqlite3*d,*writer;
+    unsigned char*migration;long length;sqlite3*d,*writer;
     WenaSqliteBoardSnapshot *snapshot,*before,*reopened;
     WenaHierarchyMoveMutation adapter,other;
     WenaSqlitePersistence store;WenaDomainCommand command;WenaRegionResponse response;
     WenaHierarchyKind kind;const char*table,*id,*last;char path[512],query[512],body[256];
     unsigned long version,position;size_t i;int keys;
-    assert(argc==3);f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);assert(length>0);rewind(f);
-    migration=(unsigned char*)malloc((size_t)length);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);wena_sha256_hex(migration,(size_t)length,hash);
+    /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+    assert(argc==3);migration=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);wena_sha256_hex(migration,(size_t)length,hash);
     snapshot=(WenaSqliteBoardSnapshot*)malloc(sizeof(*snapshot));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));reopened=(WenaSqliteBoardSnapshot*)malloc(sizeof(*reopened));assert(snapshot&&before&&reopened);
     sprintf(path,"%s/hierarchy-move.sqlite",argv[2]);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&d));
     sql(d,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO boards VALUES('other','Other',1);");

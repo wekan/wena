@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_mutation.h"
 #include "../client/features/card_description_mutation.h"
 #include "../client/features/hierarchy_mutation.h"
@@ -25,16 +26,12 @@ static sqlite3_int64 number(sqlite3 *db, const char *query)
     return result;
 }
 
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
 static void fixture(sqlite3 *db, const char *path)
 {
-    FILE *file;
-    char *text;
-    long length;
-    file = fopen(path, "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); length = ftell(file); assert(length > 0);
-    rewind(file); text = (char *)malloc((size_t)length + 1); assert(text);
-    assert(fread(text, 1, (size_t)length, file) == (size_t)length);
-    assert(fclose(file) == 0); text[length] = 0; sql(db, text); free(text);
+    size_t length;
+    const char *text = wena_test_file(path, &length); assert(length > 0);
+    sql(db, text);
 }
 
 static void version(sqlite3 *db, const char *table, const char *id,

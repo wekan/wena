@@ -8,8 +8,9 @@ settings_schema=${WENA_BOARD_SETTINGS_SCHEMA:-$root_dir/server/migrations/006_bo
 cat "$root_dir/server/migrations/001_initial.sql" "$root_dir/server/migrations/002_card_descriptions.sql" \
  "$root_dir/server/migrations/003_checklists.sql" "$root_dir/server/migrations/004_checklist_item_card_order.sql" \
  "$root_dir/server/migrations/005_labels.sql" "$settings_schema" "$root_dir/server/migrations/007_board_minicard_settings.sql" "$root_dir/server/migrations/008_actor_card_sections.sql" "$root_dir/server/migrations/009_board_card_collapse.sql" > "$test_dir/schema.sql"
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
- "$root_dir/tests/board_presentation_test.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" "$root_dir/models/card_section.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$test_dir/schema.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" ${WENA_TEST_CFLAGS:-} \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/board_presentation_test.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" "$root_dir/models/card_section.c" \
  "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
  "$root_dir/client/features/labels/mutation.c" "$root_dir/client/features/labels/store.c" \
  "$root_dir/client/features/checklists/summary.c" "$root_dir/client/features/checklist_mutation.c" "$root_dir/client/features/checklist_store.c" \

@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_persistence.h"
 #include "../models/version.h"
 #include <assert.h>
@@ -68,7 +69,6 @@ static int key_count(sqlite3 *db)
 }
 int main(int argc, char **argv)
 {
-    FILE *file;
     char *schema, boundary[64], query[256];
     long length;
     sqlite3 *db;
@@ -78,11 +78,8 @@ int main(int argc, char **argv)
     int operation;
     size_t i;
     assert(argc == 2);
-    file = fopen(argv[1], "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); length = ftell(file); assert(length > 0);
-    rewind(file); schema = (char *)malloc((size_t)length + 1); assert(schema);
-    assert(fread(schema, 1, (size_t)length, file) == (size_t)length);
-    fclose(file); schema[length] = 0;
+    /* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
+    schema = wena_test_file_copy(argv[1], &length); assert(length > 0);
     assert(sqlite3_open(":memory:", &db) == SQLITE_OK);
     assert(sqlite3_exec(db, schema, NULL, NULL, NULL) == SQLITE_OK); free(schema);
     assert(sqlite3_exec(db,

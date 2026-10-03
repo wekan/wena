@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/checklist_mutation.h"
 #include "../models/checklist_item_titles.h"
 #include <assert.h>
@@ -40,14 +41,7 @@ static int number(sqlite3 *db, const char *query)
 }
 static void schema(sqlite3 *db, const char *path)
 {
-    FILE *file;
-    long length;
-    char *text;
-    file = fopen(path, "rb"); assert(file);
-    assert(!fseek(file, 0, SEEK_END)); length = ftell(file); assert(length > 0);
-    rewind(file); text = (char *)malloc((size_t)length + 1u); assert(text);
-    assert(fread(text, 1, (size_t)length, file) == (size_t)length);
-    text[length] = 0; assert(!fclose(file)); sql(db, text); free(text);
+    sql(db, wena_test_file(path, NULL));
 }
 
 static void change_for(WenaChecklistEdit *edit, sqlite3 *db)

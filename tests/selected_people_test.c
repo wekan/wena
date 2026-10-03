@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -40,10 +41,10 @@ static int no_publish(void *unused,sqlite3 *db){(void)unused;assert(!sqlite3_get
 int main(int argc,char **argv)
 {
  sqlite3 *db;WenaSqlitePersistence store;WenaCardRevision cards[2],*many;unsigned char *bundle;
- FILE *file;long length;char hash[65],path[1024],query[512];size_t i;int before;
+ long length;char hash[65],path[1024],query[512];size_t i;int before;
  assert(argc==3&&strlen(argv[2])<900);sprintf(path,"%s/selected-people.sqlite",argv[2]);
- file=fopen(argv[1],"rb");assert(file&&!fseek(file,0,SEEK_END));length=ftell(file);assert(length>0);rewind(file);
- bundle=(unsigned char*)malloc((size_t)length);assert(bundle&&fread(bundle,1,(size_t)length,file)==(size_t)length&&!fclose(file));
+ /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+ bundle=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
  wena_sha256_hex(bundle,(size_t)length,hash);assert(wena_sqlite_open(path,bundle,(size_t)length,hash,&db));wena_sqlite_persistence_init(&store,db);
  sql(db,"INSERT INTO boards VALUES('b','Board',1),('other','Other',1);INSERT INTO actors VALUES('u','User',1),('a','Alice',1),('z','Zed',1),('i','Inactive',1);"
   "INSERT INTO lists VALUES('l','b','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1)");

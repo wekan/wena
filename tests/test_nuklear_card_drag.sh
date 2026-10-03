@@ -4,8 +4,10 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-card-drag-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/nuklear_card_drag_test.c" "$root_dir/client/features/card_drag.c" "$root_dir/client/features/boards/reload.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$root_dir/server/migrations/001_initial.sql"
+cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_card_drag_test.c" "$root_dir/client/features/card_drag.c" "$root_dir/client/features/boards/reload.c" \
  "$root_dir/models/card_order.c" "$root_dir/client/components/common/reorder_drag.c" "$root_dir/imports/ui/page_contract.c" "$root_dir/client/features/card_mutation.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
  "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_persistence.c" "$root_dir/server/mutations/card_people.c" "$root_dir/server/mutations/selected_people.c" "$root_dir/server/card_people_store.c" "$root_dir/models/card_people.c" "$root_dir/server/mutations/hierarchy_colors.c" "$root_dir/server/mutations/list_wip.c" "$root_dir/models/wip_limit.c" "$root_dir/server/mutations/list_archive.c" "$root_dir/server/mutations/card_archive.c" "$root_dir/server/mutations/swimlane_archive.c" \

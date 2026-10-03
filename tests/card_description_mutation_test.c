@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_description_mutation.h"
 #include <assert.h>
 #include <stdio.h>
@@ -6,7 +7,7 @@
 
 static void sql(sqlite3*d,const char*q){assert(sqlite3_exec(d,q,NULL,NULL,NULL)==SQLITE_OK);}
 static int number(sqlite3*d,const char*q){sqlite3_stmt*s;int n;assert(sqlite3_prepare_v2(d,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int(s,0);sqlite3_finalize(s);return n;}
-static char *readall(const char*p){FILE*f;long n;char*s;f=fopen(p,"rb");assert(f);assert(!fseek(f,0,SEEK_END));n=ftell(f);assert(n>0);rewind(f);s=(char*)malloc((size_t)n+1);assert(s);assert(fread(s,1,(size_t)n,f)==(size_t)n);s[n]=0;fclose(f);return s;}
+static char *readall(const char*p){long n;char*s;s=wena_test_file_copy(p,&n);assert(n>0);return s;}
 static void command(WenaDomainCommand*c,unsigned long version,unsigned long request,const char*body){memset(c,0,sizeof(*c));c->operation=WENA_DOMAIN_EDIT_CARD_DESCRIPTION;c->request_version=request;strcpy(c->user_id,"u");strcpy(c->route,"/b/b/native");sprintf(c->form_body,"cardId=c&expectedVersion=%lu&%s",version,body);c->form_body_length=strlen(c->form_body);}
 int main(int argc,char**argv)
 {

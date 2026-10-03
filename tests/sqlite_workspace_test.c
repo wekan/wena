@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#include "support/test_files.h"
 #include "../server/sqlite_workspace.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -89,11 +90,12 @@ int main(int argc, char **argv)
     int index;
 
     assert(argc == 3 && strlen(argv[2]) < 4000);
-    file = fopen(argv[1], "rb");
-    assert(file != NULL);
-    length = fread(migration, 1, sizeof(migration), file);
-    assert(length > 0 && length < sizeof(migration));
-    assert(fclose(file) == 0);
+    /* The migration is compiled in by the test script (tests/support/test_files.h). */
+    {
+        const char *embedded = wena_test_file(argv[1], &length);
+        assert(length > 0 && length < sizeof(migration));
+        memcpy(migration, embedded, length);
+    }
     wena_sha256_hex(migration, length, hash);
     (void)sprintf(path, "%s/workspace.sqlite", argv[2]);
     (void)sprintf(race, "%s/race.sqlite", argv[2]);

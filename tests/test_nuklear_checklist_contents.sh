@@ -11,9 +11,11 @@ from verify_migrations import verify
 lock, bundle = verify(Path(sys.argv[1]))
 (Path(sys.argv[2]) / 'schema.sql').write_bytes(bundle)
 PY
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$test_dir/schema.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
  -isystem "$root_dir/third_party/nuklear" \
- "$root_dir/tests/nuklear_checklist_contents_test.c" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_checklist_contents_test.c" \
  "$root_dir/client/components/common/reorder_drag.c" "$root_dir/client/features/checklists/drag.c" \
     "$root_dir/client/features/checklists/inline_edit.c" \
     "$root_dir/client/components/cards/checklist_contents.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" \

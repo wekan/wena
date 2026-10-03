@@ -1,6 +1,31 @@
 # Upcoming Wena release
 
 <details>
+<summary>Security: no test runs SQL read from outside the program (18 GitHub CodeQL cpp/sql-injection alerts)</summary>
+
+- GitHub CodeQL code scanning reported alerts #2-#19, "Uncontrolled data in
+  SQL query": tests read a schema file named on their command line and passed
+  its text to `sqlite3_exec`. The same shape was in 62 tests. Their schema,
+  fixture and migration SQL is now compiled in by
+  `scripts/embed_test_files.py` and read through `tests/support/test_files.h`;
+  a path argument only selects one of those files. Reads that only compare or
+  hash database and backup files stay, each listed with its reason.
+- The application was already clear: every value is bound with
+  `sqlite3_bind_*`, migrations are embedded and checked against their pinned
+  SHA-256, and the five places that format SQL text use fixed table and column
+  names or SQLite's `%w` identifier quoting.
+- `tests/test_sql_sources.py` (suite `sql-sources`) fails when a test that runs
+  SQL reads a file at run time, when a script passes a `.sql` file without
+  embedding it, or when the application builds SQL text anywhere new; the
+  generator and lookup are tested, including an unknown name aborting the
+  test. All converted suites pass on Linux; on macOS the same 11 suites fail
+  as before, for Apple's SQLite.
+
+Thanks to GitHub CodeQL.
+
+</details>
+
+<details>
 <summary>One self-contained desktop executable per platform, numbered from Upcoming and released from the menu</summary>
 
 - Menu option 3) Release (`build.sh release next`) numbers the Upcoming section

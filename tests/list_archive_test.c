@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
@@ -85,10 +86,10 @@ static void native_adapter(const unsigned char *migration,size_t length,const ch
 }
 int main(int argc,char **argv)
 {
- FILE *f;unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;
+ unsigned char *migration;long length;char hash[65],path[1024];sqlite3 *db;
  WenaSqlitePersistence store;WenaDomainCommand forged;WenaRegionResponse response;WenaSqliteBoardSnapshot *before,*after;sqlite3_int64 at;
- assert(argc==3);f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);rewind(f);
- migration=(unsigned char*)malloc((size_t)length);assert(migration&&fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);
+ /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==3);migration=(unsigned char*)wena_test_file_copy(argv[1],&length);
  wena_sha256_hex(migration,(size_t)length,hash);sprintf(path,"%s/archive.sqlite",argv[2]);
  assert(wena_sqlite_open(path,migration,(size_t)length,hash,&db));
  sql(db,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1),('other','Other',1);INSERT INTO lists VALUES('l','b','List',0,1),('x','other','Foreign',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1)");

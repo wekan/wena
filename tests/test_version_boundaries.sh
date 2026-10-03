@@ -3,8 +3,10 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/wena-version-boundaries-XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
-  "$root_dir/tests/version_boundaries_test.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$root_dir/server/migrations/001_initial.sql" "$root_dir/server/migrations/002_card_descriptions.sql" "$root_dir/server/migrations/003_checklists.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+  "$root_dir/tests/support/test_files.c" "$root_dir/tests/version_boundaries_test.c" \
   "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \
   "$root_dir/client/features/card_description_mutation.c" \
   "$root_dir/client/features/hierarchy_mutation.c" \

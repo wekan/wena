@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_backup.h"
@@ -16,16 +17,13 @@ typedef struct Lifecycle {
     int starts;
 } Lifecycle;
 
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
 static unsigned char *read_all(const char *path, size_t *length)
 {
-    FILE *file;
     long size;
     unsigned char *bytes;
-    file = fopen(path, "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); size = ftell(file); assert(size > 0);
-    rewind(file); bytes = (unsigned char *)malloc((size_t)size); assert(bytes);
-    assert(fread(bytes, 1, (size_t)size, file) == (size_t)size);
-    fclose(file); *length = (size_t)size; return bytes;
+    bytes = (unsigned char *)wena_test_file_copy(path, &size); assert(size > 0);
+    *length = (size_t)size; return bytes;
 }
 static int integer(sqlite3 *db, const char *sql)
 {

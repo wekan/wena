@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/checklist_mutation.h"
 #include <assert.h>
 #include <limits.h>
@@ -6,7 +7,7 @@
 #include <string.h>
 static void sql(sqlite3*d,const char*q){char*e=NULL;int rc;rc=sqlite3_exec(d,q,NULL,NULL,&e);if(rc!=SQLITE_OK){fprintf(stderr,"SQL: %s: %s\n",q,e);sqlite3_free(e);}assert(rc==SQLITE_OK);}
 static int number(sqlite3*d,const char*q){sqlite3_stmt*s;int n;assert(sqlite3_prepare_v2(d,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int(s,0);sqlite3_finalize(s);return n;}
-static void schema(sqlite3*d,const char*p){FILE*f;long n;char*s;f=fopen(p,"rb");assert(f);assert(!fseek(f,0,SEEK_END));n=ftell(f);assert(n>0);rewind(f);s=(char*)malloc((size_t)n+1);assert(s);assert(fread(s,1,(size_t)n,f)==(size_t)n);s[n]=0;fclose(f);sql(d,s);free(s);}
+static void schema(sqlite3*d,const char*p){sql(d,wena_test_file(p,NULL));}
 static void edit(WenaChecklistEdit*e,WenaChecklistSnapshot*s,WenaChecklistAction action,const char*title)
 {memset(e,0,sizeof(*e));e->action=action;e->title=title;e->expected_card_version=s->card_version;if(s->checklist_count){e->checklist_id=s->checklists[0].id;e->expected_checklist_version=s->checklist_versions[0];}if(s->item_count){e->item_id=s->items[0].id;e->expected_item_version=s->item_versions[0];}}
 int main(int argc,char **argv)

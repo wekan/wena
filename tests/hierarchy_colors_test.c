@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/hierarchy_mutation.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_persistence.h"
@@ -131,9 +132,9 @@ static void test_kind(const unsigned char *migration,size_t length,const char *h
 }
 int main(int argc,char **argv)
 {
- FILE *f;unsigned char *migration;long length;char hash[65];
- assert(argc==3);f=fopen(argv[1],"rb");assert(f&&!fseek(f,0,SEEK_END));length=ftell(f);assert(length>0);rewind(f);
- migration=(unsigned char*)malloc((size_t)length);assert(migration&&fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);
+ unsigned char *migration;long length;char hash[65];
+ /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==3);migration=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
  wena_sha256_hex(migration,(size_t)length,hash);test_kind(migration,(size_t)length,hash,argv[2],1);test_kind(migration,(size_t)length,hash,argv[2],0);
  free(migration);puts("Shared hierarchy colors: palette, hex, no-op, scope, replay, rollback, corruption and reopen passed");return 0;
 }

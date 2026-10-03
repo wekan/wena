@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/labels/panel.h"
 #include "../client/features/labels/mutation.h"
 #include "../server/mutations/labels.h"
@@ -28,22 +29,10 @@ static sqlite3_int64 number(sqlite3 *database, const char *query)
     assert(sqlite3_finalize(statement) == SQLITE_OK);
     return result;
 }
+/* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
 static void schema(sqlite3 *database, const char *path)
 {
-    FILE *file;
-    long length;
-    char *data;
-    file = fopen(path, "rb");
-    assert(file && !fseek(file, 0, SEEK_END));
-    length = ftell(file);
-    assert(length > 0);
-    rewind(file);
-    data = (char *)malloc((size_t)length + 1);
-    assert(data && fread(data, 1, (size_t)length, file) == (size_t)length);
-    data[length] = 0;
-    assert(!fclose(file));
-    sql(database, data);
-    free(data);
+    sql(database, wena_test_file(path, NULL));
 }
 static void frame(WenaLabelsState *state, WenaCard *card, const char *button,
     const char *name)

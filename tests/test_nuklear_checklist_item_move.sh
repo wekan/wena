@@ -4,9 +4,11 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-nuklear-checklist-item-move-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$root_dir/server/migrations/001_initial.sql" "$root_dir/tests/fixtures/card_description_schema_v2.sql" "$root_dir/tests/fixtures/checklist_schema_v3.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
   -isystem "$root_dir/third_party/nuklear" \
-  "$root_dir/tests/nuklear_checklist_item_move_test.c" \
+  "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_checklist_item_move_test.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/features/card_destination.c" \
   "$root_dir/client/features/directory_picker.c" \

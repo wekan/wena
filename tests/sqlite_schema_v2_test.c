@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sqlite_backup.h"
 #include "../server/sqlite_restore.h"
@@ -23,6 +24,15 @@ static unsigned char *read_all(const char *path, size_t *length)
     rewind(file); bytes = (unsigned char *)malloc((size_t)size); assert(bytes);
     assert(fread(bytes, 1, (size_t)size, file) == (size_t)size);
     assert(fclose(file) == 0); *length = (size_t)size; return bytes;
+}
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h);
+ * read_all() above only reads back database files the test wrote. */
+static unsigned char *read_sql(const char *path, size_t *length)
+{
+    long size;
+    unsigned char *bytes;
+    bytes = (unsigned char *)wena_test_file_copy(path, &size); assert(size > 0);
+    *length = (size_t)size; return bytes;
 }
 static void execute(sqlite3 *db, const char *sql)
 { assert(sqlite3_exec(db, sql, NULL, NULL, NULL) == SQLITE_OK); }
@@ -184,7 +194,7 @@ int main(int argc, char **argv)
     sqlite3 *db; FILE *file; int mode;
     Life life; WenaRestoreLifecycle lifecycle; WenaEmbeddedMigration embedded;
     assert(argc == 4);
-    v1 = read_all(argv[1], &n1); bundle = read_all(argv[2], &n2);
+    v1 = read_sql(argv[1], &n1); bundle = read_sql(argv[2], &n2);
     assert(n2 > n1 && memcmp(v1, bundle, n1) == 0);
     wena_sha256_hex(v1, n1, h1); wena_sha256_hex(bundle, n2, h2);
     assert(wena_sqlite_migration_target(h1) == 1);

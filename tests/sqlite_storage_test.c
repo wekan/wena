@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
 
@@ -11,13 +12,11 @@
 #include <unistd.h>
 #endif
 
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
 static unsigned char *read_all(const char *path, size_t *length)
 {
-    FILE *file; long size; unsigned char *data;
-    file=fopen(path,"rb");assert(file!=NULL);assert(fseek(file,0,SEEK_END)==0);
-    size=ftell(file);assert(size>0);assert(fseek(file,0,SEEK_SET)==0);
-    data=(unsigned char *)malloc((size_t)size);assert(data!=NULL);
-    assert(fread(data,1,(size_t)size,file)==(size_t)size);assert(fclose(file)==0);
+    long size; unsigned char *data;
+    data=(unsigned char *)wena_test_file_copy(path,&size);assert(size>0);
     *length=(size_t)size;return data;
 }
 

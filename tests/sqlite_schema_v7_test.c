@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
 #include <assert.h>
@@ -60,11 +61,11 @@ static sqlite3_int64 number(sqlite3 *db,const char *text)
  sqlite3_stmt *s;sqlite3_int64 n;assert(sqlite3_prepare_v2(db,text,-1,&s,NULL)==SQLITE_OK);
  assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int64(s,0);assert(sqlite3_finalize(s)==SQLITE_OK);return n;
 }
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
 static void read_bundle(const char *path,Bundle *bundle)
 {
- FILE *f;long size;f=fopen(path,"rb");assert(f);assert(!fseek(f,0,SEEK_END));size=ftell(f);assert(size>0);rewind(f);
- bundle->length=(size_t)size;bundle->bytes=(unsigned char*)malloc(bundle->length);assert(bundle->bytes);
- assert(fread(bundle->bytes,1,bundle->length,f)==bundle->length);assert(!fclose(f));
+ long size;bundle->bytes=(unsigned char*)wena_test_file_copy(path,&size);assert(size>0);
+ bundle->length=(size_t)size;
  wena_sha256_hex(bundle->bytes,bundle->length,bundle->hash);
 }
 #ifdef WENA_SETTING_COLORS

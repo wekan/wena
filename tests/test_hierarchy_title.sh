@@ -4,9 +4,12 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-hierarchy-title-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
+cat "$root_dir"/server/migrations/[0-9]*.sql > "$test_dir/schema.sql"
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$test_dir/schema.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
   -I"$root_dir/third_party/nuklear" \
-  "$root_dir/tests/hierarchy_title_test.c" \
+  "$root_dir/tests/support/test_files.c" "$root_dir/tests/hierarchy_title_test.c" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/client/features/labels/component.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/card_archives.c" "$root_dir/client/features/card_selection_panel.c" "$root_dir/models/directory.c" "$root_dir/client/features/directory_picker.c" "$root_dir/client/components/forms/position_input.c" "$root_dir/client/components/forms/hierarchy_destination.c" "$root_dir/client/features/labels/store.c" "$root_dir/client/features/labels/mutation.c" "$root_dir/models/card_selection.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/features/hierarchy_mutation.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
@@ -21,5 +24,4 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   "$root_dir/server/mutations/labels.c" "$root_dir/models/label.c" "$root_dir/models/color.c" \
   "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" \
   "$root_dir/server/region_response.c" -lsqlite3 -lm -o "$test_dir/test"
-cat "$root_dir"/server/migrations/[0-9]*.sql > "$test_dir/schema.sql"
 "$test_dir/test" "$test_dir/schema.sql" "$test_dir"

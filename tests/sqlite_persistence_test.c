@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -5,7 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static unsigned char *readall(const char *p,size_t *n){FILE*f=fopen(p,"rb");long z;unsigned char*b;assert(f);fseek(f,0,SEEK_END);z=ftell(f);fseek(f,0,SEEK_SET);b=malloc((size_t)z);assert(b);assert(fread(b,1,(size_t)z,f)==(size_t)z);fclose(f);*n=(size_t)z;return b;}
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
+static unsigned char *readall(const char *p,size_t *n){long z;unsigned char*b=(unsigned char*)wena_test_file_copy(p,&z);*n=(size_t)z;return b;}
 static void cmd(WenaDomainCommand*c,WenaDomainOperation op,unsigned long v,const char*body){memset(c,0,sizeof(*c));c->operation=op;c->request_version=v;strcpy(c->user_id,"u1");strcpy(c->route,"/b/b1/demo");strcpy(c->form_body,body);c->form_body_length=strlen(body);}
 static int count(sqlite3*d,const char*q){sqlite3_stmt*s;int n;assert(sqlite3_prepare_v2(d,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int(s,0);sqlite3_finalize(s);return n;}
 static void text(sqlite3*d,const char*q,char*out){sqlite3_stmt*s;assert(sqlite3_prepare_v2(d,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);strcpy(out,(const char*)sqlite3_column_text(s,0));sqlite3_finalize(s);}

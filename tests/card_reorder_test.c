@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_mutation.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_storage.h"
@@ -86,12 +87,11 @@ static void selected_moves(sqlite3 *db)
 int main(int argc,char**argv)
 {
     const char*hash="e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
-    FILE*f;unsigned char*migration;long length;sqlite3*d,*writer;
+    unsigned char*migration;long length;sqlite3*d,*writer;
     WenaSqliteBoardSnapshot*s,*before,*reopened;WenaCardMutation a,other;
     WenaSqlitePersistence store;WenaDomainCommand command;WenaRegionResponse response;
     char path[512];size_t count,i;int keys;
-    assert(argc==3);f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);assert(length>0);rewind(f);
-    migration=(unsigned char*)malloc((size_t)length);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);fclose(f);
+    assert(argc==3);migration=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
     s=(WenaSqliteBoardSnapshot*)malloc(sizeof(*s));before=(WenaSqliteBoardSnapshot*)malloc(sizeof(*before));reopened=(WenaSqliteBoardSnapshot*)malloc(sizeof(*reopened));assert(s&&before&&reopened);
     sprintf(path,"%s/card-reorder.sqlite",argv[2]);assert(wena_sqlite_open(path,migration,(size_t)length,hash,&d));
     sql(d,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO boards VALUES('other','Other',1);INSERT INTO lists VALUES('l1','b','One',0,1);INSERT INTO lists VALUES('l2','b','Two',1,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);");

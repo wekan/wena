@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/card_people_store.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -33,10 +34,9 @@ static int concurrent(unsigned int event,void *data,void *statement,void *unused
 }
 int main(int argc,char **argv)
 {
- FILE *file;long length;unsigned char *bundle;char hash[65],query[512];sqlite3 *db,*writer;
+ long length;unsigned char *bundle;char hash[65],query[512];sqlite3 *db,*writer;
  WenaMemberRoster *roster,*saved_roster;WenaCardPeopleSnapshot *people,*saved_people;size_t i;Concurrent change;
- assert(argc==3);file=fopen(argv[1],"rb");assert(file&&!fseek(file,0,SEEK_END));length=ftell(file);assert(length>0);rewind(file);
- bundle=(unsigned char*)malloc((size_t)length);assert(bundle&&fread(bundle,1,(size_t)length,file)==(size_t)length&&!fclose(file));
+ assert(argc==3);bundle=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
  wena_sha256_hex(bundle,(size_t)length,hash);assert(wena_sqlite_open(argv[2],bundle,(size_t)length,hash,&db));
  roster=(WenaMemberRoster*)calloc(1,sizeof(*roster));people=(WenaCardPeopleSnapshot*)calloc(1,sizeof(*people));
  saved_roster=(WenaMemberRoster*)malloc(sizeof(*saved_roster));saved_people=(WenaCardPeopleSnapshot*)malloc(sizeof(*saved_people));

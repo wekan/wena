@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/checklist_mutation.h"
 #include <assert.h>
 #include <stdio.h>
@@ -7,10 +8,10 @@ static void sql(sqlite3 *db,const char *q)
 {assert(sqlite3_exec(db,q,NULL,NULL,NULL)==SQLITE_OK);}
 static int number(sqlite3 *db,const char *q)
 {sqlite3_stmt *s;int n;assert(sqlite3_prepare_v2(db,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int(s,0);assert(sqlite3_finalize(s)==SQLITE_OK);return n;}
+/* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
 static void schema(sqlite3 *db,const char *path)
 {
- FILE *f;long n;char *s;f=fopen(path,"rb");assert(f&&!fseek(f,0,SEEK_END));n=ftell(f);assert(n>0);rewind(f);
- s=(char*)malloc((size_t)n+1);assert(s&&fread(s,1,(size_t)n,f)==(size_t)n);s[n]=0;fclose(f);sql(db,s);free(s);
+ sql(db,wena_test_file(path,NULL));
 }
 static void unchanged(sqlite3 *db,WenaChecklistMutation *adapter,WenaChecklistEdit *edit)
 {

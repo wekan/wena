@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/card_description.h"
 #include "../client/features/card_description_mutation.h"
 #include "../client/platform/nuklear_options.h"
@@ -7,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 static void sql(sqlite3*d,const char*q){assert(sqlite3_exec(d,q,NULL,NULL,NULL)==SQLITE_OK);}
-static void schema(sqlite3*d,const char*p){FILE*f;long n;char*s;f=fopen(p,"rb");assert(f);assert(!fseek(f,0,SEEK_END));n=ftell(f);assert(n>0);rewind(f);s=(char*)malloc((size_t)n+1);assert(s);assert(fread(s,1,(size_t)n,f)==(size_t)n);s[n]=0;fclose(f);sql(d,s);free(s);}
+static void schema(sqlite3*d,const char*p){sql(d,wena_test_file(p,NULL));}
 static void frame(WenaCardDescriptionState*s,WenaCard*c,const char*button,const char*text)
 {struct nk_context n;memset(&n,0,sizeof(n));n.button_to_press=button;n.edit_text=text;assert(wena_card_description_render(&n,s,c,1,800,600));}
 int main(int argc,char**argv)

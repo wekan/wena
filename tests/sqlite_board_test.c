@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_board.h"
 #include "../server/sqlite_storage.h"
 
@@ -42,7 +43,6 @@ static int commit_during_read(void *context, int action, const char *table,
 int main(int argc, char **argv)
 {
     const char *hash = "e4760a2b70d6651ee84dce93642ccdd4ce8991b488dece5d231e66053f065da5";
-    FILE *file;
     unsigned char *sql;
     long length;
     sqlite3 *db, *writer;
@@ -68,10 +68,8 @@ int main(int argc, char **argv)
     assert(argc == 3);
     out = (WenaSqliteBoardSnapshot *)malloc(sizeof(*out)); assert(out);
     original = (WenaSqliteBoardSnapshot *)malloc(sizeof(*original)); assert(original);
-    file = fopen(argv[1], "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); length = ftell(file); assert(length > 0);
-    rewind(file); sql = (unsigned char *)malloc((size_t)length); assert(sql);
-    assert(fread(sql, 1, (size_t)length, file) == (size_t)length); fclose(file);
+    /* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
+    sql = (unsigned char *)wena_test_file_copy(argv[1], &length); assert(length > 0);
     sprintf(path, "%s/board.sqlite", argv[2]);
     assert(wena_sqlite_open(path, sql, (size_t)length, hash, &db));
     execute(db, "INSERT INTO boards VALUES('b1','Board',1);"

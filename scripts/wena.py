@@ -400,6 +400,7 @@ TEST_SUITES = (
     ('model-text', 'test_model_text.sh', 'Shared ECMAScript trim and bounded label-name normalization'),
     ('nuklear-swimlane-resize', 'test_nuklear_swimlane_resize.sh', 'Dragging the bar below a swimlane changes and stores its height'),
     ('nuklear-options', 'test_nuklear_options.py', 'One set of Nuklear options in every unit, so nk_context has one layout'),
+    ('sql-sources', 'test_sql_sources.py', 'No test or application SQL comes from outside the program (CodeQL cpp/sql-injection)'),
     ('debug-log', 'test_debug_log.sh', 'Desktop debug log folder, default board file and crash signal record'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),

@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/mutations/card_people.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -70,10 +71,9 @@ static void reboard_cases(sqlite3 *db,WenaCardPeopleSnapshot *before,WenaCardPeo
 }
 int main(int argc,char **argv)
 {
- FILE *file;long length;unsigned char *bundle;char hash[65],query[512];sqlite3 *db;
+ long length;unsigned char *bundle;char hash[65],query[512];sqlite3 *db;
  WenaMemberRoster *r;WenaCardPeopleSnapshot *c,*out,*before;size_t i;int changes;
- assert(argc==3);file=fopen(argv[1],"rb");assert(file&&!fseek(file,0,SEEK_END));length=ftell(file);assert(length>0);rewind(file);
- bundle=(unsigned char*)malloc((size_t)length);assert(bundle&&fread(bundle,1,(size_t)length,file)==(size_t)length&&!fclose(file));
+ assert(argc==3);bundle=(unsigned char*)wena_test_file_copy(argv[1],&length);assert(length>0);
  wena_sha256_hex(bundle,(size_t)length,hash);assert(wena_sqlite_open(argv[2],bundle,(size_t)length,hash,&db));
  r=(WenaMemberRoster*)malloc(sizeof(*r));c=(WenaCardPeopleSnapshot*)malloc(sizeof(*c));
  out=(WenaCardPeopleSnapshot*)malloc(sizeof(*out));before=(WenaCardPeopleSnapshot*)malloc(sizeof(*before));assert(r&&c&&out&&before);

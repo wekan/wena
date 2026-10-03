@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/labels/mutation.h"
 #include "../server/mutations/labels.h"
 #include <assert.h>
@@ -23,16 +24,10 @@ static sqlite3_int64 number(sqlite3 *db,const char *query)
     result=sqlite3_column_int64(statement,0);
     assert(sqlite3_finalize(statement)==SQLITE_OK);return result;
 }
+/* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
 static void schema(sqlite3 *db,const char *path)
 {
-    FILE *file;
-    long length;
-    char *data;
-    file=fopen(path,"rb");assert(file);assert(!fseek(file,0,SEEK_END));
-    length=ftell(file);assert(length>0);rewind(file);
-    data=(char *)malloc((size_t)length+1);assert(data);
-    assert(fread(data,1,(size_t)length,file)==(size_t)length);data[length]=0;
-    assert(!fclose(file));sql(db,data);free(data);
+    sql(db,wena_test_file(path,NULL));
 }
 static void edit(WenaLabelEdit *change,const WenaLabelSnapshot *snapshot,
     WenaLabelAction action,size_t index,const char *name,const char *color)

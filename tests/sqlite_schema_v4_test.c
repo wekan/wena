@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sqlite_backup.h"
 #include "../server/sqlite_restore.h"
@@ -17,6 +18,15 @@ static void read_bundle(const char *path, Bundle *bundle)
     file = fopen(path, "rb"); assert(file); assert(fseek(file, 0, SEEK_END) == 0); size = ftell(file); assert(size > 0); rewind(file);
     bundle->length = (size_t)size; bundle->bytes = (unsigned char *)malloc(bundle->length); assert(bundle->bytes);
     assert(fread(bundle->bytes, 1, bundle->length, file) == bundle->length); assert(fclose(file) == 0);
+    wena_sha256_hex(bundle->bytes, bundle->length, bundle->hash);
+}
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h);
+ * read_bundle() above only reads back database files the test wrote. */
+static void sql_bundle(const char *path, Bundle *bundle)
+{
+    long length;
+    bundle->bytes = (unsigned char *)wena_test_file_copy(path, &length); assert(length > 0);
+    bundle->length = (size_t)length;
     wena_sha256_hex(bundle->bytes, bundle->length, bundle->hash);
 }
 static void open_database(const char *path, const Bundle *bundle, sqlite3 **db)
@@ -130,7 +140,7 @@ int main(int argc, char **argv)
     };
     assert(argc == 6);
     printf("Query-work regression uses C SQLite %s (%s)\n", sqlite3_libversion(), sqlite3_sourceid());
-    for (index = 0; index < 4; ++index) { read_bundle(argv[index + 1], &bundles[index]); assert(wena_sqlite_migration_target(bundles[index].hash) == (int)index + 1); }
+    for (index = 0; index < 4; ++index) { sql_bundle(argv[index + 1], &bundles[index]); assert(wena_sqlite_migration_target(bundles[index].hash) == (int)index + 1); }
     sprintf(path, "%s/performance.sqlite", argv[5]); open_database(path, &bundles[2], &db); seed(db, 3);
     base = measure(db, item_query); unrelated(db, 1, 12000); before = measure(db, item_query);
     assert(base.rows == 8 && before.rows == 8 && before.scans > 11000 && before.steps > base.steps * 50);

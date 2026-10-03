@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/boards/settings.h"
 #include "../server/mutations/board_settings.h"
 #include <assert.h>
@@ -25,14 +26,7 @@ static sqlite3_int64 number(sqlite3 *database,const char *query)
 }
 static void schema(sqlite3 *database,const char *path)
 {
-    FILE *file;
-    char *data;
-    long length;
-    file=fopen(path,"rb");assert(file);assert(!fseek(file,0,SEEK_END));
-    length=ftell(file);assert(length>0);rewind(file);
-    data=(char *)malloc((size_t)length+1);assert(data);
-    assert(fread(data,1,(size_t)length,file)==(size_t)length);data[length]=0;
-    assert(!fclose(file));sql(database,data);free(data);
+    sql(database,wena_test_file(path,NULL));
 }
 static void raw(WenaDomainCommand *command,unsigned long version,const char *value)
 {

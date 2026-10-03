@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sqlite_backup.h"
 #include "../server/sqlite_restore.h"
@@ -20,6 +21,15 @@ static void read_bundle(const char *path, Bundle *bundle)
     length = ftell(file); assert(length > 0); rewind(file);
     bundle->length = (size_t)length; bundle->bytes = (unsigned char *)malloc(bundle->length); assert(bundle->bytes);
     assert(fread(bundle->bytes, 1, bundle->length, file) == bundle->length); assert(fclose(file) == 0);
+    wena_sha256_hex(bundle->bytes, bundle->length, bundle->hash);
+}
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h);
+ * read_bundle() above only reads back database files the test wrote. */
+static void sql_bundle(const char *path, Bundle *bundle)
+{
+    long length;
+    bundle->bytes = (unsigned char *)wena_test_file_copy(path, &length); assert(length > 0);
+    bundle->length = (size_t)length;
     wena_sha256_hex(bundle->bytes, bundle->length, bundle->hash);
 }
 static void execute(sqlite3 *db, const char *sql)
@@ -243,7 +253,7 @@ int main(int argc, char **argv)
     pid_t child, children[4]; int status, gate[2]; char token;
 #endif
     assert(argc == 7);
-    for (index = 0; index < 5; ++index) { read_bundle(argv[index + 1], &bundles[index]); assert(wena_sqlite_migration_target(bundles[index].hash) == (int)index + 1); }
+    for (index = 0; index < 5; ++index) { sql_bundle(argv[index + 1], &bundles[index]); assert(wena_sqlite_migration_target(bundles[index].hash) == (int)index + 1); }
     for (index = 0; index < 4; ++index)
         assert(memcmp(bundles[index].bytes, bundles[4].bytes, bundles[index].length) == 0);
     memset(&life, 0, sizeof(life)); lifecycle.stop = stop; lifecycle.start = start; lifecycle.context = &life;

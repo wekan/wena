@@ -11,8 +11,10 @@ from verify_migrations import verify
 lock, bundle = verify(Path(sys.argv[1]))
 (Path(sys.argv[2]) / 'schema.sql').write_bytes(bundle)
 PY
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/checklist_summary_test.c" "$root_dir/client/features/checklists/summary.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$test_dir/schema.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/checklist_summary_test.c" "$root_dir/client/features/checklists/summary.c" \
  "$root_dir/models/model.c" "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \
  "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$test_dir/schema.sql" "$test_dir/summary.sqlite"

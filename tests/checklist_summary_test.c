@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/checklists/summary.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -240,13 +241,11 @@ static void contents(sqlite3 *db)
 }
 int main(int argc, char **argv)
 {
-    FILE *file; long length; unsigned char *bundle; char hash[65];
+    long length; unsigned char *bundle; char hash[65];
     sqlite3 *db; WenaChecklistBoardSummary *summary, *before;
     const WenaChecklistCardSummary *card; Work work;
-    assert(argc == 3); file = fopen(argv[1], "rb"); assert(file);
-    assert(fseek(file, 0, SEEK_END) == 0); length = ftell(file); assert(length > 0); rewind(file);
-    bundle = (unsigned char *)malloc((size_t)length); assert(bundle);
-    assert(fread(bundle, 1, (size_t)length, file) == (size_t)length); assert(fclose(file) == 0);
+    /* The migration bundle is compiled in by the test script (tests/support/test_files.h). */
+    assert(argc == 3); bundle = (unsigned char *)wena_test_file_copy(argv[1], &length); assert(length > 0);
     wena_sha256_hex(bundle, (size_t)length, hash);
     assert(wena_sqlite_open(argv[2], bundle, (size_t)length, hash, &db)); seed(db); contents(db);
     summary = wena_checklist_summary_create(); before = wena_checklist_summary_create(); assert(summary && before);

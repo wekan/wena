@@ -21,10 +21,11 @@ if [ "$schema_version" = 11 ]; then archive_flag=-DWENA_SETTING_COLORS; fi
 if [ "$schema_version" = 12 ]; then archive_flag=-DWENA_SETTING_WIP; fi
 if [ "$schema_version" = 13 ]; then archive_flag=-DWENA_SETTING_SWIMLANE_ARCHIVE; fi
 if [ "$schema_version" = 14 ]; then archive_flag=-DWENA_SETTING_PEOPLE; fi
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$test_dir"/v*.sql
 cc $archive_flag "-DWENA_SETTING_SCHEMA_VERSION=$schema_version" \
  "-DWENA_SETTING_TABLE=\"$schema_table\"" "-DWENA_SETTING_COLUMN=\"$schema_column\"" \
- -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/sqlite_schema_v7_test.c" "$root_dir/server/sqlite_storage.c" \
+ -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/sqlite_schema_v7_test.c" "$root_dir/server/sqlite_storage.c" \
  "$root_dir/server/sha256.c" "$root_dir/models/color.c" -lsqlite3 -o "$test_dir/test"
 set --
 version=1

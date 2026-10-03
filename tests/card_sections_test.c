@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../imports/preferences/sections.h"
 #include "../server/sqlite_storage.h"
 #include "../server/sha256.h"
@@ -16,9 +17,8 @@ static sqlite3_int64 number(sqlite3 *db,const char *text)
 {sqlite3_stmt *s;sqlite3_int64 n;assert(sqlite3_prepare_v2(db,text,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int64(s,0);assert(sqlite3_finalize(s)==SQLITE_OK);return n;}
 static unsigned char *read_file(const char *path,long *size)
 {
- FILE *f;unsigned char *bytes;
- f=fopen(path,"rb");assert(f);assert(!fseek(f,0,SEEK_END));*size=ftell(f);assert(*size>0);rewind(f);
- bytes=(unsigned char*)malloc((size_t)*size);assert(bytes);assert(fread(bytes,1,(size_t)*size,f)==(size_t)*size);fclose(f);return bytes;
+ unsigned char *bytes;
+ bytes=(unsigned char*)wena_test_file_copy(path,size);assert(*size>0);return bytes;
 }
 int main(int argc,char **argv)
 {

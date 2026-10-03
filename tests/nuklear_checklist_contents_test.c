@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
@@ -308,12 +309,12 @@ static void drag_transfers(sqlite3 *db,struct nk_context *ctx,
 }
 int main(int argc,char **argv)
 {
- sqlite3 *db;FILE *file;long size;char *schema;
+ sqlite3 *db;long size;char *schema;
  struct nk_context ctx;struct nk_user_font font;struct nk_vec2 point;
  WenaChecklistCompletionIntent intent;WenaChecklistMutation adapter;
  WenaChecklistBoardContents *contents;WenaCard card;int i,down;unsigned int action;
- assert(argc==2);file=fopen(argv[1],"rb");assert(file);assert(!fseek(file,0,SEEK_END));size=ftell(file);assert(size>0);rewind(file);
- schema=(char*)malloc((size_t)size+1);assert(schema);assert(fread(schema,1,(size_t)size,file)==(size_t)size);schema[size]=0;fclose(file);
+ /* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==2);schema=wena_test_file_copy(argv[1],&size);assert(size>0);
  assert(sqlite3_open(":memory:",&db)==SQLITE_OK);sql(db,schema);free(schema);
  sql(db,"INSERT INTO actors VALUES('u','User',1);INSERT INTO boards VALUES('b','Board',1);INSERT INTO lists VALUES('l','b','List',0,1);INSERT INTO swimlanes VALUES('s','b','Lane',0,1);INSERT INTO cards VALUES('c','b','s','l','Card',0,0,1)");
  sql(db,"INSERT INTO checklists(id,board_id,card_id,title,position,show_on_minicard) VALUES('inherit','b','c','Inherited',0,NULL),('hidden','b','c','Hidden',1,0),('shown','b','c','Shown',2,1)");

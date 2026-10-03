@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
@@ -52,10 +53,10 @@ static void click(struct nk_context *ctx,WenaDirectoryPicker *picker,const char 
 int main(int argc,char **argv)
 {
  sqlite3 *db;WenaSqliteDirectoryReader reader;WenaDirectoryPicker picker;
- struct nk_context ctx;struct nk_user_font font;FILE *file;char *schema,query[200];long size;
+ struct nk_context ctx;struct nk_user_font font;char *schema,query[200];long size;
  unsigned long before;int i;
- assert(argc==2);file=fopen(argv[1],"rb");assert(file&&!fseek(file,0,SEEK_END));size=ftell(file);assert(size>0);rewind(file);
- schema=(char*)malloc((size_t)size+1);assert(schema&&fread(schema,1,(size_t)size,file)==(size_t)size);schema[size]=0;fclose(file);
+ /* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
+ assert(argc==2);schema=wena_test_file_copy(argv[1],&size);assert(size>0);
  assert(sqlite3_open(":memory:",&db)==SQLITE_OK);sql(db,schema);free(schema);
  sql(db,"INSERT INTO actors VALUES('u','Local user',1),('v','Other user',2)");
  for(i=0;i<17;++i){sprintf(query,"INSERT INTO boards VALUES('b%02d','Board %02d',1)",i,i);sql(db,query);}

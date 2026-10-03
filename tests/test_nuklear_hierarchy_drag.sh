@@ -4,8 +4,11 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-hierarchy-drag-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/nuklear_hierarchy_drag_test.c" "$root_dir/client/features/hierarchy_drag.c" "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
+cat "$root_dir"/server/migrations/[0-9]*.sql > "$test_dir/schema.sql"
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$test_dir/schema.sql"
+cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_hierarchy_drag_test.c" "$root_dir/client/features/hierarchy_drag.c" "$root_dir/client/features/hierarchy_move.c" "$root_dir/client/features/hierarchy_move_mutation.c" \
  "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" "$root_dir/client/components/cards/card_details_canvas.c" \
  "$root_dir/client/components/common/reorder_drag.c" "$root_dir/imports/ui/page_contract.c" \
  "$root_dir/models/model.c" "$root_dir/models/board.c" "$root_dir/models/list.c" "$root_dir/models/swimlane.c" "$root_dir/models/card.c" \
@@ -15,5 +18,4 @@ cc -isystem "$root_dir/third_party/nuklear" -std=c89 -pedantic-errors -Wall -Wex
   "$root_dir/server/mutations/checklist_batch.c" "$root_dir/models/checklist_item_titles.c" "$root_dir/models/text.c" \
   "$root_dir/server/mutations/labels.c" "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" "$root_dir/server/region_response.c" \
  -lsqlite3 -lm -o "$test_dir/test"
-cat "$root_dir"/server/migrations/[0-9]*.sql > "$test_dir/schema.sql"
 "$test_dir/test" "$test_dir/schema.sql"

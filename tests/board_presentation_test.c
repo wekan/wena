@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/features/boards/presentation.h"
 #include "../client/features/checklist_mutation.h"
 #include <assert.h>
@@ -66,14 +67,7 @@ static sqlite3_int64 number(sqlite3 *database,const char *query)
 }
 static void schema(sqlite3 *database,const char *path)
 {
-    FILE *file;
-    long size;
-    char *data;
-    file=fopen(path,"rb");assert(file);assert(!fseek(file,0,SEEK_END));
-    size=ftell(file);assert(size>0);rewind(file);
-    data=(char *)malloc((size_t)size+1);assert(data);
-    assert(fread(data,1,(size_t)size,file)==(size_t)size);data[size]=0;
-    assert(!fclose(file));sql(database,data);free(data);
+    sql(database,wena_test_file(path,NULL));
 }
 static void edit(WenaLabelEdit *change,const WenaLabelSnapshot *snapshot,
     WenaLabelAction action,const char *name)

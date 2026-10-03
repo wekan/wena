@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
@@ -22,13 +23,10 @@ static int save(void *ctx, const char *board, const char *card, const WenaCheckl
 }
 static void sql(sqlite3 *db, const char *query)
 { assert(sqlite3_exec(db, query, NULL, NULL, NULL) == SQLITE_OK); }
+/* Schema SQL is compiled in by the test script (tests/support/test_files.h). */
 static void schema(sqlite3 *db, const char *path)
 {
-    FILE *f; long n; char *s;
-    f = fopen(path, "rb"); assert(f); assert(!fseek(f, 0, SEEK_END));
-    n = ftell(f); assert(n > 0); rewind(f); s = (char *)malloc((size_t)n + 1u); assert(s);
-    assert(fread(s, 1, (size_t)n, f) == (size_t)n); s[n] = 0;
-    assert(!fclose(f)); sql(db, s); free(s);
+    sql(db, wena_test_file(path, NULL));
 }
 static float text_width(nk_handle handle, float height,
                         const char *text, int length)

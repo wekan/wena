@@ -12,8 +12,9 @@ lock, bundle = verify(Path(sys.argv[1]))
 (Path(sys.argv[2]) / 'schema.sql').write_bytes(bundle)
 (Path(sys.argv[2]) / 'v7.sql').write_bytes(bundle[:lock['migrations'][6]['bundle_size']])
 PY
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/card_sections_test.c" "$root_dir/imports/preferences/sections.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$test_dir/schema.sql" "$test_dir/v7.sql"
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/card_sections_test.c" "$root_dir/imports/preferences/sections.c" \
  "$root_dir/models/card_section.c" "$root_dir/models/model.c" "$root_dir/server/sqlite_storage.c" "$root_dir/server/sha256.c" \
  -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$test_dir/schema.sql" "$test_dir/sections.sqlite" "$test_dir/v7.sql"

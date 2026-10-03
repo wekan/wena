@@ -11,6 +11,7 @@ import time
 from unittest.mock import patch
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 
@@ -183,6 +184,9 @@ class Completed:
 def test_release():
     # 3) Release: the human's step. gh, git and GitHub are replaced here, so
     # nothing is pushed or started; a real git repository holds the CHANGELOG.
+    if shutil.which("git") is None:
+        print("SKIP release flow: needs git")
+        return
     assert wena.github_repository("git@github.com:wekan/wena") == "wekan/wena"
     assert wena.github_repository("https://github.com/wekan/wena.git") == "wekan/wena"
     assert wena.github_repository("/srv/git/wena.git") is None

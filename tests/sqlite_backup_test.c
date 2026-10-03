@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_backup.h"
 #include "../server/sqlite_storage.h"
 #include <assert.h>
@@ -5,7 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static unsigned char *readall(const char*p,size_t*n){FILE*f=fopen(p,"rb");long z;unsigned char*b;assert(f);assert(fseek(f,0,SEEK_END)==0);z=ftell(f);assert(z>0);rewind(f);b=(unsigned char*)malloc((size_t)z);assert(b);assert(fread(b,1,(size_t)z,f)==(size_t)z);assert(fclose(f)==0);*n=(size_t)z;return b;}
+/* Migration SQL is compiled in by the test script (tests/support/test_files.h). */
+static unsigned char *readall(const char*p,size_t*n){long z;unsigned char*b=(unsigned char*)wena_test_file_copy(p,&z);assert(z>0);*n=(size_t)z;return b;}
 static int space(void*c,const char*p,unsigned long*b){(void)p;*b=*(unsigned long*)c;return 1;}
 static int count(sqlite3*d,const char*q){sqlite3_stmt*s;int n;assert(sqlite3_prepare_v2(d,q,-1,&s,NULL)==SQLITE_OK);assert(sqlite3_step(s)==SQLITE_ROW);n=sqlite3_column_int(s,0);sqlite3_finalize(s);return n;}
 static void schema_rejections(sqlite3 *db, const char *path, unsigned long *room)

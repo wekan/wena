@@ -25,8 +25,10 @@ if loader.exists():
         assert query in source, 'Update label query-work fixture to match the actual loader query'
 
 PY
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
- "$root_dir/tests/sqlite_schema_v5_test.c" "$root_dir/server/sqlite_storage.c" \
+python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
+  "$test_dir"/v*.sql
+cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
+ "$root_dir/tests/support/test_files.c" "$root_dir/tests/sqlite_schema_v5_test.c" "$root_dir/server/sqlite_storage.c" \
  "$root_dir/server/sqlite_backup.c" "$root_dir/server/sqlite_restore.c" \
  "$root_dir/server/sha256.c" -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$test_dir/v1.sql" "$test_dir/v2.sql" "$test_dir/v3.sql" "$test_dir/v4.sql" "$test_dir/v5.sql" "$test_dir"

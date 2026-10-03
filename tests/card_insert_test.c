@@ -1,3 +1,4 @@
+#include "support/test_files.h"
 #include "../server/sqlite_persistence.h"
 #include "../server/sqlite_board.h"
 #include "../client/features/card_mutation.h"
@@ -86,10 +87,9 @@ static void native_case(const char *migration,int lane,int empty,unsigned long t
 }
 int main(int argc,char **argv)
 {
-    FILE *f;long length;char *migration,*field,q[256];sqlite3 *db;WenaSqlitePersistence store;
+    long length;char *migration,*field,q[256];sqlite3 *db;WenaSqlitePersistence store;
     WenaDomainCommand c;WenaRegionResponse r;int lane,target,i,empty;
-    assert(argc==3);(void)argv[2];f=fopen(argv[1],"rb");assert(f);assert(!fseek(f,0,SEEK_END));length=ftell(f);rewind(f);
-    migration=(char*)malloc((size_t)length+1);assert(migration);assert(fread(migration,1,(size_t)length,f)==(size_t)length);migration[length]=0;fclose(f);
+    assert(argc==3);(void)argv[2];migration=wena_test_file_copy(argv[1],&length);
     for(lane=0;lane<2;++lane)for(empty=0;empty<2;++empty)for(target=0;target<(empty?1:4);++target){
         native_case(migration,lane,empty,(unsigned long)target);
         db=fixture(migration,lane,empty);wena_sqlite_persistence_init(&store,db);command(db,&c,lane,(unsigned long)target);
