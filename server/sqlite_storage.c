@@ -39,6 +39,32 @@ static const WenaCompiledMigration *target_for_hash(const char *sha256)
     return NULL;
 }
 
+int wena_sqlite_compiled_bundle(unsigned char **bytes, size_t *length, char sha256[65])
+{
+    const WenaCompiledMigration *newest;
+    unsigned char *bundle;
+    size_t index, offset;
+    if (bytes == NULL || length == NULL || sha256 == NULL) return 0;
+    *bytes = NULL; *length = 0; sha256[0] = '\0';
+    newest = &migrations[MIGRATION_COUNT - 1];
+    bundle = (unsigned char *)malloc(newest->bundle_length);
+    if (bundle == NULL) return 0;
+    for (index = 0, offset = 0; index < MIGRATION_COUNT; ++index) {
+        if (strlen(migrations[index].sql) != migrations[index].length ||
+            migrations[index].length > newest->bundle_length - offset) {
+            free(bundle); return 0;
+        }
+        memcpy(bundle + offset, migrations[index].sql, migrations[index].length);
+        offset += migrations[index].length;
+    }
+    wena_sha256_hex(bundle, offset, sha256);
+    if (offset != newest->bundle_length || strcmp(sha256, newest->bundle_sha256) != 0) {
+        free(bundle); sha256[0] = '\0'; return 0;
+    }
+    *bytes = bundle; *length = offset;
+    return 1;
+}
+
 int wena_sqlite_migration_target(const char *sha256)
 {
     const WenaCompiledMigration *target;

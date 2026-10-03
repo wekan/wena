@@ -33,28 +33,12 @@ def host_check():
         raise ValueError("desktop packaging requires readelf (binutils)")
 
 
-def embedded(data, end, magic):
-    if end < 56 or data[end - 16:end] != magic:
-        raise ValueError("missing embedded " + magic.decode("ascii") + " footer")
-    footer = data[end - 56:end]
-    length = struct.unpack(">Q", footer[32:40])[0]
-    start = end - 56 - length
-    if start < 64:
-        raise ValueError("invalid embedded payload length")
-    payload = data[start:end - 56]
-    if hashlib.sha256(payload).digest() != footer[:32]:
-        raise ValueError("embedded payload checksum mismatch")
-    return start, payload
-
-
 def inspect_executable(executable):
     data = executable.read_bytes()
     if (len(data) < 64 or data[:6] != b"\x7fELF\x02\x01" or
             struct.unpack_from("<H", data, 18)[0] != 62 or
             struct.unpack_from("<H", data, 16)[0] not in {2, 3}):
         raise ValueError("expected Linux amd64 ELF executable")
-    end, catalog = embedded(data, len(data), b"WENA-I18N-END-v1")
-    _start, migration = embedded(data, end, b"WENA-SQL-END-v1!")
     i18n = json.loads((ROOT / "config/i18n-lock.json").read_text())
     sql = json.loads((ROOT / "config/migrations-lock.json").read_text())
     dependencies = json.loads((ROOT / "config/dependencies-lock.json").read_text())
@@ -66,9 +50,11 @@ def inspect_executable(executable):
         migration_hash, migration_size = final["bundle_sha256"], final["bundle_size"]
     else:
         raise ValueError("unsupported migration lock format")
-    if (digest(catalog) != i18n["catalog_sha256"] or
-            digest(migration) != migration_hash or len(migration) != migration_size):
-        raise ValueError("embedded payload differs from pinned source locks")
+    # The migrations are compiled in (server/migrations/compiled_registry.h);
+    # their newest bundle checksum is in the executable as the registry's text.
+    del migration_size
+    if migration_hash.encode("ascii") not in data:
+        raise ValueError("executable does not contain the pinned migration registry")
     env = dict(os.environ, LC_ALL="C")
     details = subprocess.check_output(
         ["readelf", "--wide", "--dynamic", "--version-info", str(executable)],

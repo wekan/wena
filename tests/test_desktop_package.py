@@ -3,6 +3,7 @@
 
 import importlib.util
 from pathlib import Path
+import json
 import struct
 import subprocess
 import tempfile
@@ -61,8 +62,11 @@ def main():
         struct.pack_into("<H", data, 18, 183)
         bad.write_bytes(data)
         rejected(lambda: packager.inspect_executable(bad), "Linux amd64 ELF")
-        bad.write_bytes(executable.read_bytes()[:-1])
-        rejected(lambda: packager.inspect_executable(bad), "missing embedded")
+        # Negative: an executable without the compiled migration registry.
+        lock = json.loads((ROOT / "config/migrations-lock.json").read_text())
+        marker = lock["migrations"][-1]["bundle_sha256"].encode("ascii")
+        bad.write_bytes(executable.read_bytes().replace(marker, b"0" * len(marker)))
+        rejected(lambda: packager.inspect_executable(bad), "pinned migration registry")
         with patch.object(packager.subprocess, "check_output", return_value=""):
             rejected(lambda: packager.inspect_executable(executable), "bootstrap is unsupported")
         before = one.read_bytes()

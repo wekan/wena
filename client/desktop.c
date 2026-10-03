@@ -44,7 +44,6 @@
 #include "../server/sqlite_workspace.h"
 #include "../server/embedded_migration.h"
 #include "../server/executable_path.h"
-#include "../imports/i18n/catalog.h"
 #include "../imports/i18n/ui_catalog.h"
 #include "../imports/i18n/locale.h"
 #include "../imports/preferences/collapse.h"
@@ -373,7 +372,6 @@ int main(int argc, char **argv)
     char default_database[WENA_EXECUTABLE_PATH_CAPACITY];
     sqlite3 *database;
     WenaEmbeddedMigration migration;
-    WenaI18nCatalog catalog;
     WenaLanguageState language;
     WenaLanguagePicker language_picker;
     WenaDesktopToolbar toolbar;
@@ -482,7 +480,6 @@ int main(int argc, char **argv)
         return 2;
     }
     memset(&migration, 0, sizeof(migration));
-    memset(&catalog, 0, sizeof(catalog));
     snapshot = (WenaSqliteBoardSnapshot *)calloc(1, sizeof(*snapshot));
     transfer_snapshot=(WenaSqliteBoardSnapshot*)calloc(1,sizeof(*transfer_snapshot));
     if(!snapshot||!transfer_snapshot){free(snapshot);free(transfer_snapshot);return 1;}
@@ -498,9 +495,10 @@ int main(int argc, char **argv)
     memset(&swimlane_resize, 0, sizeof(swimlane_resize));
     database = NULL; window = NULL; renderer = NULL; context = NULL;single_selection=NULL;selection=NULL;selection_traversal=NULL;
     sdl_started = 0; status = 1;
-    if (!wena_executable_path_current(executable, sizeof(executable)) ||
-        !wena_i18n_catalog_open(&catalog, executable) ||
-        !wena_embedded_migration_load(executable, &migration)) DESKTOP_FAIL();
+    /* Compiled in: the desktop reads nothing from its own file, which an app
+     * bundle, an APK or an Amiga PROGDIR: does not let it find reliably. */
+    if (!wena_sqlite_compiled_bundle(&migration.bytes, &migration.length, migration.sha256))
+        DESKTOP_FAIL();
     languages = wena_ui_catalog_languages(&language_count);
     detected_locale[0] = '\0';
     (void)wena_locale_detect(detected_locale, sizeof(detected_locale));
@@ -1032,7 +1030,6 @@ cleanup:
     free(snapshot);free(transfer_snapshot);
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;
     wena_embedded_migration_free(&migration);
-    wena_i18n_catalog_close(&catalog);
     if (status != 0) {
         fputs("Unable to open the local Wena desktop\n", stderr);
         if (wena_debug_log_directory()[0] != '\0')

@@ -72,5 +72,5 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   "$root_dir/server/mutations/labels.c" "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/server/region_response.c" \
   "$root_dir/server/embedded_migration.c" "$root_dir/server/executable_path.c" \
   "$root_dir/server/sha256.c" -o "$1" $WENA_SQLITE_LIBS $WENA_SDL_LIBS $WENA_LDFLAGS -lm
-python3 "$root_dir/scripts/embed_migrations.py" --executable "$1"
-python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$1"
+# Migrations and translations are compiled in; nothing is appended to the
+# executable, so it can be signed and packaged (macOS, iOS, Android) as it is.

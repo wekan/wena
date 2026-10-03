@@ -19,6 +19,11 @@ int wena_sqlite_integrity(sqlite3 *database);
  * historical v1 domain-table structure and arbitrary rows are not fingerprinted. */
 int wena_sqlite_schema_validate(sqlite3 *database,
                                 const char *expected_sha256);
+/* The newest migration bundle, assembled from the compiled registry: every
+ * migration in order, checked against the registry's own SHA-256 for it.
+ * The desktop opens and creates workspaces with it, so it reads nothing from
+ * its own executable file. Caller frees *bytes. 1 on success. */
+int wena_sqlite_compiled_bundle(unsigned char **bytes, size_t *length, char sha256[65]);
 /* Supported bundle target, or zero for an unknown checksum. */
 int wena_sqlite_migration_target(const char *sha256);
 /* Validated current schema, or zero for an empty/invalid/unsupported schema. */

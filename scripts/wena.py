@@ -511,6 +511,7 @@ TEST_SUITES = (
     ('sqlite-board', 'test_sqlite_board.sh', 'Bounded SQLite board snapshot with scope and reopen checks'),
     ('sqlite-hardening', 'test_sqlite_hardening.sh', 'Defensive SQLite connection settings and untrusted schema refusal'),
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
+    ('compiled-bundle', 'test_compiled_bundle.sh', 'Desktop migration bundle compiled in and checked against the lock'),
     ('progressive', 'test_progressive_integration.sh', 'HTML4 fallback, DnD, POST, and multi-region integration'),
     ('migration-embed', 'test_migration_embedding.py', 'Pinned SQLite migration in every ready artifact'),
     ('sqlite-persistence', 'test_sqlite_persistence.sh', 'Transactional SQLite create/edit/archive adapter'),
