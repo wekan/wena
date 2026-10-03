@@ -60,10 +60,16 @@ this path; complete theme/responsive parity remains in the roadmap.
 ./build.sh run
 ```
 
-`./build.sh run` (`build.bat run` on Windows, or menu option 2) Run) starts the
-binary that `build host` (menu 1) Build, then h) Current host) wrote for this
-computer, `dist/<target>/wena` or `wena.exe`, passing any further arguments to
-it. It refuses to run, and says how to build it, when that file is missing.
+`./build.sh run` (`build.bat run` on Windows, or menu option 2) Run) opens the
+native Nuklear desktop that `build desktop` (menu 1) Build, then d) Local
+SDL2/SQLite desktop app) wrote, `dist/desktop/wena-desktop`, on a local board
+where cards, lists and swimlanes can be dragged. The board is created on the
+first run, as actor `local-user` and board `my-board`, in
+`~/Library/Application Support/Wena/wena.sqlite` on macOS,
+`$XDG_DATA_HOME/wena/wena.sqlite` (default `~/.local/share/wena/wena.sqlite`)
+elsewhere, or the absolute path in `WENA_DATABASE`. Arguments after `run` are
+passed to `wena-desktop` instead. It says how to build the app when it is
+missing.
 
 The test runner executes independent native suites in parallel, serializes
 shared artifact builds, and reports failures and missing prerequisites

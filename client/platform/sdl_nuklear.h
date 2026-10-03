@@ -9,8 +9,23 @@
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
 
+/* Pinned third-party code: newer clang reports Nuklear's portable alignof
+ * (a struct defined inside offsetof) as a C23 extension, which -Werror and
+ * -pedantic-errors turn into a build failure. Only that warning, only for
+ * these two headers, and only on a clang that knows it. */
+#if defined(__clang__) && defined(__has_warning)
+#if __has_warning("-Wc23-extensions")
+#define WENA_NUKLEAR_C23_OFFSETOF
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc23-extensions"
+#endif
+#endif
 #include "../../third_party/nuklear/nuklear.h"
 #include "../../third_party/nuklear/demo/sdl_renderer/nuklear_sdl_renderer.h"
+#ifdef WENA_NUKLEAR_C23_OFFSETOF
+#pragma clang diagnostic pop
+#undef WENA_NUKLEAR_C23_OFFSETOF
+#endif
 
 /* Pass the context returned by nk_sdl_init. Text events are validated and
  * accepted atomically, including all their UTF-8 characters. Invalid/control

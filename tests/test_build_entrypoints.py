@@ -92,40 +92,55 @@ def test_runner():
 
 
 def test_run():
-    # 2) Run starts the binary 1) Build > Current host wrote for this computer.
-    assert wena.host_binary("/r", "macos-arm64") == Path("/r/dist/macos-arm64/wena")
-    assert wena.host_binary("/r", "linux-amd64") == Path("/r/dist/linux-amd64/wena")
-    assert wena.host_binary("/r", "windows-amd64") == Path("/r/dist/windows-amd64/wena.exe")
-    assert wena.host_binary() == ROOT / "dist" / wena.host_target() / (
-        "wena.exe" if wena.host_target().startswith("windows-") else "wena")
+    # 2) Run opens the native Nuklear desktop that 1) Build > d) wrote.
+    assert wena.desktop_binary("/r", False) == Path("/r/dist/desktop/wena-desktop")
+    assert wena.desktop_binary("/r", True) == Path("/r/dist/desktop/wena-desktop.exe")
+    # Its board lives in the user's data folder, or where WENA_DATABASE says.
+    assert wena.workspace_path({}, "Darwin", "/home/u") == Path(
+        "/home/u/Library/Application Support/Wena/wena.sqlite")
+    assert wena.workspace_path({}, "Linux", "/home/u") == Path("/home/u/.local/share/wena/wena.sqlite")
+    assert wena.workspace_path({"XDG_DATA_HOME": "/data"}, "Linux", "/home/u") == Path("/data/wena/wena.sqlite")
+    assert wena.workspace_path({"WENA_DATABASE": "/x/board.sqlite"}, "Linux", "/home/u") == Path("/x/board.sqlite")
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
+        database = root / "data" / "wena.sqlite"
+        # Created on the first run, reopened afterwards.
+        assert wena.desktop_arguments(database) == ["--database", str(database), "--actor", "local-user",
+                                                    "--board", "my-board", "--create", "--title", "My board"]
         # Negative: nothing built yet says how to build it, and runs nothing.
         errors = io.StringIO()
         with patch.object(wena.subprocess, "call") as call, patch.object(sys, "stderr", errors):
-            assert wena.run((), root, "linux-amd64") == 1
+            assert wena.run((), root, database) == 1
         call.assert_not_called()
-        assert "not built yet" in errors.getvalue() and "1) Build" in errors.getvalue()
-        binary = root / "dist" / "linux-amd64" / "wena"
+        assert "not built yet" in errors.getvalue() and "d) Local SDL2/SQLite desktop app" in errors.getvalue()
+        binary = wena.desktop_binary(root)
         binary.parent.mkdir(parents=True)
         binary.write_text("#!/bin/sh\necho \"ran $*\"\nexit 7\n", encoding="utf-8")
         if sys.platform != "win32":
             # Negative: a file that cannot be executed is refused.
             binary.chmod(0o644)
             with patch.object(wena.subprocess, "call") as call, patch.object(sys, "stderr", io.StringIO()):
-                assert wena.run((), root, "linux-amd64") == 1
+                assert wena.run((), root, database) == 1
             call.assert_not_called()
             binary.chmod(0o755)
-            # The real file runs from the repository root with the arguments
-            # given, and its exit code is returned.
+            # Without arguments it opens the default board, creating its folder;
+            # its exit code is returned.
+            with patch.object(wena.subprocess, "call", return_value=7) as call, redirect_stdout(io.StringIO()):
+                assert wena.run((), root, database) == 7
+            assert call.call_args.args[0] == [str(binary), *wena.desktop_arguments(database)]
+            assert call.call_args.kwargs["cwd"] == root
+            assert database.parent.is_dir()
+            database.write_bytes(b"")
+            assert "--create" not in wena.desktop_arguments(database)
+            # Given arguments are passed as they are, to the real file.
             out = subprocess.run([sys.executable, "-c",
                                   "import importlib.util,sys;"
                                   f"s=importlib.util.spec_from_file_location('w',{str(ROOT / 'scripts' / 'wena.py')!r});"
                                   "w=importlib.util.module_from_spec(s);s.loader.exec_module(w);"
-                                  f"sys.exit(w.run(['a','b'],{temp!r},'linux-amd64'))"],
+                                  f"sys.exit(w.run(['--help'],{temp!r}))"],
                                  text=True, capture_output=True)
             assert out.returncode == 7, out.stderr
-            assert "ran a b" in out.stdout
+            assert "ran --help" in out.stdout
     # The menu: 1) Build, 2) Run, and the rest one number lower than before.
     answers = iter(["2", "3", "4", "5", "q"])
     printed = io.StringIO()

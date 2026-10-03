@@ -1,7 +1,7 @@
 #include "components/cards/checklist_contents.h"
 /* MIT-licensed local desktop entrypoint. The local OS user supplies a trusted
  * actor identity; this is not a remote authentication or board-sharing API. */
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include "platform/svg.h"
 #include "components/boards/board_header.h"
 #include "platform/sdl_nuklear.h"

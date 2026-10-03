@@ -93,22 +93,58 @@ def build(selection):
     return 0
 
 
-def host_binary(root=ROOT, target=None):
-    """The binary Build > Current host writes for this computer."""
-    target = target or host_target()
-    name = "wena.exe" if target.startswith("windows-") else "wena"
-    return Path(root) / "dist" / target / name
+DEFAULT_ACTOR = "local-user"
+DEFAULT_BOARD = "my-board"
+DEFAULT_BOARD_TITLE = "My board"
 
 
-def run(args=(), root=ROOT, target=None):
-    binary = host_binary(root, target)
+def desktop_binary(root=ROOT, windows=None):
+    """The Nuklear desktop app that 1) Build > d) writes."""
+    windows = sys.platform == "win32" if windows is None else windows
+    return Path(root) / "dist" / "desktop" / ("wena-desktop.exe" if windows else "wena-desktop")
+
+
+def workspace_path(environ=None, system=None, home=None):
+    """Where Run keeps its local board: WENA_DATABASE, or the user's data folder."""
+    environ = os.environ if environ is None else environ
+    if environ.get("WENA_DATABASE"):
+        return Path(environ["WENA_DATABASE"]).expanduser().absolute()
+    system = (system or platform.system()).lower()
+    home = Path(home) if home else Path.home()
+    if system == "darwin":
+        base = home / "Library" / "Application Support" / "Wena"
+    elif system == "windows":
+        base = Path(environ.get("APPDATA") or home / "AppData" / "Roaming") / "Wena"
+    else:
+        base = Path(environ.get("XDG_DATA_HOME") or home / ".local" / "share") / "wena"
+    return base / "wena.sqlite"
+
+
+def desktop_arguments(database):
+    """Open the local board, creating it on the first run."""
+    arguments = ["--database", str(database), "--actor", DEFAULT_ACTOR, "--board", DEFAULT_BOARD]
+    if not Path(database).exists():
+        arguments += ["--create", "--title", DEFAULT_BOARD_TITLE]
+    return arguments
+
+
+def run(args=(), root=ROOT, database=None):
+    """2) Run: the native Nuklear desktop. Given arguments are passed as they are;
+    without any, the local board at workspace_path() opens (and is created once)."""
+    binary = desktop_binary(root)
     if not binary.is_file():
         print(f"{binary.relative_to(root)} is not built yet; build it first with 1) Build, "
-              "then h) Current host.", file=sys.stderr)
+              "then d) Local SDL2/SQLite desktop app.", file=sys.stderr)
         return 1
     if sys.platform != "win32" and not os.access(binary, os.X_OK):
         print(f"{binary.relative_to(root)} exists but is not executable.", file=sys.stderr)
         return 1
+    args = list(args)
+    if not args:
+        database = Path(database) if database else workspace_path()
+        database.parent.mkdir(parents=True, exist_ok=True)
+        args = desktop_arguments(database)
+        print(f"Opening board {DEFAULT_BOARD} in {database}", flush=True)
     print(f"Running {binary.relative_to(root)}", flush=True)
     return subprocess.call([str(binary), *args], cwd=root)
 

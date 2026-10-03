@@ -1,6 +1,27 @@
 # Upcoming Wena release
 
 <details>
+<summary>Run opens the native Nuklear desktop, and the desktop builds on macOS again</summary>
+
+- Menu option 2) Run and `build.sh run` open `dist/desktop/wena-desktop` on a
+  local board, created on the first run in the user's data folder or in
+  `WENA_DATABASE`, instead of the bootstrap binary that only prints its name.
+  Given arguments go to the desktop unchanged.
+- The desktop did not compile with Apple clang 21: `SDL2/SDL.h` was not found
+  through `sdl2-config`, `mkdtemp` was hidden by `_POSIX_C_SOURCE`, and the pinned
+  Nuklear's alignof is reported as a C23 extension. The desktop now includes
+  `SDL.h` like the other sources, defines `_DARWIN_C_SOURCE` on macOS, and
+  silences only that warning around the two Nuklear headers on a clang that
+  knows it. The `nuklear` and `sdl-text-input` suites pass on macOS again.
+- Tests cover the desktop path per platform, the data folder per system and
+  `WENA_DATABASE`, first-run creation and reopening, both refusals and passed
+  arguments; the desktop smoke test passes for a created and a reopened board.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Add a Run option to the build menu</summary>
 
 - `build.sh` and `build.bat` menu option 2) Run starts the binary that 1) Build
