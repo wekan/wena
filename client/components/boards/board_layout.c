@@ -378,6 +378,19 @@ static unsigned int wena_render_minicard(struct nk_context *context,
             card_action |= layout->card_selection(context, layout->card_selection_context, card);
         if (!collapsed && layout->card_contents != NULL)
             card_action |= layout->card_contents(context, layout->card_contents_context, card);
+        /* WeKan's badges strip, 8 below: the description badge, gray. */
+        if (!collapsed && card->has_description) {
+            struct nk_rect badge;
+            nk_layout_row_dynamic(context, 8.0f, 1);
+            nk_spacing(context, 1);
+            nk_layout_row_begin(context, NK_STATIC, 16.0f, 1);
+            nk_layout_row_push(context, 14.0f);
+            badge = nk_widget_bounds(context);
+            nk_spacing(context, 1);
+            nk_layout_row_end(context);
+            wena_wekan_icon_draw(context, WENA_ICON_FILE_TEXT_O, badge.x, badge.y + 1.0f, 13.0f, WENA_WEKAN_ICON);
+            wena_ui_control_record(NULL, wena_ui_text(WENA_UI_TEXT_DESCRIPTION), badge.x, badge.y, badge.w, badge.h);
+        }
         panel = context->current->layout;
         used = panel->at_y + panel->row.height - panel->bounds.y + 8.0f;
         if (used < 34.0f) used = 34.0f;

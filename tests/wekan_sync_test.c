@@ -113,6 +113,9 @@ int main(int argc, char **argv)
     /* WeKan's list width; negative: one out of WeKan's 100..1000 stays the layout's default. */
     assert(!strcmp(snapshot->lists[0].id, "li1") && snapshot->lists[0].width == 300u);
     assert(!strcmp(snapshot->lists[1].id, "li2") && snapshot->lists[1].width == 0u);
+    /* WeKan's description badge: c2 has a description (sorted first), c1 none. */
+    assert(!strcmp(snapshot->cards[0].id, "c2") && snapshot->cards[0].has_description);
+    assert(!strcmp(snapshot->cards[1].id, "c1") && !snapshot->cards[1].has_description);
 
     /* Nothing changed: nothing written. */
     assert(wena_wekan_sync_export(db, "u1") == 0);

@@ -11,6 +11,8 @@ typedef struct WenaCard {
     WenaTitle title;
     double sort;
     int archived;
+    /* A description is set: WeKan's description badge on the minicard. */
+    int has_description;
 } WenaCard;
 
 int wena_card_init(WenaCard *card, const char *id, const char *board_id,

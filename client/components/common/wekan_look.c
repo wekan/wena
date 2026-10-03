@@ -318,6 +318,12 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_stroke_rect(out, nk_rect(x + P(3), y + P(3), P(10), P(12)), P(1), t * 0.8f, c);
         nk_fill_rect(out, nk_rect(x + P(5.5f), y + P(1.5f), P(5), P(3)), P(1), c);
         break;
+    case WENA_ICON_FILE_TEXT_O:
+        /* fa-file-text-o: a page with a folded corner and three lines. */
+        nk_stroke_rect(out, nk_rect(x + P(3), y + P(1), P(10), P(14)), P(0.5f), t * 0.8f, c);
+        for (i = 0; i < 3; ++i)
+            nk_stroke_line(out, x + P(5.5f), y + P(6 + i * 2.5f), x + P(10.5f), y + P(6 + i * 2.5f), t * 0.7f, c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;

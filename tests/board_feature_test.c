@@ -214,6 +214,13 @@ int main(void)
            has_control("List Actions") && has_control("Card Actions") && has_control("Add Card"));
     /* Negative: the archived lane, list and card draw nothing. */
     assert(!has_control("Hidden") && !has_control("Old"));
+    /* WeKan's description badge only on a card with a description. */
+    assert(!has_control("Description"));
+    cards[0].has_description = 1;
+    wena_ui_controls_begin();
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(has_control("Description"));
+    cards[0].has_description = 0;
     assert(!wena_board_feature_render(&context, &layout, 0.0f, 600.0f));
     board.archived = 1;
     assert(!wena_board_layout_render(&context, &layout));

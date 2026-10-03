@@ -153,6 +153,19 @@ static int load_metadata(sqlite3 *db,const char *board,WenaSqliteBoardSnapshot *
     return ok;
 }
 
+static int table_present(sqlite3 *db, const char *name, int *present)
+{
+    sqlite3_stmt *statement = NULL;
+    int result;
+    if (sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_schema WHERE type='table' AND name=?1", -1, &statement,
+                           NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, name, -1, SQLITE_STATIC);
+    result = sqlite3_step(statement);
+    sqlite3_finalize(statement);
+    *present = result == SQLITE_ROW;
+    return result == SQLITE_ROW || result == SQLITE_DONE;
+}
+
 /* WeKan's list widths, which the working tables over WeKan's file keep in
  * wena_list_widths (server/wekan_sync.c); other files have none. */
 static int load_widths(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *snapshot)
@@ -161,20 +174,38 @@ static int load_widths(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *
     const char *id;
     sqlite3_int64 width;
     size_t i;
-    int result;
-    if (sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_schema WHERE type='table' AND name='wena_list_widths'",
-                           -1, &statement, NULL) != SQLITE_OK) return 0;
-    result = sqlite3_step(statement);
-    sqlite3_finalize(statement);
-    if (result == SQLITE_DONE) return 1;
-    if (result != SQLITE_ROW || !prepare(db, "SELECT w.list_id, w.width FROM wena_list_widths w JOIN lists l "
-                                             "ON l.id = w.list_id WHERE l.board_id = ?1", board, &statement)) return 0;
+    int result, present;
+    if (!table_present(db, "wena_list_widths", &present)) return 0;
+    if (!present) return 1;
+    if (!prepare(db, "SELECT w.list_id, w.width FROM wena_list_widths w JOIN lists l "
+                     "ON l.id = w.list_id WHERE l.board_id = ?1", board, &statement)) return 0;
     while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
         id = text_column(statement, 0, 1);
         width = sqlite3_column_int64(statement, 1);
         if (id == NULL || width < 100 || width > 1000) continue;
         for (i = 0; i < snapshot->list_count; ++i)
             if (!strcmp(snapshot->lists[i].id, id)) snapshot->lists[i].width = (unsigned int)width;
+    }
+    sqlite3_finalize(statement);
+    return result == SQLITE_DONE;
+}
+
+/* Which cards have a description, for WeKan's minicard badge; a database
+ * from before descriptions has none. */
+static int load_descriptions(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *snapshot)
+{
+    sqlite3_stmt *statement = NULL;
+    const char *id;
+    size_t i;
+    int result, present;
+    if (!table_present(db, "card_descriptions", &present)) return 0;
+    if (!present) return 1;
+    if (!prepare(db, "SELECT card_id FROM card_descriptions WHERE board_id = ?1 AND description <> ''",
+                 board, &statement)) return 0;
+    while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
+        if ((id = text_column(statement, 0, 1)) == NULL) continue;
+        for (i = 0; i < snapshot->card_count; ++i)
+            if (!strcmp(snapshot->cards[i].id, id)) snapshot->cards[i].has_description = 1;
     }
     sqlite3_finalize(statement);
     return result == SQLITE_DONE;
@@ -235,7 +266,7 @@ int wena_sqlite_board_read_transaction(sqlite3 *db,const char *board,WenaSqliteB
         load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,3) &&
         load_metadata(db,board,staged,4) && load_metadata(db,board,staged,0) &&
         load_metadata(db,board,staged,1) && load_metadata(db,board,staged,2) && load_widths(db, board, staged) &&
-        load_cards(db, board, staged);
+        load_cards(db, board, staged) && load_descriptions(db, board, staged);
 }
 
 int wena_sqlite_board_load(sqlite3 *db, const char *board,

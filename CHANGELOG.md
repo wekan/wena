@@ -211,6 +211,21 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Minicards show WeKan's description badge</summary>
+
+- A card with a description shows WeKan's gray `fa-file-text-o` badge in
+  the badges strip at the bottom of its minicard, as WeKan does by default
+  (`allowsDescriptionBadgeOnMinicard`). The board loader marks which cards
+  have a description; a database from before descriptions has none.
+- Tests: `wekan-sync` checks that the card with a description is marked and
+  the one without is not; `board-feature` draws the badge only for a card
+  with a description.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>
