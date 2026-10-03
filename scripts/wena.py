@@ -563,6 +563,7 @@ TEST_SUITES = (
     ('card-description-mutation', 'test_card_description_mutation.sh', 'Description persistence using isolated pinned schema-v2 fixture'),
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
+    ('wekan-ui-parity', 'test_wekan_ui_parity.py', 'Colors match WeKan, from its captured board UI and stylesheets'),
     ('amiga-desktop', 'test_amiga_desktop.py', 'AmigaOS 4, AROS and AmigaOS 3 desktop builds: pinned images and sources, platform branches, SQLite without WAL'),
     ('mobile-desktop', 'test_mobile_desktop.py', 'Android APK and iOS IPA builds: pins, manifest, Info.plist, platform branches, refusals'),
     ('toolchain', 'test_toolchain.py', 'Per-OS install of compilers, SDKs, NDK and Docker before a build'),

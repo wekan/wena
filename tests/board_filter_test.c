@@ -91,7 +91,7 @@ int main(void)
     nk_clear(&ctx);draft(&filter,"none");assert(wena_board_filter_apply(&filter));
     assert(wena_board_feature_render(&ctx,&layout,640,480));assert(text_seen(&ctx,"No Cards Found"));
     /* Parent controls remain usable while leaf titles are filtered. */
-    assert(text_seen(&ctx,"Add card")&&text_seen(&ctx,"List"));
+    assert(text_seen(&ctx,"Add Card")&&text_seen(&ctx,"List"));
     /* New/renamed/moved records use the live snapshot, never cached indices. */
     strcpy(cards[1].title,"none");nk_clear(&ctx);assert(wena_board_feature_render(&ctx,&layout,640,480));assert(text_seen(&ctx,"none"));
     strcpy(cards[1].list_id,"elsewhere");nk_clear(&ctx);assert(wena_board_feature_render(&ctx,&layout,640,480));assert(!text_seen(&ctx,"none"));

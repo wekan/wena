@@ -8,7 +8,7 @@ python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" \
   "$root_dir/server/migrations/001_initial.sql" "$root_dir/server/migrations/002_card_descriptions.sql" "$root_dir/server/migrations/005_labels.sql" "$root_dir/server/migrations/010_list_archive_state.sql" "$root_dir/server/migrations/013_swimlane_archive_state.sql"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" ${WENA_TEST_CFLAGS:-} \
   -I"$root_dir/tests/fakes" \
-  "$root_dir/tests/support/test_files.c" "$root_dir/tests/labels_sqlite_test.c" "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/support/test_files.c" "$root_dir/tests/labels_sqlite_test.c" "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/tests/fakes/labels_component.c" \
   "$root_dir/client/features/labels/panel.c" "$root_dir/client/components/forms/color_input.c" "$root_dir/client/features/labels/store.c" \
   "$root_dir/client/features/labels/mutation.c" \

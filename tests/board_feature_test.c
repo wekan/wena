@@ -1,7 +1,9 @@
+#include <stdio.h>
 #include "../client/features/board.h"
 #include "../client/components/boards/board_header.h"
 #include "../client/components/lists/list_header.h"
 #include "../client/components/cards/card_body.h"
+#include "../client/components/common/wekan_look.h"
 
 #include <assert.h>
 #include "../client/platform/nuklear_options.h"
@@ -40,6 +42,29 @@ static int save_title(void *data, const char *board, const char *id,
     ++store->version;
     return 1;
 }
+
+/* WeKan opens a card by clicking the minicard itself, which the layout hands
+ * to its drag-area callback: this one clicks the card the test names. */
+static void click_card(struct nk_context *context, void *user_data, const WenaCard *card,
+                       size_t ordinal, const struct nk_rect *area, int *clicked)
+{
+    (void)user_data; (void)ordinal; (void)area;
+    if (context->button_to_press != NULL && strcmp(context->button_to_press, card->title) == 0) {
+        *clicked = 1;
+        context->button_to_press = NULL;
+    }
+}
+
+static int has_control(const char *name)
+{
+    size_t count, index;
+    const WenaUiControl *controls = wena_ui_controls(&count);
+    for (index = 0; index < count; ++index)
+        if (strcmp(controls[index].name, name) == 0) return 1;
+    return 0;
+}
+
+#define SIDEBAR_TOGGLE "Open Sidebar or Close Sidebar"
 
 static void editor_frame(WenaCardDetailsState *state, WenaCard *card,
     const char *button, const char *input)
@@ -170,17 +195,25 @@ int main(void)
     layout.cards = cards;
     layout.card_count = 3;
 
+    wena_ui_controls_begin();
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(context.begin_count == 1);
     assert(context.end_count == 1);
     assert(context.group_depth == 0);
-    assert(context.button_count == 7);
-    assert(context.label_count == 5);
-    assert(strcmp(context.labels[0], "Project") == 0);
-    assert(strcmp(context.labels[1], "Current") == 0);
-    assert(strcmp(context.labels[2], "Doing") == 0);
-    assert(strcmp(context.labels[3], "One") == 0);
-    assert(strcmp(context.labels[4], "Two") == 0);
+    /* WeKan's controls: the header's title, Filter and sidebar toggle; the
+     * lane's caret; the list's caret, Add Card to Top of List, Add List and
+     * List Actions; each card's Card Actions; and + Add Card. */
+    assert(context.button_count == 11);
+    assert(context.label_count == 4);
+    assert(strcmp(context.labels[0], "Current") == 0);
+    assert(strcmp(context.labels[1], "Doing") == 0);
+    assert(strcmp(context.labels[2], "One") == 0);
+    assert(strcmp(context.labels[3], "Two") == 0);
+    assert(has_control("Project") && has_control("Filter") && has_control(SIDEBAR_TOGGLE));
+    assert(has_control("Add Card to Top of List") && has_control("Add List") &&
+           has_control("List Actions") && has_control("Card Actions") && has_control("Add Card"));
+    /* Negative: the archived lane, list and card draw nothing. */
+    assert(!has_control("Hidden") && !has_control("Old"));
     assert(!wena_board_feature_render(&context, &layout, 0.0f, 600.0f));
     board.archived = 1;
     assert(!wena_board_layout_render(&context, &layout));
@@ -188,20 +221,30 @@ int main(void)
     layout.cards = NULL;
     assert(!wena_board_layout_render(&context, &layout));
     layout.cards = cards;
-    context.button_to_press = "Board menu";
+    context.button_to_press = SIDEBAR_TOGGLE;
     assert(wena_board_header_render(&context, &board) ==
            WENA_BOARD_HEADER_OPEN_MENU);
+    context.button_to_press = "Project";
+    assert(wena_board_header_render(&context, &board) == WENA_BOARD_HEADER_RENAME);
+    context.button_to_press = "Filter";
+    assert(wena_board_header_render(&context, &board) == WENA_BOARD_HEADER_FILTER);
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);
 
     memset(&context, 0, sizeof(context));
     memset(&list_interaction, 0, sizeof(list_interaction));
     layout.list_interaction = &list_interaction;
-    context.button_to_press = "Add card";
+    context.button_to_press = "Add Card to Top of List";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(list_interaction.actions == WENA_LIST_HEADER_ADD_CARD);
     assert(strcmp(list_interaction.list_id, "doing") == 0);
-    context.button_to_press = "List menu";
+    context.button_to_press = "Add Card";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(list_interaction.actions == WENA_LIST_HEADER_ADD_CARD);
+    context.button_to_press = "Add List";
+    assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+    assert(list_interaction.actions == WENA_LIST_HEADER_ADD_LIST);
+    context.button_to_press = "List Actions";
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(list_interaction.actions == WENA_LIST_HEADER_OPEN_MENU);
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
@@ -219,7 +262,8 @@ int main(void)
     memset(&card_interaction, 0, sizeof(card_interaction));
     wena_card_details_init(&card_details);
     layout.card_interaction = &card_interaction;
-    context.button_to_press = "Open card";
+    layout.card_drag_area = click_card;
+    context.button_to_press = "One";
     assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
                                                 600.0f, &card_details));
     assert(card_interaction.actions == WENA_CARD_BODY_OPEN_DETAILS);
@@ -241,7 +285,7 @@ int main(void)
     assert(card_details.interaction.actions == WENA_CARD_DETAILS_ARCHIVE);
     assert(strcmp(card_details.interaction.card_id, "one") == 0);
     wena_card_details_close(&card_details);
-    context.button_to_press = "Card menu";
+    context.button_to_press = "Card Actions";
     assert(wena_board_feature_render_with_state(&context, &layout, 800.0f,
                                                 600.0f, &card_details));
     assert(card_interaction.actions == WENA_CARD_BODY_OPEN_MENU);
@@ -277,6 +321,7 @@ int main(void)
                                      800.0f, 600.0f));
     wena_card_details_close(&card_details);
     layout.card_interaction = NULL;
+    layout.card_drag_area = NULL;
 
     memset(&context, 0, sizeof(context));
     wena_board_sidebar_init(&sidebar);
@@ -294,7 +339,7 @@ int main(void)
     sidebar.items.archives = archives;
     sidebar.items.archive_count = 1;
     layout.sidebar = &sidebar;
-    context.button_to_press = "Board menu";
+    context.button_to_press = SIDEBAR_TOGGLE;
     assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
     assert(sidebar.visible);
     assert(sidebar.section == WENA_SIDEBAR_ACTIVITIES);

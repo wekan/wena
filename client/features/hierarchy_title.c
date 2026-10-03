@@ -42,6 +42,7 @@ void wena_hierarchy_title_close(WenaHierarchyTitleState *state)
     if (!state) return;
     state->visible = 0;
     state->requested_action = 0u;
+    state->request = WENA_HIERARCHY_REQUEST_NONE;
     state->creating = 0;
     state->editing_color = 0;
     state->confirming_cards=0;state->scope_lane[0]=0;state->scope_lane_version=0;
@@ -289,7 +290,19 @@ int wena_hierarchy_title_render(struct nk_context *context,
     if(state->editing_wip)return render_wip(context,state,width,height);
     if(state->editing_color)return render_color(context,state,width,height);
     save = cancel = archive = color_requested = wip_requested = cards_requested = 0;
-    if (nk_begin_titled(context, "Edit hierarchy title",
+    if (state->request != WENA_HIERARCHY_REQUEST_NONE) {
+        /* A WeKan menu item: its action, without the title form. */
+        switch (state->request) {
+        case WENA_HIERARCHY_REQUEST_COLOR: color_requested = 1; break;
+        case WENA_HIERARCHY_REQUEST_WIP: wip_requested = 1; break;
+        case WENA_HIERARCHY_REQUEST_ARCHIVE_CARDS: cards_requested = 1; break;
+        case WENA_HIERARCHY_REQUEST_MOVE: state->requested_action = WENA_HIERARCHY_TITLE_MOVE; break;
+        case WENA_HIERARCHY_REQUEST_SELECT_CARDS: state->requested_action = WENA_HIERARCHY_TITLE_SELECT_CARDS; break;
+        case WENA_HIERARCHY_REQUEST_ARCHIVE: archive = 1; break;
+        case WENA_HIERARCHY_REQUEST_NONE: break;
+        }
+        state->request = WENA_HIERARCHY_REQUEST_NONE;
+    } else if (nk_begin_titled(context, "Edit hierarchy title",
         wena_ui_control_text(state->creating ?
             (state->kind == WENA_HIERARCHY_LIST ? WENA_UI_ADD_LIST :
              WENA_UI_ADD_SWIMLANE) : WENA_UI_EDIT_TITLE),
@@ -339,8 +352,8 @@ int wena_hierarchy_title_render(struct nk_context *context,
             nk_layout_row_dynamic(context, 24.0f, 1);
             nk_label_wrap(context, wena_ui_text(WENA_UI_TEXT_OPERATION_FAILED));
         }
-    }
-    nk_end(context);
+        nk_end(context);
+    } else nk_end(context);
     if (cancel) wena_hierarchy_title_close(state);
     else if(cards_requested){
         unsigned long list_version,lane_version;list_version=lane_version=0;
@@ -391,5 +404,37 @@ int wena_hierarchy_title_render(struct nk_context *context,
         }
         state->error = 1;
     }
+    return 1;
+}
+
+int wena_hierarchy_title_request(WenaHierarchyTitleState *state, WenaHierarchyRequest request)
+{
+    int list;
+    if (!state || !state->visible || state->creating ||
+        (state->kind != WENA_HIERARCHY_LIST && state->kind != WENA_HIERARCHY_SWIMLANE)) return 0;
+    list = state->kind == WENA_HIERARCHY_LIST;
+    switch (request) {
+    case WENA_HIERARCHY_REQUEST_COLOR:
+        if (!state->load_color || !state->save_color) return 0;
+        break;
+    case WENA_HIERARCHY_REQUEST_WIP:
+        if (!list || !state->load_wip || !state->save_wip) return 0;
+        break;
+    case WENA_HIERARCHY_REQUEST_ARCHIVE_CARDS:
+        if (!list || !state->load_list_cards || !state->archive_list_cards) return 0;
+        break;
+    case WENA_HIERARCHY_REQUEST_SELECT_CARDS:
+        if (!list || !state->selection_enabled) return 0;
+        break;
+    case WENA_HIERARCHY_REQUEST_ARCHIVE:
+        if (!archive_provider(state)) return 0;
+        break;
+    case WENA_HIERARCHY_REQUEST_MOVE:
+        break;
+    case WENA_HIERARCHY_REQUEST_NONE:
+    default:
+        return 0;
+    }
+    state->request = request;
     return 1;
 }

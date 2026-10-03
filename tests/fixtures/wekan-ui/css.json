@@ -1,0 +1,6 @@
+{
+ "comment": "WeKan colors no captured state shows, pinned from WeKan's stylesheets: the selector, its file in wekan/wekan and the value there.",
+ "rules": {
+  "WIP_EXCEEDED": {"file": "client/components/lists/list.css", "selector": ".list-header .highlight", "property": "color", "value": "#ce1414"}
+ }
+}

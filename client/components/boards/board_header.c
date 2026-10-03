@@ -1,8 +1,11 @@
 #include "board_header.h"
+#include "../common/wekan_look.h"
 #include "../../../imports/ui/page_contract.h"
 
 #include "../../platform/nuklear_options.h"
 #include <nuklear.h>
+#include <stdio.h>
+#include <string.h>
 
 static WenaBoardTitleRenderer title_renderer;
 
@@ -14,20 +17,78 @@ void wena_board_header_set_title_renderer(WenaBoardTitleRenderer renderer)
 unsigned int wena_board_header_render(struct nk_context *context,
                                       const WenaBoard *board)
 {
+    return wena_board_header_render_info(context, board, NULL);
+}
+
+static float text_width(struct nk_context *context, WenaWekanFont font, const char *text)
+{
+    const struct nk_user_font *face = wena_wekan_font(context, font);
+    return face != NULL && text != NULL ?
+        face->width(face->userdata, face->height, text, (int)strlen(text)) : 0.0f;
+}
+
+unsigned int wena_board_header_render_info(struct nk_context *context,
+                                           const WenaBoard *board,
+                                           const WenaBoardHeaderInfo *info)
+{
     unsigned int action;
+    struct nk_rect area;
+    float width, title_width, filter_width, user_width;
+    char tooltip[256];
+    const char *filter;
 
     if (context == NULL || board == NULL || board->archived) {
         return WENA_BOARD_HEADER_NO_ACTION;
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
-    nk_layout_row_begin(context, NK_DYNAMIC, 34.0f, 2);
-    nk_layout_row_push(context, 0.78f);
+    wena_ui_region("header");
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 8);
+    wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
+    area.h = WENA_BOARD_HEADER_HEIGHT;
+    width = area.w;
+    wena_wekan_fill(context, area.x, area.y, area.w, area.h, WENA_WEKAN_HEADER, 0.0f);
+
+    /* First row: the board title at the left, as WeKan's .header-page-title. */
+    title_width = text_width(context, WENA_WEKAN_FONT_BODY, board->title) + 4.0f;
+    /* A vector decorator draws its icon before the title: room for both. */
+    if (title_renderer && context->style.font != NULL)
+        title_width += context->style.font->height * 1.5f + 6.0f;
+    if (title_width > width * 0.5f) title_width = width * 0.5f;
+    nk_layout_space_push(context, nk_rect(16.0f, 14.0f, title_width, 28.0f));
     if (title_renderer) title_renderer(context, board->title);
-    else nk_label(context, board->title, NK_TEXT_LEFT);
-    nk_layout_row_push(context, 0.22f);
-    if (nk_button_label(context, wena_ui_control_text(WENA_UI_BOARD_MENU))) {
-        action |= WENA_BOARD_HEADER_OPEN_MENU;
+    else if (wena_wekan_link(context, WENA_ICON_NONE, board->title, WENA_WEKAN_FONT_BODY,
+                             WENA_WEKAN_HEADER_TEXT))
+        action |= WENA_BOARD_HEADER_RENAME;
+
+    /* Filter, last of the first row's board buttons. */
+    filter = wena_ui_text(WENA_UI_TEXT_FILTER);
+    filter_width = text_width(context, WENA_WEKAN_FONT_LINK, filter) + 22.0f;
+    if (info != NULL && info->filter_active)
+        wena_wekan_fill(context, area.x + width - 81.0f - filter_width - 4.0f, area.y + 14.0f,
+                        filter_width + 8.0f, 28.0f, WENA_WEKAN_BUTTON_ADD, 3.0f);
+    nk_layout_space_push(context, nk_rect(width - 81.0f - filter_width, 14.0f, filter_width, 28.0f));
+    if (wena_wekan_link(context, WENA_ICON_FILTER, filter, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+        action |= WENA_BOARD_HEADER_FILTER;
+
+    /* Second row, right: the user, then the sidebar toggle. */
+    if (info != NULL && info->actor_name != NULL && info->actor_name[0] != '\0') {
+        user_width = text_width(context, WENA_WEKAN_FONT_SMALL, info->actor_name) + 4.0f;
+        if (user_width > 200.0f) user_width = 200.0f;
+        nk_layout_space_push(context, nk_rect(width - 66.0f - user_width, 50.0f, user_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_USER, info->actor_name, WENA_WEKAN_FONT_SMALL,
+                            WENA_WEKAN_HEADER_TEXT))
+            action |= WENA_BOARD_HEADER_MEMBER_MENU;
+        /* WeKan's separators around the user. */
+        wena_wekan_fill(context, area.x + width - 76.0f - user_width, area.y + 54.0f, 1.0f, 20.0f,
+                        WENA_WEKAN_HEADER_LINK, 0.0f);
+        wena_wekan_fill(context, area.x + width - 56.0f, area.y + 54.0f, 1.0f, 20.0f,
+                        WENA_WEKAN_HEADER_LINK, 0.0f);
     }
-    nk_layout_row_end(context);
+    (void)sprintf(tooltip, "%.80s %.40s %.80s", wena_ui_text(WENA_UI_TEXT_SIDEBAR_OPEN),
+                  wena_ui_text(WENA_UI_TEXT_OR), wena_ui_text(WENA_UI_TEXT_SIDEBAR_CLOSE));
+    nk_layout_space_push(context, nk_rect(width - 45.0f, 50.0f, 23.0f, 28.0f));
+    if (wena_wekan_icon_button(context, WENA_ICON_BARS, tooltip, 16.0f, WENA_WEKAN_HEADER_TEXT))
+        action |= WENA_BOARD_HEADER_OPEN_MENU;
+    nk_layout_space_end(context);
     return action;
 }

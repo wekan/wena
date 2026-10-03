@@ -6,6 +6,7 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/components/boards/swimlane_resize.h"
+#include "../client/components/common/wekan_look.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,29 +30,44 @@ static float text_width(nk_handle handle, float height, const char *text, int le
     return height * (float)length * 0.5f;
 }
 
-/* One frame at `y` with the button `down`; records each bar's centre. */
+/* One frame at `y` with the button `down`; records each bar's centre. The
+ * bar is WeKan's 10px handle, invisible until hovered, so it is found by the
+ * name it registers, not by what it paints. */
 static void frame(Fixture *f, float y, int down, int escape)
 {
-    const struct nk_command *command;
+    const WenaUiControl *controls;
+    size_t count, index;
     nk_clear(&f->ctx);
     nk_input_begin(&f->ctx);
     nk_input_motion(&f->ctx, 200, (int)y);
     nk_input_button(&f->ctx, NK_BUTTON_LEFT, 200, (int)y, down);
     nk_input_key(&f->ctx, NK_KEY_TEXT_RESET_MODE, escape);
     nk_input_end(&f->ctx);
+    wena_ui_controls_begin();
     if (nk_begin(&f->ctx, "Board", nk_rect(0, 0, 900, 4000), NK_WINDOW_BORDER))
         assert(wena_board_layout_render(&f->ctx, &f->layout));
     nk_end(&f->ctx);
     f->bar_count = 0;
+    controls = wena_ui_controls(&count);
+    for (index = 0; index < count; ++index) {
+        if (strcmp(controls[index].name, "swimlane-resize-handle") != 0) continue;
+        assert(controls[index].h == 10.0f && controls[index].w > 100.0f);
+        assert(f->bar_count < 4);
+        f->bars[f->bar_count++] = controls[index].y + controls[index].h / 2.0f;
+    }
+}
+
+/* Whether the frame painted the hover highlight: a 4px rounded strip. */
+static int painted(Fixture *f)
+{
+    const struct nk_command *command;
     nk_foreach(command, &f->ctx) {
         if (command->type == NK_COMMAND_RECT_FILLED) {
             const struct nk_command_rect_filled *rect = (const struct nk_command_rect_filled *)command;
-            if (rect->rounding == 2 && (rect->h == 2 || rect->h == 4) && rect->w > 100) {
-                assert(f->bar_count < 4);
-                f->bars[f->bar_count++] = (float)rect->y + (float)rect->h / 2.0f;
-            }
+            if (rect->rounding == 2 && rect->h == 4 && rect->w > 100) return 1;
         }
     }
+    return 0;
 }
 
 static void drag(Fixture *f, size_t bar, float by, int escape)
@@ -92,6 +108,10 @@ int main(void)
     frame(&f, 3900, 0, 0);
     assert(f.bar_count == 2);
     assert(!f.resize.hovered);
+    /* Invisible until hovered, as WeKan's handle; highlighted while hovered. */
+    assert(!painted(&f));
+    frame(&f, f.bars[0], 0, 0);
+    assert(painted(&f));
     first_gap = f.bars[1] - f.bars[0];
     first_bar = f.bars[0];
 

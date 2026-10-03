@@ -10,7 +10,7 @@ settings_schema="$test_dir/settings.sql"
 python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$root_dir/server/migrations/001_initial.sql" "$settings_schema"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" ${WENA_TEST_CFLAGS:-} \
   -I"$root_dir/tests/fakes" \
-  "$root_dir/tests/support/test_files.c" "$root_dir/tests/board_settings_panel_sqlite_test.c" "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/support/test_files.c" "$root_dir/tests/board_settings_panel_sqlite_test.c" "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/features/boards/settings_panel.c" \
   "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/boards/settings.c" \

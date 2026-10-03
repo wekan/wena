@@ -100,6 +100,26 @@ for args in [['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],
     assert run.returncode != 0, args
     assert content() == before
 assert not (directory/'missing.sqlite').exists()
+# A WAL workspace closed cleanly has no -wal or -shm file. The startup
+# preflight used a read-only handle, which cannot read such a database
+# ("unable to open database file"), so every launch after a normal quit
+# failed. It opens again, and a wrong actor still changes nothing.
+def closed_cleanly():
+    with sqlite3.connect(path) as db:
+        assert db.execute('PRAGMA journal_mode').fetchone() == ('wal',)
+        db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    for suffix in ('-wal', '-shm'):
+        side = Path(str(path) + suffix)
+        if side.exists():
+            side.unlink()
+closed_cleanly()
+run = subprocess.run([exe, *valid], env=env, capture_output=True, text=True, timeout=20)
+assert run.returncode == 0, (run.stdout, run.stderr)
+closed_cleanly()
+run = subprocess.run([exe, '--database', str(path), '--actor', 'unknown', '--board', 'board',
+                      '--smoke'], env=env, capture_output=True, timeout=20)
+assert run.returncode != 0
+assert content() == before
 # A corrupt existing file must stay unchanged; startup may not initialize it.
 corrupt = directory/'corrupt.sqlite'
 corrupt.write_bytes(b'not a sqlite database')

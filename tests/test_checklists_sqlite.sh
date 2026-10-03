@@ -14,7 +14,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
   -I"$root_dir/tests/fakes" \
   -I"$root_dir/models" \
   "$root_dir/tests/support/test_files.c" "$root_dir/tests/checklists_sqlite_test.c" \
-  "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/features/board.c" \
   "$root_dir/client/features/card_destination.c" \
   "$root_dir/client/features/directory_picker.c" \

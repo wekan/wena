@@ -29,6 +29,70 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The desktop opens again after it was closed normally</summary>
+
+- Run, and a double-click on the desktop, said "Unable to open the local Wena
+  desktop" for a board that was there. The startup check that an actor or
+  board named by mistake writes nothing opened the file read-only, and a
+  read-only handle cannot read a WAL database whose `-wal` file a clean exit
+  removed ("unable to open database file"). So every launch after a normal
+  quit failed, and only a launch after a crash worked.
+- The check now opens the existing file read-write without creating it, with
+  `PRAGMA query_only=ON`: a missing file still fails, and nothing can be
+  written. The debug log names which check failed and SQLite's reason.
+- `tests/test_desktop.sh` closes a WAL workspace cleanly (no `-wal` or `-shm`
+  file) and opens it, and checks that an unknown actor there still changes
+  nothing. With the read-only handle back, it fails as Run did.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>The desktop board looks and works like WeKan's: its colors, fonts, header, lists, cards and menus</summary>
+
+- Measured from WeKan, not chosen by eye: `tools/wekan-ui/capture.e2e.js`
+  runs in WeKan's Playwright suite against a running WeKan and records each
+  state of a seeded board (the board, list and swimlane menus, Add Card, the
+  sidebar, card details and its menu) with every visible control's text,
+  tooltip, icon, place and colors. `tools/wekan-ui/pin.py` pins them in
+  `tests/fixtures/wekan-ui`.
+- `client/components/common/wekan_look.c` holds WeKan's colors (the
+  `#2980b9` header, `#dedede` canvas, `#e4e4e4` list headers, white
+  minicards with `#4d4d4d` text, white popups with gray title bars, `#f7f7f7`
+  panels, the red `#ce1414` of a list over its WIP limit), its fonts (Roboto
+  and Roboto Bold, now embedded with its provenance, at WeKan's 12 to 19 px)
+  and its Font Awesome icons as vectors. The Nuklear theme uses the same
+  palette.
+- The same controls in the same places, named as WeKan names them: the header
+  with the board title, Filter, the user and the sidebar toggle; swimlane
+  headers with their caret and Swimlane Actions; list headers with Collapse,
+  Add Card to Top of List, Add List and List Actions, and a long title that
+  wraps; minicards with their caret and Card Actions; "+ Add Card" under each
+  list; collapsed lists as a narrow strip with the title stacked; WeKan's
+  popup menus for lists, swimlanes and the user, the Filter panel and Change
+  Language.
+- Dragging works as in WeKan: the whole minicard, list header or swimlane bar
+  is the handle, and a press and release without moving is a click that opens
+  the card or edits the title. The swimlane resize handle is WeKan's 10 px
+  bar, shown when hovered.
+- Every control is recorded with its WeKan name and place each frame, which
+  is what tests click. `--screenshot FILE` saves the last frame as a BMP, to
+  set beside WeKan's captured screenshots.
+  An icon's tooltip is drawn at window level: opened from inside a header
+  row, it broke the frame, so nothing after the hovered icon was drawn.
+- `tests/test_wekan_ui_parity.py` (suite `wekan-ui-parity`) checks every
+  Wena color against WeKan's capture, and the WIP color against WeKan's
+  stylesheet when the WeKan checkout is next to Wena. The board, list, card,
+  filter, theme, SVG, collapse and swimlane-resize suites now click WeKan's
+  control names and check WeKan's colors, including the hovered tooltip, the
+  sidebar opening below the header, and a missing selection marking nothing.
+
+Thanks to xet7.
+
+</details>
+
 # v0.02 2026-10-03 Wena release
 
 <details>

@@ -4,6 +4,7 @@
 #include <nuklear.h>
 #include "../client/features/board.h"
 #include "../client/components/lists/list_header.h"
+#include "../client/components/common/wekan_look.h"
 #include "../client/components/common/card_section.h"
 
 #include <assert.h>
@@ -87,8 +88,31 @@ static void render(struct nk_context *context, WenaBoardLayout *layout,
     nk_clear(context);
     nk_input_begin(context);
     nk_input_end(context);
+    wena_ui_controls_begin();
     assert(wena_board_feature_render(context, layout, 640.0f, height));
     assert(context->current == NULL);
+}
+
+/* Where the last render drew a control WeKan names (icon-only ones too);
+ * "region:Name" picks one of several equal names, as "minicard:Collapse". */
+static int control_point(const char *label, struct nk_vec2 *point)
+{
+    const WenaUiControl *controls;
+    const char *name, *colon;
+    size_t count, index, region;
+    controls = wena_ui_controls(&count);
+    colon = strchr(label, ':');
+    name = colon ? colon + 1 : label;
+    region = colon ? (size_t)(colon - label) : 0;
+    for (index = 0; index < count; ++index) {
+        if (strcmp(controls[index].name, name) != 0) continue;
+        if (colon && (strlen(controls[index].region) != region ||
+                      strncmp(controls[index].region, label, region) != 0)) continue;
+        if (point) *point = nk_vec2(controls[index].x + controls[index].w / 2.0f,
+                                    controls[index].y + controls[index].h / 2.0f);
+        return 1;
+    }
+    return 0;
 }
 
 static void click(struct nk_context *context, WenaBoardLayout *layout,
@@ -97,7 +121,8 @@ static void click(struct nk_context *context, WenaBoardLayout *layout,
     struct nk_vec2 point;
     int down;
 
-    assert(visible_text(context, label, 640.0f, 480.0f, &point));
+    if (!visible_text(context, label, 640.0f, 480.0f, &point))
+        assert(control_point(label, &point));
     for (down = 1; down >= 0; --down) {
         nk_clear(context);
         nk_input_begin(context);
@@ -111,8 +136,7 @@ static void click(struct nk_context *context, WenaBoardLayout *layout,
 
 static int fold_card(struct nk_context *context,void *opaque,const WenaCard *card)
 {
-    nk_layout_row_dynamic(context,24,1);
-    return wena_card_section_toggle(context,(WenaCardSectionControl *)opaque,
+    return wena_card_section_toggle_caret(context,(WenaCardSectionControl *)opaque,
         card->board_id,card->id,"minicard");
 }
 static unsigned int card_extra(struct nk_context *context,void *opaque,const WenaCard *card)
@@ -144,16 +168,16 @@ static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
     layout->card_collapsed=fold_card;layout->card_collapsed_context=&controls;
     layout->card_badges=card_extra;layout->card_badges_context="Badge preview";
     layout->card_contents=card_extra;layout->card_contents_context="Expanded preview";
-    render(context,layout,480);
-    assert(probes==1&&selection_intent.actions==WENA_CARD_BODY_TOGGLE_SELECTION);
+    /* A minicard takes its measured height on the next frame, as on screen. */
+    render(context,layout,480);render(context,layout,480);
+    assert(probes==2&&selection_intent.actions==WENA_CARD_BODY_TOGGLE_SELECTION);
     assert(visible_text(context,"Badge preview",640,480,NULL));
     assert(visible_text(context,"Expanded preview",640,480,NULL));
-    click(context,layout,"Collapse");
+    click(context,layout,"minicard:Collapse");
     assert(controls.pending&&controls.collapsed&&!strcmp(controls.card_id,layout->cards[0].id));
     /* Only the first card is in the selected scope for this test. */
     assert(visible_text(context,"First card",640,480,NULL));
-    assert(visible_text(context,"Open card",640,480,NULL));
-    assert(visible_text(context,"Card menu",640,480,NULL));
+    assert(control_point("Card Actions",NULL));
     assert(probes>1&&selection_intent.actions==WENA_CARD_BODY_TOGGLE_SELECTION);
     assert(!visible_text(context,"Badge preview",640,480,NULL));
     assert(!visible_text(context,"Expanded preview",640,480,NULL));
@@ -161,11 +185,11 @@ static void card_folding(struct nk_context *context,WenaBoardLayout *layout)
     entry.collapsed=1;entry.version=1;
     preferences.entries=&entry;preferences.count=1;preferences.capacity=1;
     controls.pending=0;
-    render(context,layout,480);click(context,layout,"Uncollapse");
+    render(context,layout,480);click(context,layout,"minicard:Uncollapse");
     assert(controls.pending&&!controls.collapsed&&controls.version==1);
     assert(visible_text(context,"Expanded preview",640,480,NULL));
     controls.pending=0;controls.readonly=1;
-    render(context,layout,480);click(context,layout,"Uncollapse");assert(!controls.pending);
+    render(context,layout,480);click(context,layout,"minicard:Uncollapse");assert(!controls.pending);
     assert(!visible_text(context,"Expanded preview",640,480,NULL));
     layout->card_collapsed=NULL;layout->card_collapsed_context=NULL;
     layout->card_badges=NULL;layout->card_contents=NULL;
@@ -218,8 +242,8 @@ static void hierarchy_handles(struct nk_context *ctx,WenaBoardLayout *layout)
     render(ctx,layout,480);
     assert(list_handles[0]==1&&!list_handles[1]&&lane_handles[0]==1&&lane_handles[1]==1);
     assert(visible_text(ctx,"Drag lane",640,480,NULL));
-    assert(visible_text(ctx,"Uncollapse",640,480,NULL));
-    click(ctx,layout,"Uncollapse");
+    assert(control_point("swimlane-header:Uncollapse",NULL));
+    click(ctx,layout,"swimlane-header:Uncollapse");
     assert(!wena_board_is_collapsed(&collapse,"board",WENA_COLLAPSE_SWIMLANE,"first"));
     layout->collapse=NULL;layout->list_drag_handle=NULL;layout->swimlane_drag_handle=NULL;
 }
@@ -267,12 +291,28 @@ static int selected_card(void *data,const WenaCard *card)
 {return !strcmp((const char*)data,card->id);}
 static int folded_card(struct nk_context *ctx,void *data,const WenaCard *card)
 {(void)ctx;(void)data;(void)card;return 1;}
+/* The selected card is WeKan's open minicard: #f7f7f7 instead of white, with
+ * the #2980b9 marker at its left edge; titles keep WeKan's #4d4d4d. Only that
+ * card is marked, the theme is untouched, and a missing selection marks none. */
+static int marked_cards(struct nk_context *ctx,int *open_fills)
+{
+ const struct nk_command *command;int markers=0;
+ *open_fills=0;
+ nk_foreach(command,ctx){
+  if(command->type==NK_COMMAND_RECT_FILLED){const struct nk_command_rect_filled *rect;
+   rect=(const struct nk_command_rect_filled*)command;
+   if(rect->color.r==0xf7&&rect->color.g==0xf7&&rect->color.b==0xf7&&rect->w>200)++*open_fills;
+   if(rect->color.r==0x29&&rect->color.g==0x80&&rect->color.b==0xb9&&rect->w==3)++markers;}
+ }
+ return markers;
+}
+
 static void selected_titles(void)
 {
  struct nk_context ctx;struct nk_user_font font;struct nk_style before;
  WenaBoard board;WenaSwimlane lane;WenaList list;WenaCard cards[2];WenaBoardLayout layout;
  const struct nk_command *command;const struct nk_command_text *text;
- unsigned char bg[3]={12,45,78},fg[3]={240,241,242};int scale,selected,normal,filled;
+ unsigned char ink[3]={0x4d,0x4d,0x4d};int scale,selected,normal,open_fills;
  assert(wena_board_init(&board,"b","Board",0));
  assert(wena_swimlane_init(&lane,"s","b","Lane",0,0));
  assert(wena_list_init(&list,"l","b","s","List",0,0));
@@ -283,25 +323,21 @@ static void selected_titles(void)
  layout.card_selected=selected_card;layout.card_selected_context="a";layout.card_collapsed=folded_card;
  for(scale=1;scale<=2;++scale){
   memset(&font,0,sizeof(font));font.height=10.0f*(float)scale;font.width=text_width;
-  assert(nk_init_default(&ctx,&font));
-  ctx.style.selectable.normal_active=nk_style_item_color(nk_rgb(bg[0],bg[1],bg[2]));
-  ctx.style.selectable.text_normal_active=nk_rgb(fg[0],fg[1],fg[2]);before=ctx.style;
+  assert(nk_init_default(&ctx,&font));before=ctx.style;
   render(&ctx,&layout,800);assert(!memcmp(&before,&ctx.style,sizeof(before)));
-  selected=normal=filled=0;
+  selected=normal=0;
   nk_foreach(command,&ctx){
-   if(command->type==NK_COMMAND_RECT_FILLED){const struct nk_command_rect_filled *rect;
-    rect=(const struct nk_command_rect_filled*)command;if(same_rgb(rect->color,bg))++filled;}
    if(command->type!=NK_COMMAND_TEXT)continue;
    text=(const struct nk_command_text*)command;
    if(text->length==14&&!memcmp(text->string,"Selected title",14)){
-    assert(same_rgb(text->background,bg)&&same_rgb(text->foreground,fg));++selected;}
+    assert(same_rgb(text->foreground,ink));++selected;}
    if(text->length==12&&!memcmp(text->string,"Normal title",12)){
-    assert(!memcmp(&text->foreground,&before.text.color,sizeof(text->foreground)));++normal;}
+    assert(same_rgb(text->foreground,ink));++normal;}
   }
-  assert(selected==1&&normal==1&&filled==1);
+  assert(selected==1&&normal==1);
+  assert(marked_cards(&ctx,&open_fills)==1&&open_fills==1);
   layout.card_selected_context="missing";render(&ctx,&layout,800);
-  nk_foreach(command,&ctx)if(command->type==NK_COMMAND_TEXT){text=(const struct nk_command_text*)command;
-   if(text->length==14&&!memcmp(text->string,"Selected title",14))assert(!same_rgb(text->background,bg));}
+  assert(marked_cards(&ctx,&open_fills)==0&&open_fills==0);
   layout.card_selected_context="a";
   nk_free(&ctx);
  }
@@ -337,11 +373,20 @@ static void selection_heading_styles(void)
 
 static int hide_cards(void *context,const WenaCard *card)
 {(void)context;(void)card;return 0;}
+/* Clicks a control by the name WeKan gives it; icon-only ones draw no text,
+ * so the point comes from the controls registry of a fresh frame. */
 static void wip_click(struct nk_context *context,WenaBoardLayout *layout,const char *label)
 {
- struct nk_vec2 point;int down;const struct nk_command *command;WenaListInteraction captured;
+ struct nk_vec2 point;int down,found;const struct nk_command *command;WenaListInteraction captured;
+ const WenaUiControl *controls;size_t count,index;
  memset(&captured,0,sizeof(captured));
- assert(visible_text(context,label,640,480,&point));
+ nk_clear(context);nk_input_begin(context);nk_input_end(context);
+ wena_ui_controls_begin();assert(wena_board_feature_render(context,layout,640,480));
+ nk_foreach(command,context){(void)command;}
+ controls=wena_ui_controls(&count);found=0;
+ for(index=0;index<count;++index)if(!strcmp(controls[index].name,label)){
+  point=nk_vec2(controls[index].x+controls[index].w/2.0f,controls[index].y+controls[index].h/2.0f);found=1;}
+ assert(found);
  for(down=1;down>=0;--down){nk_clear(context);nk_input_begin(context);
   nk_input_motion(context,(int)point.x,(int)point.y);nk_input_button(context,NK_BUTTON_LEFT,(int)point.x,(int)point.y,down);nk_input_end(context);
   assert(wena_board_feature_render(context,layout,640,480));
@@ -354,7 +399,7 @@ static void wip_headers(void)
 {
  struct nk_context context;struct nk_user_font font;WenaBoard board;WenaSwimlane lanes[2];WenaList list;
  WenaCard cards[4];WenaBoardLayout layout;WenaListInteraction interaction;const struct nk_command *command;
- unsigned char orange[3],red[3];int found;
+ unsigned char ink[3]={0,0,0},red[3]={0xce,0x14,0x14};int found;
  memset(&font,0,sizeof(font));font.height=14;font.width=text_width;assert(nk_init_default(&context,&font));
  assert(wena_board_init(&board,"b","Board",0));
  assert(wena_swimlane_init(&lanes[0],"s","b","First",0,0));assert(wena_swimlane_init(&lanes[1],"t","b","Second",1,0));
@@ -367,23 +412,24 @@ static void wip_headers(void)
  layout.swimlanes=lanes;layout.swimlane_count=2;layout.cards=cards;layout.card_count=4;layout.list_interaction=&interaction;
  layout.card_visible=hide_cards;render(&context,&layout,480);
  assert(visible_text(&context,"2 / 2",640,480,NULL));assert(!visible_text(&context,"Visible",640,480,NULL));
- assert(wena_color_rgb("orange",orange)&&wena_color_rgb("red",red));found=0;
+ /* At the limit WeKan's count is the title's color; over it, .highlight red. */
+ found=0;
  nk_foreach(command,&context)if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
-  if(text->length==5&&!memcmp(text->string,"2 / 2",5)){assert(same_rgb(text->background,orange));found=1;}}
- assert(found);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
- wip_click(&context,&layout,"List menu");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
+  if(text->length==5&&!memcmp(text->string,"2 / 2",5)){assert(same_rgb(text->foreground,ink)&&!same_rgb(text->foreground,red));found=1;}}
+ assert(found);wip_click(&context,&layout,"Add Card to Top of List");assert(!interaction.actions);
+ wip_click(&context,&layout,"List Actions");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
  list.wip_limit.soft=1;list.wip_limit.value=1;render(&context,&layout,480);
  assert(visible_text(&context,"2 / 1",640,480,NULL));found=0;
  nk_foreach(command,&context)if(command->type==NK_COMMAND_TEXT){const struct nk_command_text *text;text=(const struct nk_command_text*)command;
-  if(text->length==5&&!memcmp(text->string,"2 / 1",5)){assert(same_rgb(text->background,red));found=1;}}
- assert(found);wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD&&!strcmp(interaction.list_id,"l"));
- list.wip_limit.soft=0;render(&context,&layout,480);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
+  if(text->length==5&&!memcmp(text->string,"2 / 1",5)){assert(same_rgb(text->foreground,red));found=1;}}
+ assert(found);wip_click(&context,&layout,"Add Card to Top of List");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD&&!strcmp(interaction.list_id,"l"));
+ list.wip_limit.soft=0;render(&context,&layout,480);wip_click(&context,&layout,"Add Card to Top of List");assert(!interaction.actions);
  list.wip_limit.enabled=0;render(&context,&layout,480);assert(!visible_text(&context,"2 / 1",640,480,NULL));
- wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
+ wip_click(&context,&layout,"Add Card to Top of List");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
  list.wip_limit.enabled=1;list.wip_limit.value=2;cards[1].archived=1;render(&context,&layout,480);
- assert(visible_text(&context,"1 / 2",640,480,NULL));wip_click(&context,&layout,"Add card");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
- list.wip_limit.value=0;render(&context,&layout,480);wip_click(&context,&layout,"Add card");assert(!interaction.actions);
- wip_click(&context,&layout,"List menu");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
+ assert(visible_text(&context,"1 / 2",640,480,NULL));wip_click(&context,&layout,"Add Card to Top of List");assert(interaction.actions==WENA_LIST_HEADER_ADD_CARD);
+ list.wip_limit.value=0;render(&context,&layout,480);wip_click(&context,&layout,"Add Card to Top of List");assert(!interaction.actions);
+ wip_click(&context,&layout,"List Actions");assert(interaction.actions==WENA_LIST_HEADER_OPEN_MENU);
  nk_free(&context);
 }
 
@@ -439,20 +485,21 @@ int main(void)
     assert(visible_text(&context, "First card", 640.0f, 480.0f, &first));
     assert(visible_text(&context, "Local card", 640.0f, 480.0f, &second));
     assert(second.x > first.x + 200.0f);
-    assert(visible_text(&context, "Add card", 640.0f, 480.0f, NULL));
-    assert(visible_text(&context, "List menu", 640.0f, 480.0f, NULL));
-    assert(visible_text(&context, "Open card", 640.0f, 480.0f, NULL));
-    assert(visible_text(&context, "Card menu", 640.0f, 480.0f, NULL));
+    assert(visible_text(&context, "Add Card", 640.0f, 480.0f, NULL));
+    assert(control_point("List Actions", NULL));
+    assert(control_point("Card Actions", NULL));
+    assert(control_point("Add Card to Top of List", NULL));
     strcpy(cards[0].title, "A long card title stays readable across several lines in its native column");
     render(&context, &layout, 480.0f);
+    render(&context, &layout, 480.0f); /* the minicard's measured height */
     wrapped_title(&context, cards[0].title);
-    assert(visible_text(&context, "Open card", 640.0f, 480.0f, NULL));
+    assert(control_point("Card Actions", NULL));
     strcpy(cards[0].title, "First card");
     strcpy(lists[0].color,"red");strcpy(lanes[0].color,"#123AbC");
     strcpy(lists[0].title, "A long list title also has its own full width above the action buttons");
     render(&context, &layout, 480.0f);
     wrapped_title(&context, lists[0].title);
-    assert(visible_text(&context, "Add card", 640.0f, 480.0f, NULL));
+    assert(visible_text(&context, "Add Card", 640.0f, 480.0f, NULL));
     strcpy(lists[0].title, "Same list");
     render(&context, &layout, 480.0f);
     assert((nk_window_find(&context, "WeKan")->flags & NK_WINDOW_NO_SCROLLBAR) == 0);
@@ -461,12 +508,12 @@ int main(void)
     layout.collapse = &collapse;
     render(&context, &layout, 480.0f);
     assert(visible_text(&context, "First card", 640.0f, 480.0f, NULL));
-    click(&context, &layout, "Collapse");
+    click(&context, &layout, "swimlane-header:Collapse");
     assert(wena_board_is_collapsed(&collapse, "board", WENA_COLLAPSE_SWIMLANE, "first"));
     assert(!visible_text(&context, "First card", 640.0f, 480.0f, NULL));
     assert(!visible_text(&context, "Local card", 640.0f, 480.0f, NULL));
     assert(visible_text(&context, "Second card", 640.0f, 480.0f, NULL));
-    click(&context, &layout, "Uncollapse");
+    click(&context, &layout, "swimlane-header:Uncollapse");
     assert(!wena_board_is_collapsed(&collapse, "board", WENA_COLLAPSE_SWIMLANE, "first"));
     assert(visible_text(&context, "First card", 640.0f, 480.0f, NULL));
     assert(wena_board_collapse_set(&collapse, &layout, WENA_COLLAPSE_LIST, "shared", 1));
@@ -488,7 +535,7 @@ int main(void)
     layout.sidebar = &sidebar;
     layout.sidebar_as_window = 1;
     render(&context, &layout, 480.0f);
-    click(&context, &layout, "Board menu");
+    click(&context, &layout, "Open Sidebar or Close Sidebar");
     assert(sidebar.visible && sidebar.section == WENA_SIDEBAR_ACTIVITIES);
     assert(visible_text(&context, "Activities", 640.0f, 480.0f, NULL));
     assert(visible_text(&context, "Archives", 640.0f, 480.0f, NULL));
@@ -502,16 +549,36 @@ int main(void)
     click(&context, &layout, "Close");
     assert(!sidebar.visible);
     assert(!visible_text(&context, "Archives", 640.0f, 480.0f, NULL));
-    click(&context, &layout, "Board menu");
+    click(&context, &layout, "Open Sidebar or Close Sidebar");
     assert(sidebar.visible);
     /* Narrow windows clamp the panel to the viewport, with scrollable content. */
     nk_clear(&context); nk_input_begin(&context); nk_input_end(&context);
     assert(wena_board_feature_render(&context, &layout, 320.0f, 300.0f));
     menu = nk_window_find(&context, "Wena board menu");
     assert(menu != NULL && menu->bounds.x == 0.0f && menu->bounds.w == 320.0f);
-    assert(menu->bounds.y == 44.0f && menu->bounds.h == 256.0f);
+    /* Below WeKan's 88px header, so it never covers the toggle that opened it. */
+    assert(menu->bounds.y == 88.0f && menu->bounds.h == 212.0f);
     assert(visible_text(&context, "Activities", 320.0f, 300.0f, NULL));
     assert(visible_text(&context, "Archives", 320.0f, 300.0f, NULL));
+    /* Hovering an icon shows its name and the rest of the frame still draws:
+     * nk_tooltip from inside the header's row used to corrupt the command
+     * list, so nothing after the hovered icon was drawn. */
+    sidebar.visible = 0;
+    render(&context, &layout, 480.0f);
+    assert(control_point("list-header:List Actions", &first));
+    nk_clear(&context); nk_input_begin(&context);
+    nk_input_motion(&context, (int)first.x, (int)first.y); nk_input_end(&context);
+    assert(wena_board_feature_render(&context, &layout, 640.0f, 480.0f));
+    assert(visible_text(&context, "List Actions", 640.0f, 480.0f, NULL));
+    assert(visible_text(&context, "First card", 640.0f, 480.0f, NULL));
+    {   const struct nk_command *command; int types_valid = 1;
+        nk_foreach(command, &context)
+            if ((int)command->type < 0 || (int)command->type > NK_COMMAND_CUSTOM) types_valid = 0;
+        assert(types_valid); }
+    /* Negative: away from every icon there is no tooltip. */
+    nk_clear(&context); nk_input_begin(&context); nk_input_motion(&context, 5, 470); nk_input_end(&context);
+    assert(wena_board_feature_render(&context, &layout, 640.0f, 480.0f));
+    assert(!visible_text(&context, "List Actions", 640.0f, 480.0f, NULL));
     assert(memcmp(original_cards, cards, sizeof(cards)) == 0);
     assert(memcmp(original_lists, lists, sizeof(lists)) == 0);
     assert(memcmp(original_lanes, lanes, sizeof(lanes)) == 0);

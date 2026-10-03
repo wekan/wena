@@ -37,8 +37,21 @@ typedef int (*WenaHierarchyArchiveListCards)(void *context,const char *board,con
 #define WENA_HIERARCHY_TITLE_MOVE 1u
 #define WENA_HIERARCHY_TITLE_SELECT_CARDS 2u
 
+/* What a WeKan menu item asks of an opened list or swimlane: the same action
+ * as the panel's own button, without showing the title form first. */
+typedef enum WenaHierarchyRequest {
+    WENA_HIERARCHY_REQUEST_NONE,
+    WENA_HIERARCHY_REQUEST_COLOR,
+    WENA_HIERARCHY_REQUEST_WIP,
+    WENA_HIERARCHY_REQUEST_ARCHIVE_CARDS,
+    WENA_HIERARCHY_REQUEST_MOVE,
+    WENA_HIERARCHY_REQUEST_SELECT_CARDS,
+    WENA_HIERARCHY_REQUEST_ARCHIVE
+} WenaHierarchyRequest;
+
 typedef struct WenaHierarchyTitleState {
     unsigned int requested_action;
+    WenaHierarchyRequest request;
     int selection_enabled;
     int visible;
     int creating;
@@ -97,6 +110,9 @@ int wena_hierarchy_title_open_create(WenaHierarchyTitleState *state,
  * or removed selection. Failed saves preserve the draft until cancel/reopen. */
 int wena_hierarchy_title_open(WenaHierarchyTitleState *state,
     const WenaBoardLayout *layout, WenaHierarchyKind kind, const char *target_id);
+/* After an open: carry out request on the next render instead of showing the
+ * title form. 0 when it is not available for this kind or adapter set. */
+int wena_hierarchy_title_request(WenaHierarchyTitleState *state, WenaHierarchyRequest request);
 int wena_hierarchy_title_render(struct nk_context *context,
     WenaHierarchyTitleState *state, const WenaBoardLayout *layout,
     float width, float height);

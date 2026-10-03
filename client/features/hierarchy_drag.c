@@ -42,6 +42,22 @@ void wena_hierarchy_drag_handle(struct nk_context *context,WenaHierarchyDrag *st
         enabled && !state->error && !layout->board->archived && state->move.load && state->move.apply))
         state->kind=kind;
 }
+void wena_hierarchy_drag_area(struct nk_context *context,WenaHierarchyDrag *state,
+    const WenaBoardLayout *layout,WenaHierarchyKind kind,const char *id,size_t position,int enabled,
+    const struct nk_rect *area,int *clicked)
+{
+    char scope[WENA_ID_CAPACITY+16];
+    unsigned long version;
+    if (clicked) *clicked=0;
+    if (!state || !layout || !layout->board || !area ||
+        !wena_model_identifier_valid(layout->board->id) ||
+        (kind!=WENA_HIERARCHY_LIST && kind!=WENA_HIERARCHY_SWIMLANE)) return;
+    sprintf(scope,"%s/%s",kind==WENA_HIERARCHY_LIST?"lists":"swimlanes",layout->board->id);
+    version=state->move.visible ? state->move.version : 1UL;
+    if (wena_reorder_drag_area(context,&state->gesture,scope,version,id,position,area,
+        enabled && !state->error && !layout->board->archived && state->move.load && state->move.apply,clicked))
+        state->kind=kind;
+}
 void wena_hierarchy_drag_end(struct nk_context *context,WenaHierarchyDrag *state)
 {
     if (!state) return;

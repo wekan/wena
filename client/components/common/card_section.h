@@ -16,4 +16,7 @@ typedef struct WenaCardSectionControl {
  * Owner clears pending before drawing and applies a captured intent once after. */
 int wena_card_section_toggle(struct nk_context *context,WenaCardSectionControl *control,
     const char *board,const char *card,const char *key);
+/* The same as WeKan's minicard caret: an icon in the caller's slot. */
+int wena_card_section_toggle_caret(struct nk_context *context,WenaCardSectionControl *control,
+    const char *board,const char *card,const char *key);
 #endif

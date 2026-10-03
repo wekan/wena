@@ -1,0 +1,9 @@
+{
+ "about": "Colors WeKan paints without a computed style of their own, sampled from the capture's screenshots (1024x720, deviceScaleFactor 1) at these points.",
+ "samples": {
+  "popup-hover": {"state": "02-list-menu", "point": [60, 155], "rgb": "#2e90d0", "what": "the highlighted List Actions item"},
+  "popup-separator": {"state": "02-list-menu", "point": [150, 186], "rgb": "#dbdbdb", "what": "a separator between List Actions groups"},
+  "list-border": {"state": "01-board", "point": [12, 300], "rgb": "#cccccc", "what": "the line at a list's left edge"},
+  "minicard-shadow": {"state": "01-board", "point": [150, 288], "rgb": "#d0d0d0", "what": "just under a minicard"}
+ }
+}

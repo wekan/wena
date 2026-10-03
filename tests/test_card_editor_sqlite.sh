@@ -8,7 +8,7 @@ python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
   -I"$root_dir/tests/fakes" \
   "$root_dir/tests/support/test_files.c" "$root_dir/tests/card_editor_sqlite_test.c" \
-  "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/client/features/card_mutation.c" "$root_dir/models/card_order.c" \

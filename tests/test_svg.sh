@@ -9,7 +9,7 @@ python3 "$root_dir/tests/test_svg.py"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -isystem "$root_dir/third_party/nuklear" \
   "$root_dir/tests/svg_test.c" "$root_dir/client/platform/svg.c" \
-  "$root_dir/client/platform/theme.c" "$root_dir/client/components/boards/board_header.c" \
+  "$root_dir/client/platform/theme.c" "$root_dir/client/components/boards/board_header.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/models/model.c" "$root_dir/models/board.c" \
   "$root_dir/imports/ui/page_contract.c" "$root_dir/models/color.c" -o "$test_dir/test" -lm
 "$test_dir/test"

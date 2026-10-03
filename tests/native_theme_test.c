@@ -3,6 +3,7 @@
 #include <nuklear.h>
 #include "../client/platform/theme.h"
 #include "../imports/ui/page_contract.h"
+#include "../client/components/common/wekan_look.h"
 
 #include <assert.h>
 #include <math.h>
@@ -18,6 +19,13 @@ static float text_width(nk_handle handle, float height,
 static int equal(struct nk_color a, struct nk_color b)
 {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+}
+/* A WeKan color as measured from WeKan (wekan_look.c's pinned table). */
+static struct nk_color wekan(WenaWekanColor which)
+{
+    unsigned int r, g, b;
+    assert(sscanf(wena_wekan_color_hex(which), "#%2x%2x%2x", &r, &g, &b) == 3);
+    return nk_rgba((nk_byte)r, (nk_byte)g, (nk_byte)b, 255);
 }
 static double channel(unsigned char c)
 {
@@ -61,11 +69,18 @@ int main(void)
     assert(!wena_native_theme_color(NULL, &color));
     assert(!wena_native_theme_color("white", NULL));
     assert(!wena_native_theme_apply(NULL));
-    assert(wena_native_theme_color("cleanlight", &panel));
-    assert(wena_native_theme_color("dark", &ink));
-    assert(wena_native_theme_color("white", &paper));
-    assert(wena_native_theme_color("belize", &accent));
+    /* The theme is WeKan's board look: #f7f7f7 panels like its card details
+     * and sidebar, black text, its composer's #216694 "Add" buttons and the
+     * #cccccc of its list borders for scrollbars. */
     assert(wena_native_theme_color("midnight", &navy));
+    panel = wekan(WENA_WEKAN_PANEL);
+    ink = wekan(WENA_WEKAN_TEXT);
+    paper = wekan(WENA_WEKAN_BUTTON_ADD);
+    accent = wekan(WENA_WEKAN_LIST_BORDER);
+    assert(strcmp(wena_wekan_color_hex(WENA_WEKAN_PANEL), "#f7f7f7") == 0);
+    assert(strcmp(wena_wekan_color_hex(WENA_WEKAN_BUTTON_ADD), "#216694") == 0);
+    /* Negative: not Nuklear's default gray window. */
+    assert(!(panel.r == 45 && panel.g == 45 && panel.b == 45));
     memset(&font, 0, sizeof(font)); font.height = 14.0f; font.width = text_width;
     assert(nk_init_default(&ctx, &font));
     assert(wena_native_theme_apply(&ctx));

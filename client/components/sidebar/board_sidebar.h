@@ -10,7 +10,8 @@ typedef enum WenaSidebarSection {
     WENA_SIDEBAR_ACTIVITIES = 0,
     WENA_SIDEBAR_MEMBERS,
     WENA_SIDEBAR_LABELS,
-    WENA_SIDEBAR_ARCHIVES
+    WENA_SIDEBAR_ARCHIVES,
+    WENA_SIDEBAR_SETTINGS     /* WeKan's "Board Settings", first in its sidebar */
 } WenaSidebarSection;
 
 typedef struct WenaSidebarItems {

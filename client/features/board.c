@@ -1,5 +1,7 @@
 #include "board.h"
+#include "../components/boards/board_header.h"
 #include "../components/cards/card_body.h"
+#include "../components/common/wekan_look.h"
 
 #include "../platform/nuklear_options.h"
 #include <nuklear.h>
@@ -38,7 +40,7 @@ static void wena_board_sidebar_window(struct nk_context *context,
     panel_width = width < 360.0f ? width : 360.0f;
     /* Keep the opening header click outside the new menu's controls, so its
        release cannot accidentally select a section in the newly shown window. */
-    panel_top = height > 44.0f ? 44.0f : 0.0f;
+    panel_top = height > WENA_BOARD_HEADER_HEIGHT ? WENA_BOARD_HEADER_HEIGHT : 0.0f;
     panel_height = height - panel_top;
     content_height = panel_height > 24.0f ? panel_height - 24.0f : 1.0f;
     if (nk_begin(context, "Wena board menu",
@@ -69,11 +71,21 @@ int wena_board_feature_render_with_state(struct nk_context *context,
         return 0;
     }
     rendered = 0;
-    if (nk_begin(context, "WeKan", nk_rect(0.0f, 0.0f, width, height),
-                 NK_WINDOW_BORDER)) {
+    /* WeKan's board: the gray canvas edge to edge, no frame or margin. */
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+        nk_style_item_color(nk_rgb((wena_wekan_rgb(WENA_WEKAN_BODY) >> 16) & 255,
+                                   (wena_wekan_rgb(WENA_WEKAN_BODY) >> 8) & 255,
+                                   wena_wekan_rgb(WENA_WEKAN_BODY) & 255)));
+    nk_style_push_vec2(context, &context->style.window.padding, nk_vec2(0.0f, 0.0f));
+    nk_style_push_vec2(context, &context->style.window.spacing, nk_vec2(0.0f, 0.0f));
+    if (nk_begin(context, "WeKan", nk_rect(0.0f, 0.0f, width, height), 0)) {
         rendered = wena_board_layout_render(context, layout);
+        wena_wekan_tooltip_flush(context);
     }
     nk_end(context);
+    nk_style_pop_vec2(context);
+    nk_style_pop_vec2(context);
+    nk_style_pop_style_item(context);
     if (rendered) {
         if (card_details != NULL && card_details->visible && layout->card_visible != NULL) {
             size_t index;

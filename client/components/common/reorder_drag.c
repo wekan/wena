@@ -23,17 +23,13 @@ void wena_reorder_drag_begin(struct nk_context *context,WenaReorderDrag *state)
         if (dx*dx+dy*dy>=49.0f) state->moved=1;
     }
 }
-int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
+/* Shared by a labelled handle row and an area handle: the gesture starts on
+ * a press over the source and records a release over another sibling. */
+static int handle_core(struct nk_context *context,WenaReorderDrag *state,
     const char *scope,unsigned long revision,const char *id,size_t position,
-    const char *label,int enabled)
+    int valid,int hovered)
 {
-    int valid,hovered,started;
-    if (!context || !state || !label) return 0;
-    valid=enabled && scope && scope[0] && strlen(scope)<sizeof(state->scope) &&
-        revision>0 && !nk_input_is_key_pressed(&context->input,NK_KEY_TEXT_RESET_MODE) &&
-        wena_model_identifier_valid(id) && nk_window_has_focus(context);
-    hovered=valid && nk_widget_is_hovered(context) &&
-        nk_input_is_mouse_hovering_rect(&context->input,context->current->layout->clip);
+    int started;
     started=0;
     if (state->active && scope && !strcmp(state->scope,scope)) {
         if (revision!=state->revision) wena_reorder_drag_cancel(state);
@@ -54,8 +50,49 @@ int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
             strcpy(state->target_scope,scope);strcpy(state->target_id,id);state->target_position=position;state->pending=1;
         }
     }
+    return started;
+}
+static int handle_valid(struct nk_context *context,const WenaReorderDrag *state,
+    const char *scope,unsigned long revision,const char *id,int enabled)
+{
+    return enabled && scope && scope[0] && strlen(scope)<sizeof(state->scope) &&
+        revision>0 && !nk_input_is_key_pressed(&context->input,NK_KEY_TEXT_RESET_MODE) &&
+        wena_model_identifier_valid(id) && nk_window_has_focus(context);
+}
+int wena_reorder_drag_handle(struct nk_context *context,WenaReorderDrag *state,
+    const char *scope,unsigned long revision,const char *id,size_t position,
+    const char *label,int enabled)
+{
+    int valid,hovered,started;
+    if (!context || !state || !label) return 0;
+    valid=handle_valid(context,state,scope,revision,id,enabled);
+    hovered=valid && nk_widget_is_hovered(context) &&
+        nk_input_is_mouse_hovering_rect(&context->input,context->current->layout->clip);
+    started=handle_core(context,state,scope,revision,id,position,valid,hovered);
     if (valid) (void)nk_button_label(context,label);
     else nk_label(context,label,NK_TEXT_LEFT);
+    return started;
+}
+int wena_reorder_drag_area(struct nk_context *context,WenaReorderDrag *state,
+    const char *scope,unsigned long revision,const char *id,size_t position,
+    const struct nk_rect *area,int enabled,int *clicked)
+{
+    int valid,hovered,started,was_source;
+    if (clicked) *clicked=0;
+    if (!context || !state || !area || !context->current) return 0;
+    valid=handle_valid(context,state,scope,revision,id,enabled);
+    hovered=nk_input_is_mouse_hovering_rect(&context->input,*area) &&
+        nk_input_is_mouse_hovering_rect(&context->input,context->current->layout->clip);
+    was_source=state->active && !state->moved && scope && !strcmp(state->scope,scope) &&
+        id && !strcmp(state->source_id,id);
+    started=handle_core(context,state,scope,revision,id,position,valid,valid && hovered);
+    /* Pressed and released here without moving: a click, as in WeKan, where
+     * the same minicard or header is both clicked and dragged. A source that
+     * cannot be dragged still clicks. */
+    if (clicked && hovered && nk_input_is_mouse_released(&context->input,NK_BUTTON_LEFT) &&
+        (was_source || (!valid && !state->active &&
+         nk_input_has_mouse_click_in_rect(&context->input,NK_BUTTON_LEFT,*area))))
+        *clicked=1;
     return started;
 }
 int wena_reorder_drag_drop(struct nk_context *context,WenaReorderDrag *state,
@@ -76,6 +113,24 @@ int wena_reorder_drag_drop(struct nk_context *context,WenaReorderDrag *state,
     }
     if (valid) (void)nk_button_label(context,label);
     else nk_label(context,label,NK_TEXT_LEFT);
+    return dropped;
+}
+int wena_reorder_drag_drop_area(struct nk_context *context,WenaReorderDrag *state,
+    const char *scope,const char *id,const struct nk_rect *area,int enabled)
+{
+    int dropped,valid;
+    if (!context || !state || !area || !context->current) return 0;
+    valid=enabled && scope && scope[0] && strlen(scope)<sizeof(state->target_scope) &&
+        wena_model_identifier_valid(id) && nk_window_has_focus(context);
+    dropped=valid && state->active && state->moved && !state->pending &&
+        !nk_input_is_key_pressed(&context->input,NK_KEY_TEXT_RESET_MODE) &&
+        nk_input_is_mouse_hovering_rect(&context->input,*area) &&
+        nk_input_is_mouse_hovering_rect(&context->input,context->current->layout->clip) &&
+        nk_input_is_mouse_released(&context->input,NK_BUTTON_LEFT);
+    if (dropped) {
+        strcpy(state->target_scope,scope);strcpy(state->target_id,id);
+        state->target_position=0;state->pending=1;
+    }
     return dropped;
 }
 void wena_reorder_drag_end(struct nk_context *context,WenaReorderDrag *state)

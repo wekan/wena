@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/googlefonts/roboto-2",
+  "release": "v2.138",
+  "archive": "https://github.com/googlefonts/roboto-2/releases/download/v2.138/roboto-android.zip",
+  "archive_sha256": "c825453253f590cfe62557733e7173f9a421fff103b00f57d33c4ad28ae53baf",
+  "path": "Roboto-Bold.ttf",
+  "bytes": 306940,
+  "sha256": "36f3709dea3e3ce3c6aedc058079e55980825f898f1e901d091c73c40de8bab1",
+  "font_version": "Version 2.138; 2017",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "modifications": "None; generated C array encodes the unchanged font bytes. WeKan draws titles, list names and menu items in bold Roboto."
+}

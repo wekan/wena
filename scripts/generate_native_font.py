@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Embed the pinned trusted TTF; Python standard library only. No font editing."""
+"""Embed the pinned trusted TTFs - Roboto Regular and Bold, as WeKan draws its
+text - unchanged; Python standard library only. No font editing."""
 import argparse
 import hashlib
 import json
@@ -8,6 +9,9 @@ import struct
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ASSET = ROOT / 'third_party/fonts/RobotoStatic-Regular.ttf'
+# (array name, font file, provenance record): every face is verified alike.
+FACES = (('wena_font_data', ASSET, 'provenance.json'),
+         ('wena_font_bold_data', ROOT / 'third_party/fonts/Roboto-Bold.ttf', 'provenance-bold.json'))
 OUTPUT = ROOT / 'client/platform/font_data.h'
 
 
@@ -64,8 +68,9 @@ def glyphs(data):
     raise ValueError('no Windows Unicode BMP cmap')
 
 
-def render(data):
-    supported = glyphs(data)
+def render(faces):
+    # Only code points both faces have, so bold and regular text agree.
+    supported = set.intersection(*(glyphs(data) for _name, data in faces))
     blocks = ((32, 126), (160, 591), (880, 1327), (7680, 8191), (8192, 8303), (8364, 8364))
     selected = sorted(cp for cp in supported if any(start <= cp <= end for start, end in blocks))
     ranges = []
@@ -75,9 +80,11 @@ def render(data):
         else:
             ranges.append([cp, cp])
     text = '/* Generated unchanged trusted Roboto bytes; Apache-2.0, see third_party/fonts. */\n'
-    text += 'static const unsigned char wena_font_data[] = {\n'
-    text += ''.join('    ' + ','.join('0x%02x' % value for value in data[i:i+16]) + ',\n' for i in range(0, len(data), 16))
-    text += '};\nstatic const nk_rune wena_font_ranges[] = {\n'
+    for name, data in faces:
+        text += 'static const unsigned char %s[] = {\n' % name
+        text += ''.join('    ' + ','.join('0x%02x' % value for value in data[i:i+16]) + ',\n' for i in range(0, len(data), 16))
+        text += '};\n'
+    text += 'static const nk_rune wena_font_ranges[] = {\n'
     text += ''.join('    0x%04x, 0x%04x,\n' % tuple(pair) for pair in ranges)
     return text + '    0\n};\n'
 
@@ -86,14 +93,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    data = ASSET.read_bytes()
-    lock = json.loads((ASSET.parent / 'provenance.json').read_text())
-    if len(data) != lock['bytes'] or hashlib.sha256(data).hexdigest() != lock['sha256']:
-        raise ValueError('font provenance mismatch')
+    faces = []
     license_data = (ASSET.parent / 'LICENSE-Roboto.txt').read_bytes()
-    if hashlib.sha256(license_data).hexdigest() != lock['license_sha256']:
-        raise ValueError('font license provenance mismatch')
-    generated = render(data)
+    for name, path, record in FACES:
+        data = path.read_bytes()
+        lock = json.loads((ASSET.parent / record).read_text())
+        if len(data) != lock['bytes'] or hashlib.sha256(data).hexdigest() != lock['sha256']:
+            raise ValueError('font provenance mismatch: ' + path.name)
+        if hashlib.sha256(license_data).hexdigest() != lock['license_sha256']:
+            raise ValueError('font license provenance mismatch')
+        tables(data)
+        faces.append((name, data))
+    generated = render(faces)
     if args.check:
         if not OUTPUT.exists() or OUTPUT.read_text() != generated:
             raise ValueError('stale native font data; run scripts/generate_native_font.py')

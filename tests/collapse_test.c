@@ -1,4 +1,5 @@
 #include "../client/components/boards/board_layout.h"
+#include "../client/components/common/wekan_look.h"
 #include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
@@ -45,18 +46,41 @@ int nk_group_begin(struct nk_context *context, const char *title,
 void nk_group_end(struct nk_context *context)
 { --context->group_depth; }
 
+/* The rest of the core the board look calls; the drawing is in fakes/nuklear_look.c. */
+struct nk_rect nk_rect(float x, float y, float w, float h)
+{ struct nk_rect r; r.x = x; r.y = y; r.w = w; r.h = h; return r; }
+struct nk_vec2 nk_vec2(float x, float y)
+{ struct nk_vec2 v; v.x = x; v.y = y; return v; }
+int nk_begin(struct nk_context *context, const char *title, struct nk_rect bounds, unsigned int flags)
+{ (void)title; (void)bounds; (void)flags; ++context->begin_count; return 1; }
+void nk_end(struct nk_context *context) { ++context->end_count; }
+int nk_window_has_focus(const struct nk_context *context) { return context != NULL; }
+int nk_input_is_key_pressed(const struct nk_input *input, enum nk_keys key)
+{ return input != NULL && (input->pressed_keys & (1u << key)) != 0u; }
+
+/* Drawn as a label, or named as a control - a collapsed list's stacked
+ * title is drawn letter by letter and named whole. */
 static int has_label(struct nk_context *context, const char *label)
 {
     int index;
+    size_t count, control;
+    const WenaUiControl *controls;
     for (index = 0; index < context->label_count; ++index) {
         if (strcmp(context->labels[index], label) == 0) { return 1; }
     }
+    controls = wena_ui_controls(&count);
+    for (control = 0; control < count; ++control)
+        if (strcmp(controls[control].name, label) == 0) return 1;
     return 0;
 }
 static void render(struct nk_context *context, WenaBoardLayout *layout,
                     const char *button, size_t skip)
 {
     memset(context, 0, sizeof(*context));
+    wena_ui_controls_begin();
+    /* A current panel, as nk_begin gives the board: its controls need one. */
+    context->window.layout = &context->panel;
+    context->current = &context->window;
     group_count = 0;
     collapse_skip = skip;
     context->button_to_press = button;
@@ -96,8 +120,10 @@ static void test_board_wide_lists(void)
     layout.collapse = &state;
     wena_board_collapse_init(&state);
     render(&context, &layout, NULL, 0);
-    assert(group_count == 5);
-    assert(strcmp(groups[1], groups[4]) != 0);
+    /* WeKan's layout: each lane, list and minicard is a group - lane first,
+     * Shared, card One, Local, Local card, lane second, Shared, card Two. */
+    assert(group_count == 8);
+    assert(strcmp(groups[1], groups[6]) != 0);
     assert(has_label(&context, "One") && has_label(&context, "Two"));
     assert(has_label(&context, "Local card"));
     assert(!has_label(&context, "Foreign card"));
@@ -177,8 +203,9 @@ int main(void)
     assert(!wena_board_collapse_set(&state, &layout, WENA_COLLAPSE_LIST, "id-0", 1));
     render(&context, &layout, NULL, 0);
     assert(has_label(&context, "Card") && !has_label(&context, "Foreign"));
-    assert(group_count == 4);
-    assert(strcmp(groups[1], groups[2]) != 0);
+    /* Lane id-0, list id-0, its card, list id-1, lane id-1. */
+    assert(group_count == 5);
+    assert(strcmp(groups[1], groups[3]) != 0);
     strcpy(first_group, groups[0]);
     strcpy(lanes[0].title, "Renamed lane");
     render(&context, &layout, NULL, 0);
@@ -190,7 +217,8 @@ int main(void)
     assert(wena_board_is_collapsed(&state, "board", WENA_COLLAPSE_LIST, "id-0"));
     assert(card_action.actions == 0u && card_action.card_id[0] == '\0');
     render(&context, &layout, "Collapse", 0);
-    assert(!has_label(&context, "List") && group_count == 2);
+    /* A collapsed lane is its bar alone, as in WeKan: only lane id-1's group. */
+    assert(!has_label(&context, "List") && group_count == 1);
     assert(list_action.actions == 0u && list_action.list_id[0] == '\0');
     render(&context, &layout, "Uncollapse", 0);
     assert(has_label(&context, "List") && !has_label(&context, "Card"));

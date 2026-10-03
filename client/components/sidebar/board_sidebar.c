@@ -1,4 +1,5 @@
 #include "board_sidebar.h"
+#include "../common/wekan_look.h"
 #include "../../../imports/ui/page_contract.h"
 
 #include "../../platform/nuklear_options.h"
@@ -73,6 +74,8 @@ static unsigned int wena_sidebar_section_content(struct nk_context *context,
         return nk_button_label(context, wena_ui_text(WENA_UI_TEXT_RESTORE)) ?
                WENA_SIDEBAR_RESTORE_ARCHIVE : WENA_SIDEBAR_NO_ACTION;
     }
+    /* Board Settings opens its own panel; the owner closes the sidebar. */
+    if (sidebar->section == WENA_SIDEBAR_SETTINGS) return WENA_SIDEBAR_NO_ACTION;
     return WENA_SIDEBAR_INVALID_STATE;
 }
 
@@ -104,6 +107,14 @@ unsigned int wena_board_sidebar_render(struct nk_context *context,
     action = WENA_SIDEBAR_NO_ACTION;
     if (!nk_group_begin(context, "Board menu", NK_WINDOW_BORDER)) {
         return action;
+    }
+    /* Board Settings first, as at the top of WeKan's sidebar. */
+    wena_ui_region("sidebar");
+    nk_layout_row_dynamic(context, 28.0f, 1);
+    if (wena_wekan_link(context, WENA_ICON_GEAR, wena_ui_text(WENA_UI_TEXT_BOARD_SETTINGS),
+                        WENA_WEKAN_FONT_BOLD, WENA_WEKAN_ICON_ACTIVE)) {
+        sidebar->section = WENA_SIDEBAR_SETTINGS;
+        action |= WENA_SIDEBAR_SECTION_CHANGED;
     }
     nk_layout_row_dynamic(context, 28.0f, 2);
     action |= wena_sidebar_section_button(context, sidebar, wena_ui_text(WENA_UI_TEXT_ACTIVITIES),

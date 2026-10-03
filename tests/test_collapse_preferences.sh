@@ -7,7 +7,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/third_party/nuklear" \
   "$root_dir/tests/collapse_preferences_test.c" \
   "$root_dir/imports/preferences/collapse.c" "$root_dir/server/sha256.c" \
-  "$root_dir/client/components/boards/board_layout.c" \
+  "$root_dir/client/components/boards/board_layout.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/components/lists/list_header.c" "$root_dir/models/wip_limit.c" "$root_dir/client/components/common/color_heading.c" \

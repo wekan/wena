@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 struct nk_context;
+struct nk_rect;
 
 /* Caller-owned presentation state; never persisted as board/card mutations. */
 #define WENA_BOARD_COLLAPSE_CAPACITY 64
@@ -86,8 +87,10 @@ typedef struct WenaBoardLayout {
     void (*card_drop_target)(struct nk_context *context,void *user_data,
                         const WenaList *list,const WenaSwimlane *lane);
     void *card_drop_context;
-    /* Optional fold control. The title/actions stay visible; folded cards skip
-     * both badge and expanded-content callbacks. No persistence while drawing. */
+    /* Optional fold control, drawn into the 14px caret slot the minicard has
+     * already pushed (no layout of its own), as WeKan's minicard caret. The
+     * title/actions stay visible; folded cards skip both badge and
+     * expanded-content callbacks. No persistence while drawing. */
     int (*card_collapsed)(struct nk_context *context, void *user_data,
                         const WenaCard *card);
     void *card_collapsed_context;
@@ -100,6 +103,25 @@ typedef struct WenaBoardLayout {
     WenaSwimlaneResize *swimlane_resize;
     void (*swimlane_resize_bar)(struct nk_context *context, const struct WenaBoardLayout *layout,
                                 const WenaSwimlane *swimlane, unsigned int height);
+    /* WeKan's header bar: the user and filter state it shows, and what was
+     * clicked in it this frame (WENA_BOARD_HEADER_*), when not NULL. */
+    const char *header_actor;
+    int header_filter_active;
+    unsigned int *header_actions;
+    /* WeKan's dragging: the whole minicard, list header or swimlane bar is
+     * the handle (area, in screen coordinates); *clicked reports a press and
+     * release on it without dragging. When set, these replace the labelled
+     * handle rows above. */
+    void (*card_drag_area)(struct nk_context *context, void *user_data, const WenaCard *card,
+                           size_t ordinal, const struct nk_rect *area, int *clicked);
+    void (*list_drag_area)(struct nk_context *context, void *user_data, const WenaList *list,
+                           size_t ordinal, const struct nk_rect *area, int *clicked);
+    void (*swimlane_drag_area)(struct nk_context *context, void *user_data,
+                               const WenaSwimlane *swimlane, size_t ordinal,
+                               const struct nk_rect *area, int *clicked);
+    /* A list's free space below its cards: a card dropped there goes last. */
+    void (*card_drop_area)(struct nk_context *context, void *user_data, const WenaList *list,
+                           const WenaSwimlane *lane, const struct nk_rect *area);
 } WenaBoardLayout;
 
 typedef struct WenaListInteraction {
@@ -115,6 +137,8 @@ typedef struct WenaCardInteraction {
 } WenaCardInteraction;
 
 #define WENA_SWIMLANE_EDIT_TITLE 1u
+#define WENA_SWIMLANE_OPEN_MENU 2u    /* "Swimlane Actions" */
+#define WENA_SWIMLANE_ADD 4u          /* "Add Swimlane" */
 typedef struct WenaSwimlaneInteraction {
     unsigned int actions;
     WenaId board_id;

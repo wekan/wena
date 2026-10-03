@@ -89,6 +89,72 @@ void wena_card_drag_destination(struct nk_context *context,WenaCardDrag *state,
         state->transfer=1;
     }
 }
+/* WeKan's dragging: the whole minicard is the handle, and a card of another
+ * list is where the dragged one is inserted, before it. */
+static void insert_before_area(struct nk_context *context,WenaCardDrag *state,
+    const WenaCard *cards,size_t count,const WenaCard *card,size_t ordinal,const struct nk_rect *area)
+{
+    char scope[WENA_REORDER_SCOPE_CAPACITY];
+    if(!state->gesture.active||state->gesture.pending||state->error||
+        strcmp(card->board_id,state->board_id)||
+        (!strcmp(card->list_id,state->list_id)&&!strcmp(card->swimlane_id,state->swimlane_id))||
+        ordinal>=WENA_CARD_ORDER_CAPACITY)return;
+    sprintf(scope,"card:%s/%s/%s",state->board_id,card->list_id,card->swimlane_id);
+    if(wena_reorder_drag_drop_area(context,&state->gesture,scope,card->id,area,1)){
+        if(!wena_card_order_capture(cards,count,state->board_id,card->list_id,card->swimlane_id,
+            &state->destination_order,&state->destination_count)||ordinal>=state->destination_count||
+            strcmp(state->destination_order[ordinal].id,card->id)){
+            wena_card_drag_cancel(state);state->error=1;return;
+        }
+        strcpy(state->target_list_id,card->list_id);strcpy(state->target_swimlane_id,card->swimlane_id);
+        state->gesture.target_position=ordinal;state->transfer=1;state->inserting=1;
+    }
+}
+void wena_card_drag_area(struct nk_context *context,WenaCardDrag *state,
+    const WenaCard *cards,size_t count,const WenaCard *card,size_t ordinal,
+    unsigned long card_revision,int enabled,const struct nk_rect *area,int *clicked)
+{
+    char scope[WENA_REORDER_SCOPE_CAPACITY];
+    unsigned long revision;
+    if (clicked) *clicked=0;
+    if (!context || !state || !card || !area || card->archived ||
+        !wena_model_identifier_valid(card->board_id) ||
+        !wena_model_identifier_valid(card->list_id) ||
+        !wena_model_identifier_valid(card->swimlane_id)) return;
+    sprintf(scope,"card:%s/%s/%s",card->board_id,card->list_id,card->swimlane_id);
+    if(enabled&&!state->error&&card_revision>0)insert_before_area(context,state,cards,count,card,ordinal,area);
+    revision=state->gesture.active ? state->gesture.revision : card_revision;
+    if (wena_reorder_drag_area(context,&state->gesture,scope,revision,card->id,
+        ordinal,area,enabled && !state->error && card_revision>0,clicked)) {
+        strcpy(state->board_id,card->board_id);strcpy(state->list_id,card->list_id);
+        strcpy(state->swimlane_id,card->swimlane_id);
+        if (!wena_card_order_capture(cards,count,state->board_id,state->list_id,
+            state->swimlane_id,&state->order,&state->order_count) || ordinal>=state->order_count ||
+            strcmp(state->order[ordinal].id,card->id)) {
+            wena_card_drag_cancel(state);state->error=1;
+        }
+    }
+}
+void wena_card_drag_destination_area(struct nk_context *context,WenaCardDrag *state,
+    const WenaList *list,const WenaSwimlane *lane,const struct nk_rect *area)
+{
+    char scope[WENA_REORDER_SCOPE_CAPACITY];
+    if (!context || !state || !area || !state->gesture.active || state->gesture.pending || state->error ||
+        !list || !lane || list->archived || lane->archived ||
+        !wena_model_identifier_valid(list->id) || !wena_model_identifier_valid(lane->id) ||
+        strcmp(list->board_id,state->board_id) || strcmp(lane->board_id,state->board_id) ||
+        (list->swimlane_id[0] && strcmp(list->swimlane_id,lane->id)) ||
+        (!strcmp(list->id,state->list_id) && !strcmp(lane->id,state->swimlane_id))) return;
+    sprintf(scope,"card:%s/%s/%s",state->board_id,list->id,lane->id);
+    if (wena_reorder_drag_drop_area(context,&state->gesture,scope,list->id,area,1)) {
+        strcpy(state->target_list_id,list->id);strcpy(state->target_swimlane_id,lane->id);
+        state->transfer=1;
+    }
+}
+const char *wena_card_drag_source(const WenaCardDrag *state)
+{
+    return state && state->gesture.active && state->gesture.moved ? state->gesture.source_id : NULL;
+}
 void wena_card_drag_end(struct nk_context *context,WenaCardDrag *state)
 {
     if (!state) return;

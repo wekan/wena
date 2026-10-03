@@ -12,7 +12,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/tests/fakes" \
   -I"$root_dir/models" \
   "$root_dir/tests/hierarchy_move_test.c" \
-  "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/features/board.c" \
   "$root_dir/client/features/hierarchy_move.c" \
   "$root_dir/client/features/hierarchy_title.c" "$root_dir/models/wip_limit.c" "$root_dir/tests/fakes/labels_component.c" "$root_dir/client/components/forms/color_input.c" \

@@ -1,8 +1,10 @@
 #include "font.h"
+#include <stddef.h>
 #include "nuklear_options.h"
 #include <nuklear.h>
 #include "font_data.h"
-struct nk_font *wena_native_font_add(struct nk_font_atlas *atlas, float height)
+static struct nk_font *wena_font_add(struct nk_font_atlas *atlas, float height,
+                                     const unsigned char *data, size_t size)
 {
     struct nk_font_config config;
     if (!atlas || !atlas->temporary.alloc || !atlas->temporary.free ||
@@ -13,6 +15,15 @@ struct nk_font *wena_native_font_add(struct nk_font_atlas *atlas, float height)
     config.fallback_glyph = '?';
     config.oversample_h = 1;
     config.oversample_v = 1;
-    return nk_font_atlas_add_from_memory(atlas, (void *)wena_font_data,
-        sizeof(wena_font_data), height, &config);
+    return nk_font_atlas_add_from_memory(atlas, (void *)data, size, height, &config);
+}
+
+struct nk_font *wena_native_font_add(struct nk_font_atlas *atlas, float height)
+{
+    return wena_font_add(atlas, height, wena_font_data, sizeof(wena_font_data));
+}
+
+struct nk_font *wena_native_font_add_bold(struct nk_font_atlas *atlas, float height)
+{
+    return wena_font_add(atlas, height, wena_font_bold_data, sizeof(wena_font_bold_data));
 }

@@ -6,8 +6,8 @@ mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror \
   -I"$root_dir/tests/fakes" \
-  "$root_dir/tests/collapse_test.c" \
-  "$root_dir/client/components/boards/board_layout.c" \
+  "$root_dir/tests/collapse_test.c" "$root_dir/tests/fakes/nuklear_look.c" \
+  "$root_dir/client/components/boards/board_layout.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/components/boards/board_header.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/components/lists/list_header.c" "$root_dir/models/wip_limit.c" "$root_dir/tests/fakes/color_heading.c" \

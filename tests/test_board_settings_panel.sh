@@ -6,7 +6,7 @@ mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
   -I"$root_dir/tests/fakes" \
-  "$root_dir/tests/board_settings_panel_test.c" "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/board_settings_panel_test.c" "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/client/features/boards/settings_panel.c" \
   "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/card_details.c" "$root_dir/client/components/forms/text_form.c" \

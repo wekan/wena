@@ -5,7 +5,7 @@ test_dir=$(mktemp -d "${TMPDIR:-/tmp}/wena-label-badges-XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror ${WENA_TEST_CFLAGS:-} \
   -I"$root_dir/tests/fakes" \
-  "$root_dir/tests/label_badges_test.c" "$root_dir/tests/fakes/nuklear.c" \
+  "$root_dir/tests/label_badges_test.c" "$root_dir/tests/fakes/nuklear.c" "$root_dir/tests/fakes/nuklear_look.c" "$root_dir/client/components/common/wekan_look.c" \
   "$root_dir/tests/fakes/labels_component.c" \
   "$root_dir/client/features/labels/badges.c" "$root_dir/client/features/labels/store.c" \
   "$root_dir/models/label.c" "$root_dir/models/color.c" \

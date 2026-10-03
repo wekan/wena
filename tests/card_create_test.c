@@ -57,7 +57,7 @@ int main(void)
     wena_board_collapse_init(&collapse);
     assert(wena_board_collapse_sync(&collapse, &layout));
     assert(wena_board_collapse_set(&collapse, &layout, WENA_COLLAPSE_SWIMLANE, "first", 1));
-    context.button_to_press = "Add card";
+    context.button_to_press = "Add Card to Top of List";
     assert(wena_board_layout_render(&context, &layout));
     assert(interaction.actions == WENA_LIST_HEADER_ADD_CARD);
     assert(!strcmp(interaction.board_id, "board"));

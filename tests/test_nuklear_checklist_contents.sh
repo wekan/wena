@@ -18,7 +18,7 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" \
  "$root_dir/tests/support/test_files.c" "$root_dir/tests/nuklear_checklist_contents_test.c" \
  "$root_dir/client/components/common/reorder_drag.c" "$root_dir/client/features/checklists/drag.c" \
     "$root_dir/client/features/checklists/inline_edit.c" \
-    "$root_dir/client/components/cards/checklist_contents.c" "$root_dir/client/components/common/card_section.c" "$root_dir/models/card_section.c" \
+    "$root_dir/client/components/cards/checklist_contents.c" "$root_dir/client/components/common/card_section.c" "$root_dir/client/components/common/wekan_look.c" "$root_dir/models/card_section.c" \
  "$root_dir/client/features/checklists/summary.c" \
  "$root_dir/models/model.c" "$root_dir/models/card.c" \
  "$root_dir/models/checklist.c" "$root_dir/models/checklist_item.c" \

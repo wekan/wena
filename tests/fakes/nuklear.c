@@ -2,6 +2,13 @@
 #include <stddef.h>
 #include <string.h>
 
+/* Windows and groups give the code a current panel, as Nuklear does. */
+static void current(struct nk_context *context)
+{
+    context->window.layout = &context->panel;
+    context->current = &context->window;
+}
+
 struct nk_rect nk_rect(float x, float y, float w, float h)
 {
     struct nk_rect rectangle;
@@ -20,6 +27,7 @@ int nk_begin(struct nk_context *context, const char *title,
     (void)bounds;
     (void)flags;
     ++context->begin_count;
+    current(context);
     return 1;
 }
 
@@ -87,6 +95,7 @@ int nk_group_begin(struct nk_context *context, const char *title,
     (void)title;
     (void)flags;
     ++context->group_depth;
+    current(context);
     return 1;
 }
 

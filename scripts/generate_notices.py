@@ -24,6 +24,7 @@ NOTICES = (
     ("SQLite (public domain), linked in", "third_party/licenses/SQLITE.txt"),
     ("Roboto font (Apache-2.0), embedded", "third_party/fonts/LICENSE-Roboto.txt"),
     ("Roboto font provenance", "third_party/fonts/provenance.json"),
+    ("Roboto Bold font provenance", "third_party/fonts/provenance-bold.json"),
     ("Translations from WeKan (MIT)", "imports/i18n/README.md"),
     ("Pinned sources of what is linked in", "config/release-dependencies.json"),
 )
