@@ -26,6 +26,7 @@ python3 "$root_dir/scripts/verify_migrations.py"
 python3 "$root_dir/scripts/verify_i18n_catalog.py"
 python3 "$root_dir/scripts/generate_ui_i18n.py" --check
 python3 "$root_dir/scripts/generate_native_font.py" --check
+python3 "$root_dir/scripts/generate_notices.py" --check
 $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WENA_CFLAGS \
   -I"$root_dir/third_party/nuklear" $WENA_SDL_CFLAGS $WENA_SQLITE_CFLAGS \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
@@ -60,7 +61,7 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   "$root_dir/client/components/cards/card_details_canvas.c" \
   "$root_dir/models/model.c" "$root_dir/models/board.c" \
   "$root_dir/models/swimlane.c" "$root_dir/models/list.c" "$root_dir/models/card.c" \
-  "$root_dir/imports/ui/page_contract.c" "$root_dir/imports/i18n/catalog.c" \
+  "$root_dir/imports/ui/page_contract.c" \
   "$root_dir/imports/i18n/ui_catalog.c" "$root_dir/imports/i18n/locale.c" \
   "$root_dir/imports/i18n/language.c" \
   "$root_dir/server/sqlite_directory.c" "$root_dir/server/sqlite_board.c" "$root_dir/server/list_state.c" "$root_dir/server/sqlite_storage.c" \

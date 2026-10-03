@@ -4,8 +4,11 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir="${TMPDIR:-/tmp}/wena-runtime-test-$$"
 mkdir -p "$test_dir"
 trap 'rm -rf "$test_dir"' EXIT HUP INT TERM
-"$root_dir/build.sh" build host
-target=$(python3 -c "import sys;sys.path.insert(0,'$root_dir/scripts');import wena;print(wena.host_target())")
+# A file carrying the migration and translation footers, appended by the same
+# scripts the server runtime's executable will use (server/embedded_migration.c reads them).
+printf 'wena footer fixture\n' > "$test_dir/footers"
+python3 "$root_dir/scripts/embed_migrations.py" --executable "$test_dir/footers"
+python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$test_dir/footers"
 python3 "$root_dir/scripts/embed_test_files.py" "$test_dir/wena_test_files.h" "$root_dir/server/migrations/001_initial.sql"
 cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" "$root_dir/tests/support/test_files.c" \
   "$root_dir/tests/runtime_test.c" "$root_dir/server/runtime.c" \
@@ -26,4 +29,4 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -I"$test_dir" "$root_dir/test
   "$root_dir/client/features/server_runtime_settings.c" \
   -lsqlite3 -o "$test_dir/test"
 "$test_dir/test" "$root_dir/server/migrations/001_initial.sql" "$test_dir" \
-  "$root_dir/dist/$target/wena"
+  "$test_dir/footers"

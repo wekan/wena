@@ -1,30 +1,42 @@
-# target	display name	runner	status	artifact kind
-linux-arm64	Linux arm64	ubuntu-24.04	ready	ELF executable
-linux-amd64	Linux amd64	ubuntu-24.04	ready	ELF executable
-linux-armhf	Linux armhf	ubuntu-24.04	ready	ELF executable
-windows-amd64	Windows amd64	ubuntu-24.04	ready	PE executable
-macos-arm64	macOS arm64	macos-15	ready	Mach-O executable
-macos-amd64	macOS amd64	macos-15	ready	Mach-O executable
-amigaos-m68k	AmigaOS 3.x m68k	ubuntu-24.04	ready	HUNK executable
-aros-x86	AROS x86-64	ubuntu-24.04	ready	ELF executable
-android-arm64	Android arm64	ubuntu-24.04	ready	ELF executable
-ios-arm64	iOS arm64	macos-15	ready	Mach-O executable
-linux-i686	Linux i686	ubuntu-24.04	planned	ELF executable
-linux-ppc64le	Linux ppc64le	ubuntu-24.04	planned	ELF executable
-linux-s390x	Linux s390x	ubuntu-24.04	planned	ELF executable
-linux-riscv64	Linux riscv64	ubuntu-24.04	planned	ELF executable
-windows-i686	Windows i686	ubuntu-24.04	planned	PE executable
-windows-arm64	Windows arm64	ubuntu-24.04	planned	PE executable
-android-armv7	Android armv7	ubuntu-24.04	planned	ELF executable
-android-x86	Android x86	ubuntu-24.04	planned	ELF executable
-android-x86_64	Android x86-64	ubuntu-24.04	planned	ELF executable
-ios-simulator-arm64	iOS Simulator arm64	macos-15	planned	Mach-O executable
-ios-simulator-amd64	iOS Simulator amd64	macos-15	planned	Mach-O executable
-freebsd-amd64	FreeBSD amd64	ubuntu-24.04	planned	ELF executable
-freebsd-arm64	FreeBSD arm64	ubuntu-24.04	planned	ELF executable
-netbsd-amd64	NetBSD amd64	ubuntu-24.04	planned	ELF executable
-netbsd-arm64	NetBSD arm64	ubuntu-24.04	planned	ELF executable
-openbsd-amd64	OpenBSD amd64	ubuntu-24.04	planned	ELF executable
-openbsd-arm64	OpenBSD arm64	ubuntu-24.04	planned	ELF executable
-haiku-amd64	Haiku amd64	ubuntu-24.04	planned	ELF executable
-web-wasm32	WebAssembly wasm32	ubuntu-24.04	planned	web artifact bundle
+# The Wena desktop - the native Nuklear GUI - for every platform it is built for.
+# Every target is one self-contained release file: everything it needs is linked
+# in, including the licenses of what is (`wena --licenses`). Each is built by one
+# job of .github/workflows/release-all.yml, the only release workflow.
+#
+# job: how it is built
+#   linux    in a container of that CPU, native or under QEMU (scripts/build_desktop_release_container.sh)
+#   bsd      in a virtual machine of that system (scripts/build_desktop_release_vm.sh)
+#   macos    on a macOS runner (scripts/build_desktop_release.sh)
+#   windows  cross-compiled with MinGW-w64 on Linux, then run on a Windows runner
+#   amiga    in that system's cross-compiler container (scripts/build_desktop_amiga.sh)
+#   android  with the Android NDK and SDK (scripts/build_desktop_android.sh)
+#   ios      with Xcode on a macOS runner (scripts/build_desktop_ios.sh)
+# target	display name	job	status	release file
+linux-amd64	Linux x86-64	linux	ready	wena-linux-amd64
+linux-arm64	Linux ARM 64-bit	linux	ready	wena-linux-arm64
+linux-armhf	Linux ARMv7 hard-float	linux	ready	wena-linux-armhf
+linux-armel	Linux ARMv5 soft-float	linux	ready	wena-linux-armel
+linux-i686	Linux x86 32-bit	linux	ready	wena-linux-i686
+linux-riscv64	Linux RISC-V 64-bit	linux	ready	wena-linux-riscv64
+linux-ppc64le	Linux POWER little-endian	linux	ready	wena-linux-ppc64le
+linux-s390x	Linux IBM Z	linux	ready	wena-linux-s390x
+linux-mips64le	Linux MIPS64 little-endian	linux	ready	wena-linux-mips64le
+freebsd-amd64	FreeBSD x86-64	bsd	ready	wena-freebsd-amd64
+freebsd-arm64	FreeBSD ARM 64-bit	bsd	ready	wena-freebsd-arm64
+freebsd-riscv64	FreeBSD RISC-V 64-bit	bsd	ready	wena-freebsd-riscv64
+netbsd-amd64	NetBSD x86-64	bsd	ready	wena-netbsd-amd64
+netbsd-arm64	NetBSD ARM 64-bit	bsd	ready	wena-netbsd-arm64
+openbsd-amd64	OpenBSD x86-64	bsd	ready	wena-openbsd-amd64
+openbsd-arm64	OpenBSD ARM 64-bit	bsd	ready	wena-openbsd-arm64
+dragonflybsd-amd64	DragonFly BSD x86-64	bsd	ready	wena-dragonflybsd-amd64
+haiku-amd64	Haiku x86-64	bsd	ready	wena-haiku-amd64
+macos-arm64	macOS Apple silicon	macos	ready	wena-macos-arm64
+macos-amd64	macOS Intel	macos	ready	wena-macos-amd64
+windows-amd64	Windows x86-64	windows	ready	wena-windows-amd64.exe
+windows-i686	Windows x86 32-bit	windows	ready	wena-windows-i686.exe
+windows-arm64	Windows ARM 64-bit	windows	ready	wena-windows-arm64.exe
+amigaos-m68k	AmigaOS 3.x m68k (68040, RTG)	amiga	planned	wena-amigaos-m68k
+amigaos4-ppc	AmigaOS 4 PowerPC	amiga	planned	wena-amigaos4-ppc
+aros-x86	AROS x86-64	amiga	planned	wena-aros-x86
+android-arm64	Android ARM 64-bit	android	planned	wena-android-arm64.apk
+ios-arm64	iOS ARM 64-bit	ios	planned	wena-ios-arm64.ipa

@@ -348,6 +348,7 @@ static void desktop_usage(FILE *output)
     fputs("Usage: wena-desktop [--database ABS_PATH --actor ID --board ID]\n"
           "                    [--create [--title TITLE]] [--language LOCALE] [--smoke]\n"
           "       wena-desktop --dependency-info\n"
+          "       wena-desktop --licenses\n"
           "       wena-desktop --help\n"
           "\n"
           "Without a workspace it opens board my-board as local-user in WENA_DATABASE or\n"
@@ -356,8 +357,18 @@ static void desktop_usage(FILE *output)
     fputs("--create initializes a new local workspace without replacing files.\n"
           "Omit --create and --title to reopen it. The parent directory must exist.\n"
           "--smoke renders three frames with editor writes disabled.\n"
-          "--dependency-info reports linked libraries without opening a workspace.\n",
+          "--dependency-info reports linked libraries without opening a workspace.\n"
+          "--licenses prints the licenses of everything compiled into this program.\n",
           output);
+}
+
+#include "platform/notices_data.h"
+
+static int desktop_licenses(FILE *output)
+{
+    /* The terminating zero is the array's last byte, not part of the text. */
+    return fwrite(wena_notices, 1, sizeof(wena_notices) - 1, output) == sizeof(wena_notices) - 1 &&
+           fflush(output) == 0;
 }
 
 int main(int argc, char **argv)
@@ -414,6 +425,8 @@ int main(int argc, char **argv)
         desktop_usage(stdout);
         return ferror(stdout) ? 1 : 0;
     }
+    if (argc == 2 && !strcmp(argv[1], "--licenses"))
+        return desktop_licenses(stdout) ? 0 : 1;
     if (argc == 2 && !strcmp(argv[1], "--dependency-info"))
         return wena_desktop_dependency_report(stdout) ? 0 : 1;
     (void)wena_debug_log_open(wena_executable_path_current(executable, sizeof(executable)) ? executable : NULL);

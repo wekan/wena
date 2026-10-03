@@ -236,7 +236,7 @@ older Wena schemas atomically. It supports card creation/title/description,
 movement/archive/restoration, hierarchy creation/renaming/reordering, checklist
 create/edit/complete/confirmed deletion, persisted collapse, literal filtering and
 canonical language choice.
-Cataloged cross-release targets still build the earlier bootstrap executable.
+Every cataloged release target builds this desktop with SDL2 and SQLite linked in.
 Remote REST, WeKan/FerretDB conversion, complete collections, full fonts/RTL and
 UI/platform parity remain open. Local actor selection trusts the OS user;
 it is not login or board-membership authorization. See `docs/native-desktop.md`.
@@ -326,29 +326,29 @@ Architecture decisions for this cycle:
 
 ## Expanded build, release, test, and server phases
 
-- [x] Add `config/targets.tsv` as the shared catalog of realistic GitHub Actions
-  cross-build targets, distinguishing verified bootstrap targets from planned ones.
-- [_] Expand cross-build coverage one verified target at a time:
-  - [_] Linux i686, ppc64le, s390x, and riscv64.
-  - [_] Windows i686 and arm64.
-  - [_] Android armv7, x86, and x86-64.
-  - [_] iOS Simulator arm64 and amd64.
-  - [_] FreeBSD, NetBSD, and OpenBSD on amd64 and arm64, using pinned sysroots.
-  - [_] Haiku amd64 with its maintained cross-tools.
+- [x] Make `config/targets.tsv` the catalog of desktop release targets: every
+  target is the native Nuklear GUI, one self-contained file named `wena-TARGET`,
+  with the job that builds it. The terminal-only bootstrap program is gone.
+- [_] Release the desktop on every platform SDL2 reaches:
+  - [x] Linux amd64, arm64, armhf, armel, i686, riscv64, ppc64le, s390x and
+    mips64le, each built and smoke-tested (headless and X11) in a container of
+    that CPU.
+  - [x] Windows amd64, i686 and arm64, cross-compiled and run on Windows runners.
+  - [x] macOS arm64 and amd64.
+  - [x] FreeBSD amd64, arm64 and riscv64; NetBSD and OpenBSD amd64 and arm64;
+    DragonFly BSD and Haiku amd64, built natively in virtual machines; every
+    source checked here against the FreeBSD, OpenBSD and NetBSD headers.
+  - [_] AmigaOS 3.x m68k, AmigaOS 4 PowerPC and AROS x86-64.
+  - [_] Android arm64 (APK) and iOS arm64 (IPA).
   - [_] WebAssembly wasm32 as a self-contained web artifact bundle.
-  - [_] Replace the old AROS SDK image when a maintained compatible image or
-    reproducible current-source toolchain is available.
-- [x] Make `.github/workflows/release-all.yml` a complete Wena release workflow:
-  - [x] Require an existing newest `github.com/wekan/wena` release and resolve its
-    tag without creating, publishing, editing, or pushing a release.
-  - [x] Build every `ready` catalog target; a missing script or artifact is a hard
-    failure rather than a skipped target.
-  - [x] Collect every verified executable/bundle under unique release asset names.
-  - [x] Attach all collected assets to that newest release with `contents: write`,
-    collision handling, post-upload verification, timeouts, and per-job summaries.
-  - [x] Add static regression tests for permissions, dependencies, complete asset
-    coverage, and the no-release-creation/no-push boundary. Implement/test only;
-    never run this workflow or invoke a release/upload command from an assistant.
+- [x] Make `.github/workflows/release-all.yml` the one release workflow:
+  - [x] Create the release from the CHANGELOG section, or attach to the newest.
+  - [x] Build every `ready` catalog target in exactly one job; a target that is
+    not built fails the run after the others are attached.
+  - [x] Attach each file under its own name beside one `SHA256SUMS`; the
+    licenses are compiled into every executable (`wena --licenses`).
+  - [x] Static regression tests: catalog and workflow agree, the Linux
+    containers match local builds, and nothing else is released.
 - [x] Add WeKan-style local build entry points:
   - [x] `build.sh` with Build, Tests, Server, and Tools submenus plus noninteractive
     `--list` and named commands.

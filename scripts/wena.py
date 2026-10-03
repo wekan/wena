@@ -23,7 +23,7 @@ def targets():
         fields = line.split("\t")
         if len(fields) != 5:
             raise SystemExit(f"targets.tsv:{number}: expected five fields")
-        result.append(dict(zip(("target", "name", "runner", "status", "kind"), fields)))
+        result.append(dict(zip(("target", "name", "job", "status", "release"), fields)))
     return result
 
 
@@ -40,15 +40,6 @@ def host_target(system=None, machine=None):
     if not operating_system or not cpu:
         raise SystemExit(f"unsupported current host: {system}/{machine}")
     return f"{operating_system}-{cpu}"
-
-
-def shell_command(script):
-    if sys.platform == "win32":
-        shell = shutil.which("sh")
-        if not shell:
-            raise SystemExit("target build requires sh from Git for Windows or MSYS2")
-        return [shell, str(script)]
-    return [str(script)]
 
 
 def toolchain_module():
@@ -76,11 +67,6 @@ def build_one(target):
         raise SystemExit(f"unknown target: {target}")
     if record["status"] != "ready":
         raise SystemExit(f"target is cataloged but not ready: {target}")
-    script = ROOT / ".github" / "release" / f"{target}.sh"
-    if not script.is_file():
-        raise SystemExit(f"{target}: ready target is missing {script.relative_to(ROOT)}")
-    if sys.platform != "win32" and not script.stat().st_mode & 0o111:
-        raise SystemExit(f"{target}: {script.relative_to(ROOT)} exists but is not executable")
     verification = subprocess.call(
         [sys.executable, str(ROOT / "scripts" / "verify_i18n_catalog.py")], cwd=ROOT
     )
@@ -94,10 +80,15 @@ def build_one(target):
     plan = prepare_toolchain(target)
     if plan is None:
         return UNAVAILABLE
-    print(f"Building {record['name']} ({target})", flush=True)
-    if plan.container:
-        return subprocess.call(plan.container_command(target, ROOT), cwd=ROOT)
-    return subprocess.call(shell_command(script), cwd=ROOT, env=plan.environment())
+    print(f"Building {record['name']} ({target}) into release/{record['release']}", flush=True)
+    environment = plan.environment()
+    for command in plan.commands:
+        # Looked up on the build's PATH, which can name tools this process's does not.
+        program = shutil.which(command[0], path=environment.get("PATH")) or command[0]
+        status = subprocess.call([program, *command[1:]], cwd=ROOT, env=environment)
+        if status:
+            return status
+    return 0
 
 
 def build(selection):
@@ -260,10 +251,10 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
 
     next:    name the Upcoming CHANGELOG section after the next version
              (v0.01, v0.02, ... v9.99, v10.00), commit "Prepare vX release",
-             push the branch and start release-desktop.yml with that version,
-             which tags it, publishes the release with the section as its notes,
-             starts release-all.yml and attaches an executable per platform.
-    missing: push the branch and start release-desktop.yml without a version,
+             push the branch and start release-all.yml with that version,
+             which tags it, publishes the release with the section as its notes
+             and attaches the desktop executable of every platform.
+    missing: push the branch and start release-all.yml without a version,
              which builds and attaches to the newest existing release."""
     import time
     sleep = sleep or time.sleep
@@ -284,7 +275,7 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
     if git_output("status", "--porcelain", root=root):
         print("Commit or stash your changes first: a release builds only what is committed.", file=sys.stderr)
         return 1
-    workflow = ["gh", "workflow", "run", "release-desktop.yml", "-R", repository, "--ref", branch]
+    workflow = ["gh", "workflow", "run", "release-all.yml", "-R", repository, "--ref", branch]
     if mode == "next":
         versions = release_version_module(root)
         changelog_path = Path(root) / "CHANGELOG.md"
@@ -314,12 +305,12 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
         return 1
     for attempt in range(1, 4):
         if run(workflow).returncode == 0:
-            print(f"Started release-desktop.yml. Follow it at https://github.com/{repository}/actions", flush=True)
+            print(f"Started release-all.yml. Follow it at https://github.com/{repository}/actions", flush=True)
             return 0
         if attempt < 3:
             print(f"Attempt {attempt}/3 failed; retrying in 5 seconds.", file=sys.stderr)
             sleep(5)
-    print("Could not start release-desktop.yml. A token needs the workflow scope "
+    print("Could not start release-all.yml. A token needs the workflow scope "
           "(gh auth refresh -h github.com -s workflow), and the workflow must be on "
           f"{branch}. Start it at https://github.com/{repository}/actions", file=sys.stderr)
     return 1
@@ -513,11 +504,12 @@ TEST_SUITES = (
     ('sqlite-storage', 'test_sqlite_storage.sh', 'Checksummed atomic SQLite migration runner'),
     ('compiled-bundle', 'test_compiled_bundle.sh', 'Desktop migration bundle compiled in and checked against the lock'),
     ('progressive', 'test_progressive_integration.sh', 'HTML4 fallback, DnD, POST, and multi-region integration'),
-    ('migration-embed', 'test_migration_embedding.py', 'Pinned SQLite migration in every ready artifact'),
+    ('migration-embed', 'test_migration_embedding.py', 'Pinned SQLite migration lock, generated registry and stale-source refusal'),
     ('sqlite-persistence', 'test_sqlite_persistence.sh', 'Transactional SQLite create/edit/archive adapter'),
     ('runtime', 'test_runtime.sh', 'Managed SQLite adapter and listener lifecycle'),
     ('embedded-migration', 'test_embedded_migration.sh', 'Runtime executable migration footer loader'),
     ('executable-path', 'test_executable_path.sh', 'Bounded platform executable discovery'),
+    ('bsd-sources', 'test_bsd_sources.py', 'Every desktop source compiles against FreeBSD, OpenBSD and NetBSD headers'),
     ('sqlite-backup', 'test_sqlite_backup.sh', 'Sqlite backup regression checks'),
     ('sqlite-restore', 'test_sqlite_restore.sh', 'Sqlite restore regression checks'),
     ('admin-storage', 'test_admin_storage.sh', 'Admin storage regression checks'),
@@ -571,18 +563,15 @@ TEST_SUITES = (
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
     ('toolchain', 'test_toolchain.py', 'Per-OS install of compilers, SDKs, NDK and Docker before a build'),
-    ('collect-release-assets', 'test_collect_release_assets.py', 'Collect release assets regression checks'),
     ('generate-i18n-catalog', 'test_generate_i18n_catalog.py', 'Generate i18n catalog regression checks'),
-    ('i18n-embedding', 'test_i18n_embedding.py', 'I18n embedding regression checks'),
     ('release-workflow', 'test_release_workflow.py', 'Release workflow regression checks'),
     ('source-structure', 'test_source_structure.py', 'Source structure regression checks'),
     ('target-catalog', 'test_target_catalog.py', 'Target catalog regression checks'),
     ('ui-catalog', 'test_ui_catalog.sh', 'Generated canonical offline UI translations and language fallback'),
     ('ui-contract', 'test_ui_contract.py', 'Ui contract regression checks'),
     ('verify-i18n-catalog', 'test_verify_i18n_catalog.py', 'Verify i18n catalog regression checks'),
-    ('verify-release-assets', 'test_verify_release_assets.py', 'Verify release assets regression checks'),
 )
-SERIAL_SUITES = {"migration-embed", "i18n-embedding", "runtime", "embedded-migration", "desktop", "desktop-package"}
+SERIAL_SUITES = {"desktop", "desktop-package"}
 SOURCE_SUITES = {"theme-parity", "wekan-compat-inventory"}
 
 
@@ -650,8 +639,7 @@ def run_all_tests(jobs=4, suites=None, executor=None):
             print(output.rstrip())
     print("Native suite summary: " + ", ".join(
         f"{counts[status]} {status.lower()}" for status in ("PASS", "FAIL", "SKIP")))
-    print("Cross-target artifact tests are excluded: they require target-specific "
-          "compilers/SDKs; select target-release-TARGET explicitly.")
+    print("Release builds are not tests: build one with `build TARGET`, or all with `build all`.")
     return 1 if counts["FAIL"] else 0
 
 
@@ -663,13 +651,6 @@ def run_test(name):
         return subprocess.call([command[0], "-c", script.read_text(encoding="utf-8"), str(script)], cwd=ROOT)
     if name == "all":
         return run_all_tests()
-    if name.startswith("target-release-"):
-        target = name[len("target-release-"):]
-        if not any(item["target"] == target and item["status"] == "ready"
-                   for item in targets()):
-            raise SystemExit(f"unknown ready release-test target: {target}")
-        script = ROOT / "tests" / ("test_" + target.replace("-", "_") + "_release.sh")
-        return subprocess.call(test_command(script), cwd=ROOT)
     record = next((item for item in TEST_SUITES if item[0] == name), None)
     if record is None:
         raise SystemExit(f"unknown test suite: {name}")
@@ -726,10 +707,6 @@ def main(argv):
         print("sanitizers\tOptional ASan/UBSan native model, UI and SQLite regression subset")
         for name, _filename, description in TEST_SUITES:
             print(f"{name}\t{description}")
-        for item in targets():
-            if item["status"] == "ready":
-                print("target-release-" + item["target"] +
-                      "\tExplicit artifact test; requires target compiler/SDK")
         return 0
     if len(argv) == 2 and argv[0] == "tests":
         return run_test(argv[1])

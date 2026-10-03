@@ -48,7 +48,7 @@ at the required scale through Nuklear. It does not bundle multiple raster sizes
 or an SVG/XML runtime library. The initial native theme and board pictogram use
 this path; complete theme/responsive parity remains in the roadmap.
 
-## Tests and existing target builds
+## Tests and release builds
 
 ```sh
 ./build.sh tests all
@@ -66,11 +66,13 @@ this path; complete theme/responsive parity remains in the roadmap.
 ./build.sh run
 ```
 
-`build all` builds every release target this computer can build and lists the
-ones it cannot, with the reason: macOS and iOS need a Mac (iOS needs Xcode,
-which the App Store installs), and the Android NDK runs on amd64 Linux, macOS
-and Windows. Linux targets without a compiler here are built in an Ubuntu
-container. `install TARGET|all|desktop` installs without building, and
+`build TARGET` builds one platform's release file into `release/`, the same
+way the release workflow does: a Linux target in the workflow's own container
+of that CPU (under QEMU for another CPU), Windows with MinGW-w64, macOS and iOS
+with Xcode. `build all` builds every target this computer can build and lists
+the others with the reason: macOS and iOS need a Mac (iOS needs Xcode, which
+the App Store installs), and a BSD or Haiku target builds on that system
+itself. `install TARGET|all|desktop` installs without building, and
 `WENA_NO_INSTALL=1` only checks.
 
 `./build.sh run` (`build.bat run` on Windows, or menu option 2) Run) opens the
@@ -98,31 +100,35 @@ separately. Node.js enables the optional JavaScript runtime suite. Set
 `WEKAN_ROOT` to the canonical WeKan checkout pinned by the parity tests when
 running upstream source checks.
 
-The existing cataloged cross-platform `host`/target builds remain bootstrap
-executables. `build desktop` is a separate local SDL2/SQLite build. No release
-workflow is needed for local development.
+`build desktop` is the quick local build, against this computer's SDL2 and
+SQLite. No release workflow is needed for local development.
 
 ## Releases
 
-Each release has one self-contained `wena-desktop` executable per platform,
-with SDL2 and SQLite linked in from the checksum-pinned sources in
-[config/release-dependencies.json](config/release-dependencies.json):
-Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER little-endian,
-IBM Z and MIPS64 little-endian; macOS Apple silicon and Intel; and Windows
-x86-64, x86 and ARM64. A Linux executable needs only glibc and an X11 or
-Wayland desktop, a macOS one only macOS, a Windows one only Windows.
-`scripts/build_desktop_release.sh TARGET OUTPUT` builds one, and
-`scripts/check_release_executable.py` refuses it when SDL2, SQLite or a
-non-system library would be loaded at run time.
+Every release is the desktop - the native Nuklear GUI - as one file per
+platform, named after it: `wena-linux-amd64`, `wena-windows-amd64.exe`,
+`wena-freebsd-amd64` and so on, listed with how each is built in
+[config/targets.tsv](config/targets.tsv), beside one `SHA256SUMS`. Each file
+has everything it needs linked in: SDL2 and SQLite from the checksum-pinned
+sources in [config/release-dependencies.json](config/release-dependencies.json),
+the font, the migrations and translations, and the licenses of all of it
+(`wena --licenses`). A Linux or BSD executable needs only the system's C
+library and X11 or Wayland desktop, a macOS one only macOS, a Windows one only
+Windows. `scripts/check_release_executable.py` refuses a build when SDL2,
+SQLite or a non-system library would be loaded at run time.
+
+Platforms: Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER
+little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64, ARM64 and
+RISC-V 64; NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
+x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64.
 
 New entries go under `# Upcoming Wena release` in [CHANGELOG.md](CHANGELOG.md).
 Menu option 3) Release (`./build.sh release next`) numbers that section after
 the newest release (v0.01, v0.02, ... v9.99, v10.00), commits
-`Prepare vX release`, pushes, and starts `release-desktop.yml` on GitHub. That
-workflow publishes the release with the section as its notes, starts
-`release-all.yml` for the bootstrap targets, builds and smoke-tests every
-platform natively, under QEMU or by cross-compiling, and attaches each
-executable with its `.sha256` and the licenses. `./build.sh release missing`
+`Prepare vX release`, pushes, and starts `release-all.yml`, the only release
+workflow. It publishes the release with the section as its notes, builds and
+smoke-tests every platform - natively, under QEMU, in a BSD or Haiku virtual
+machine, or by cross-compiling - and attaches each file and `SHA256SUMS`. `./build.sh release missing`
 builds and attaches to the newest release without a new number. Release needs
 the GitHub CLI logged in and no uncommitted changes.
 

@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 dist/
+release/
 
 # Release build work, downloads and temporary files (scripts/build_desktop_release.sh)
 .tools/

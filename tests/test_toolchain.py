@@ -28,10 +28,13 @@ PROVIDES = {
     "libc6-dev-armhf-cross": set(), "libc6-dev-amd64-cross": set(),
     "gcc-arm-linux-gnueabihf": {"arm-linux-gnueabihf-gcc"},
     "gcc-x86-64-linux-gnu": {"x86_64-linux-gnu-gcc"},
-    "mingw-w64": {"x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-objdump"},
+    "mingw-w64": {"x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-objdump", "i686-w64-mingw32-gcc"},
     "gcc-mingw-w64-x86-64": {"x86_64-w64-mingw32-gcc"},
     "binutils-mingw-w64-x86-64": {"x86_64-w64-mingw32-objdump"},
     "mingw64-gcc": {"x86_64-w64-mingw32-gcc"}, "mingw64-binutils": {"x86_64-w64-mingw32-objdump"},
+    "gcc-mingw-w64-i686": {"i686-w64-mingw32-gcc"}, "binutils-mingw-w64-i686": {"i686-w64-mingw32-objdump"},
+    "mingw32-gcc": {"i686-w64-mingw32-gcc"}, "mingw32-binutils": {"i686-w64-mingw32-objdump"},
+    "make": {"make"},
     "mingw": {"gcc", "objdump", "readelf"}, "BrechtSanders.WinLibs.POSIX.UCRT": {"gcc", "objdump", "readelf"},
     "docker-desktop": {"docker"}, "docker.io": {"docker"}, "moby-engine": {"docker"},
     "Docker.DockerDesktop": {"docker"}, "git": {"git", "sh", "file"}, "Git.Git": {"git", "sh", "file"},
@@ -123,14 +126,17 @@ def test_host():
     assert toolchain.tools_directory(Path("/src/wena")) == Path("/src/wena/.tools")
 
 
+def commands(plan):
+    return [" ".join(command) for command in plan.commands]
+
+
 def test_package_managers():
     # Ubuntu and Debian: apt-get, updated once, through sudo.
     computer = Computer(UBUNTU)
-    prepare(computer, "linux-arm64")
+    prepare(computer, "windows-i686")
     installs = computer.installs()
     assert computer.ran[0][-2:] == ["apt-get", "update"] and computer.ran.count(computer.ran[0]) == 1
-    # A cross-compiler comes with its C library: without it there is no <stdio.h>.
-    assert ["apt-get", "install", "--yes", "gcc-aarch64-linux-gnu", "libc6-dev-arm64-cross"] == installs[0][-5:]
+    assert installs[0][-3:] == ["--yes", "gcc-mingw-w64-i686", "binutils-mingw-w64-i686"]
     assert all(command[0] == "sudo" for command in installs) or os.geteuid() == 0
     # Fedora: dnf.
     computer = Computer(FEDORA)
@@ -138,84 +144,83 @@ def test_package_managers():
     assert computer.installs()[0][-4:] == ["install", "--assumeyes", "mingw64-gcc", "mingw64-binutils"]
     # macOS: Homebrew, a cask for Docker Desktop.
     computer = Computer(MAC, {"xcrun"})
-    prepare(computer, "amigaos-m68k")
+    prepare(computer, "linux-amd64")
     assert ["brew", "install", "--cask", "docker-desktop"] in computer.installs()
-    # Windows: Chocolatey, else winget.
+    # Windows: Chocolatey, else winget; Git for Windows first, for sh.
     computer = Computer(WINDOWS)
-    prepare(computer, "windows-amd64")
+    prepare(computer, "amigaos-m68k")
     assert computer.installs()[0] == ["choco", "install", "--yes", "--no-progress", "git"]
-    assert ["choco", "install", "--yes", "--no-progress", "mingw"] in computer.installs()
+    assert ["choco", "install", "--yes", "--no-progress", "docker-desktop"] in computer.installs()
     computer = Computer(WINDOWS, managers=("winget",))
-    prepare(computer, "windows-amd64")
-    assert computer.installs()[0][:4] == ["winget", "install", "--exact", "--id"]
-    assert computer.installs()[0][4] == "Git.Git"
+    prepare(computer, "amigaos-m68k")
+    assert computer.installs()[0][:5] == ["winget", "install", "--exact", "--id", "Git.Git"]
     # Nothing is installed twice, or at all when it is already there.
-    computer = Computer(UBUNTU, {"gcc", "file", "readelf"})
+    computer = Computer(UBUNTU, {"docker"})
     prepare(computer, "linux-amd64")
     assert computer.installs() == []
 
 
 def test_targets():
-    # Linux: the native gcc; Debian's cross-compilers; Ubuntu's in a container elsewhere.
-    for computer, target in ((Computer(UBUNTU), "linux-amd64"), (Computer(UBUNTU_ARM), "linux-arm64"),
-                             (Computer(FEDORA), "linux-amd64")):
-        plan = prepare(computer, target)
-        assert plan.container is None and {"gcc", "file", "readelf"} <= computer.commands
-    computer = Computer(UBUNTU)
-    assert prepare(computer, "linux-armhf").container is None
-    assert "arm-linux-gnueabihf-gcc" in computer.commands
-    for host in (FEDORA, MAC, WINDOWS):
-        computer = Computer(host, {"xcrun"})
-        target = "linux-arm64"
-        plan = prepare(computer, target)
-        assert plan.container.startswith("wena-build-linux-arm64:"), host
-        build = next(command for command in computer.ran if command[:2] == ["docker", "build"])
-        assert build[-1] == "-"
-        command = plan.container_command(target, Path("/w"))
-        assert command[:3] == ["docker", "run", "--rm"] and command[-2:] == ["sh", ".github/release/linux-arm64.sh"]
-        assert "/w:/work" in command
-    builds = []
-    computer = Computer(MAC, {"xcrun"})
-    original = computer.run
-    computer.run = lambda command, **kwargs: (builds.append(kwargs.get("input")), original(command, **kwargs))[1]
-    prepare(computer, "linux-armhf")
-    dockerfile = next(text for text in builds if text)
-    assert "gcc-arm-linux-gnueabihf libc6-dev-armhf-cross" in dockerfile
-    assert "python3 file binutils" in dockerfile
-    # Windows amd64: MinGW-w64 everywhere, the native one on Windows.
-    for host, compiler in ((UBUNTU, "x86_64-w64-mingw32-gcc"), (FEDORA, "x86_64-w64-mingw32-gcc"),
-                           (MAC, "x86_64-w64-mingw32-gcc"), (WINDOWS, "gcc")):
-        computer = Computer(host)
-        prepare(computer, "windows-amd64")
-        assert compiler in computer.commands, host
-    # AmigaOS and AROS: Docker, started when it is not running.
-    computer = Computer(MAC, {"docker"}, docker_running=True)
-    prepare(computer, "amigaos-m68k")
-    assert computer.installs() == []
-    computer = Computer(UBUNTU, {"docker", "readelf", "file"})
-    prepare(computer, "aros-x86")
-    assert computer.installs() == []
-    # An arm64 Linux needs QEMU to run the amd64 compiler images.
+    # Linux: in the release workflow's own container, on any computer with Docker.
+    for host in (UBUNTU, FEDORA, MAC):
+        computer = Computer(host, {"docker", "xcrun"})
+        plan = prepare(computer, "linux-armel")
+        assert commands(plan) == [
+            f"docker run --rm --platform linux/arm/v5 --volume {ROOT}:/w --workdir /w "
+            f"--env WENA_OWNER={os.getuid()}:{os.getgid()} arm32v5/debian:bookworm "
+            "sh scripts/build_desktop_release_container.sh linux-armel"], host
+    # Docker on Linux needs QEMU for another CPU; not for its own, and Docker Desktop never.
     computer = Computer(UBUNTU_ARM, {"docker"})
-    prepare(computer, "amigaos-m68k")
+    prepare(computer, "linux-arm64")
+    assert computer.installs() == []
+    computer = Computer(UBUNTU_ARM, {"docker"})
+    prepare(computer, "linux-amd64")
     assert any("qemu-user-static" in command for command in computer.installs())
+    computer = Computer(MAC, {"docker"})
+    prepare(computer, "linux-s390x")
+    assert computer.installs() == []
+    # Windows: MinGW-w64 for the CPU, then the release build and its release file.
+    for host, target, compiler in ((UBUNTU, "windows-amd64", "x86_64-w64-mingw32-gcc"),
+                                   (FEDORA, "windows-i686", "i686-w64-mingw32-gcc"),
+                                   (MAC, "windows-amd64", "x86_64-w64-mingw32-gcc")):
+        computer = Computer(host)
+        plan = prepare(computer, target)
+        assert compiler in computer.commands, (host, target)
+        executable = f"dist/release/{target}/wena.exe"
+        assert commands(plan)[0] == f"sh scripts/build_desktop_release.sh {target} {executable}"
+        assert commands(plan)[1].endswith(f"scripts/package_desktop_release.py binary {target} {executable} release")
+    # Windows arm64: the pinned llvm-mingw, fetched by the build itself.
+    computer = Computer(MAC, {"xcrun"})
+    assert commands(prepare(computer, "windows-arm64"))[0].startswith("sh scripts/build_desktop_release.sh windows-arm64")
+    assert computer.installs() == []
+    # macOS: the Command Line Tools' SDK.
+    computer = Computer(MAC, {"xcrun"})
+    assert commands(prepare(computer, "macos-amd64"))[0] == \
+        "sh scripts/build_desktop_release.sh macos-amd64 dist/release/macos-amd64/wena"
+    # A BSD or Haiku builds on that system itself.
+    from unittest.mock import patch
+    with patch.object(toolchain.platform, "system", return_value="FreeBSD"):
+        plan = prepare(Computer(toolchain.Host("freebsd", "amd64")), "freebsd-amd64")
+    assert commands(plan) == ["sh scripts/build_desktop_release_vm.sh freebsd-amd64"]
     # iOS: Xcode, used without changing which developer directory is selected.
-    computer = Computer(MAC, {"xcrun"}, sdks=("macosx", "xcode"))
     xcode = Path("/Applications/Xcode.app")
     if xcode.is_dir():
+        computer = Computer(MAC, {"xcrun"}, sdks=("macosx", "xcode"))
         plan = prepare(computer, "ios-arm64")
         assert plan.env["DEVELOPER_DIR"].endswith("/Contents/Developer")
     computer = Computer(MAC, {"xcrun"}, sdks=("macosx", "iphoneos"))
     assert prepare(computer, "ios-arm64").env == {}
     # The Windows build gets sh and a python3 the release scripts can call.
-    computer = Computer(WINDOWS)
+    computer = Computer(WINDOWS, {"docker"})
     with tempfile.TemporaryDirectory() as temp:
         builder = computer.builder()
         builder.root = Path(temp) / "wena"
-        plan = toolchain.prepare("windows-amd64", builder)
+        plan = toolchain.prepare("amigaos-m68k", builder)
         shim = Path(temp) / "wena" / ".tools" / "shims" / "python3"
         assert shim.read_text(encoding="utf-8").startswith("#!/bin/sh\nexec ")
         assert str(shim.parent) in plan.path
+    # Every target of the catalog has a plan.
+    assert sorted(toolchain.TARGETS) == sorted(toolchain.catalog())
 
 
 def test_unavailable():
@@ -228,9 +233,12 @@ def test_unavailable():
     assert ["xcode-select", "--install"] in computer.ran
     unavailable(Computer(UBUNTU_ARM), "android-arm64", "no compiler for linux arm64")
     unavailable(Computer(UBUNTU), "plan9-amd64", "no build requirements")
-    unavailable(Computer(toolchain.Host("linux", "amd64", None)), "windows-amd64", "neither Debian")
+    unavailable(Computer(MAC), "openbsd-arm64", "builds on OpenBSD arm64 itself")
+    unavailable(Computer(UBUNTU), "haiku-amd64", "builds on Haiku amd64 itself")
+    unavailable(Computer(toolchain.Host("linux", "amd64", None)), "windows-amd64", "Windows targets cross-compile")
     unavailable(Computer(MAC, managers=()), "windows-amd64", "https://brew.sh")
-    unavailable(Computer(WINDOWS, managers=()), "windows-amd64", "Chocolatey")
+    unavailable(Computer(WINDOWS, managers=()), "amigaos-m68k", "Chocolatey")
+    unavailable(Computer(WINDOWS, {"sh", "file"}), "windows-arm64", "llvm-mingw")
     # A failed install, and WENA_NO_INSTALL.
     computer = Computer(FEDORA, failing={"mingw64-gcc"})
     unavailable(computer, "windows-amd64", "could not install mingw64-gcc")
@@ -239,7 +247,7 @@ def test_unavailable():
     assert computer.installs() == []
     # Choco needs an administrator terminal, and says so.
     computer = Computer(WINDOWS, failing={"git"})
-    unavailable(computer, "windows-amd64", "administrator")
+    unavailable(computer, "amigaos-m68k", "administrator")
 
 
 def test_ndk():
@@ -303,27 +311,7 @@ def test_ndk():
         assert not (tools / "outside").exists()
 
 
-def test_release_scripts():
-    # The release scripts accept what is installed on each computer.
-    windows = (ROOT / ".github" / "release" / "windows-amd64.sh").read_text(encoding="utf-8")
-    assert 'test "$(gcc -dumpmachine)" = x86_64-w64-mingw32' in windows
-    # file 5.41 (Ubuntu, macOS) and 5.46 (Fedora) word a PE executable differently.
-    import re
-    pattern = re.search(r"^file \"\$binary\" \| grep -Eq '([^']+)'", windows, re.MULTILINE).group(1)
-    for output in ("PE32+ executable (console) x86-64, for MS Windows",
-                   "PE32+ executable for MS Windows 5.02 (console), x86-64, 18 sections"):
-        assert re.search(pattern, output), output
-    assert not re.search(pattern, "PE32 executable (console) Intel 80386, for MS Windows")
-    android = (ROOT / ".github" / "release" / "android-arm64.sh").read_text(encoding="utf-8")
-    for prebuilt in toolchain.NDK_PREBUILT.values():
-        assert prebuilt in android
-    for target in toolchain.AMIGA_IMAGES:
-        script = (ROOT / ".github" / "release" / f"{target}.sh").read_text(encoding="utf-8")
-        assert script.count("docker run --rm") == script.count("--platform linux/amd64"), target
-    # Every ready target has requirements.
-    ready = [line.split("\t")[0] for line in (ROOT / "config" / "targets.tsv").read_text(encoding="utf-8").splitlines()
-             if line and not line.startswith("#") and line.split("\t")[3] == "ready"]
-    assert sorted(ready) == sorted(toolchain.TARGETS)
+def test_entry_points():
     # build.sh and build.bat make sure Python is there for everything else.
     shell = (ROOT / "build.sh").read_text(encoding="utf-8")
     for manager in ("brew install python", "apt-get install --yes python3", "dnf install --assumeyes python3"):
@@ -332,6 +320,9 @@ def test_release_scripts():
     assert "choco install --yes --no-progress python" in batch and "Python.Python.3" in batch
     # cmd.exe misreads labels in a file without CRLF endings; build.bat has none.
     assert ":" + "install" not in batch and "goto" not in batch.lower()
+    # The local Linux containers are the workflow's (tests/test_release_workflow.py checks it).
+    assert set(toolchain.LINUX_CONTAINERS) == {t for t in toolchain.catalog() if t.startswith("linux-")}
+    assert set(toolchain.LINUX_CONTAINERS[t][0] for t in toolchain.LINUX_CONTAINERS) <= set(toolchain.QEMU_CPUS)
 
 
 def main():
@@ -340,7 +331,7 @@ def main():
     test_targets()
     test_unavailable()
     test_ndk()
-    test_release_scripts()
+    test_entry_points()
     print("toolchain: ok")
 
 

@@ -30,5 +30,13 @@
     "license": "Apache-2.0 WITH LLVM-exception (toolchain only; the executable links its MinGW-w64 runtime statically)",
     "verified": "SHA-256 equals the digest GitHub publishes for the release asset",
     "use": "Windows arm64 cross-compiler, on an aarch64 Linux build host"
+  },
+  "llvm-mingw-macos": {
+    "version": "20260922",
+    "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-macos-universal.tar.xz",
+    "sha256": "52e5f5a7b131021d0c39a37a38fa380a1da7885cd04bd61afd0cd4ecfb8bc1f3",
+    "license": "Apache-2.0 WITH LLVM-exception (toolchain only; the executable links its MinGW-w64 runtime statically)",
+    "verified": "SHA-256 equals the digest GitHub publishes for the release asset",
+    "use": "Windows arm64 cross-compiler, on a macOS build host"
   }
 }

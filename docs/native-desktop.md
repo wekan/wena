@@ -28,10 +28,10 @@ Reopen the same workspace by omitting `--create` and `--title`:
   --actor local-user --board my-board
 ```
 
-The output embeds and verifies the pinned migration chain and full offline translation
-catalog. SDL2 and SQLite remain shared host dependencies. Cataloged cross-release
-targets still build the earlier bootstrap executable; they do not yet package
-this desktop. Direct Meteor/FerretDB database migration is not implemented.
+The migration chain is compiled in and checked against its pinned SHA-256 at
+startup; nothing is read from the executable's own file. In this local build SDL2
+and SQLite remain shared host dependencies; every release file
+(`config/targets.tsv`) is this desktop with them linked in. Direct Meteor/FerretDB database migration is not implemented.
 Existing Wena schema-v1 databases upgrade atomically through the immutable v1-v14
 chain on storage startup, including smoke mode. A verified old backup is upgraded
 in a private staged copy before restore interrupts the running database.

@@ -1,6 +1,75 @@
 # Upcoming Wena release
 
 <details>
+<summary>Every release file is the desktop GUI, one self-contained wena-TARGET per platform, from one workflow</summary>
+
+- `release-all.yml` is the only release workflow. `release-desktop.yml`, the
+  `.github/release/*.sh` scripts and `client/main.c` are gone: the program they
+  released printed one line in a terminal. Every target in `config/targets.tsv`
+  is now the native Nuklear desktop, named after its platform -
+  `wena-linux-amd64`, `wena-windows-amd64.exe`, `wena-freebsd-amd64` - and
+  attached beside one `SHA256SUMS`, without a `.sha256` per file or a separate
+  notices archive.
+- 23 platforms: Linux amd64, arm64, armhf, armel, i686, riscv64, ppc64le,
+  s390x and mips64le; FreeBSD amd64, arm64 and riscv64; NetBSD and OpenBSD
+  amd64 and arm64; DragonFly BSD and Haiku amd64, built natively in virtual
+  machines (cross-platform-actions v1.6.0, `scripts/build_desktop_release_vm.sh`);
+  macOS arm64 and amd64; Windows amd64, i686 and arm64.
+- SDL2 and SQLite are linked into each one from the pinned sources, as before;
+  the licenses of everything in it are now compiled in too
+  (`scripts/generate_notices.py`), and `wena --licenses` prints them.
+- wena2 log: linux-armel and linux-mips64le stopped at once, because the
+  `debian:bookworm` image no longer lists those CPUs. They build in Debian's
+  per-architecture images, `arm32v5/debian:bookworm` and
+  `mips64le/debian:bookworm`, with the same glibc 2.36. Under QEMU, loading
+  Mesa's DRI driver crashes on MIPS64 (SIGBUS) before Wena draws anything,
+  whichever Gallium driver is chosen, so that one X11 smoke test keeps Mesa's
+  driver unloaded and uses SDL's software renderer. Every X11 smoke test now
+  checks the application's own exit status rather than `xvfb-run`'s.
+- Two compile errors that would have stopped the BSD builds, found by
+  compiling every desktop source against FreeBSD 15.1, OpenBSD 7.9 and NetBSD
+  10.1 headers (`tests/test_bsd_sources.py`, suite `bsd-sources`): an unused
+  static helper in `server/executable_path.c` on FreeBSD, NetBSD and DragonFly
+  (`-Werror`), and NetBSD's `<sys/sysctl.h>` needing `_NETBSD_SOURCE`.
+- `./build.sh build TARGET` builds the same release file into `release/` the
+  way the workflow does: Linux targets in the workflow's own container image
+  (`scripts/toolchain.py` and the workflow are checked to agree), Windows with
+  MinGW-w64 (arm64 with the pinned llvm-mingw, now also on macOS), macOS with
+  Xcode. A BSD or Haiku target builds on that system itself.
+- Verified here: macOS arm64 and amd64 built, ran headless twice and printed
+  their licenses; Windows amd64, i686 and arm64 built and were checked
+  self-contained; linux-arm64 and linux-armel built and passed the headless
+  and X11 smoke tests in their containers, and linux-mips64le too, under QEMU. The BSD and Haiku virtual-machine builds, the Windows runs and
+  the other Linux CPUs are verified by the next release run. Tests:
+  `release-workflow`, `target-catalog`, `toolchain`, `build-entrypoints`,
+  `source-structure`, `bsd-sources`, with negatives (the wena2 image, a target
+  left out of the workflow, the two BSD errors, a stray release file).
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>The desktop compiles its migrations in and reads nothing from its own file</summary>
+
+- It assembled the migration bundle from a footer appended to its executable,
+  found through the executable's path, and opened an appended translation
+  catalog only to check that it was there. An app bundle, an APK, a signed
+  iOS app and Amiga's `PROGDIR:` either cannot carry appended bytes or cannot
+  find the file reliably, and OpenBSD has no `/proc` to find it with. The
+  bundle now comes from the compiled registry, checked against its own
+  SHA-256 (`wena_sqlite_compiled_bundle`); nothing is appended.
+- `tests/test_compiled_bundle.sh` (suite `compiled-bundle`) checks the bundle
+  against `config/migrations-lock.json`, NULL arguments, and that neither the
+  desktop nor its build reads or appends a footer. The runtime and
+  embedded-migration suites test the server's footer reader with a fixture
+  instead of the removed terminal program.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>build.sh and build.bat install what a build needs on macOS, Windows, Ubuntu, Debian and Fedora</summary>
 
 - `scripts/toolchain.py` runs before every build and installs what is

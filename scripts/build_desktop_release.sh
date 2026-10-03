@@ -11,8 +11,10 @@
 # cursors, timers): no audio, joysticks, haptics, sensors, HID or power.
 #
 # Linux targets build natively (a matching runner, or a container under QEMU
-# for the other CPUs); macOS targets with clang -arch on a macOS runner; the
-# Windows targets cross-compile with MinGW-w64. CC overrides the compiler.
+# for the other CPUs); the BSDs and Haiku natively in a virtual machine of that
+# system (scripts/build_desktop_release_vm.sh); macOS targets with clang -arch
+# on a macOS runner; the Windows targets cross-compile with MinGW-w64. CC
+# overrides the compiler, MAKE the make (SDL's makefiles need GNU make).
 # Symbols are stripped at link time (-s): the catalog and migrations are
 # appended to the executable afterwards, and a later `strip` would drop them.
 set -eu
@@ -25,7 +27,8 @@ target=$1
 output=$2
 work="$root_dir/.tools/release/$target"
 cache=${WENA_RELEASE_CACHE:-$root_dir/.tools/cache}
-jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
+jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+make=${MAKE:-make}
 
 host=
 ldflags=
@@ -34,11 +37,17 @@ cflags=
 # pointers through __PTRDIFF_TYPE__, which is long long on 64-bit Windows, so
 # C89's long long warning is off for the Windows builds only.
 windows_cflags="-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -Wno-long-long"
-sdl_configure=
+# Extra SDL configure options for one system (scripts/build_desktop_release_vm.sh).
+sdl_configure=${WENA_SDL_CONFIGURE:-}
 case "$target" in
-  linux-*|freebsd-*)
+  linux-*|freebsd-*|netbsd-*|openbsd-*|dragonflybsd-*)
     cc=${CC:-cc}
-    ldflags="-pthread -s"
+    ldflags="-pthread -s ${WENA_EXTRA_LDFLAGS:-}"
+    ;;
+  haiku-*)
+    # Threads are part of Haiku's libroot; SDL's Haiku video is C++ (libbe).
+    cc=${CC:-gcc}
+    ldflags="-s"
     ;;
   macos-arm64)
     cc=${CC:-"clang -arch arm64 -mmacosx-version-min=11.0"}
@@ -75,7 +84,11 @@ esac
 mkdir -p "$work" "$(dirname -- "$output")"
 # Windows arm64 needs Clang's MinGW-w64: the pinned llvm-mingw when none is installed.
 if [ "$target" = windows-arm64 ] && ! command -v aarch64-w64-mingw32-clang >/dev/null 2>&1; then
-  case $(uname -m) in aarch64|arm64) toolchain=llvm-mingw-aarch64 ;; *) toolchain=llvm-mingw-x86_64 ;; esac
+  case $(uname -s)-$(uname -m) in
+    Darwin-*) toolchain=llvm-mingw-macos ;;
+    *-aarch64|*-arm64) toolchain=llvm-mingw-aarch64 ;;
+    *) toolchain=llvm-mingw-x86_64 ;;
+  esac
   if [ ! -x "$root_dir/.tools/release/$toolchain/bin/aarch64-w64-mingw32-clang" ]; then
     archive=$(python3 "$root_dir/scripts/fetch_release_dependency.py" "$toolchain" "$cache")
     rm -rf "$root_dir/.tools/release/$toolchain"
@@ -100,8 +113,8 @@ if [ ! -f "$work/sdl/lib/libSDL2.a" ]; then
       --disable-audio --disable-joystick --disable-haptic --disable-hidapi \
       --disable-sensor --disable-power $sdl_configure > "$work/sdl-configure.log" 2>&1 ||
       { tail -40 "$work/sdl-configure.log" >&2; exit 1; }
-    make -j"$jobs" > "$work/sdl-make.log" 2>&1 || { tail -40 "$work/sdl-make.log" >&2; exit 1; }
-    make install > "$work/sdl-install.log" 2>&1
+    "$make" -j"$jobs" > "$work/sdl-make.log" 2>&1 || { tail -40 "$work/sdl-make.log" >&2; exit 1; }
+    "$make" install > "$work/sdl-install.log" 2>&1
   )
 fi
 

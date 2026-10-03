@@ -27,16 +27,12 @@ def command(*arguments):
 
 
 class FakePlan:
-    container = None
-
-    def __init__(self, env=None):
+    def __init__(self, env=None, commands=None):
         self.env = env or {}
+        self.commands = commands or []
 
     def environment(self):
         return dict(self.env)
-
-    def container_command(self, target, root):
-        return ["docker", "run", target]
 
 
 def test_runner():
@@ -57,31 +53,45 @@ def test_runner():
             patch.object(wena.subprocess, "call") as call, redirect_stdout(io.StringIO()):
         assert wena.build("desktop") == 1
     call.assert_not_called()
-    # All: a target this computer cannot build is listed and skipped, a
-    # failing one fails the whole build, and one in a container runs there.
-    plans = {"linux-arm64": FakePlan(), "ios-arm64": None, "windows-amd64": FakePlan()}
-    container = FakePlan()
-    container.container = "wena-build-linux-amd64:x"
-    plans["linux-amd64"] = container
+    # All: each target runs its plan's commands in order; one this computer
+    # cannot build is listed and skipped, and a failing one fails the build
+    # without stopping the others.
     ready = [item["target"] for item in wena.targets() if item["status"] == "ready"]
-    with patch.object(wena, "prepare_toolchain", lambda target: plans.get(target, FakePlan())), \
+    unavailable = ready[-1]
+    plans = {target: FakePlan({"T": target}, [["build", target], ["package", target]]) for target in ready}
+    plans[unavailable] = None
+    with patch.object(wena, "prepare_toolchain", lambda target: plans.get(target)), \
             patch.object(wena.subprocess, "call", side_effect=lambda command, **kwargs:
-                         3 if "windows-amd64.sh" in command[-1] else 0) as call, \
+                         3 if command[-1] == "windows-amd64" and command[0].endswith("build") else 0) as call, \
             redirect_stdout(io.StringIO()) as printed:
         assert wena.build("all") == 1
-    builds = [c.args[0] for c in call.call_args_list
-              if c.args[0][0] == "docker" or "/.github/release/" in c.args[0][-1].replace("\\", "/")]
-    assert ["docker", "run", "linux-amd64"] in builds
-    assert not any("ios-arm64" in command[-1] for command in builds)
-    assert "Not buildable on this computer: ios-arm64" in printed.getvalue()
+    builds = [c.args[0] for c in call.call_args_list if c.args[0][0].endswith(("build", "package"))]
+    assert ["build", "linux-amd64"] in builds and ["package", "linux-amd64"] in builds
+    # A failed build is not packaged.
+    assert ["build", "windows-amd64"] in builds and ["package", "windows-amd64"] not in builds
+    assert not any(command[-1] == unavailable for command in builds)
+    assert f"Not buildable on this computer: {unavailable}" in printed.getvalue()
     assert "Failed: windows-amd64" in printed.getvalue()
-    assert len(builds) == len(ready) - 1
+    assert len(builds) == 2 * (len(ready) - 1) - 1
+    environments = [c.kwargs["env"] for c in call.call_args_list if c.args[0][0].endswith("build")]
+    assert {"T": "linux-amd64"} in environments
     # One target that cannot be built here is a failure, and runs nothing.
     with patch.object(wena, "prepare_toolchain", return_value=None), \
             patch.object(wena.subprocess, "call", return_value=0) as call, redirect_stdout(io.StringIO()):
-        assert wena.build("ios-arm64") == 1
-        assert wena.install("ios-arm64") == 1
-    assert not any("/.github/release/" in c.args[0][-1] for c in call.call_args_list)
+        assert wena.build(unavailable) == 1
+        assert wena.install(unavailable) == 1
+    assert not any(c.args[0][0].endswith(("build", "package")) for c in call.call_args_list)
+    # Negative: a planned target is refused before anything runs.
+    planned = [item["target"] for item in wena.targets() if item["status"] != "ready"]
+    if planned:
+        with patch.object(wena, "prepare_toolchain") as prepared:
+            try:
+                wena.build(planned[0])
+            except SystemExit as error:
+                assert "not ready" in str(error)
+            else:
+                raise AssertionError("a planned target was built")
+        prepared.assert_not_called()
     with patch.object(wena.subprocess, "call", return_value=7) as call:
         assert wena.run_test("sanitizers") == 7
         assert call.call_args.args[0][-1] == str(ROOT / "tests" / "test_native_sanitizers.sh")
@@ -108,14 +118,14 @@ def test_runner():
         assert wena.execute_test(("models", "test_models.sh", ""))[1] == "FAIL"
     with patch.object(wena.subprocess, "run", side_effect=subprocess.TimeoutExpired("suite", 300)):
         assert wena.execute_test(("models", "test_models.sh", ""))[1] == "FAIL"
-    records = [(name, "", "") for name in ("first", "second", "third", "migration-embed")]
+    records = [(name, "", "") for name in ("first", "second", "third", "desktop")]
     active = 0
     maximum = 0
     lock = threading.Lock()
     def fake(record):
         nonlocal active, maximum
         with lock:
-            if record[0] == "migration-embed":
+            if record[0] == "desktop":
                 assert active == 0, "shared-output build overlapped isolated tests"
             active += 1
             maximum = max(maximum, active)
@@ -286,7 +296,7 @@ def test_release():
     assert status == 0
     assert text.startswith("# v0.02 2026-10-03 Wena release\n") and "# Upcoming" not in text
     assert log.splitlines()[0] == "Prepare v0.02 release"
-    assert pushes and runs == [["gh", "workflow", "run", "release-desktop.yml", "-R", "wekan/wena",
+    assert pushes and runs == [["gh", "workflow", "run", "release-all.yml", "-R", "wekan/wena",
                                 "--ref", "main", "-f", "version=v0.02"]]
     assert release(published="v0.09\nv0.05\n")[4].startswith("# v0.10 ")
     assert release(published="v9.99\n")[4].startswith("# v10.00 ")
@@ -437,26 +447,30 @@ def test_desktop_release_packaging():
     spec = importlib.util.spec_from_file_location("package_desktop_release", ROOT / "scripts" / "package_desktop_release.py")
     package = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(package)
-    import hashlib, tarfile
+    import hashlib
     with tempfile.TemporaryDirectory() as temp:
-        binary = Path(temp) / "wena-desktop"
+        binary = Path(temp) / "wena"
         binary.write_bytes(b"\x7fELF fake desktop")
         out = Path(temp) / "out"
+        # Each release file is named after its target, from the catalog.
         linux = package.binary("linux-riscv64", binary, out)
         windows = package.binary("windows-arm64", binary, out)
-        assert linux.name == "wena-desktop-linux-riscv64" and windows.name == "wena-desktop-windows-arm64.exe"
+        aros = package.binary("aros-x86", binary, out) if "aros-x86" in package.targets() else None
+        assert linux.name == "wena-linux-riscv64" and windows.name == "wena-windows-arm64.exe"
+        assert aros is None or aros.name == "wena-aros-x86"
         for path in (linux, windows):
             assert path.read_bytes() == binary.read_bytes()
-            assert (out / (path.name + ".sha256")).read_text() == hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
-        notices = package.notices(out)
-        assert notices.read_bytes() == package.notices(Path(temp) / "again").read_bytes(), "not deterministic"
-        with tarfile.open(notices) as archive:
-            names = {n.split("/", 1)[1] for n in archive.getnames()}
-            readme = archive.extractfile("wena-desktop-notices/README.txt").read().decode()
-        assert names == {"README.txt", *package.NOTICES}
-        for target in package.TARGETS:
-            assert package.executable_name(target) in readme, target
-        # Negative: an unknown platform and an empty or missing executable.
+        # One SHA256SUMS for all of them, in sha256sum -c format, and no other file.
+        sums = package.sums(out)
+        lines = sums.read_text().splitlines()
+        assert f"{hashlib.sha256(binary.read_bytes()).hexdigest()}  wena-linux-riscv64" in lines
+        assert sorted(path.name for path in out.iterdir()) == sorted(
+            [p.name for p in (linux, windows, aros) if p] + ["SHA256SUMS"])
+        assert not list(out.glob("*.sha256")) and not list(out.glob("*notices*"))
+        missing = package.missing(out)
+        assert "linux-riscv64" not in missing and "linux-amd64" in missing
+        # Negative: an unknown platform, an empty or missing executable, and a
+        # stray file that is not any target's release file.
         binary.write_bytes(b"")
         for target, path in (("plan9-amd64", Path(temp) / "x"), ("linux-amd64", binary), ("linux-amd64", Path(temp) / "missing")):
             try:
@@ -465,18 +479,15 @@ def test_desktop_release_packaging():
                 pass
             else:
                 raise AssertionError(target)
-    # The workflow builds exactly the packaged platforms, each in one place.
-    workflow = (ROOT / ".github" / "workflows" / "release-desktop.yml").read_text(encoding="utf-8")
-    linux = re.findall(r"target: (linux-[a-z0-9]+), runner", workflow)
-    macos = re.findall(r"target: (macos-[a-z0-9]+), runner", workflow)
-    windows = re.search(r"target: \[([^\]]+)\]", workflow)[1].replace(" ", "").split(",")
-    assert sorted(linux + macos + windows) == sorted(package.TARGETS)
-    assert len(set(linux + macos + windows)) == len(package.TARGETS)
-    assert sorted(re.findall(r"target: (windows-[a-z0-9]+), runner", workflow)) == sorted(windows), "every Windows build is smoke-tested"
-    assert "sh scripts/build_desktop_release_container.sh" in workflow
-    assert workflow.count('scripts/build_desktop_release.sh "$TARGET"') == 2
+        (out / "wena-desktop-notices.tar.gz").write_bytes(b"old")
+        try:
+            package.sums(out)
+        except ValueError as error:
+            assert "not a release file" in str(error)
+        else:
+            raise AssertionError("a stray file was checksummed for release")
+    workflow = (ROOT / ".github" / "workflows" / "release-all.yml").read_text(encoding="utf-8")
     assert "python3 scripts/release_version.py notes" in workflow and "gh release create" in workflow
-    assert "gh workflow run release-all.yml" in workflow
     assert "git push" not in workflow
     # Every release dependency is pinned with a SHA-256.
     pins = json.loads((ROOT / "config" / "release-dependencies.json").read_text())
@@ -537,9 +548,11 @@ def main():
     for item in ready:
         assert f"{item['target']}\tready\t{item['name']}" in listed.stdout
 
-    planned = command("build", "linux-i686")
-    assert planned.returncode != 0
-    assert "cataloged but not ready" in planned.stderr
+    not_ready = [item["target"] for item in wena.targets() if item["status"] != "ready"]
+    if not_ready:
+        planned = command("build", not_ready[0])
+        assert planned.returncode != 0
+        assert "cataloged but not ready" in planned.stderr
     unknown = command("build", "not-a-target")
     assert unknown.returncode != 0
     assert "unknown target" in unknown.stderr
@@ -590,8 +603,9 @@ def main():
     assert "scripts\\wena.py" in batch_entry
     assert "\npause" not in shell_entry.lower()
     assert "\npause" not in batch_entry.lower()
-    assert "ready target is missing" in dispatcher
-    assert "exists but is not executable" in dispatcher
+    # A target is built by the commands its toolchain plan names, not by a
+    # per-target script; a planned one is refused before anything runs.
+    assert "plan.commands" in dispatcher and "cataloged but not ready" in dispatcher
     assert "verify_i18n_catalog.py" in dispatcher
     for category in ("Build", "Run", "Tests", "Server", "Tools"):
         assert category in dispatcher

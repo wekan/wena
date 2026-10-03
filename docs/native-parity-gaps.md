@@ -124,8 +124,8 @@ claims. SDL dummy smoke is startup/render validation, not user-driven visual QA.
 
 ## Build and documentation consistency
 
-`build desktop` is the real local SDL2/SQLite application. Cataloged `host` and
-cross-target builds remain bootstrap executables. The separate
+`build desktop` is the real local SDL2/SQLite application, and every cataloged
+release target builds the same desktop with SDL2 and SQLite linked in. The separate
 [`package_desktop.py`](../scripts/package_desktop.py) verifies Linux amd64 only;
 its presence does not make Windows, macOS, Android or Amiga desktop packages
 complete. Shared host dependencies, provenance and patched SQLite requirements

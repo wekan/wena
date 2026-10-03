@@ -23,6 +23,9 @@ WINDOWS_SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "winmm.dll", "imm32
                   "msvcrt.dll", "ucrtbase.dll", "cfgmgr32.dll", "dinput8.dll", "shlwapi.dll",
                   "comdlg32.dll", "ws2_32.dll", "bcrypt.dll"}
 FORBIDDEN = ("sdl2", "sqlite")
+# Systems whose executables are ELF, checked alike: the CPU, and that SDL2 and
+# SQLite are linked in. Their C library and windowing system are the system's.
+ELF_SYSTEMS = ("linux", "freebsd", "netbsd", "openbsd", "dragonflybsd", "haiku")
 
 
 def cstring(data, offset):
@@ -116,7 +119,7 @@ def pe_needed(data):
 
 def check(target, data):
     system, cpu = target.split("-", 1)
-    if system in ("linux", "freebsd"):
+    if system in ELF_SYSTEMS:
         machine, needed = elf_needed(data)
         if machine != ELF_MACHINES.get(cpu):
             raise ValueError(f"ELF machine {machine} is not {cpu}")

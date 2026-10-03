@@ -1,107 +1,104 @@
 #!/usr/bin/env python3
-"""Structural regression checks for the release target matrix."""
+"""The one release workflow builds exactly the ready desktop targets.
 
+.github/workflows/release-all.yml is the only workflow. Each ready target of
+config/targets.tsv is built by exactly one job of the kind the catalog names,
+uploaded under its own name, and attached beside one SHA256SUMS; nothing
+else - no terminal-only program, no separate notices archive - is released.
+"""
+
+import importlib.util
 from pathlib import Path
 import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / ".github" / "workflows" / "release-all.yml"
-ROADMAP = ROOT / "ROADMAP.md"
+WORKFLOWS = ROOT / ".github" / "workflows"
+WORKFLOW = WORKFLOWS / "release-all.yml"
 
 
-def listed_targets(text: str) -> list[str]:
-    return re.findall(r"^\s+- target: ([a-z0-9-]+)$", text, re.MULTILINE)
+def module(name):
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+def job_block(workflow, job):
+    """The text of one top-level job."""
+    match = re.search(rf"^  {re.escape(job)}:\n(.*?)(?=^  [a-z][a-z-]*:\n|\Z)", workflow, re.MULTILINE | re.DOTALL)
+    assert match, f"no {job} job"
+    return match.group(1)
+
+
+def matrix_targets(block):
+    return re.findall(r"target: ([a-z0-9_-]+)", block)
 
 
 def main() -> None:
+    assert sorted(path.name for path in WORKFLOWS.iterdir()) == ["release-all.yml"], \
+        "release-all.yml is the only workflow"
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    roadmap = ROADMAP.read_text(encoding="utf-8")
-    expected = [
-        "linux-arm64",
-        "linux-amd64",
-        "linux-armhf",
-        "windows-amd64",
-        "macos-arm64",
-        "macos-amd64",
-        "amigaos-m68k",
-        "aros-x86",
-        "android-arm64",
-        "ios-arm64",
-    ]
+    catalog = module("package_desktop_release").targets()
+    ready = {target: record for target, record in catalog.items() if record[2] == "ready"}
+    jobs = {"linux": "linux", "bsd": "bsd", "macos": "macos", "windows": "windows-build",
+            "amiga": "amiga", "android": "android", "ios": "ios"}
+    built = []
+    for kind, job in jobs.items():
+        wanted = [target for target, record in ready.items() if record[1] == kind]
+        if not wanted:
+            assert f"\n  {job}:\n" not in workflow, f"{job} job builds no ready target"
+            continue
+        block = job_block(workflow, job)
+        found = matrix_targets(block)
+        if job == "windows-build":
+            found = re.findall(r"windows-[a-z0-9]+", re.search(r"target: \[([^\]]*)\]", block).group(1))
+        assert sorted(found) == sorted(wanted), (job, found, wanted)
+        built += found
+        assert "name: wena-${{ matrix.target }}" in block, f"{job} uploads under another name"
+    assert sorted(built) == sorted(ready), "every ready target is built exactly once"
+    # Planned targets are not built yet.
+    for target, record in catalog.items():
+        if record[2] != "ready":
+            assert f"target: {target}" not in workflow, target
 
-    assert listed_targets(workflow) == expected, "release targets changed or reordered"
-    assert workflow.count("name: ") >= len(expected), "every target needs a display name"
-    assert "python3 scripts/wena.py build \"$TARGET\"" in workflow
-    assert all(
-        "embed_i18n_catalog.py" in (ROOT / ".github" / "release" / f"{target}.sh").read_text(encoding="utf-8")
-        for target in expected
-    )
-    assert "dist/${{ matrix.target }}/" in workflow
-    assert "steps.support.outputs.enabled" not in workflow
-    assert "if-no-files-found: error" in workflow
-    assert "permissions:\n  contents: read" in workflow
-    assert "https://api.github.com/repos/wekan/wena/releases/latest" in workflow
-    assert "--request GET" in workflow
-    assert "needs: resolve-release" in workflow
-    assert "release_id: ${{ steps.release.outputs.release_id }}" in workflow
-    assert "release_tag: ${{ steps.release.outputs.release_tag }}" in workflow
-    assert "latest Wena release response lacks id or tag_name" in workflow
-    assert "--request POST" not in workflow
-    assert "--request PATCH" not in workflow
-    assert "action-gh-release" not in workflow
-    assert "needs: cross-compile" in workflow
-    assert "actions/download-artifact@v4" in workflow
-    assert "pattern: wena-*" in workflow
-    assert "scripts/collect_release_assets.py" in workflow
-    assert "--repository \"$GITHUB_REPOSITORY\"" in workflow
-    assert "--commit \"$GITHUB_SHA\"" in workflow
-    assert "name: wena-release-assets" in workflow
-    assert "needs: [resolve-release, collect-assets]" in workflow
-    assert workflow.count("contents: write") == 1
-    assert "timeout-minutes: 20" in workflow
-    assert "timeout 10m gh release upload" in workflow
-    assert "--clobber" in workflow
-    assert "for attempt in 1 2 3" in workflow
-    assert "--method GET" in workflow
-    assert "scripts/verify_release_assets.py" in workflow
-    assert "GITHUB_STEP_SUMMARY" in workflow
-    assert "gh release create" not in workflow
-    assert "gh release edit" not in workflow
-    assert "git push" not in workflow
-    assert "--draft" not in workflow
-    assert "--publish" not in workflow
-    completed = {
-        "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
-        "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",
-        "Android arm64", "iOS arm64",
-    }
-    for display_name in (
-        "Linux arm64", "Linux amd64", "Linux armhf", "Windows amd64",
-        "macOS arm64", "macOS amd64", "AmigaOS 3.x m68k", "AROS x86",
-        "Android arm64", "iOS arm64",
-    ):
-        marker = "x" if display_name in completed else "_"
-        assert f"- [{marker}] {display_name}" in roadmap
+    # The Linux containers are the ones a local build uses (scripts/toolchain.py).
+    containers = module("toolchain").LINUX_CONTAINERS
+    linux = job_block(workflow, "linux")
+    for target, (platform, image) in containers.items():
+        assert re.search(rf"target: {target}, runner: [a-z0-9.-]+, platform: {re.escape(platform)}, "
+                         rf"image: '{re.escape(image)}'", linux), target
+    # Regression (wena2 log): debian:bookworm lists neither armel nor mips64le.
+    assert "platform: linux/arm/v5, image: 'arm32v5/debian:bookworm'" in linux
+    assert "platform: linux/mips64le, image: 'mips64le/debian:bookworm'" in linux
 
-    # Each of these failed on the release runners with a compiler that could
-    # not find or not parse <stdio.h>; the flags below are what makes it work.
-    def release_script(target: str) -> str:
-        return (ROOT / ".github" / "release" / f"{target}.sh").read_text(encoding="utf-8")
+    # BSDs and Haiku in their own virtual machines, pinned to an action release.
+    bsd = job_block(workflow, "bsd")
+    assert "uses: cross-platform-actions/action@v1.6.0" in bsd
+    assert "sh scripts/build_desktop_release_vm.sh ${{ matrix.target }}" in bsd
 
-    for target, sdk in (("macos-arm64", "macosx"), ("macos-amd64", "macosx"), ("ios-arm64", "iphoneos")):
-        script = release_script(target)
-        assert f"sdk=$(xcrun --sdk {sdk} --show-sdk-path)" in script, target
-        assert '  -isysroot "$sdk" \\\n' in script, f"{target}: clang run by path needs -isysroot"
-        assert "xcrun --find clang" not in script, f"{target}: clang must come from the {sdk} SDK"
-    assert "  -Dinline=__inline__ \\\n" in release_script("amigaos-m68k"), "libnix headers use inline"
-    aros = release_script("aros-x86")
-    assert "  --sysroot=/opt/x86_64-aros \\\n" in aros
-    assert aros.index("include/aros/stdc") < aros.index("-isystem /opt/x86_64-aros/include \\"), \
-        "AROS needs the ISO C headers ahead of the posixc layer"
-    # sdkmanager is not on PATH on ubuntu-24.04 runners.
-    assert not re.search(r"^\s+sdkmanager ", workflow, re.MULTILINE)
-    assert '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"' in workflow
+    # Attach: every job, checksums, upload, and a failure naming what is missing.
+    attach = job_block(workflow, "attach")
+    for job in ["prepare", *[jobs[kind] for kind in {record[1] for record in ready.values()}]]:
+        assert re.search(rf"needs: \[[^\]]*\b{re.escape(job)}\b", attach), job
+    assert "package_desktop_release.py sums release" in attach
+    assert "sha256sum -c SHA256SUMS" in attach
+    assert "package_desktop_release.py missing release" in attach
+    assert "--clobber" in attach
+
+    # Negative: nothing but the desktop executables and SHA256SUMS is released.
+    for gone in ("notices", "wena-desktop-", "release-desktop", ".sha256 ", "collect_release_assets",
+                 "verify_release_assets", ".github/release/", "client/main.c"):
+        assert gone not in workflow, gone
+    assert not (ROOT / ".github" / "release").exists()
+    # The X11 smoke test checks the application's own exit status.
+    container = (ROOT / "scripts" / "build_desktop_release_container.sh").read_text(encoding="utf-8")
+    assert "test \"$(cat \"$smoke/status\")\" = 0" in container
+    # Only MIPS64, where Mesa's DRI driver crashes under QEMU, skips it; the
+    # other CPUs keep the default renderer and Mesa's own driver search.
+    assert ('if test "$target" = linux-mips64le; then\n'
+            '  export LIBGL_DRIVERS_PATH=/nonexistent SDL_RENDER_DRIVER=software\nfi') in container
+    assert container.count("LIBGL_DRIVERS_PATH") == 1 and container.count("SDL_RENDER_DRIVER") == 1
 
 
 if __name__ == "__main__":

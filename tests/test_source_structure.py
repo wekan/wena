@@ -21,12 +21,12 @@ def main() -> None:
         assert directory.is_dir(), f"missing source boundary: {relative}"
         assert (directory / "README.md").is_file(), f"undocumented boundary: {relative}"
 
-    assert (ROOT / "client/main.c").is_file()
+    # The desktop is the one program; its entry point is client/desktop.c.
+    assert (ROOT / "client/desktop.c").is_file()
     assert not (ROOT / "src/main.c").exists()
-    for script in (ROOT / ".github/release").glob("*.sh"):
-        text = script.read_text(encoding="utf-8")
-        assert "src/main.c" not in text, f"stale source path in {script.name}"
-        assert "client/main.c" in text, f"client entry point missing from {script.name}"
+    # Negative: the terminal-only program that printed one line is gone.
+    assert not (ROOT / "client/main.c").exists()
+    assert "client/desktop.c" in (ROOT / "scripts/build_desktop.sh").read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":

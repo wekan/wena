@@ -7,10 +7,12 @@ on Windows. The Android NDK is the one download that is not a package: the
 same revision the release workflow installs, checked against Google's size and
 SHA-1 and unpacked into .tools.
 
-prepare(target) returns a Plan: what to add to the environment of the target's
-.github/release script, or a Linux container to run it in when this computer
-has no compiler for that target. Unavailable says why a target cannot be built
-here at all, such as iOS without Xcode, and how to get it.
+prepare(target) returns a Plan: the commands that build the target's release
+file into release/ exactly as .github/workflows/release-all.yml does - a Linux
+target in the same container image (under QEMU for another CPU), Windows with
+MinGW-w64, macOS and iOS with Xcode - and what to add to their environment.
+Unavailable says why a target cannot be built here at all, such as iOS without
+Xcode or a BSD anywhere but on that BSD, and how to get it.
 
 WENA_NO_INSTALL=1 checks without installing anything."""
 
@@ -41,15 +43,27 @@ NDK_ARCHIVES = {
 }
 NDK_PREBUILT = {"linux": "linux-x86_64", "macos": "darwin-x86_64", "windows": "windows-x86_64"}
 
-# The AmigaOS and AROS compilers exist only as these amd64 images.
-AMIGA_IMAGES = ("amigaos-m68k", "aros-x86")
-
-LINUX_TARGETS = {
-    "linux-amd64": ("amd64", "x86_64-linux-gnu"),
-    "linux-arm64": ("arm64", "aarch64-linux-gnu"),
-    "linux-armhf": ("armhf", "arm-linux-gnueabihf"),
+# The container each Linux target is built in: the same as release-all.yml's
+# linux matrix (tests/test_toolchain.py checks), so a local build is the release build.
+LINUX_CONTAINERS = {
+    "linux-amd64": ("linux/amd64", "ubuntu:22.04"),
+    "linux-arm64": ("linux/arm64", "ubuntu:22.04"),
+    "linux-armhf": ("linux/arm/v7", "ubuntu:22.04"),
+    "linux-armel": ("linux/arm/v5", "arm32v5/debian:bookworm"),
+    "linux-i686": ("linux/386", "debian:bookworm"),
+    "linux-riscv64": ("linux/riscv64", "ubuntu:22.04"),
+    "linux-ppc64le": ("linux/ppc64le", "ubuntu:22.04"),
+    "linux-s390x": ("linux/s390x", "ubuntu:22.04"),
+    "linux-mips64le": ("linux/mips64le", "mips64le/debian:bookworm"),
 }
-CONTAINER_BASE = "ubuntu:24.04"
+# QEMU's name for a container platform's CPU, as registered in binfmt_misc.
+QEMU_CPUS = {"linux/amd64": "x86_64", "linux/arm64": "aarch64", "linux/arm/v7": "arm",
+             "linux/arm/v5": "arm", "linux/386": "i386", "linux/riscv64": "riscv64",
+             "linux/ppc64le": "ppc64le", "linux/s390x": "s390x", "linux/mips64le": "mips64el"}
+HOST_PLATFORMS = {"amd64": "linux/amd64", "arm64": "linux/arm64"}
+# The system a BSD or Haiku target is built on, as platform.system() names it.
+VM_SYSTEMS = {"freebsd": "FreeBSD", "netbsd": "NetBSD", "openbsd": "OpenBSD",
+              "dragonflybsd": "DragonFly", "haiku": "Haiku"}
 
 # A package per package manager. "--cask NAME" is a Homebrew cask; several
 # names are separated by spaces. A manager missing from an entry has no
@@ -63,6 +77,9 @@ PACKAGES = {
     "mingw-w64": {"brew": "mingw-w64", "apt": "gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64",
                   "dnf": "mingw64-gcc mingw64-binutils", "choco": "mingw",
                   "winget": "BrechtSanders.WinLibs.POSIX.UCRT"},
+    "mingw-w64-i686": {"brew": "mingw-w64", "apt": "gcc-mingw-w64-i686 binutils-mingw-w64-i686",
+                       "dnf": "mingw32-gcc mingw32-binutils"},
+    "make": {"apt": "make", "dnf": "make"},
     "docker": {"brew": "--cask docker-desktop", "apt": "docker.io", "dnf": "moby-engine",
                "choco": "docker-desktop", "winget": "Docker.DockerDesktop"},
     "qemu": {"apt": "qemu-user-static binfmt-support", "dnf": "qemu-user-static"},
@@ -134,12 +151,12 @@ def tools_directory(root=ROOT):
 
 
 class Plan:
-    """What a build needs besides this process's environment."""
+    """What a build runs, and what it needs besides this process's environment."""
 
     def __init__(self):
         self.path = []        # directories put first on PATH
         self.env = {}         # variables set for the build
-        self.container = None  # an image to run the script in, instead of here
+        self.commands = []    # run in order in the Wena checkout; empty for the desktop
 
     def add_path(self, directory):
         directory = str(directory)
@@ -152,11 +169,6 @@ class Plan:
         if self.path:
             environment["PATH"] = os.pathsep.join(self.path + [environment.get("PATH", "")])
         return environment
-
-    def container_command(self, target, root=ROOT):
-        user = ["--user", f"{os.getuid()}:{os.getgid()}"] if hasattr(os, "getuid") else []
-        return ["docker", "run", "--rm", *user, "--volume", f"{root}:/work", "--workdir", "/work",
-                "--env", "HOME=/tmp", self.container, "sh", f".github/release/{target}.sh"]
 
 
 class Installer:
@@ -328,9 +340,10 @@ class Builder:
         self.need("docker", "docker", "Docker")
         if not self.ok(["docker", "info"]):
             self.start_docker()
-        if self.host.system == "linux" and platform == "linux/amd64" and self.host.cpu != "amd64" \
-                and not Path("/proc/sys/fs/binfmt_misc/qemu-x86_64").exists():
-            self.installer.install("qemu", "QEMU to run amd64 containers")
+        # Docker Desktop runs other CPUs' containers itself; Docker on Linux needs QEMU.
+        if self.host.system == "linux" and platform and platform != HOST_PLATFORMS.get(self.host.cpu) \
+                and not Path(f"/proc/sys/fs/binfmt_misc/qemu-{QEMU_CPUS[platform]}").exists():
+            self.installer.install("qemu", f"QEMU to run {platform} containers")
 
     def start_docker(self):
         if self.host.system == "macos":
@@ -351,78 +364,104 @@ class Builder:
                               "'sudo usermod -aG docker $USER', log in again, and build again")
         raise Unavailable("Docker did not start; start Docker Desktop and build again")
 
-    # Targets ------------------------------------------------------------
+    # Targets: each adds the commands that build it into release/<its file>.
+
+    def release_build(self, target, extension=""):
+        """scripts/build_desktop_release.sh here, then the release file."""
+        executable = f"dist/release/{target}/wena{extension}"
+        self.plan.commands += [
+            ["sh", "scripts/build_desktop_release.sh", target, executable],
+            [sys.executable, "scripts/package_desktop_release.py", "binary", target, executable, "release"]]
 
     def linux(self, target):
-        cpu, triple = LINUX_TARGETS[target]
-        if self.host.system == "linux" and self.host.family in ("debian", "fedora") and cpu == self.host.cpu:
-            self.need("gcc", "gcc")
-            self.need("file", "file")
-            self.need("readelf", "binutils")
-        elif self.host.system == "linux" and self.host.family == "debian":
-            self.need_package(f"{triple}-gcc", cross_packages(target), f"{triple}-gcc")
-            self.need("file", "file")
-            self.need("readelf", "binutils")
-        else:
-            # Fedora's cross-compilers have no C library, and macOS and Windows
-            # have none for Linux at all: Ubuntu's, in a container.
-            self.container(target, ["gcc libc6-dev" if cpu == self.host.cpu else cross_packages(target)])
+        platform, image = LINUX_CONTAINERS[target]
+        self.docker(platform)
+        # Files written in the container belong to this user afterwards, not root.
+        owner = ["--env", f"WENA_OWNER={os.getuid()}:{os.getgid()}"] if hasattr(os, "getuid") else []
+        self.plan.commands.append(
+            ["docker", "run", "--rm", "--platform", platform, "--volume", f"{self.root}:/w",
+             "--workdir", "/w", *owner, image, "sh", "scripts/build_desktop_release_container.sh", target])
 
     def windows(self, target):
+        cpu = target.split("-", 1)[1]
         if self.host.system == "windows":
-            # A native MinGW gcc builds it; .github/release/windows-amd64.sh accepts it.
-            self.need("gcc", "gcc", "gcc (MinGW-w64)")
-            self.need("objdump", "binutils", "objdump (MinGW-w64)")
+            self.msys2_toolchain(cpu)
         elif self.host.system == "macos" or self.host.family in ("debian", "fedora"):
-            self.need("x86_64-w64-mingw32-gcc", "mingw-w64")
-            self.need("x86_64-w64-mingw32-objdump", "mingw-w64")
+            if cpu == "amd64":
+                self.need("x86_64-w64-mingw32-gcc", "mingw-w64")
+            elif cpu == "i686":
+                self.need("i686-w64-mingw32-gcc", "mingw-w64-i686")
+            elif self.host.system == "linux" and self.host.cpu not in ("amd64", "arm64"):
+                raise Unavailable("the pinned llvm-mingw for Windows arm64 runs on amd64 or arm64 Linux and macOS")
+            # Windows arm64: scripts/build_desktop_release.sh fetches the pinned llvm-mingw.
             if self.host.system == "linux":
-                self.need("file", "file")
+                self.need("make", "make")
         else:
-            self.container(target, ["gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64"])
+            raise Unavailable("Windows targets cross-compile on macOS, Debian, Ubuntu, Fedora or "
+                              "Windows (MSYS2)")
+        self.release_build(target, ".exe")
 
-    def container(self, target, packages):
-        self.docker(platform=None)
-        dockerfile = (f"FROM {CONTAINER_BASE}\n"
-                      "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install --yes "
-                      "--no-install-recommends python3 file binutils " + " ".join(packages) +
-                      " && rm -rf /var/lib/apt/lists/*\n")
-        # Named after its contents, so a changed package list builds a new one.
-        image = f"wena-build-{target}:" + hashlib.sha1(dockerfile.encode("utf-8")).hexdigest()[:12]
-        if not self.ok(["docker", "image", "inspect", image]):
-            self.installer.say(f"Building container {image} with Ubuntu's compiler for {target}")
-            if self.run(["docker", "build", "--tag", image, "-"], input=dockerfile, text=True).returncode != 0:
-                raise Unavailable(f"could not build the {image} container")
-        self.plan.container = image
+    def msys2_toolchain(self, cpu):
+        """MinGW-w64 gcc and make for a Windows target, from MSYS2."""
+        if cpu == "arm64":
+            raise Unavailable("Windows arm64 cross-compiles on macOS or Linux (llvm-mingw)")
+        root = self.msys2_root()
+        prefix = {"amd64": "mingw-w64-x86_64", "i686": "mingw-w64-i686"}[cpu]
+        directory = {"amd64": "mingw64", "i686": "mingw32"}[cpu]
+        compiler = {"amd64": "x86_64-w64-mingw32-gcc.exe", "i686": "i686-w64-mingw32-gcc.exe"}[cpu]
+        if not (root / directory / "bin" / compiler).is_file() or not (root / "usr" / "bin" / "make.exe").is_file():
+            command = [str(root / "usr" / "bin" / "bash.exe"), "-lc",
+                       f"pacman -S --needed --noconfirm {prefix}-gcc make"]
+            self.installer.say("Installing MinGW-w64 and make: " + " ".join(command))
+            if self.run(command).returncode != 0:
+                raise Unavailable("could not install MinGW-w64 and make with MSYS2's pacman")
+        # MSYS2's sh and make run SDL's configure; its MinGW gcc compiles.
+        self.plan.add_path(root / "usr" / "bin")
+        self.plan.add_path(root / directory / "bin")
 
     def macos(self, target):
         if self.host.system != "macos":
             raise Unavailable("macOS targets build only on macOS (with the Xcode Command Line Tools)")
         self.xcode_sdk("macosx")
+        self.release_build(target)
+
+    def vm(self, target):
+        system = target.split("-", 1)[0]
+        cpu = target.split("-", 1)[1]
+        name = VM_SYSTEMS[system]
+        if platform.system() != name or self.host.cpu != cpu:
+            raise Unavailable(f"{target} builds on {name} {cpu} itself (GitHub builds it in a "
+                              f"{name} virtual machine)")
+        self.plan.commands.append(["sh", "scripts/build_desktop_release_vm.sh", target])
+
+    def amiga(self, target):
+        self.docker()
+        executable = f"dist/release/{target}/wena"
+        self.plan.commands += [
+            ["sh", "scripts/build_desktop_amiga.sh", target, executable],
+            [sys.executable, "scripts/package_desktop_release.py", "binary", target, executable, "release"]]
 
     def ios(self, target):
         if self.host.system != "macos":
             raise Unavailable("iOS builds only on macOS with Xcode")
         self.xcode_sdk("iphoneos")
-
-    def amiga(self, target):
-        self.docker()
-        if target == "aros-x86":
-            self.need("readelf", "binutils")
-            if self.host.system == "linux":
-                self.need("file", "file")
+        executable = f"dist/release/{target}/wena.ipa"
+        self.plan.commands += [
+            ["sh", "scripts/build_desktop_ios.sh", executable],
+            [sys.executable, "scripts/package_desktop_release.py", "binary", target, executable, "release"]]
 
     def android(self, target):
         prebuilt = NDK_PREBUILT.get(self.host.system)
         if prebuilt is None or (self.host.system != "macos" and self.host.cpu != "amd64"):
             raise Unavailable(f"the Android NDK has no compiler for {self.host.system} {self.host.cpu}")
-        if self.host.system == "linux":
-            self.need("file", "file")
         given = os.environ.get("ANDROID_NDK_ROOT")
-        if given and ndk_revision(Path(given)) == NDK_REVISION:
-            return
-        self.plan.env["ANDROID_NDK_ROOT"] = str(ensure_ndk(self.host, tools_directory(self.root),
-                                                           say=self.installer.say))
+        if not (given and ndk_revision(Path(given)) == NDK_REVISION):
+            self.plan.env["ANDROID_NDK_ROOT"] = str(ensure_ndk(self.host, tools_directory(self.root),
+                                                               say=self.installer.say))
+        executable = f"dist/release/{target}/wena.apk"
+        self.plan.commands += [
+            ["sh", "scripts/build_desktop_android.sh", executable],
+            [sys.executable, "scripts/package_desktop_release.py", "binary", target, executable, "release"]]
 
     def desktop(self):
         if not (self.root / "third_party" / "nuklear" / "nuklear.h").is_file():
@@ -444,14 +483,18 @@ class Builder:
         else:
             raise Unavailable(f"the desktop app has no known build requirements for {self.host.system}")
 
-    def msys2(self):
-        """SDL2, SQLite and gcc for the Windows desktop, from MSYS2's MinGW-w64."""
+    def msys2_root(self):
         roots = [Path(root) for root in MSYS2_ROOTS]
         if not any((root / "usr" / "bin" / "bash.exe").is_file() for root in roots):
             self.installer.install("msys2", "MSYS2")
         root = next((root for root in roots if (root / "usr" / "bin" / "bash.exe").is_file()), None)
         if root is None:
             raise Unavailable("MSYS2 is still not found after installing it")
+        return root
+
+    def msys2(self):
+        """SDL2, SQLite and gcc for the Windows desktop, from MSYS2's MinGW-w64."""
+        root = self.msys2_root()
         bin_directory = root / "mingw64" / "bin"
         if not (bin_directory / "sdl2-config").is_file() or not (bin_directory / "gcc.exe").is_file():
             command = [str(root / "usr" / "bin" / "bash.exe"), "-lc",
@@ -464,20 +507,21 @@ class Builder:
         self.plan.env["WENA_CC"] = "gcc"
 
 
-def cross_packages(target):
-    """Debian's cross-compiler for a Linux target, with its C library."""
-    cpu, triple = LINUX_TARGETS[target]
-    return f"gcc-{triple.replace('_', '-')} libc6-dev-{cpu}-cross"
+JOBS = {"linux": Builder.linux, "bsd": Builder.vm, "macos": Builder.macos, "windows": Builder.windows,
+        "amiga": Builder.amiga, "android": Builder.android, "ios": Builder.ios}
 
 
-TARGETS = {
-    "linux-amd64": Builder.linux, "linux-arm64": Builder.linux, "linux-armhf": Builder.linux,
-    "windows-amd64": Builder.windows,
-    "macos-arm64": Builder.macos, "macos-amd64": Builder.macos,
-    "ios-arm64": Builder.ios,
-    "amigaos-m68k": Builder.amiga, "aros-x86": Builder.amiga,
-    "android-arm64": Builder.android,
-}
+def catalog(root=ROOT):
+    """target -> job, from config/targets.tsv."""
+    result = {}
+    for line in (Path(root) / "config" / "targets.tsv").read_text(encoding="utf-8").splitlines():
+        if line and not line.startswith("#"):
+            fields = line.split("\t")
+            result[fields[0]] = fields[2]
+    return result
+
+
+TARGETS = {target: JOBS[job] for target, job in catalog().items()}
 
 
 def prepare(target, builder=None):
@@ -576,7 +620,9 @@ def main(argv):
     except Unavailable as error:
         print(f"{argv[0]}: {error}", file=sys.stderr)
         return 1
-    print(f"{argv[0]}: ready" + (f" (in container {plan.container})" if plan.container else ""))
+    print(f"{argv[0]}: ready")
+    for command in plan.commands:
+        print("  " + " ".join(command))
     return 0
 
 
