@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.02 2026-10-03 Wena release
 
 <details>
 <summary>The desktop for AmigaOS 3.x, AmigaOS 4 and AROS: wena-amigaos-m68k, wena-amigaos4-ppc, wena-aros-x86</summary>
