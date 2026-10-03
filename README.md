@@ -118,8 +118,8 @@ Windows. `scripts/check_release_executable.py` refuses a build when SDL2,
 SQLite or a non-system library would be loaded at run time.
 
 Platforms: Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER
-little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64, ARM64 and
-RISC-V 64; NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
+little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64 and ARM64;
+NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
 x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64; AmigaOS
 3.x (68040 with FPU and an RTG graphics card), AmigaOS 4 and AROS x86-64,
 where the board is kept in `PROGDIR:wena.sqlite`; Android ARM64

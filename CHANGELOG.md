@@ -1,3 +1,34 @@
+# Upcoming Wena release
+
+<details>
+<summary>The NetBSD, DragonFly BSD, Haiku and OpenBSD builds compile again; FreeBSD riscv64 waits for packages</summary>
+
+- wena3 log: NetBSD amd64 and arm64, DragonFly BSD and Haiku stopped on
+  `server/executable_path.c`: their GCC rejects an `if` with more statements
+  after it on a line of its own (`-Werror=misleading-indentation`), which
+  clang - and so the header check of v0.02 - accepts. Those lines now hold one
+  statement each. `tests/test_bsd_sources.py` also compiles every desktop
+  source with GCC 13 on NetBSD's headers (the host's GCC, or the pinned
+  `gcc:13` image), reproduced the error at the same line before the fix, and
+  rejects a probe of the pattern.
+- OpenBSD amd64 and arm64 stopped unpacking SDL2: OpenBSD's `tar` has no
+  `--strip-components`. `scripts/extract_archive.py` unpacks the pinned
+  archives without their top directory on every system, keeping modes and
+  links and refusing entries or links that leave the destination
+  (`tests/test_extract_archive.py`, suite `extract-archive`).
+- FreeBSD riscv64 is planned again: FreeBSD publishes no riscv64 packages for
+  14 or 15, so its virtual machine has no Python, make or X11 to build with.
+  Cross-compiling it from Linux is the way there.
+- Verified here: GCC 13 on NetBSD 10.1's headers reproduced the release
+  run's error at `executable_path.c:31` and passes after the fix; all desktop
+  sources compile with clang for FreeBSD, OpenBSD and NetBSD and with GCC for
+  NetBSD; the pinned SDL2 and llvm-mingw archives unpack and run. The BSD and
+  Haiku builds themselves are verified by the next release run.
+
+Thanks to xet7.
+
+</details>
+
 # v0.02 2026-10-03 Wena release
 
 <details>

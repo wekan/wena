@@ -93,7 +93,7 @@ if [ "$target" = windows-arm64 ] && ! command -v aarch64-w64-mingw32-clang >/dev
     archive=$(python3 "$root_dir/scripts/fetch_release_dependency.py" "$toolchain" "$cache")
     rm -rf "$root_dir/.tools/release/$toolchain"
     mkdir -p "$root_dir/.tools/release/$toolchain"
-    tar -xJf "$archive" -C "$root_dir/.tools/release/$toolchain" --strip-components=1
+    python3 "$root_dir/scripts/extract_archive.py" "$archive" "$root_dir/.tools/release/$toolchain"
   fi
   PATH="$root_dir/.tools/release/$toolchain/bin:$PATH"
   export PATH
@@ -105,7 +105,8 @@ sqlite_archive=$(python3 "$root_dir/scripts/fetch_release_dependency.py" sqlite 
 if [ ! -f "$work/sdl/lib/libSDL2.a" ]; then
   rm -rf "$work/sdl-src" "$work/sdl"
   mkdir -p "$work/sdl-src"
-  tar -xzf "$sdl_archive" -C "$work/sdl-src" --strip-components=1
+  # Not tar --strip-components: OpenBSD's tar has no such option.
+  python3 "$root_dir/scripts/extract_archive.py" "$sdl_archive" "$work/sdl-src"
   (
     cd "$work/sdl-src"
     ./configure ${host:+--host="$host"} CC="$cc" --prefix="$work/sdl" \

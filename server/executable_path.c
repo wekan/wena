@@ -22,13 +22,28 @@
 #include <proto/dos.h>
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__)
-static int bsd_query(void*x,char*out,size_t cap,size_t*n){size_t z=cap;int mib[4];(void)x;mib[0]=CTL_KERN;
+/* One statement per line here: GCC's -Wmisleading-indentation (NetBSD,
+ * DragonFly and Haiku build with GCC) rejects an if with more statements
+ * after it on a line of its own. */
+static int bsd_query(void*x,char*out,size_t cap,size_t*n)
+{
+    size_t z=cap;
+    int mib[4];
+    (void)x;
+    mib[0]=CTL_KERN;
 #if defined(__FreeBSD__)
-mib[1]=KERN_PROC;mib[2]=KERN_PROC_PATHNAME;mib[3]=-1;if(sysctl(mib,4,out,&z,NULL,0)!=0)return 0;
+    mib[1]=KERN_PROC;mib[2]=KERN_PROC_PATHNAME;mib[3]=-1;
 #else
-mib[1]=KERN_PROC_ARGS;mib[2]=-1;mib[3]=KERN_PROC_PATHNAME;if(sysctl(mib,4,out,&z,NULL,0)!=0)return 0;
+    mib[1]=KERN_PROC_ARGS;mib[2]=-1;mib[3]=KERN_PROC_PATHNAME;
 #endif
-if(z==0||z>cap)return 0;out[cap-1]=0;*n=strlen(out);return *n+1==z;}
+    if(sysctl(mib,4,out,&z,NULL,0)!=0)
+        return 0;
+    if(z==0||z>cap)
+        return 0;
+    out[cap-1]=0;
+    *n=strlen(out);
+    return *n+1==z;
+}
 #endif
 static int utf8(const char*s,size_t n){size_t i=0;while(i<n){unsigned char c=(unsigned char)s[i];size_t k;if(c==0||c<0x20)return 0;if(c<0x80){i++;continue;}if(c>=0xc2&&c<=0xdf)k=1;else if(c>=0xe0&&c<=0xef)k=2;else if(c>=0xf0&&c<=0xf4)k=3;else return 0;if(i+k>=n)return 0;while(k){if(((unsigned char)s[i+k]&0xc0)!=0x80)return 0;k--;}i+=(c<0xe0?2:c<0xf0?3:4);}return 1;}
 static int absolute(WenaExecutablePlatform p,const char*s){if(p==WENA_EXEC_WINDOWS)return ((s[0]>='A'&&s[0]<='Z')||(s[0]>='a'&&s[0]<='z'))&&s[1]==':'&&(s[2]=='\\'||s[2]=='/');if(p==WENA_EXEC_AMIGA||p==WENA_EXEC_AROS)return strchr(s,':')!=NULL;return s[0]=='/';}
@@ -72,6 +87,8 @@ return wena_executable_path_validate(WENA_EXEC_AROS,amiga_query,NULL,out,cap);
 #elif defined(__amigaos__)
 return wena_executable_path_validate(WENA_EXEC_AMIGA,amiga_query,NULL,out,cap);
 #else
-if(out&&cap)out[0]=0;return 0;
+if(out&&cap)
+    out[0]=0;
+return 0;
 #endif
 }

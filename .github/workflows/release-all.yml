@@ -117,7 +117,6 @@ jobs:
         include:
           - { target: freebsd-amd64, os: freebsd, arch: x86-64, version: '15.1' }
           - { target: freebsd-arm64, os: freebsd, arch: arm64, version: '15.1' }
-          - { target: freebsd-riscv64, os: freebsd, arch: riscv64, version: '15.1' }
           - { target: netbsd-amd64, os: netbsd, arch: x86-64, version: '10.1' }
           - { target: netbsd-arm64, os: netbsd, arch: arm64, version: '10.1' }
           - { target: openbsd-amd64, os: openbsd, arch: x86-64, version: '7.9' }

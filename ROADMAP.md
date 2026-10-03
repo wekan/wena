@@ -335,9 +335,12 @@ Architecture decisions for this cycle:
     that CPU.
   - [x] Windows amd64, i686 and arm64, cross-compiled and run on Windows runners.
   - [x] macOS arm64 and amd64.
-  - [x] FreeBSD amd64, arm64 and riscv64; NetBSD and OpenBSD amd64 and arm64;
+  - [x] FreeBSD amd64 and arm64; NetBSD and OpenBSD amd64 and arm64;
     DragonFly BSD and Haiku amd64, built natively in virtual machines; every
-    source checked here against the FreeBSD, OpenBSD and NetBSD headers.
+    source checked here against the FreeBSD, OpenBSD and NetBSD headers, and
+    with GCC on NetBSD's.
+  - [_] FreeBSD riscv64: FreeBSD publishes no riscv64 packages, so a VM has no
+    Python, make or X11 to build with; cross-compile it from Linux instead.
   - [x] AmigaOS 3.x m68k, AmigaOS 4 PowerPC and AROS x86-64, static, in their
     pinned cross-compiler images (not yet run on an Amiga or an emulator).
   - [x] Android arm64 (APK) and iOS arm64 (unsigned IPA), smoke-tested in the

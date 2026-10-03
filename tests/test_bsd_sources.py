@@ -7,6 +7,11 @@ with the release flags against each system's own headers, from its official
 release sets (pinned below, the digests from each project's checksum file).
 It found two: an unused static helper on FreeBSD and NetBSD, and NetBSD's
 <sys/sysctl.h> needing _NETBSD_SOURCE beside _POSIX_C_SOURCE.
+
+NetBSD, DragonFly and Haiku build with GCC, which warns where clang does not
+(-Wmisleading-indentation stopped all three in the wena3 release run), so the
+sources are compiled with GCC on NetBSD's headers too: the host's GCC, or the
+pinned gcc:13 image when the host's gcc is clang and Docker is there.
 """
 
 import importlib.util
@@ -35,6 +40,7 @@ SYSTEMS = {
         "sha256": "02e51e63e05b54f9d30d4d566c55e96e1b8b36fb8e870b1cc3ed9494d93d11f3"}),
 }
 FLAGS = ["-std=c89", "-pedantic-errors", "-Wall", "-Wextra", "-Werror", "-DNK_INPUT_MAX=256"]
+GCC_IMAGE = "gcc:13@sha256:16ae525998c94df36a116c191524256b1d46e72d7a0e9aaf6c153455e40eb5b8"
 
 
 def fetcher():
@@ -83,6 +89,51 @@ def compile_all(target, sysroot, includes, files):
     return failed
 
 
+def gcc_runner():
+    """How to run GCC here: the host's, the pinned image's, or None."""
+    gcc = shutil.which("gcc")
+    if gcc:
+        version = subprocess.run([gcc, "--version"], capture_output=True, text=True).stdout
+        if "Free Software Foundation" in version:
+            return lambda script, mounts: subprocess.run(["sh", "-c", script], cwd=ROOT,
+                                                         capture_output=True, text=True)
+    docker = shutil.which("docker")
+    if docker and subprocess.run([docker, "info"], capture_output=True).returncode == 0:
+        def run(script, mounts):
+            volumes = [arg for path in [ROOT, *mounts] for arg in ("-v", f"{path}:{path}:ro")]
+            return subprocess.run([docker, "run", "--rm", *volumes, "-w", str(ROOT), GCC_IMAGE,
+                                   "sh", "-c", script], capture_output=True, text=True)
+        return run
+    return None
+
+
+def gcc_netbsd(files, includes, sysroot):
+    """Every source with GCC on NetBSD's headers, as NetBSD's own GCC sees it."""
+    run = gcc_runner()
+    if run is None:
+        print("SKIP gcc on NetBSD headers: needs GCC or Docker")
+        return 0
+    flags = " ".join(FLAGS + includes + [
+        "-nostdinc", "-isystem $(gcc -print-file-name=include)", f"-isystem {sysroot}/usr/include",
+        "-D__NetBSD__", "-U__linux__", "-U__gnu_linux__", "-Ulinux", "-D__x86_64__", "-fsyntax-only"])
+    script = ("failed=0; for f in " + " ".join(files) + "; do gcc " + flags +
+              " \"$f\" || failed=$((failed+1)); done; echo \"gcc failures: $failed\"")
+    result = run(script, [sysroot])
+    failures = int(re.search(r"gcc failures: (\d+)", result.stdout).group(1)) if "gcc failures:" in result.stdout else -1
+    print(f"netbsd (gcc): {len(files) - failures if failures >= 0 else 0} of {len(files)} sources compile")
+    if failures:
+        print(result.stderr[-4000:], file=sys.stderr)
+        return 1
+    # Negative: GCC here rejects what stopped the wena3 run - statements after
+    # an if on a line of its own - so a pass above means the sources have none.
+    probe = CACHE / "misleading-indentation-probe.c"
+    probe.write_text("int f(int a)\n{\nif(a)a=1;return a;\n}\n")
+    rejected = run(f"gcc {' '.join(FLAGS)} -fsyntax-only {probe}", [sysroot])
+    probe.unlink()
+    assert rejected.returncode != 0 and "misleading-indentation" in rejected.stderr, rejected.stderr
+    return 0
+
+
 def main():
     if not shutil.which("clang"):
         print("SKIP: needs clang")
@@ -110,6 +161,7 @@ def main():
             for source, error in failed.items():
                 print(f"--- {source}\n{error}", file=sys.stderr)
             problems += len(failed)
+        problems += gcc_netbsd(files, includes, headers("netbsd", SYSTEMS["netbsd"][1], fetch))
         # Negative: the check itself fails on what broke FreeBSD - an unused static helper.
         probe = work / "probe.c"
         probe.write_text("static int unused(void) { return 0; }\nint main(void) { return 0; }\n")

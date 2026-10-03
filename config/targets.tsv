@@ -11,6 +11,9 @@
 #   amiga    in that system's cross-compiler container (scripts/build_desktop_amiga.sh)
 #   android  with the Android NDK and SDK (scripts/build_desktop_android.sh)
 #   ios      with Xcode on a macOS runner (scripts/build_desktop_ios.sh)
+# planned: freebsd-riscv64 - FreeBSD publishes no riscv64 packages (pkg.freebsd.org has
+#   no FreeBSD:14 or :15 riscv64 repository), so its VM has no Python, make or X11;
+#   the way there is cross-compiling from Linux against its base and X11 headers.
 # target	display name	job	status	release file
 linux-amd64	Linux x86-64	linux	ready	wena-linux-amd64
 linux-arm64	Linux ARM 64-bit	linux	ready	wena-linux-arm64
@@ -23,7 +26,7 @@ linux-s390x	Linux IBM Z	linux	ready	wena-linux-s390x
 linux-mips64le	Linux MIPS64 little-endian	linux	ready	wena-linux-mips64le
 freebsd-amd64	FreeBSD x86-64	bsd	ready	wena-freebsd-amd64
 freebsd-arm64	FreeBSD ARM 64-bit	bsd	ready	wena-freebsd-arm64
-freebsd-riscv64	FreeBSD RISC-V 64-bit	bsd	ready	wena-freebsd-riscv64
+freebsd-riscv64	FreeBSD RISC-V 64-bit	bsd	planned	wena-freebsd-riscv64
 netbsd-amd64	NetBSD x86-64	bsd	ready	wena-netbsd-amd64
 netbsd-arm64	NetBSD ARM 64-bit	bsd	ready	wena-netbsd-arm64
 openbsd-amd64	OpenBSD x86-64	bsd	ready	wena-openbsd-amd64
