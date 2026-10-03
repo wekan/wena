@@ -375,6 +375,12 @@ int main(void)
         header.notifications = 2;
         context.button_to_press = "Notifications";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NOTIFICATIONS);
+        /* WeKan's + to Add Board; hidden when not given. */
+        context.button_to_press = "Add Board";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.add_board = 1;
+        context.button_to_press = "Add Board";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_ADD_BOARD);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

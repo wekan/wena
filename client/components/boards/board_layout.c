@@ -740,6 +740,7 @@ int wena_board_layout_render(struct nk_context *context,
     info.sort = layout->header_sort;
     info.view = layout->header_view;
     info.notifications = layout->header_notifications;
+    info.add_board = layout->header_add_board;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {

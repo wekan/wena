@@ -429,6 +429,20 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's + after the star group adds a board from the board page too</summary>
+
+- As in WeKan's header, a + after the star group opens Add Board - the
+  same dialog as on All Boards - and the new board, made as WeKan makes
+  one, opens.
+- `--show add-board` renders the dialog over the board.
+- Tests: `board-feature` clicks the + and checks it is hidden when not
+  given.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

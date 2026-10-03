@@ -25,6 +25,7 @@ struct nk_context;
 #define WENA_BOARD_HEADER_SORT_RESET 4096u /* the cross removing the sort */
 #define WENA_BOARD_HEADER_VIEW 8192u       /* the board view: Swimlanes, Lists */
 #define WENA_BOARD_HEADER_NOTIFICATIONS 16384u /* the bell and "Notifications" */
+#define WENA_BOARD_HEADER_ADD_BOARD 32768u /* the + after the star group */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
@@ -41,6 +42,7 @@ typedef struct WenaBoardHeaderInfo {
     int sort;                 /* 0 hides Sort Cards, 1 shows it, 2 a sort is on */
     int view;                 /* 0 hides the view, 1 Swimlanes, 2 Lists */
     int notifications;        /* 0 hides them, 1 the bell, 2 unread ones, 3 open */
+    int add_board;            /* WeKan's + to Add Board */
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

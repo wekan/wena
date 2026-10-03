@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 20);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 21);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -93,6 +93,14 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
             x += text_width(context, WENA_WEKAN_FONT_SMALL, count) + 4.0f;
         }
         buttons_x = x + 12.0f;
+    }
+    /* WeKan's + that adds a board. */
+    if (info != NULL && info->add_board) {
+        nk_layout_space_push(context, nk_rect(buttons_x, 15.0f, 24.0f, 28.0f));
+        if (wena_wekan_icon_button(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_BOARD), 13.0f,
+                                   WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_ADD_BOARD;
+        buttons_x += 24.0f + 12.0f;
     }
     /* WeKan's Private (or Public) and the user's watch level, each opening
      * its popup. */

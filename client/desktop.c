@@ -976,7 +976,8 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, sort, sorted, view, lists-view, notifications, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, sort, sorted, view, lists-view, notifications, add-board,\n"
+          "search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1745,6 +1746,7 @@ window_ready:
             else if (!strcmp(show, "sorted")) toolbar.card_sort = WENA_BOARD_SORT_TITLE;
             else if (!strcmp(show, "lists-view")) layout.lists_view = 1;
             else if (!strcmp(show, "notifications")) notifications_open = 1;
+            else if (!strcmp(show, "add-board")) { add_board.visible = 1; add_board.focus = 1; }
             else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
             else if (!strcmp(show, "visibility") || !strcmp(show, "watch") || !strcmp(show, "sort")) {
                 toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH :
@@ -1858,6 +1860,7 @@ window_ready:
             layout.header_filter_active = filter.query[0] != '\0';
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             layout.header_search = search.visible ? 2 : 1;
+            layout.header_add_board = wekan_mode;
             layout.header_notifications = !wekan_mode ? 0 : notifications_open ? 3 :
                 wena_notifications_unread(notifications, notification_count) > 0 ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
@@ -1904,6 +1907,9 @@ window_ready:
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SEARCH) != 0u) {
                     if (search.visible) search.visible = 0;
                     else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_ADD_BOARD) != 0u) {
+                    add_board.visible = 1; add_board.focus = 1; add_board.length = 0; add_board.title[0] = '\0';
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_NOTIFICATIONS) != 0u) {
                     notifications_open = !notifications_open;
@@ -2154,6 +2160,17 @@ window_ready:
             if(opened_panel!=DESKTOP_PANEL_SELECTION)
                 (void)wena_card_selection_panel_render_board(context,&editors.selection,
                     &layout,(float)width,(float)height);
+            /* WeKan's + in the header: the same Add Board as on All Boards,
+             * and the new board opens. */
+            if (add_board.visible) {
+                char made[WENA_ID_CAPACITY];
+                if (desktop_add_board(context, &add_board, (float)width, (float)height) > 0 && !smoke) {
+                    if (wena_wekan_sync_new_board(database, actor_id, add_board.title, made, sizeof(made))) {
+                        strcpy(next_board, made);
+                        running = 0;
+                    } else wena_debug_log("new board: %s", wena_wekan_sync_error());
+                }
+            }
             if (notifications_open && (search.visible || sidebar.visible)) notifications_open = 0;
             if (notifications_open) {
                 int chosen_index;
