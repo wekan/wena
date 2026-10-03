@@ -4,6 +4,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 #include "../client/platform/debug_log.h"
+#include "../client/platform/files.h"
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
@@ -45,18 +46,35 @@ int main(int argc, char **argv)
     assert(!wena_debug_log_directory_for(NULL, "/r/.tools/wena/x", "2026-10-03_15-04-05", small, sizeof(small)));
 
     /* The default board file. */
-    assert(wena_desktop_default_database(NULL, "/Users/u", NULL, 1, out, sizeof(out)));
+    assert(wena_desktop_default_database(NULL, "/Users/u", NULL, WENA_SYSTEM_MACOS, out, sizeof(out)));
     assert(!strcmp(out, "/Users/u/Library/Application Support/Wena/wena.sqlite"));
-    assert(wena_desktop_default_database(NULL, "/home/u", NULL, 0, out, sizeof(out)));
+    assert(wena_desktop_default_database(NULL, "/home/u", NULL, WENA_SYSTEM_OTHER, out, sizeof(out)));
     assert(!strcmp(out, "/home/u/.local/share/wena/wena.sqlite"));
-    assert(wena_desktop_default_database(NULL, "/home/u", "/data", 0, out, sizeof(out)));
+    assert(wena_desktop_default_database(NULL, "/home/u", "/data", WENA_SYSTEM_OTHER, out, sizeof(out)));
     assert(!strcmp(out, "/data/wena/wena.sqlite"));
-    assert(wena_desktop_default_database("/x/b.sqlite", "/home/u", "/data", 1, out, sizeof(out)));
+    assert(wena_desktop_default_database("/x/b.sqlite", "/home/u", "/data", WENA_SYSTEM_MACOS, out, sizeof(out)));
     assert(!strcmp(out, "/x/b.sqlite"));
+    /* Windows: %APPDATA%\Wena, a drive or UNC WENA_DATABASE, and its log folder. */
+    assert(wena_desktop_default_database(NULL, "C:\\Users\\u\\AppData\\Roaming", NULL, WENA_SYSTEM_WINDOWS, out, sizeof(out)));
+    assert(!strcmp(out, "C:\\Users\\u\\AppData\\Roaming\\Wena\\wena.sqlite"));
+    assert(wena_desktop_default_database("D:/boards/w.sqlite", NULL, NULL, WENA_SYSTEM_WINDOWS, out, sizeof(out)));
+    assert(wena_desktop_default_database("\\\\server\\share\\w.sqlite", NULL, NULL, WENA_SYSTEM_WINDOWS, out, sizeof(out)));
+    assert(!wena_desktop_default_database("/x/b.sqlite", NULL, NULL, WENA_SYSTEM_WINDOWS, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, "relative", NULL, WENA_SYSTEM_WINDOWS, out, sizeof(out)));
+    assert(wena_debug_log_directory_for(NULL, "C:\\r\\.tools\\wena\\dist\\desktop\\wena-desktop.exe",
+                                        "2026-10-03_15-04-05", out, sizeof(out)));
+    assert(!strcmp(out, "C:\\r\\.tools\\log\\wena\\2026-10-03_15-04-05"));
+    assert(wena_debug_log_directory_for("C:\\logs", NULL, "s", out, sizeof(out)) && !strcmp(out, "C:\\logs"));
+    /* Path rules per platform. */
+    assert(wena_path_absolute_for("/x", 0) && !wena_path_absolute_for("C:\\x", 0));
+    assert(wena_path_absolute_for("C:\\x", 1) && wena_path_absolute_for("c:/x", 1));
+    assert(wena_path_absolute_for("\\\\server\\share", 1));
+    assert(!wena_path_absolute_for("/x", 1) && !wena_path_absolute_for("C:x", 1));
+    assert(!wena_path_absolute_for("\\\\", 1) && !wena_path_absolute_for("", 0) && !wena_path_absolute_for(NULL, 1));
     /* Negative: relative WENA_DATABASE, no home, and too small. */
-    assert(!wena_desktop_default_database("b.sqlite", "/home/u", NULL, 0, out, sizeof(out)));
-    assert(!wena_desktop_default_database(NULL, NULL, NULL, 1, out, sizeof(out)));
-    assert(!wena_desktop_default_database(NULL, "/home/u", NULL, 1, small, sizeof(small)));
+    assert(!wena_desktop_default_database("b.sqlite", "/home/u", NULL, WENA_SYSTEM_OTHER, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_MACOS, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, "/home/u", NULL, WENA_SYSTEM_MACOS, small, sizeof(small)));
 
     if (dir == NULL) return 0;
     /* Folders are created, a line is written, and a crash leaves its signal. */

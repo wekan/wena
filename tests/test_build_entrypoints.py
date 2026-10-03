@@ -4,6 +4,7 @@
 from contextlib import redirect_stdout
 import importlib.util
 import io
+import json
 import sys
 import threading
 import time
@@ -174,75 +175,210 @@ def test_run():
 
 
 class Completed:
-    def __init__(self, returncode):
+    def __init__(self, returncode, stdout=""):
         self.returncode = returncode
+        self.stdout = stdout
 
 
 def test_release():
-    # 3) Release starts the GitHub workflows with gh for the pushed branch.
-    # Nothing here reaches GitHub: gh and git are replaced.
+    # 3) Release: the human's step. gh, git and GitHub are replaced here, so
+    # nothing is pushed or started; a real git repository holds the CHANGELOG.
     assert wena.github_repository("git@github.com:wekan/wena") == "wekan/wena"
     assert wena.github_repository("https://github.com/wekan/wena.git") == "wekan/wena"
     assert wena.github_repository("/srv/git/wena.git") is None
     assert wena.github_repository("https://github.com/wekan") is None
     calls, sleeps = [], []
 
-    def fake(results, git=None):
-        git = {"remote": "git@github.com:wekan/wena", "rev-parse": "main", "rev-list": "0", **(git or {})}
-        results = list(results)
-
-        def run(command, **_kwargs):
-            calls.append(command)
-            if command[:3] == ["gh", "auth", "status"]:
-                if results and results[0] == "auth-fail":
-                    results.pop(0)
-                    return Completed(1)
-                return Completed(0)
-            if command[:3] == ["gh", "workflow", "run"]:
-                return Completed(results.pop(0) if results else 0)
-            return Completed(0)
-        return run, (lambda *args, root=None: git[args[0]])
-
-    def release(selection="desktop", tag="", results=(), git=None, gh=True):
+    def release(mode="next", published="", gh=True, auth=0, workflow=(), push=0, git=None, changelog=None):
         calls.clear(); sleeps.clear()
-        run, git_output = fake(results, git)
-        errors = io.StringIO()
-        with patch.object(wena.shutil, "which", lambda name: "/bin/gh" if gh else None), \
-                patch.object(wena, "git_output", git_output), patch.object(sys, "stderr", errors), \
-                redirect_stdout(io.StringIO()):
-            status = wena.release(selection, tag, ROOT, run, sleeps.append)
-        return status, [c for c in calls if c[:3] == ["gh", "workflow", "run"]], errors.getvalue()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            for key, value in (("user.name", "Test"), ("user.email", "t@example.org")):
+                subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
+            (root / "CHANGELOG.md").write_text(changelog if changelog is not None else
+                "# Upcoming Wena release\n\n- Something new.\n\n# v0.01 2026-01-01 Wena release\n\n- First.\n",
+                encoding="utf-8")
+            (root / "scripts").mkdir()
+            (root / "scripts" / "release_version.py").write_bytes((ROOT / "scripts" / "release_version.py").read_bytes())
+            subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-q", "-m", "start"], check=True)
+            answers = {"remote": "git@github.com:wekan/wena", "rev-parse": "main", "status": "", **(git or {})}
+            results = list(workflow)
 
-    status, runs, _ = release()
+            def run(command, **kwargs):
+                calls.append(command)
+                if command[:3] == ["gh", "auth", "status"]:
+                    return Completed(auth)
+                if command[:3] == ["gh", "release", "list"]:
+                    return Completed(0, published)
+                if command[:3] == ["gh", "workflow", "run"]:
+                    return Completed(results.pop(0) if results else 0)
+                if command[3:4] == ["push"]:
+                    return Completed(push)
+                return subprocess.run(command, capture_output=True)
+
+            errors = io.StringIO()
+            with patch.object(wena.shutil, "which", lambda name: "/bin/gh" if gh else None), \
+                    patch.object(wena, "git_output", lambda *a, root=None: answers[a[0]]), \
+                    patch.object(sys, "stderr", errors), redirect_stdout(io.StringIO()):
+                status = wena.release(mode, root, run, sleeps.append, "2026-10-03")
+            log = subprocess.run(["git", "-C", str(root), "log", "--format=%s"], capture_output=True, text=True).stdout
+            text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+        runs = [c for c in calls if c[:3] == ["gh", "workflow", "run"]]
+        pushes = [c for c in calls if c[3:4] == ["push"]]
+        return status, runs, pushes, log, text, errors.getvalue()
+
+    # Next version: one step after the highest released one, here or on GitHub.
+    status, runs, pushes, log, text, _ = release()
     assert status == 0
-    assert runs == [["gh", "workflow", "run", "release-desktop.yml", "-R", "wekan/wena", "--ref", "main"]]
-    status, runs, _ = release("all", "v1.2")
-    assert status == 0 and [r[3] for r in runs] == ["release-desktop.yml", "release-all.yml"]
-    assert runs[0][-2:] == ["-f", "tag=v1.2"] and "-f" not in runs[1]
-    status, runs, _ = release("bootstrap")
-    assert status == 0 and [r[3] for r in runs] == ["release-all.yml"]
+    assert text.startswith("# v0.02 2026-10-03 Wena release\n") and "# Upcoming" not in text
+    assert log.splitlines()[0] == "Prepare v0.02 release"
+    assert pushes and runs == [["gh", "workflow", "run", "release-desktop.yml", "-R", "wekan/wena",
+                                "--ref", "main", "-f", "version=v0.02"]]
+    assert release(published="v0.09\nv0.05\n")[4].startswith("# v0.10 ")
+    assert release(published="v9.99\n")[4].startswith("# v10.00 ")
+    # Build missing files: no commit, no version.
+    status, runs, pushes, log, text, _ = release("missing")
+    assert status == 0 and runs[0][-2:] == ["--ref", "main"] and log.strip() == "start"
+    assert text.startswith("# Upcoming Wena release")
     # Retried, then given up with how to fix it.
-    status, runs, _ = release(results=[1, 1, 0])
-    assert status == 0 and len(runs) == 3 and sleeps == [5, 5]
-    status, runs, errors = release(results=[1, 1, 1])
+    assert release(workflow=[1, 1, 0])[0] == 0 and sleeps == [5, 5]
+    status, runs, _, _, _, errors = release("missing", workflow=[1, 1, 1])
     assert status == 1 and len(runs) == 3 and "workflow scope" in errors
-    # Negative: nothing is started for any of these.
+    # Negative: nothing is committed, pushed or started for any of these.
     for kwargs, code, message in [
-            ({"selection": "everything"}, 2, "unknown release selection"),
-            ({"tag": "v1;rm"}, 2, "invalid release tag"),
+            ({"mode": "everything"}, 2, "unknown release mode"),
             ({"gh": False}, 1, "GitHub CLI"),
-            ({"results": ["auth-fail"]}, 1, "gh auth login"),
+            ({"auth": 1}, 1, "gh auth login"),
             ({"git": {"remote": "/srv/git/wena.git"}}, 1, "GitHub origin"),
             ({"git": {"rev-parse": "HEAD"}}, 1, "GitHub origin"),
-            ({"git": {"rev-list": None}}, 1, "Push it first"),
-            ({"git": {"rev-list": "2"}}, 1, "2 local commit(s) are not on GitHub")]:
-        status, runs, errors = release(**kwargs)
-        assert (status, runs) == (code, []), kwargs
+            ({"git": {"status": " M client/desktop.c"}}, 1, "Commit or stash"),
+            ({"changelog": "# v0.01 2026-01-01 Wena release\n\n- First.\n"}, 1, "Upcoming"),
+            ({"changelog": "# Upcoming Wena release\n\nNothing yet.\n"}, 1, "no entries")]:
+        status, runs, pushes, log, text, errors = release(**kwargs)
+        assert (status, runs, pushes, log.strip()) == (code, [], [], "start"), kwargs
         assert message in errors, (kwargs, errors)
-    assert "push origin main" in release(git={"rev-list": "2"})[2]
-    # Release never pushes.
-    release()
-    assert not any(c[:2] == ["git", "push"] or "push" in c for c in calls)
+    # A failed push starts nothing.
+    status, runs, _, _, _, errors = release("missing", push=1)
+    assert status == 1 and runs == [] and "Push failed" in errors
+
+
+def test_release_versions():
+    versions = wena.release_version_module()
+    log = "# Upcoming Wena release\n\n<details>\n<summary>New</summary>\n</details>\n\n# v1.04 2026-09-01 Wena release\n\n- Old.\n\n# v1.03 2026-08-01 Wena release\n\n- Older.\n"
+    assert versions.next_version([], "# Upcoming Wena release\n\n- x\n") == "v0.01"
+    assert versions.next_version([], log) == "v1.05"
+    assert versions.next_version(["v1.07", "nightly", "v2", "v1.5"], log) == "v1.08"
+    assert versions.next_version(["v3.99"], "") == "v4.00"
+    renamed = versions.name_release(log, "v1.05", "2026-10-03")
+    assert renamed.startswith("# v1.05 2026-10-03 Wena release\n") and "Upcoming" not in renamed
+    assert versions.notes(renamed, "v1.05") == "<details>\n<summary>New</summary>\n</details>\n"
+    assert versions.notes(renamed, "v1.04") == "- Old.\n"
+    for bad in (lambda: versions.name_release(log, "1.05"), lambda: versions.notes(log, "v9.99"),
+                lambda: versions.upcoming_entries(log + "# Upcoming Wena release\n- x\n"),
+                lambda: versions.upcoming_entries("# Upcoming Wena release\n\n# v1.00 2026-01-01 Wena release\n- x\n")):
+        try:
+            bad()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("accepted")
+
+
+def elf(machine, needed, bits64=True, little=True):
+    """A minimal ELF with a dynamic section naming `needed`."""
+    import struct
+    e = "<" if little else ">"
+    strtab = b"\0" + b"".join(n.encode() + b"\0" for n in needed)
+    offsets, pos = [], 1
+    for n in needed:
+        offsets.append(pos); pos += len(n) + 1
+    if bits64:
+        header_size, ph_size, dyn_size = 64, 56, 16
+    else:
+        header_size, ph_size, dyn_size = 52, 32, 8
+    phoff = header_size
+    dynoff = phoff + 2 * ph_size
+    dyn = [(1, o) for o in offsets] + [(5, 0), (0, 0)]
+    stroff = dynoff + len(dyn) * dyn_size
+    data = bytearray(stroff + len(strtab))
+    data[0:6] = b"\x7fELF" + bytes([2 if bits64 else 1, 1 if little else 2])
+    struct.pack_into(e + "H", data, 18, machine)
+    if bits64:
+        struct.pack_into(e + "Q", data, 32, phoff); struct.pack_into(e + "HH", data, 54, ph_size, 2)
+        struct.pack_into(e + "IIQQQQ", data, phoff, 1, 5, 0, 0, 0, len(data))
+        struct.pack_into(e + "IIQQQQ", data, phoff + ph_size, 2, 6, dynoff, dynoff, dynoff, len(dyn) * dyn_size)
+        for i, (tag, value) in enumerate(dyn):
+            struct.pack_into(e + "qQ", data, dynoff + i * dyn_size, tag, stroff if tag == 5 else value)
+    else:
+        struct.pack_into(e + "I", data, 28, phoff); struct.pack_into(e + "HH", data, 42, ph_size, 2)
+        struct.pack_into(e + "IIIII", data, phoff, 1, 0, 0, 0, len(data))
+        struct.pack_into(e + "IIIII", data, phoff + ph_size, 2, dynoff, dynoff, dynoff, len(dyn) * dyn_size)
+        for i, (tag, value) in enumerate(dyn):
+            struct.pack_into(e + "iI", data, dynoff + i * dyn_size, tag, stroff if tag == 5 else value)
+    data[stroff:] = strtab
+    return bytes(data)
+
+
+def pe(machine, dlls):
+    """A minimal PE32+ with an import table naming `dlls`."""
+    import struct
+    data = bytearray(0x400 + 20 * (len(dlls) + 1) + sum(len(d) + 1 for d in dlls))
+    data[0:2] = b"MZ"; struct.pack_into("<I", data, 0x3C, 0x80)
+    data[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<HHIIIHH", data, 0x84, machine, 1, 0, 0, 0, 240, 0)
+    opt = 0x98
+    struct.pack_into("<H", data, opt, 0x20B)
+    struct.pack_into("<II", data, opt + 112 + 8, 0x1000, 20 * (len(dlls) + 1))
+    struct.pack_into("<8sIIII", data, opt + 240, b".idata", len(data), 0x1000, len(data) - 0x400, 0x400)
+    names = 0x400 + 20 * (len(dlls) + 1)
+    for i, dll in enumerate(dlls):
+        struct.pack_into("<I", data, 0x400 + 20 * i + 12, 0x1000 + names - 0x400)
+        data[names:names + len(dll)] = dll.encode(); names += len(dll) + 1
+    return bytes(data)
+
+
+def macho(cpu, dylibs):
+    import struct
+    commands = b""
+    for name in dylibs:
+        body = name.encode() + b"\0"
+        size = (24 + len(body) + 7) // 8 * 8
+        commands += struct.pack("<IIIIII", 0xC, size, 24, 0, 0, 0) + body.ljust(size - 24, b"\0")
+    return struct.pack("<IiiIIII", 0xFEEDFACF, cpu, 0, 2, len(dylibs), len(commands), 0) + b"\0" * 4 + commands
+
+
+def test_release_executable_check():
+    spec = importlib.util.spec_from_file_location("check", ROOT / "scripts" / "check_release_executable.py")
+    check = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(check)
+    assert check.check("linux-amd64", elf(62, ["libm.so.6", "libc.so.6"])) == ["libm.so.6", "libc.so.6"]
+    assert check.check("linux-armhf", elf(40, ["libc.so.6"], bits64=False)) == ["libc.so.6"]
+    assert check.check("linux-s390x", elf(22, ["libc.so.6"], little=False)) == ["libc.so.6"]
+    assert check.check("windows-amd64", pe(0x8664, ["KERNEL32.dll", "USER32.dll", "api-ms-win-crt-heap-l1-1-0.dll"]))
+    assert check.check("macos-arm64", macho(0x0100000C, ["/usr/lib/libSystem.B.dylib",
+                                                          "/System/Library/Frameworks/Cocoa.framework/Versions/A/Cocoa"]))
+    # Negative: the libraries that must be linked in, a MinGW runtime DLL,
+    # a Homebrew dylib, and the wrong CPU or format for the target.
+    for target, data, message in [
+            ("linux-amd64", elf(62, ["libSDL2-2.0.so.0", "libc.so.6"]), "must be linked in"),
+            ("linux-amd64", elf(62, ["libsqlite3.so.0"]), "must be linked in"),
+            ("linux-arm64", elf(62, ["libc.so.6"]), "is not arm64"),
+            ("windows-amd64", pe(0x8664, ["SDL2.dll"]), "not part of Windows"),
+            ("windows-i686", pe(0x14C, ["libwinpthread-1.dll"]), "not part of Windows"),
+            ("windows-arm64", pe(0x8664, ["KERNEL32.dll"]), "is not arm64"),
+            ("macos-arm64", macho(0x0100000C, ["/opt/homebrew/opt/sdl2-compat/lib/libSDL2-2.0.0.dylib"]), "outside the system"),
+            ("macos-amd64", macho(0x0100000C, []), "is not amd64"),
+            ("linux-amd64", pe(0x8664, []), "not an ELF"),
+            ("windows-amd64", elf(62, []), "not a PE"),
+            ("plan9-amd64", elf(62, []), "unknown target")]:
+        try:
+            check.check(target, data)
+        except ValueError as error:
+            assert message in str(error), (target, error)
+        else:
+            raise AssertionError((target, message))
 
 
 def test_desktop_release_packaging():
@@ -253,55 +389,90 @@ def test_desktop_release_packaging():
     with tempfile.TemporaryDirectory() as temp:
         binary = Path(temp) / "wena-desktop"
         binary.write_bytes(b"\x7fELF fake desktop")
-        first = package.package("linux-arm64", binary, Path(temp) / "a")
-        second = package.package("linux-arm64", binary, Path(temp) / "b")
-        assert first.name == "wena-desktop-linux-arm64.tar.gz"
-        assert first.read_bytes() == second.read_bytes(), "not deterministic"
-        sha = (first.parent / (first.name + ".sha256")).read_text()
-        assert sha == hashlib.sha256(first.read_bytes()).hexdigest() + "  " + first.name + "\n"
-        with tarfile.open(first) as archive:
-            names = archive.getnames()
-            members = {m.name: m for m in archive.getmembers()}
-            sums = archive.extractfile("wena-desktop-linux-arm64/SHA256SUMS").read().decode()
-            readme = archive.extractfile("wena-desktop-linux-arm64/README.txt").read().decode()
-            for name in names[1:]:
-                if not name.endswith("SHA256SUMS"):
-                    data = archive.extractfile(name).read()
-                    assert hashlib.sha256(data).hexdigest() + "  " + name.split("/", 1)[1] + "\n" in sums, name
-        assert names[0] == "wena-desktop-linux-arm64"
-        assert members["wena-desktop-linux-arm64/wena-desktop"].mode == 0o755
-        assert {n.split("/", 1)[1] for n in names[1:]} == {"wena-desktop", "README.txt", "SHA256SUMS", *package.FILES}
-        assert "libsdl2" in readme and "Linux arm64" in readme
-        # Negative: an unknown platform, Windows among them, and an empty binary.
-        for target in ("windows-amd64", "linux-i686"):
+        out = Path(temp) / "out"
+        linux = package.binary("linux-riscv64", binary, out)
+        windows = package.binary("windows-arm64", binary, out)
+        assert linux.name == "wena-desktop-linux-riscv64" and windows.name == "wena-desktop-windows-arm64.exe"
+        for path in (linux, windows):
+            assert path.read_bytes() == binary.read_bytes()
+            assert (out / (path.name + ".sha256")).read_text() == hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n"
+        notices = package.notices(out)
+        assert notices.read_bytes() == package.notices(Path(temp) / "again").read_bytes(), "not deterministic"
+        with tarfile.open(notices) as archive:
+            names = {n.split("/", 1)[1] for n in archive.getnames()}
+            readme = archive.extractfile("wena-desktop-notices/README.txt").read().decode()
+        assert names == {"README.txt", *package.NOTICES}
+        for target in package.TARGETS:
+            assert package.executable_name(target) in readme, target
+        # Negative: an unknown platform and an empty or missing executable.
+        binary.write_bytes(b"")
+        for target, path in (("plan9-amd64", Path(temp) / "x"), ("linux-amd64", binary), ("linux-amd64", Path(temp) / "missing")):
             try:
-                package.package(target, binary, Path(temp) / "c")
+                package.binary(target, path, out)
             except ValueError:
                 pass
             else:
                 raise AssertionError(target)
-        binary.write_bytes(b"")
-        try:
-            package.package("macos-arm64", binary, Path(temp) / "d")
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("empty binary packaged")
-    # The workflow builds, smoke-tests and packages exactly those platforms.
+    # The workflow builds exactly the packaged platforms, each in one place.
     workflow = (ROOT / ".github" / "workflows" / "release-desktop.yml").read_text(encoding="utf-8")
-    targets = re.findall(r"- target: ([a-z0-9-]+)", workflow)
-    assert sorted(targets) == sorted(package.TARGETS)
-    assert "python3 scripts/wena.py build desktop" in workflow
-    assert workflow.count("dist/desktop/wena-desktop --smoke") == 2
-    assert 'package_desktop_release.py "$TARGET" dist/desktop/wena-desktop release-desktop' in workflow
-    assert f'test "${{#assets[@]}}" -eq {2 * len(package.TARGETS)}' in workflow
-    assert "workflow_dispatch:" in workflow and "tag:" in workflow
+    linux = re.findall(r"target: (linux-[a-z0-9]+), runner", workflow)
+    macos = re.findall(r"target: (macos-[a-z0-9]+), runner", workflow)
+    windows = re.search(r"target: \[([^\]]+)\]", workflow)[1].replace(" ", "").split(",")
+    assert sorted(linux + macos + windows) == sorted(package.TARGETS)
+    assert len(set(linux + macos + windows)) == len(package.TARGETS)
+    assert sorted(re.findall(r"target: (windows-[a-z0-9]+), runner", workflow)) == sorted(windows), "every Windows build is smoke-tested"
+    assert "sh scripts/build_desktop_release_container.sh" in workflow
+    assert workflow.count('scripts/build_desktop_release.sh "$TARGET"') == 2
+    assert "python3 scripts/release_version.py notes" in workflow and "gh release create" in workflow
+    assert "gh workflow run release-all.yml" in workflow
     assert "git push" not in workflow
+    # Every release dependency is pinned with a SHA-256.
+    pins = json.loads((ROOT / "config" / "release-dependencies.json").read_text())
+    for name, pin in pins.items():
+        if isinstance(pin, dict):
+            assert re.fullmatch(r"[0-9a-f]{64}", pin["sha256"]) and pin["url"].startswith("https://"), name
+
+
+def test_release_dependency_fetch():
+    spec = importlib.util.spec_from_file_location("fetch", ROOT / "scripts" / "fetch_release_dependency.py")
+    fetch = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fetch)
+    import hashlib
+    good = b"pinned source"
+    pins = {"lib": {"url": "https://example.org/lib-1.tar.gz", "sha256": hashlib.sha256(good).hexdigest()}}
+    downloads = []
+
+    def download(body):
+        def get(url, path):
+            downloads.append(url)
+            Path(path).write_bytes(body)
+        return get
+    with tempfile.TemporaryDirectory() as temp:
+        path = fetch.fetch("lib", temp, pins, download(good))
+        assert path.name == "lib-1.tar.gz" and path.read_bytes() == good
+        # A matching cached file is used without downloading again.
+        assert fetch.fetch("lib", temp, pins, download(b"other")) == path and len(downloads) == 1
+        # Negative: a changed cached file is downloaded again; a download that
+        # does not match is deleted and refused; an unknown name is refused.
+        path.write_bytes(b"tampered")
+        assert fetch.fetch("lib", temp, pins, download(good)).read_bytes() == good
+        path.unlink()
+        for name, body in (("lib", b"tampered download"), ("unknown", good), ("format", good)):
+            try:
+                fetch.fetch(name, temp, {**pins, "format": 1}, download(body))
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(name)
+        assert sorted(p.name for p in Path(temp).iterdir()) == []
 
 
 def main():
     test_runner()
     test_release()
+    test_release_versions()
+    test_release_executable_check()
+    test_release_dependency_fetch()
     test_desktop_release_packaging()
     test_run()
     assert wena.host_target("Linux", "x86_64") == "linux-amd64"

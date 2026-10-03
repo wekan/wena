@@ -178,13 +178,6 @@ def run(args=(), root=ROOT, database=None, now=None):
     return status
 
 
-RELEASE_WORKFLOWS = {
-    "desktop": ["release-desktop.yml"],
-    "bootstrap": ["release-all.yml"],
-    "all": ["release-desktop.yml", "release-all.yml"],
-}
-
-
 def git_output(*args, root=ROOT):
     result = subprocess.run(["git", "-C", str(root), *args], text=True, capture_output=True)
     return result.stdout.strip() if result.returncode == 0 else None
@@ -200,21 +193,28 @@ def github_repository(remote):
     return None
 
 
-def release(selection="desktop", tag="", root=ROOT, run=subprocess.run, sleep=None):
-    """Start the GitHub release workflows with gh, for the pushed branch.
+def release_version_module(root=ROOT):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("release_version", Path(root) / "scripts" / "release_version.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-    desktop: release-desktop.yml builds wena-desktop for Linux and macOS;
-    bootstrap: release-all.yml builds the bootstrap targets; all: both. Both
-    attach their files to `tag`, or to the newest existing release. Nothing is
-    pushed: commits that are not on GitHub yet stop it, with the command."""
+
+def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
+    """3) Release, the human's step: GitHub builds and publishes; this starts it.
+
+    next:    name the Upcoming CHANGELOG section after the next version
+             (v0.01, v0.02, ... v9.99, v10.00), commit "Prepare vX release",
+             push the branch and start release-desktop.yml with that version,
+             which tags it, publishes the release with the section as its notes,
+             starts release-all.yml and attaches an executable per platform.
+    missing: push the branch and start release-desktop.yml without a version,
+             which builds and attaches to the newest existing release."""
     import time
     sleep = sleep or time.sleep
-    workflows = RELEASE_WORKFLOWS.get(selection)
-    if workflows is None:
-        print(f"unknown release selection: {selection} (desktop, bootstrap or all)", file=sys.stderr)
-        return 2
-    if tag and not all(c.isalnum() or c in "._-" for c in tag):
-        print(f"invalid release tag: {tag}", file=sys.stderr)
+    if mode not in ("next", "missing"):
+        print(f"unknown release mode: {mode} (next or missing)", file=sys.stderr)
         return 2
     if not shutil.which("gh"):
         print("Release needs the GitHub CLI: https://cli.github.com (brew install gh)", file=sys.stderr)
@@ -227,43 +227,58 @@ def release(selection="desktop", tag="", root=ROOT, run=subprocess.run, sleep=No
     if not repository or not branch or branch == "HEAD":
         print("Release needs a branch with a GitHub origin remote.", file=sys.stderr)
         return 1
-    run(["git", "-C", str(root), "fetch", "--quiet", "origin", branch], capture_output=True)
-    ahead = git_output("rev-list", "--count", f"origin/{branch}..HEAD", root=root)
-    if ahead is None:
-        print(f"origin/{branch} does not exist yet. Push it first: git push -u origin {branch}", file=sys.stderr)
+    if git_output("status", "--porcelain", root=root):
+        print("Commit or stash your changes first: a release builds only what is committed.", file=sys.stderr)
         return 1
-    if ahead != "0":
-        print(f"{ahead} local commit(s) are not on GitHub, so the workflows would build older code.\n"
-              f"Push first: git -C {root} push origin {branch}", file=sys.stderr)
-        return 1
-    for workflow in workflows:
-        command = ["gh", "workflow", "run", workflow, "-R", repository, "--ref", branch]
-        if tag:
-            command += ["-f", f"tag={tag}"] if workflow == "release-desktop.yml" else []
-        print(f"Starting {workflow} on {repository} ({branch}){' for ' + tag if tag else ''}", flush=True)
-        for attempt in range(1, 4):
-            if run(command).returncode == 0:
-                break
-            if attempt < 3:
-                print(f"Attempt {attempt}/3 failed; retrying in 5 seconds.", file=sys.stderr)
-                sleep(5)
-        else:
-            print(f"Could not start {workflow}. A token needs the workflow scope "
-                  "(gh auth refresh -h github.com -s workflow), and the workflow must be on "
-                  f"{branch}. Start it at https://github.com/{repository}/actions", file=sys.stderr)
+    workflow = ["gh", "workflow", "run", "release-desktop.yml", "-R", repository, "--ref", branch]
+    if mode == "next":
+        versions = release_version_module(root)
+        changelog_path = Path(root) / "CHANGELOG.md"
+        changelog = changelog_path.read_text(encoding="utf-8")
+        listed = run(["gh", "release", "list", "-R", repository, "--limit", "1000",
+                      "--json", "tagName", "--jq", ".[].tagName"], capture_output=True, text=True)
+        if listed.returncode != 0:
+            print("Could not list the releases on GitHub; nothing changed.", file=sys.stderr)
             return 1
-    print(f"Started. Follow it at https://github.com/{repository}/actions", flush=True)
-    return 0
+        version = versions.next_version(listed.stdout.split(), changelog)
+        try:
+            renamed = versions.name_release(changelog, version, today)
+        except ValueError as error:
+            print(f"{error}; nothing changed.", file=sys.stderr)
+            return 1
+        changelog_path.write_text(renamed, encoding="utf-8")
+        for command in (["git", "-C", str(root), "add", "CHANGELOG.md"],
+                        ["git", "-C", str(root), "commit", "-q", "-m", f"Prepare {version} release"]):
+            if run(command).returncode != 0:
+                print(f"{' '.join(command[3:])} failed; CHANGELOG.md is renamed but not committed.", file=sys.stderr)
+                return 1
+        workflow += ["-f", f"version={version}"]
+        print(f"Prepared {version}.", flush=True)
+    print(f"Pushing {branch} to {repository} ...", flush=True)
+    if run(["git", "-C", str(root), "push", "origin", branch]).returncode != 0:
+        print(f"Push failed; nothing was started. Push {branch} and rerun.", file=sys.stderr)
+        return 1
+    for attempt in range(1, 4):
+        if run(workflow).returncode == 0:
+            print(f"Started release-desktop.yml. Follow it at https://github.com/{repository}/actions", flush=True)
+            return 0
+        if attempt < 3:
+            print(f"Attempt {attempt}/3 failed; retrying in 5 seconds.", file=sys.stderr)
+            sleep(5)
+    print("Could not start release-desktop.yml. A token needs the workflow scope "
+          "(gh auth refresh -h github.com -s workflow), and the workflow must be on "
+          f"{branch}. Start it at https://github.com/{repository}/actions", file=sys.stderr)
+    return 1
 
 
 def release_menu():
-    answer = choose("Release (runs GitHub workflows with gh)", [
-        ("d", "Desktop app for Linux and macOS (release-desktop.yml)"),
-        ("t", "Bootstrap targets (release-all.yml)"),
-        ("a", "Both"), ("b", "Back")])
+    answer = choose("Release (GitHub builds an executable for every platform)", [
+        ("n", "Release next version: number Upcoming, commit, push, build and publish"),
+        ("m", "Build missing files for the newest release"),
+        ("b", "Back")])
     if answer == "b":
         return
-    result = release({"d": "desktop", "t": "bootstrap", "a": "all"}[answer])
+    result = release("next" if answer == "n" else "missing")
     if result:
         print(f"Release did not start (exit code {result}).")
 
@@ -627,7 +642,7 @@ def menu():
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | release [desktop|bootstrap|all] [TAG] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | release [next|missing] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 
@@ -640,8 +655,8 @@ def main(argv):
         return build(argv[1])
     if argv[:1] == ["run"]:
         return run(argv[1:])
-    if argv[:1] == ["release"] and len(argv) <= 3:
-        return release(argv[1] if len(argv) > 1 else "desktop", argv[2] if len(argv) > 2 else "")
+    if argv[:1] == ["release"] and len(argv) <= 2:
+        return release(argv[1] if len(argv) > 1 else "next")
     if argv == ["tests", "--list"]:
         print("all\tAll native/static suites (four parallel workers; shared builds serial)")
         print("sanitizers\tOptional ASan/UBSan native model, UI and SQLite regression subset")

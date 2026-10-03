@@ -1,27 +1,36 @@
 # Upcoming Wena release
 
 <details>
-<summary>Release menu option and a desktop release workflow; the desktop builds with gcc again</summary>
+<summary>One self-contained desktop executable per platform, numbered from Upcoming and released from the menu</summary>
 
-- Menu option 3) Release (`build.sh release [desktop|bootstrap|all] [TAG]`)
-  starts the GitHub workflows with `gh`: `release-desktop.yml` for the desktop,
-  `release-all.yml` for the bootstrap targets, or both. It never pushes:
-  commits not yet on GitHub stop it with the push command, since the workflow
-  would build older code. Tests, Server and Tools move to 4, 5 and 6.
-- `release-desktop.yml` builds `wena-desktop` on native Linux amd64/arm64 and
-  macOS arm64/amd64 runners, smoke-tests it headless twice, packages it with
-  `scripts/package_desktop_release.py` (deterministic tar.gz with licenses,
-  provenance, a README of the system libraries and SHA256SUMS, plus a
-  `.sha256`) and attaches the files to the given or newest release.
+- Menu option 3) Release (`build.sh release next`) numbers the Upcoming section
+  after the newest release, the way WeKan does (v0.01 ... v9.99, v10.00),
+  commits `Prepare vX release`, pushes, and starts `release-desktop.yml`.
+  `build.sh release missing` builds and attaches to the newest release. It
+  refuses uncommitted changes. Tests, Server and Tools move to 4, 5 and 6.
+- `release-desktop.yml` publishes the release with that CHANGELOG section as
+  its notes, starts `release-all.yml`, and builds 14 executables: Linux amd64
+  and arm64 natively, armhf, armel, i686, riscv64, ppc64le, s390x and
+  mips64le under QEMU; macOS arm64 and amd64; Windows amd64, i686 and arm64
+  cross-compiled and smoke-tested on Windows runners. Each is attached with its
+  `.sha256`, beside one notices archive of licenses and provenance.
+- SDL2 2.32.10 and SQLite 3.53.4 are built from checksum-pinned sources and
+  linked in (`scripts/build_desktop_release.sh`), SDL with only video,
+  rendering and events. A Linux executable needs only glibc and X11 or
+  Wayland, macOS only its own frameworks, Windows only its system DLLs;
+  `scripts/check_release_executable.py` reads each executable's own library
+  list and refuses anything else.
+- The desktop runs on Windows: drive and UNC paths, wide-character file APIs,
+  a workspace published with no-replace `MoveFileExW`, the board in
+  `%APPDATA%\Wena`, and the debug log.
 - gcc 13 rejected 27 one-line `if (...) a; b;` statements under
-  `-Werror=misleading-indentation`, so the desktop and five suites did not
-  build on Ubuntu 24.04; each is now one statement per line. A WeKan source
-  lookup no longer raises when the checkout is one folder deep. On Ubuntu
-  24.04, 163 suites pass; `capability-runtime` needs Node.js and the LD_PRELOAD
-  part of `desktop` still fails (it never built there before).
-- Tests: release dispatch with gh and git replaced (every refusal starts
-  nothing, retries, both workflows, the tag only for the desktop), packaging
-  determinism, contents, checksums and negatives, and the workflow's targets.
+  `-Werror=misleading-indentation`; each is one statement per line now.
+- Verified here: macOS arm64 and amd64 builds, Linux arm64 and amd64 built on
+  Ubuntu 22.04 and smoke-tested under Xvfb (glibc 2.34), Windows amd64, i686
+  and arm64 cross-built and checked. Tests: release flow with gh and git
+  replaced, numbering and notes, the executable checker against ELF, PE and
+  Mach-O with negatives, pinned downloads, packaging, and the workflow's
+  platform list.
 
 Thanks to xet7.
 

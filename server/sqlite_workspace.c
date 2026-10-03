@@ -9,11 +9,15 @@
 #include "sqlite_storage.h"
 #include "../models/model.h"
 
-#if defined(__unix__) || defined(__APPLE__)
+#if defined(__unix__) || defined(__APPLE__) || defined(_WIN32)
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -70,6 +74,84 @@ static int bootstrap(sqlite3 *database, const WenaSqliteWorkspaceSeed *seed)
     return ok;
 }
 
+#if defined(_WIN32)
+/* Windows: stage beside the target and publish with MoveFileExW without
+ * MOVEFILE_REPLACE_EXISTING, which fails when the target exists - the same
+ * no-replace guarantee as link() below, including concurrent creators. */
+static int wide_path(const char *path, wchar_t *out, int capacity)
+{
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, out, capacity) > 0;
+}
+
+static void remove_staging(const char *staging)
+{
+    static const char *const suffixes[] = {"", "-wal", "-shm", "-journal"};
+    char name[WORKSPACE_PATH_CAPACITY + 64];
+    wchar_t wide[WORKSPACE_PATH_CAPACITY + 64];
+    size_t index;
+    for (index = 0; index < sizeof(suffixes) / sizeof(suffixes[0]); ++index) {
+        strcpy(name, staging);
+        strcat(name, suffixes[index]);
+        if (wide_path(name, wide, WORKSPACE_PATH_CAPACITY + 64)) (void)DeleteFileW(wide);
+    }
+}
+
+int wena_sqlite_workspace_create(const char *path,
+                                  const unsigned char *migration, size_t length,
+                                  const char *expected_sha256,
+                                  const WenaSqliteWorkspaceSeed *seed)
+{
+    char staging[WORKSPACE_PATH_CAPACITY + 64];
+    wchar_t wide_target[WORKSPACE_PATH_CAPACITY], wide_staging[WORKSPACE_PATH_CAPACITY + 64];
+    size_t index;
+    HANDLE file;
+    sqlite3 *database;
+    int ok, drive, unc;
+
+    if (path == NULL || !seed_valid(seed) || migration == NULL || length == 0 ||
+        expected_sha256 == NULL) return 0;
+    drive = ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+        path[1] == ':' && (path[2] == '\\' || path[2] == '/');
+    unc = path[0] == '\\' && path[1] == '\\' && path[2] != '\0' && path[2] != '\\';
+    if (!drive && !unc) return 0;
+    for (index = 0; index < WORKSPACE_PATH_CAPACITY && path[index]; ++index) {
+        if ((unsigned char)path[index] < 32 || (unsigned char)path[index] == 127)
+            return 0;
+    }
+    if (index < 4 || index >= WORKSPACE_PATH_CAPACITY ||
+        path[index - 1] == '\\' || path[index - 1] == '/') return 0;
+    if (!wide_path(path, wide_target, WORKSPACE_PATH_CAPACITY)) return 0;
+    if (GetFileAttributesW(wide_target) != INVALID_FILE_ATTRIBUTES ||
+        (GetLastError() != ERROR_FILE_NOT_FOUND && GetLastError() != ERROR_PATH_NOT_FOUND)) return 0;
+    sprintf(staging, "%s.wena-%lu-%lu.tmp", path, (unsigned long)GetCurrentProcessId(),
+            (unsigned long)GetTickCount());
+    if (!wide_path(staging, wide_staging, WORKSPACE_PATH_CAPACITY + 64)) return 0;
+    file = CreateFileW(wide_staging, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return 0;
+    ok = CloseHandle(file) != 0;
+    database = NULL;
+    if (ok) ok = wena_sqlite_open(staging, migration, length, expected_sha256, &database);
+    if (ok) ok = bootstrap(database, seed);
+    /* Publish a standalone main file, never a database still dependent on WAL. */
+    if (ok) ok = sqlite3_exec(database,
+        "PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;",
+        NULL, NULL, NULL) == SQLITE_OK && wena_sqlite_integrity(database);
+    if (database != NULL && sqlite3_close(database) != SQLITE_OK) ok = 0;
+    if (ok) {
+        file = CreateFileW(wide_staging, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL, NULL);
+        if (file == INVALID_HANDLE_VALUE) ok = 0;
+        else {
+            if (!FlushFileBuffers(file)) ok = 0;
+            if (!CloseHandle(file)) ok = 0;
+        }
+    }
+    if (ok) ok = MoveFileExW(wide_staging, wide_target, MOVEFILE_WRITE_THROUGH) != 0;
+    if (!ok) remove_staging(staging);
+    return ok;
+}
+#else
 static void cleanup(const char *directory, const char *database_path)
 {
     char sidecar[WORKSPACE_PATH_CAPACITY + 64];
@@ -141,6 +223,7 @@ int wena_sqlite_workspace_create(const char *path,
     cleanup(directory, staging);
     return ok;
 }
+#endif
 #else
 int wena_sqlite_workspace_create(const char *path,
                                   const unsigned char *migration, size_t length,

@@ -87,9 +87,32 @@ separately. Node.js enables the optional JavaScript runtime suite. Set
 running upstream source checks.
 
 The existing cataloged cross-platform `host`/target builds remain bootstrap
-executables; they do not yet package the desktop application. `build desktop`
-is a separate local SDL2/SQLite build. No release workflow is needed for local
-development.
+executables. `build desktop` is a separate local SDL2/SQLite build. No release
+workflow is needed for local development.
+
+## Releases
+
+Each release has one self-contained `wena-desktop` executable per platform,
+with SDL2 and SQLite linked in from the checksum-pinned sources in
+[config/release-dependencies.json](config/release-dependencies.json):
+Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER little-endian,
+IBM Z and MIPS64 little-endian; macOS Apple silicon and Intel; and Windows
+x86-64, x86 and ARM64. A Linux executable needs only glibc and an X11 or
+Wayland desktop, a macOS one only macOS, a Windows one only Windows.
+`scripts/build_desktop_release.sh TARGET OUTPUT` builds one, and
+`scripts/check_release_executable.py` refuses it when SDL2, SQLite or a
+non-system library would be loaded at run time.
+
+New entries go under `# Upcoming Wena release` in [CHANGELOG.md](CHANGELOG.md).
+Menu option 3) Release (`./build.sh release next`) numbers that section after
+the newest release (v0.01, v0.02, ... v9.99, v10.00), commits
+`Prepare vX release`, pushes, and starts `release-desktop.yml` on GitHub. That
+workflow publishes the release with the section as its notes, starts
+`release-all.yml` for the bootstrap targets, builds and smoke-tests every
+platform natively, under QEMU or by cross-compiling, and attaches each
+executable with its `.sha256` and the licenses. `./build.sh release missing`
+builds and attaches to the newest release without a new number. Release needs
+the GitHub CLI logged in and no uncommitted changes.
 
 `./build.sh build desktop-package` creates a verified local Linux amd64 archive
 with the desktop, licenses, checksums and actual host dependency requirements.

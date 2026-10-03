@@ -9,6 +9,7 @@
 #include "platform/dependencies.h"
 #include "platform/font.h"
 #include "platform/debug_log.h"
+#include "platform/files.h"
 #include "components/boards/swimlane_resize.h"
 #include "features/board.h"
 #include "features/board_filter.h"
@@ -51,7 +52,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 static unsigned int desktop_card_badges(struct nk_context *context,
     void *opaque, const WenaCard *card)
@@ -330,10 +330,15 @@ static int actor_exists(sqlite3 *database, const char *actor)
         wena_debug_log("failed at %s:%d", __FILE__, __LINE__); goto cleanup; \
     } while (0)
 
-#if defined(__APPLE__)
-#define DESKTOP_APPLE 1
+#if defined(_WIN32)
+#define DESKTOP_SYSTEM WENA_SYSTEM_WINDOWS
+#define DESKTOP_HOME "APPDATA"
+#elif defined(__APPLE__)
+#define DESKTOP_SYSTEM WENA_SYSTEM_MACOS
+#define DESKTOP_HOME "HOME"
 #else
-#define DESKTOP_APPLE 0
+#define DESKTOP_SYSTEM WENA_SYSTEM_OTHER
+#define DESKTOP_HOME "HOME"
 #endif
 #define DESKTOP_DEFAULT_ACTOR "local-user"
 #define DESKTOP_DEFAULT_BOARD "my-board"
@@ -366,7 +371,6 @@ int main(int argc, char **argv)
     char language_path[512], detected_locale[64];
     char collapse_path[WENA_EXECUTABLE_PATH_CAPACITY];
     char default_database[WENA_EXECUTABLE_PATH_CAPACITY];
-    struct stat info;
     sqlite3 *database;
     WenaEmbeddedMigration migration;
     WenaI18nCatalog catalog;
@@ -446,8 +450,13 @@ int main(int argc, char **argv)
      * --smoke/--language given: the local board, created on the first run. */
     if (database_path == NULL && actor_id == NULL && board_id == NULL &&
         !create_workspace && board_title == NULL) {
-        if (!wena_desktop_default_database(getenv("WENA_DATABASE"), getenv("HOME"),
-                getenv("XDG_DATA_HOME"), DESKTOP_APPLE, default_database, sizeof(default_database)) ||
+        char database_env[WENA_EXECUTABLE_PATH_CAPACITY], home[WENA_EXECUTABLE_PATH_CAPACITY];
+        char xdg[WENA_EXECUTABLE_PATH_CAPACITY];
+        if (!wena_desktop_default_database(
+                wena_environment("WENA_DATABASE", database_env, sizeof(database_env)) ? database_env : NULL,
+                wena_environment(DESKTOP_HOME, home, sizeof(home)) ? home : NULL,
+                wena_environment("XDG_DATA_HOME", xdg, sizeof(xdg)) ? xdg : NULL,
+                DESKTOP_SYSTEM, default_database, sizeof(default_database)) ||
             !wena_make_parent_directories(default_database)) {
             wena_debug_log("no default board file: set WENA_DATABASE to an absolute path");
             fputs("Cannot name a folder for the local board; set WENA_DATABASE to an absolute path\n", stderr);
@@ -456,17 +465,17 @@ int main(int argc, char **argv)
         }
         database_path = default_database;
         actor_id = DESKTOP_DEFAULT_ACTOR; board_id = DESKTOP_DEFAULT_BOARD;
-        if (stat(default_database, &info) != 0) {
+        if (wena_file_kind(default_database) == WENA_FILE_MISSING) {
             create_workspace = 1; board_title = DESKTOP_DEFAULT_TITLE;
         }
         wena_debug_log("default board %s in %s%s", board_id, database_path,
                        create_workspace ? " (creating it)" : "");
     }
-    if (database_path == NULL || database_path[0] != '/' ||
+    if (database_path == NULL || !wena_path_absolute(database_path) ||
         strlen(database_path) >= WENA_EXECUTABLE_PATH_CAPACITY ||
         !wena_model_identifier_valid(actor_id) || !wena_model_identifier_valid(board_id) ||
         (board_title != NULL && !create_workspace) ||
-        (!create_workspace && (stat(database_path, &info) != 0 || !S_ISREG(info.st_mode)))) {
+        (!create_workspace && wena_file_kind(database_path) != WENA_FILE_REGULAR)) {
         fputs("An absolute database path, actor and board are required; use --create for a new workspace\n", stderr);
         wena_debug_log("refused: an absolute database path, actor and board are required");
         wena_debug_log_close();

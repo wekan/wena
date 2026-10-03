@@ -6,18 +6,31 @@ if [ "$#" -ne 1 ]; then
   echo "Usage: scripts/build_desktop.sh OUTPUT_EXECUTABLE" >&2
   exit 2
 fi
-command -v sdl2-config >/dev/null 2>&1 || { echo "SDL2 development files required" >&2; exit 1; }
+# A release build (scripts/build_desktop_release.sh) links SDL2 and SQLite
+# statically and may cross-compile; it sets these. Unset, the host's sdl2-config,
+# cc and -lsqlite3 are used, as for a local build.
+if [ -z "${WENA_SDL_LIBS:-}" ]; then
+  command -v sdl2-config >/dev/null 2>&1 || { echo "SDL2 development files required" >&2; exit 1; }
+  WENA_SDL_CFLAGS=$(sdl2-config --cflags)
+  WENA_SDL_LIBS=$(sdl2-config --libs)
+fi
+WENA_SDL_CFLAGS=${WENA_SDL_CFLAGS:-}
+WENA_CC=${WENA_CC:-cc}
+WENA_SQLITE_CFLAGS=${WENA_SQLITE_CFLAGS:-}
+WENA_SQLITE_LIBS=${WENA_SQLITE_LIBS:--lsqlite3}
+WENA_LDFLAGS=${WENA_LDFLAGS:-}
+WENA_CFLAGS=${WENA_CFLAGS:-}
 python3 "$root_dir/scripts/check_dependencies.py" > /dev/null
 python3 "$root_dir/scripts/compile_svg.py" --check
 python3 "$root_dir/scripts/verify_migrations.py"
 python3 "$root_dir/scripts/verify_i18n_catalog.py"
 python3 "$root_dir/scripts/generate_ui_i18n.py" --check
 python3 "$root_dir/scripts/generate_native_font.py" --check
-cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
-  -I"$root_dir/third_party/nuklear" $(sdl2-config --cflags) \
+$WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WENA_CFLAGS \
+  -I"$root_dir/third_party/nuklear" $WENA_SDL_CFLAGS $WENA_SQLITE_CFLAGS \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/imports/preferences/collapse.c" \
-  "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" \
+  "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" "$root_dir/client/platform/files.c" \
   "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" \
@@ -58,6 +71,6 @@ cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 \
   "$root_dir/server/mutations/checklist_batch.c" \
   "$root_dir/server/mutations/labels.c" "$root_dir/models/label.c" "$root_dir/models/color.c" "$root_dir/server/region_response.c" \
   "$root_dir/server/embedded_migration.c" "$root_dir/server/executable_path.c" \
-  "$root_dir/server/sha256.c" -o "$1" $(sdl2-config --libs) -lsqlite3 -lm
+  "$root_dir/server/sha256.c" -o "$1" $WENA_SQLITE_LIBS $WENA_SDL_LIBS $WENA_LDFLAGS -lm
 python3 "$root_dir/scripts/embed_migrations.py" --executable "$1"
 python3 "$root_dir/scripts/embed_i18n_catalog.py" --executable "$1"

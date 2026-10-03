@@ -1,0 +1,34 @@
+{
+  "format": 1,
+  "scope": "Libraries linked statically into release desktop executables (scripts/build_desktop_release.sh). Each download is checked against its SHA-256 before use.",
+  "sdl2": {
+    "version": "2.32.10",
+    "url": "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz",
+    "sha256": "5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165",
+    "license": "Zlib",
+    "verified": "SHA-256 equals the digest GitHub publishes for the release asset"
+  },
+  "sqlite": {
+    "version": "3.53.4",
+    "url": "https://sqlite.org/2026/sqlite-amalgamation-3530400.zip",
+    "sha256": "1e71ddf93849c6a6ecf58b827c0692073d2dd7ee40196158068f7b29f422e87d",
+    "license": "Public domain",
+    "verified": "SHA3-256 628a44cfe82c66aed1ccbbe85a562d2e33ebe64b3288981ed76285612227934e equals sqlite.org/download.html"
+  },
+  "llvm-mingw-x86_64": {
+    "version": "20260922",
+    "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-ubuntu-22.04-x86_64.tar.xz",
+    "sha256": "bb7bb7654b33d5aa8712acb837c963b2e0c56352560c76105270a3268c665c21",
+    "license": "Apache-2.0 WITH LLVM-exception (toolchain only; the executable links its MinGW-w64 runtime statically)",
+    "verified": "SHA-256 equals the digest GitHub publishes for the release asset",
+    "use": "Windows arm64 cross-compiler, on an x86_64 Linux build host"
+  },
+  "llvm-mingw-aarch64": {
+    "version": "20260922",
+    "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-ubuntu-22.04-aarch64.tar.xz",
+    "sha256": "07d21263c56bfe9a713db6fdb3f7434bf4c121a005e40397d3b4c0170fb06769",
+    "license": "Apache-2.0 WITH LLVM-exception (toolchain only; the executable links its MinGW-w64 runtime statically)",
+    "verified": "SHA-256 equals the digest GitHub publishes for the release asset",
+    "use": "Windows arm64 cross-compiler, on an aarch64 Linux build host"
+  }
+}
