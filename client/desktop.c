@@ -262,7 +262,7 @@ static int desktop_card_collapsed(struct nk_context *context,
 /* WeKan's popups: List Actions, Swimlane Actions, the user's menu. */
 typedef enum WenaDesktopMenuKind {
     DESKTOP_MENU_NONE, DESKTOP_MENU_LIST, DESKTOP_MENU_SWIMLANE, DESKTOP_MENU_MEMBER,
-    DESKTOP_MENU_CARD, DESKTOP_MENU_VISIBILITY, DESKTOP_MENU_WATCH
+    DESKTOP_MENU_CARD, DESKTOP_MENU_VISIBILITY, DESKTOP_MENU_WATCH, DESKTOP_MENU_SORT
 } WenaDesktopMenuKind;
 typedef struct WenaDesktopMenu {
     WenaDesktopMenuKind kind;
@@ -281,6 +281,7 @@ typedef struct WenaDesktopToolbar {
     int board_refresh;
     int card_menu_error;      /* a Card Actions item that could not be done */
     int board_choice;         /* 1 Private, 2 Public, 3 Watching, 4 Tracking, 5 Muted */
+    int card_sort;            /* WeKan's Sort Cards: WENA_BOARD_SORT_* */
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -543,6 +544,17 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         items[count - 1].checked = layout->header_watch == 3;
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CHANGE_WATCH_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
+    } else if (menu->kind == DESKTOP_MENU_SORT) {
+        /* WeKan's choices; Wena keeps the titles, not due dates or creation
+         * times, so those cannot be chosen. WeKan's newer "Sort by votes" is
+         * not in the pinned catalog (config/i18n-lock.json). */
+        DESKTOP_ITEM(WENA_ICON_CALENDAR, WENA_UI_TEXT_DUE_DATE, 0, 0);
+        DESKTOP_ITEM(WENA_ICON_SORT_ALPHA, WENA_UI_TEXT_TITLE_ALPHABETICALLY, 1, 1);
+        items[count - 1].checked = layout->card_sort == WENA_BOARD_SORT_TITLE;
+        DESKTOP_ITEM(WENA_ICON_ARROW_DOWN, WENA_UI_TEXT_CREATED_NEWEST, 0, 1);
+        DESKTOP_ITEM(WENA_ICON_ARROW_UP, WENA_UI_TEXT_CREATED_OLDEST, 0, 1);
+        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CARDS_SORT_TITLE),
+                                 menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_MEMBER) {
         DESKTOP_ITEM(WENA_ICON_GLOBE, WENA_UI_TEXT_CHANGE_LANGUAGE, 1, 0);
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_MEMBER_SETTINGS),
@@ -556,7 +568,11 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         strcpy(target.board_id, layout->board->id);
         strcpy(target.list_id, menu->list_id);
         strcpy(target.swimlane_id, menu->swimlane_id);
-        if (menu->kind == DESKTOP_MENU_VISIBILITY || menu->kind == DESKTOP_MENU_WATCH) {
+        if (menu->kind == DESKTOP_MENU_SORT) {
+            toolbar->card_sort = chosen == 1 ? WENA_BOARD_SORT_TITLE : WENA_BOARD_SORT_NONE;
+            menu->kind = DESKTOP_MENU_NONE;
+            return DESKTOP_PANEL_NONE;
+        } else if (menu->kind == DESKTOP_MENU_VISIBILITY || menu->kind == DESKTOP_MENU_WATCH) {
             /* desktop.c's frame writes it to WeKan's board document. */
             toolbar->board_choice = menu->kind == DESKTOP_MENU_VISIBILITY ? 1 + chosen : 3 + chosen;
             menu->kind = DESKTOP_MENU_NONE;
@@ -943,7 +959,7 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, sort, sorted, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1696,8 +1712,10 @@ window_ready:
                     search.lists, WENA_SEARCH_RESULTS, &search.list_count,
                     search.cards, WENA_SEARCH_RESULTS, &search.card_count);
             }
-            else if (!strcmp(show, "visibility") || !strcmp(show, "watch")) {
-                toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH : DESKTOP_MENU_VISIBILITY;
+            else if (!strcmp(show, "sorted")) toolbar.card_sort = WENA_BOARD_SORT_TITLE;
+            else if (!strcmp(show, "visibility") || !strcmp(show, "watch") || !strcmp(show, "sort")) {
+                toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH :
+                                    !strcmp(show, "sort") ? DESKTOP_MENU_SORT : DESKTOP_MENU_VISIBILITY;
                 toolbar.menu.x = 300.0f;
             }
             else if (!strcmp(show, "multi-selection"))
@@ -1807,6 +1825,8 @@ window_ready:
             layout.header_filter_active = filter.query[0] != '\0';
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             layout.header_search = search.visible ? 2 : 1;
+            layout.card_sort = toolbar.card_sort;
+            layout.header_sort = toolbar.card_sort != WENA_BOARD_SORT_NONE ? 2 : 1;
             wena_ui_controls_begin();
             desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
                                  snapshot->board.id);
@@ -1849,6 +1869,12 @@ window_ready:
                     if (search.visible) search.visible = 0;
                     else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
                 }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_SORT) != 0u) {
+                    toolbar.menu.kind = DESKTOP_MENU_SORT;
+                    toolbar.menu.x = context->input.mouse.pos.x - 20.0f > 0.0f ? context->input.mouse.pos.x - 20.0f : 0.0f;
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_SORT_RESET) != 0u)
+                    toolbar.card_sort = WENA_BOARD_SORT_NONE;
                 if (toolbar.board_choice != 0) {
                     static const char *const choices[] = {"private", "public", "watching", "tracking", "muted"};
                     const char *choice = choices[toolbar.board_choice - 1];

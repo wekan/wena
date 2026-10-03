@@ -346,6 +346,25 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_fill_circle(out, nk_rect(x + P(6.5f), y + P(13), P(3), P(3)), c);
         if (icon == WENA_ICON_BELL_SLASH) line(out, x + P(1), y + P(1.5f), x + P(15), y + P(15), t * 1.2f, c);
         break;
+    case WENA_ICON_SORT:
+        /* fa-sort: a triangle up over a triangle down. */
+        nk_fill_triangle(out, x + P(8), y + P(1), x + P(3), y + P(7), x + P(13), y + P(7), c);
+        nk_fill_triangle(out, x + P(3), y + P(9), x + P(13), y + P(9), x + P(8), y + P(15), c);
+        break;
+    case WENA_ICON_CALENDAR:
+        nk_stroke_rect(out, nk_rect(x + P(1.5f), y + P(3), P(13), P(12)), P(1), t * 0.8f, c);
+        nk_fill_rect(out, nk_rect(x + P(1.5f), y + P(3), P(13), P(3.5f)), P(1), c);
+        line(out, x + P(5), y + P(1), x + P(5), y + P(4), t, c);
+        line(out, x + P(11), y + P(1), x + P(11), y + P(4), t, c);
+        break;
+    case WENA_ICON_SORT_ALPHA:
+        /* fa-sort-alpha-asc: an arrow down beside the letters' lines. */
+        line(out, x + P(3.5f), y + P(1.5f), x + P(3.5f), y + P(14), t, c);
+        nk_fill_triangle(out, x + P(1), y + P(11), x + P(6), y + P(11), x + P(3.5f), y + P(15), c);
+        line(out, x + P(8), y + P(4), x + P(14), y + P(4), t, c);
+        line(out, x + P(8), y + P(8.5f), x + P(13), y + P(8.5f), t, c);
+        line(out, x + P(8), y + P(13), x + P(11.5f), y + P(13), t, c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;

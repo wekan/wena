@@ -341,6 +341,26 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's Sort Cards is in the board header, sorting cards by title for showing</summary>
+
+- Sort Cards follows the watch level, as in WeKan, and opens WeKan's popup.
+  Title (Alphabetically) sorts each list's cards by title on screen only,
+  as WeKan's does; the header then says "Sort is on", darker, with WeKan's
+  cross that removes the sort. Moves and drops keep using the list's own
+  order.
+- Due Date and the two Created At choices are shown but cannot be chosen:
+  Wena keeps neither. WeKan's newer "Sort by votes" is left out because its
+  text is not in Wena's pinned translation catalog.
+- `--show sort` renders the popup and `--show sorted` the sorted board.
+- Tests: `board-feature` sorts a list by title and checks the unsorted
+  order as the negative, and clicks Sort Cards, "Sort is on" and the cross,
+  the cross only while a sort is on.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

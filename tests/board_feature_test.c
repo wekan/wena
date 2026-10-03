@@ -217,6 +217,29 @@ int main(void)
            has_control("List Actions") && has_control("Card Actions") && has_control("Add Card"));
     /* Negative: the archived lane, list and card draw nothing. */
     assert(!has_control("Hidden") && !has_control("Old"));
+    /* WeKan's Sort Cards by title, for showing only; negative: unsorted,
+     * the list's own order. */
+    {
+        int index, zed = -1, two = -1;
+        strcpy(cards[0].title, "Zed");
+        context.label_count = 0;
+        assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+        for (index = 0; index < context.label_count; ++index) {
+            if (!strcmp(context.labels[index], "Zed")) zed = index;
+            if (!strcmp(context.labels[index], "Two")) two = index;
+        }
+        assert(zed >= 0 && two > zed);
+        layout.card_sort = WENA_BOARD_SORT_TITLE;
+        context.label_count = 0;
+        assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+        for (index = 0; index < context.label_count; ++index) {
+            if (!strcmp(context.labels[index], "Zed")) zed = index;
+            if (!strcmp(context.labels[index], "Two")) two = index;
+        }
+        assert(two >= 0 && zed > two && context.vec2_depth == 0);
+        layout.card_sort = WENA_BOARD_SORT_NONE;
+        strcpy(cards[0].title, "One");
+    }
     /* WeKan's description badge only on a card with a description. */
     assert(!has_control("Description"));
     cards[0].has_description = 1;
@@ -299,6 +322,19 @@ int main(void)
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SEARCH);
         context.button_to_press = "Filter";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_FILTER);
+        /* WeKan's Sort Cards, and while a sort is on its cross removes it. */
+        context.button_to_press = "Sort Cards";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.sort = 1;
+        context.button_to_press = "Sort Cards";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SORT);
+        context.button_to_press = "Remove sort";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.sort = 2;
+        context.button_to_press = "Sort is on";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SORT);
+        context.button_to_press = "Remove sort";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SORT_RESET);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

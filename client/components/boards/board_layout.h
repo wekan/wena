@@ -45,6 +45,9 @@ typedef struct WenaSwimlaneResize {
     unsigned int start_height, height;
 } WenaSwimlaneResize;
 
+#define WENA_BOARD_SORT_NONE 0
+#define WENA_BOARD_SORT_TITLE 1
+
 typedef struct WenaBoardLayout {
     const WenaBoard *board;
     const WenaSwimlane *swimlanes;
@@ -116,6 +119,9 @@ typedef struct WenaBoardLayout {
     int header_permission;          /* 0 none, 1 Private, 2 Public */
     int header_watch;               /* 0 none, 1 Watching, 2 Tracking, 3 Muted */
     int header_search;              /* 0 none, 1 Search, 2 its sidebar is open */
+    int header_sort;                /* 0 none, 1 Sort Cards, 2 a sort is on */
+    /* WeKan's Sort Cards, for showing only: WENA_BOARD_SORT_*. */
+    int card_sort;
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

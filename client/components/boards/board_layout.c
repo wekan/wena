@@ -9,6 +9,7 @@
 
 #include "../../platform/nuklear_options.h"
 #include <nuklear.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
@@ -414,16 +415,46 @@ static unsigned int wena_render_minicard(struct nk_context *context,
     return card_action;
 }
 
+static void wena_render_card(struct nk_context *context, const WenaBoardLayout *layout,
+                             const WenaList *list, const WenaCard *card, size_t position)
+{
+    unsigned int card_action;
+    if (card->archived ||
+        (layout->card_visible != NULL && !layout->card_visible(layout->card_visible_context, card))) return;
+    card_action = wena_render_minicard(context, layout, card, position, wena_board_list_width(layout, list));
+    if (layout->card_interaction != NULL && card_action != WENA_CARD_BODY_NO_ACTION) {
+        layout->card_interaction->actions = card_action;
+        (void)wena_model_set_required(layout->card_interaction->card_id,
+            sizeof(layout->card_interaction->card_id), card->id);
+    }
+}
+
+/* WeKan's Sort Cards by title: a card and its place in the list's own
+ * order, which moves and drops keep using. */
+typedef struct SortedCard {
+    const WenaCard *card;
+    size_t position;
+} SortedCard;
+
+static int by_title(const void *a, const void *b)
+{
+    const SortedCard *x = (const SortedCard *)a, *y = (const SortedCard *)b;
+    int order = strcmp(x->card->title, y->card->title);
+    return order != 0 ? order : x->position < y->position ? -1 : x->position > y->position;
+}
+
 static void wena_render_cards(struct nk_context *context,
                               const WenaBoardLayout *layout,
                               const WenaList *list,
                               const WenaSwimlane *swimlane)
 {
-    size_t index, ordinal, position;
-    unsigned int card_action;
+    size_t index, ordinal;
+    SortedCard *sorted;
 
     if (!layout->card_drop_area && layout->card_drop_target)
         layout->card_drop_target(context, layout->card_drop_context, list, swimlane);
+    sorted = layout->card_sort == WENA_BOARD_SORT_TITLE && layout->card_count > 0 ?
+        (SortedCard *)malloc(layout->card_count * sizeof(*sorted)) : NULL;
     ordinal = 0;
     for (index = 0; index < layout->card_count; ++index) {
         const WenaCard *card = &layout->cards[index];
@@ -431,19 +462,17 @@ static void wena_render_cards(struct nk_context *context,
         if (!wena_same_id(card->board_id, layout->board->id) ||
             !wena_same_id(card->list_id, list->id) ||
             !wena_same_id(card->swimlane_id, swimlane->id)) continue;
-        position = ordinal++;
-        if (!card->archived &&
-            (layout->card_visible == NULL ||
-             layout->card_visible(layout->card_visible_context, card))) {
-            card_action = wena_render_minicard(context, layout, card, position,
-                                               wena_board_list_width(layout, list));
-            if (layout->card_interaction != NULL &&
-                card_action != WENA_CARD_BODY_NO_ACTION) {
-                layout->card_interaction->actions = card_action;
-                (void)wena_model_set_required(layout->card_interaction->card_id,
-                    sizeof(layout->card_interaction->card_id), card->id);
-            }
-        }
+        if (sorted != NULL) {
+            sorted[ordinal].card = card;
+            sorted[ordinal].position = ordinal;
+            ++ordinal;
+        } else wena_render_card(context, layout, list, card, ordinal++);
+    }
+    if (sorted != NULL) {
+        qsort(sorted, ordinal, sizeof(*sorted), by_title);
+        for (index = 0; index < ordinal; ++index)
+            wena_render_card(context, layout, list, sorted[index].card, sorted[index].position);
+        free(sorted);
     }
 }
 
@@ -708,6 +737,7 @@ int wena_board_layout_render(struct nk_context *context,
     info.permission = layout->header_permission;
     info.watch = layout->header_watch;
     info.search = layout->header_search;
+    info.sort = layout->header_sort;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {

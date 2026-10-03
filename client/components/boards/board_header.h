@@ -21,6 +21,8 @@ struct nk_context;
 #define WENA_BOARD_HEADER_VISIBILITY 256u  /* Private / Public */
 #define WENA_BOARD_HEADER_WATCH 512u       /* Watching / Tracking / Muted */
 #define WENA_BOARD_HEADER_SEARCH 1024u     /* Search, last on the first row */
+#define WENA_BOARD_HEADER_SORT 2048u       /* Sort Cards */
+#define WENA_BOARD_HEADER_SORT_RESET 4096u /* the cross removing the sort */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
@@ -34,6 +36,7 @@ typedef struct WenaBoardHeaderInfo {
     int permission;           /* 0 hides it, 1 Private, 2 Public */
     int watch;                /* 0 hides it, 1 Watching, 2 Tracking, 3 Muted */
     int search;               /* 0 hides Search, 1 shows it, 2 its sidebar is open */
+    int sort;                 /* 0 hides Sort Cards, 1 shows it, 2 a sort is on */
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

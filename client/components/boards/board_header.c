@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 16);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 18);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -113,6 +113,25 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, label_width, 28.0f));
         if (wena_wekan_link(context, icons[info->watch - 1], label, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
             action |= WENA_BOARD_HEADER_WATCH;
+        buttons_x += label_width + 8.0f;
+    }
+    /* WeKan's Sort Cards; "Sort is on" and the cross that removes it while
+     * a sort is on. */
+    if (info != NULL && (info->sort == 1 || info->sort == 2)) {
+        const char *label = wena_ui_text(info->sort == 2 ? WENA_UI_TEXT_SORT_IS_ON : WENA_UI_TEXT_SORT_CARDS);
+        float label_width = text_width(context, WENA_WEKAN_FONT_LINK, label) + 22.0f;
+        if (info->sort == 2)
+            wena_wekan_fill(context, area.x + buttons_x - 4.0f, area.y + 14.0f, label_width + 8.0f, 28.0f,
+                            0x1236D9D, 3.0f);
+        nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, label_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_SORT, label, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_SORT;
+        if (info->sort == 2) {
+            nk_layout_space_push(context, nk_rect(buttons_x + label_width + 6.0f, 14.0f, 20.0f, 28.0f));
+            if (wena_wekan_icon_button(context, WENA_ICON_TIMES, wena_ui_text(WENA_UI_TEXT_REMOVE_SORT), 11.0f,
+                                       WENA_WEKAN_HEADER_TEXT))
+                action |= WENA_BOARD_HEADER_SORT_RESET;
+        }
     }
 
     /* Filter, then Search last of the first row's board buttons, as WeKan's;
