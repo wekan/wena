@@ -33,7 +33,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
 {
     unsigned int action;
     struct nk_rect area;
-    float width, title_width, filter_width, user_width, buttons_x;
+    float width, title_width, filter_width, filter_x, user_width, buttons_x;
     char tooltip[256];
     const char *filter;
 
@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 15);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 16);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -115,13 +115,27 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
             action |= WENA_BOARD_HEADER_WATCH;
     }
 
-    /* Filter, last of the first row's board buttons. */
+    /* Filter, then Search last of the first row's board buttons, as WeKan's;
+     * without Search, Filter is last. */
     filter = wena_ui_text(WENA_UI_TEXT_FILTER);
     filter_width = text_width(context, WENA_WEKAN_FONT_LINK, filter) + 22.0f;
+    filter_x = width - 81.0f - filter_width;
+    if (info != NULL && info->search) {
+        const char *search = wena_ui_text(WENA_UI_TEXT_SEARCH);
+        float search_width = text_width(context, WENA_WEKAN_FONT_LINK, search) + 22.0f;
+        float search_x = width - 17.0f - search_width;
+        if (info->search == 2)
+            wena_wekan_fill(context, area.x + search_x - 4.0f, area.y + 14.0f, search_width + 8.0f, 28.0f,
+                            0x1236D9D, 3.0f);
+        nk_layout_space_push(context, nk_rect(search_x, 14.0f, search_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_SEARCH, search, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_SEARCH;
+        filter_x = search_x - 7.0f - filter_width;
+    }
     if (info != NULL && info->filter_active)
-        wena_wekan_fill(context, area.x + width - 81.0f - filter_width - 4.0f, area.y + 14.0f,
+        wena_wekan_fill(context, area.x + filter_x - 4.0f, area.y + 14.0f,
                         filter_width + 8.0f, 28.0f, WENA_WEKAN_BUTTON_ADD, 3.0f);
-    nk_layout_space_push(context, nk_rect(width - 81.0f - filter_width, 14.0f, filter_width, 28.0f));
+    nk_layout_space_push(context, nk_rect(filter_x, 14.0f, filter_width, 28.0f));
     if (wena_wekan_link(context, WENA_ICON_FILTER, filter, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
         action |= WENA_BOARD_HEADER_FILTER;
 

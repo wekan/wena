@@ -63,6 +63,7 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_MUTED, "muted", "Muted"},
     {WENA_UI_TEXT_CHANGE_VISIBILITY_TITLE, "boardChangeVisibilityPopup-title", "Change Visibility"},
     {WENA_UI_TEXT_CHANGE_WATCH_TITLE, "boardChangeWatchPopup-title", "Change Watch"},
+    {WENA_UI_TEXT_SEARCH_EXAMPLE, "search-example", "Write text you search and press Enter"},
     {WENA_UI_TEXT_SELECTED, "selected-label", "Selected:"},
     {WENA_UI_TEXT_SELECT_LIST_CARDS, "list-select-cards", "Select all cards in this list"},
     {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},

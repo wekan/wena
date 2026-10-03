@@ -63,6 +63,7 @@ struct nk_context {
     /* Style vec2 pushes still open, and those hiding the scrollbar. */
     int vec2_depth, scrollbar_hidden;
     const char *edit_text;
+    int edit_commit;          /* the next edit reports Enter */
     int edit_count;
     const char *combo_item_to_press;
 };

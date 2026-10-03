@@ -317,6 +317,30 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's Search is in the board header, with its sidebar of lists and cards found</summary>
+
+- Search sits last on the header's first row, as in WeKan, with Filter
+  before it. It opens WeKan's search sidebar: the field with WeKan's "Write
+  text you search and press Enter", then the Lists and Cards found, as
+  white minilists and minicards. A found card opens its details.
+- What is found is what WeKan's `searchLists` and `searchCards` find: this
+  board's lists and cards whose title - or card description - contains the
+  term, ignoring case, the term trimmed, newest first. LIKE's own `%` `_`
+  and `\` are searched for as themselves.
+- `--show search:TERM` with `--screenshot` renders the sidebar with TERM
+  searched.
+- Tests: `board-search` (new suite) covers titles and descriptions, case,
+  trimming, LIKE characters, another board's rows, an empty term, capacity
+  and missing arguments; `search-sidebar` (new suite) covers the field,
+  Enter, results by title, a vanished card left out, opening a card,
+  closing, and no context or room; `board-feature` clicks Search, and
+  Filter beside it.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

@@ -115,6 +115,7 @@ typedef struct WenaBoardLayout {
     int header_multi_selection;     /* 0 none, 1 Multi-Selection, 2 it is on */
     int header_permission;          /* 0 none, 1 Private, 2 Public */
     int header_watch;               /* 0 none, 1 Watching, 2 Tracking, 3 Muted */
+    int header_search;              /* 0 none, 1 Search, 2 its sidebar is open */
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

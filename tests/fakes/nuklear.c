@@ -122,6 +122,7 @@ unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
         *length = (int)size;
         context->edit_text = NULL;
     }
+    if (context->edit_commit) { context->edit_commit = 0; return NK_EDIT_COMMITED; }
     return 0u;
 }
 

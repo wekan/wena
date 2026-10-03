@@ -197,7 +197,8 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_TRACKING,
     WENA_UI_TEXT_MUTED,
     WENA_UI_TEXT_CHANGE_VISIBILITY_TITLE,
-    WENA_UI_TEXT_CHANGE_WATCH_TITLE
+    WENA_UI_TEXT_CHANGE_WATCH_TITLE,
+    WENA_UI_TEXT_SEARCH_EXAMPLE
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.

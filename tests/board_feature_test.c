@@ -291,6 +291,14 @@ int main(void)
         context.button_to_press = NULL;
         (void)wena_board_header_render_info(&context, &board, &header);
         assert(!has_control("Watching") && !has_control("Muted") && !has_control("Private") && !has_control("Public"));
+        /* WeKan's Search, last on the first row; hidden when not given. */
+        context.button_to_press = "Search";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.search = 1;
+        context.button_to_press = "Search";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SEARCH);
+        context.button_to_press = "Filter";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_FILTER);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

@@ -22,6 +22,8 @@
 #include "features/card_move.h"
 #include "features/card_archives.h"
 #include "features/card_selection_panel.h"
+#include "components/sidebar/search_sidebar.h"
+#include "../server/board_search.h"
 #include "features/card_description.h"
 #include "features/card_description_mutation.h"
 #include "features/checklists.h"
@@ -941,7 +943,7 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1095,6 +1097,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     /* WeKan's All Boards page, the first page in WeKan's files. */
     int all_boards_page, tiles_stale;
     WenaAllBoardsView all_boards_view;
+    WenaSearchSidebar search;
     WenaWekanBoardTile *tiles;
     size_t tile_count;
     WenaDesktopAddBoard add_board;
@@ -1176,6 +1179,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     wekan_mode = 0; wekan_actor[0] = wekan_board[0] = '\0'; synced_changes = 0;
     all_boards_page = 0; tiles_stale = 1; tiles = NULL; tile_count = 0;
     memset(&all_boards_view, 0, sizeof(all_boards_view));
+    memset(&search, 0, sizeof(search));
     memset(&add_board, 0, sizeof(add_board));
     next_board[0] = session_board[0] = user_name[0] = '\0';
     for (i = 1; i < argc; ++i) {
@@ -1683,6 +1687,15 @@ window_ready:
                 strcpy(add.swimlane_id, snapshot->swimlanes[0].id);
                 (void)wena_card_create_open(&editors.create, &layout, &add);
             } else if (!strcmp(show, "sidebar")) sidebar.visible = 1;
+            else if (!strncmp(show, "search:", 7) && strlen(id) < sizeof(search.term)) {
+                /* The Search sidebar with a term searched, as after Enter. */
+                wena_search_sidebar_open(&search);
+                strcpy(search.term, id);
+                search.length = (int)strlen(id);
+                search.searched = wena_board_search(database, snapshot->board.id, search.term,
+                    search.lists, WENA_SEARCH_RESULTS, &search.list_count,
+                    search.cards, WENA_SEARCH_RESULTS, &search.card_count);
+            }
             else if (!strcmp(show, "visibility") || !strcmp(show, "watch")) {
                 toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH : DESKTOP_MENU_VISIBILITY;
                 toolbar.menu.x = 300.0f;
@@ -1793,6 +1806,7 @@ window_ready:
             wena_card_selection_traversal_begin(selection_traversal,selection);
             layout.header_filter_active = filter.query[0] != '\0';
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
+            layout.header_search = search.visible ? 2 : 1;
             wena_ui_controls_begin();
             desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
                                  snapshot->board.id);
@@ -1829,6 +1843,11 @@ window_ready:
                     toolbar.menu.kind = (toolbar.header_actions & WENA_BOARD_HEADER_VISIBILITY) != 0u ?
                         DESKTOP_MENU_VISIBILITY : DESKTOP_MENU_WATCH;
                     toolbar.menu.x = context->input.mouse.pos.x - 20.0f > 0.0f ? context->input.mouse.pos.x - 20.0f : 0.0f;
+                }
+                /* WeKan's Search: its sidebar in place of the board's. */
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_SEARCH) != 0u) {
+                    if (search.visible) search.visible = 0;
+                    else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
                 }
                 if (toolbar.board_choice != 0) {
                     static const char *const choices[] = {"private", "public", "watching", "tracking", "muted"};
@@ -2058,6 +2077,23 @@ window_ready:
             if(opened_panel!=DESKTOP_PANEL_SELECTION)
                 (void)wena_card_selection_panel_render_board(context,&editors.selection,
                     &layout,(float)width,(float)height);
+            if (search.visible) {
+                char found[WENA_ID_CAPACITY];
+                const WenaCard *shown;
+                unsigned int search_action;
+                if (sidebar.visible) search.visible = 0;
+                search_action = wena_search_sidebar_render(context, &search, snapshot->lists, snapshot->list_count,
+                    snapshot->cards, snapshot->card_count, (float)width, (float)height, found, sizeof(found));
+                if ((search_action & WENA_SEARCH_SUBMIT) != 0u) {
+                    search.searched = wena_board_search(database, snapshot->board.id, search.term,
+                        search.lists, WENA_SEARCH_RESULTS, &search.list_count,
+                        search.cards, WENA_SEARCH_RESULTS, &search.card_count);
+                    if (!search.searched) wena_debug_log("search: %s", sqlite3_errmsg(database));
+                }
+                if ((search_action & WENA_SEARCH_OPEN_CARD) != 0u &&
+                    (shown = desktop_selected_card(snapshot, found)) != NULL)
+                    (void)wena_card_details_open(&editors.details, shown);
+            }
             /* Never replay an opener's input into the newly opened panel. */
             if (opened_panel != DESKTOP_PANEL_HIERARCHY_MOVE)
                 (void)wena_hierarchy_move_render(context, &editors.hierarchy_move,
