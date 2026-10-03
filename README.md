@@ -120,7 +120,20 @@ SQLite or a non-system library would be loaded at run time.
 Platforms: Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER
 little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64, ARM64 and
 RISC-V 64; NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
-x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64.
+x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64; AmigaOS
+3.x (68040 with FPU and an RTG graphics card), AmigaOS 4 and AROS x86-64,
+where the board is kept in `PROGDIR:wena.sqlite`; Android ARM64
+(`wena-android-arm64.apk`) and iOS ARM64 (`wena-ios-arm64.ipa`), where it is
+kept in the app's own data folder.
+
+The iOS `.ipa` is not signed: iOS installs only signed apps, so re-sign it with
+your own certificate, or with AltStore or Sideloadly. The Android `.apk` is
+signed with the release key in the repository secrets
+`WENA_ANDROID_KEYSTORE_BASE64` (the keystore, base64),
+`WENA_ANDROID_KEYSTORE_PASSWORD`, `WENA_ANDROID_KEY_ALIAS` and, when it
+differs, `WENA_ANDROID_KEY_PASSWORD`. Keep that key: an APK signed with another
+does not install over it. Without the secrets the workflow signs with a
+throwaway debug key and warns.
 
 New entries go under `# Upcoming Wena release` in [CHANGELOG.md](CHANGELOG.md).
 Menu option 3) Release (`./build.sh release next`) numbers that section after

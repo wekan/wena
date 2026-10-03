@@ -338,8 +338,10 @@ Architecture decisions for this cycle:
   - [x] FreeBSD amd64, arm64 and riscv64; NetBSD and OpenBSD amd64 and arm64;
     DragonFly BSD and Haiku amd64, built natively in virtual machines; every
     source checked here against the FreeBSD, OpenBSD and NetBSD headers.
-  - [_] AmigaOS 3.x m68k, AmigaOS 4 PowerPC and AROS x86-64.
-  - [_] Android arm64 (APK) and iOS arm64 (IPA).
+  - [x] AmigaOS 3.x m68k, AmigaOS 4 PowerPC and AROS x86-64, static, in their
+    pinned cross-compiler images (not yet run on an Amiga or an emulator).
+  - [x] Android arm64 (APK) and iOS arm64 (unsigned IPA), smoke-tested in the
+    Android emulator and the iOS Simulator.
   - [_] WebAssembly wasm32 as a self-contained web artifact bundle.
 - [x] Make `.github/workflows/release-all.yml` the one release workflow:
   - [x] Create the release from the CHANGELOG section, or attach to the newest.

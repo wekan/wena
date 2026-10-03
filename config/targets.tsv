@@ -35,8 +35,8 @@ macos-amd64	macOS Intel	macos	ready	wena-macos-amd64
 windows-amd64	Windows x86-64	windows	ready	wena-windows-amd64.exe
 windows-i686	Windows x86 32-bit	windows	ready	wena-windows-i686.exe
 windows-arm64	Windows ARM 64-bit	windows	ready	wena-windows-arm64.exe
-amigaos-m68k	AmigaOS 3.x m68k (68040, RTG)	amiga	planned	wena-amigaos-m68k
-amigaos4-ppc	AmigaOS 4 PowerPC	amiga	planned	wena-amigaos4-ppc
-aros-x86	AROS x86-64	amiga	planned	wena-aros-x86
-android-arm64	Android ARM 64-bit	android	planned	wena-android-arm64.apk
-ios-arm64	iOS ARM 64-bit	ios	planned	wena-ios-arm64.ipa
+amigaos-m68k	AmigaOS 3.x m68k (68040, RTG)	amiga	ready	wena-amigaos-m68k
+amigaos4-ppc	AmigaOS 4 PowerPC	amiga	ready	wena-amigaos4-ppc
+aros-x86	AROS x86-64	amiga	ready	wena-aros-x86
+android-arm64	Android ARM 64-bit	android	ready	wena-android-arm64.apk
+ios-arm64	iOS ARM 64-bit	ios	ready	wena-ios-arm64.ipa

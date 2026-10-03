@@ -80,6 +80,9 @@ PACKAGES = {
     "mingw-w64-i686": {"brew": "mingw-w64", "apt": "gcc-mingw-w64-i686 binutils-mingw-w64-i686",
                        "dnf": "mingw32-gcc mingw32-binutils"},
     "make": {"apt": "make", "dnf": "make"},
+    "jdk": {"brew": "openjdk@17", "apt": "openjdk-17-jdk-headless", "dnf": "java-17-openjdk-devel",
+            "choco": "temurin17", "winget": "EclipseAdoptium.Temurin.17.JDK"},
+    "cmake": {"brew": "cmake", "apt": "cmake", "dnf": "cmake", "choco": "cmake", "winget": "Kitware.CMake"},
     "docker": {"brew": "--cask docker-desktop", "apt": "docker.io", "dnf": "moby-engine",
                "choco": "docker-desktop", "winget": "Docker.DockerDesktop"},
     "qemu": {"apt": "qemu-user-static binfmt-support", "dnf": "qemu-user-static"},
@@ -96,6 +99,7 @@ WINDOWS_DIRECTORIES = (
 )
 MSYS2_ROOTS = (r"C:\tools\msys64", r"C:\msys64")
 MACOS_DIRECTORIES = ("/opt/homebrew/opt/binutils/bin", "/usr/local/opt/binutils/bin",
+                     "/opt/homebrew/opt/openjdk@17/bin", "/usr/local/opt/openjdk@17/bin",
                      "/opt/homebrew/bin", "/usr/local/bin")
 
 
@@ -445,6 +449,7 @@ class Builder:
         if self.host.system != "macos":
             raise Unavailable("iOS builds only on macOS with Xcode")
         self.xcode_sdk("iphoneos")
+        self.need("cmake", "cmake")
         executable = f"dist/release/{target}/wena.ipa"
         self.plan.commands += [
             ["sh", "scripts/build_desktop_ios.sh", executable],
@@ -458,10 +463,24 @@ class Builder:
         if not (given and ndk_revision(Path(given)) == NDK_REVISION):
             self.plan.env["ANDROID_NDK_ROOT"] = str(ensure_ndk(self.host, tools_directory(self.root),
                                                                say=self.installer.say))
+        self.jdk()
+        # scripts/build_desktop_android.sh installs the pinned SDK packages it
+        # needs, into .tools/android-sdk unless ANDROID_HOME names another SDK.
         executable = f"dist/release/{target}/wena.apk"
         self.plan.commands += [
             ["sh", "scripts/build_desktop_android.sh", executable],
             [sys.executable, "scripts/package_desktop_release.py", "binary", target, executable, "release"]]
+
+    def jdk(self):
+        """A JDK 17 or newer for javac, d8 and apksigner, as JAVA_HOME."""
+        if os.environ.get("JAVA_HOME") and Path(os.environ["JAVA_HOME"], "bin", "javac").exists():
+            return
+        self.need("javac", "jdk", "a JDK 17")
+        javac = Path(self.find("javac")).resolve()
+        # Homebrew's openjdk@17 is not linked onto PATH; its home is beside its bin.
+        home = javac.parent.parent
+        brewed = home / "libexec" / "openjdk.jdk" / "Contents" / "Home"
+        self.plan.env["JAVA_HOME"] = str(brewed if brewed.is_dir() else home)
 
     def desktop(self):
         if not (self.root / "third_party" / "nuklear" / "nuklear.h").is_file():

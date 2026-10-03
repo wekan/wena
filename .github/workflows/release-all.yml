@@ -247,9 +247,134 @@ jobs:
           Get-Content "$env:WENA_LOG_DIR\desktop.log"
           if (-not (Select-String -Path "$env:WENA_LOG_DIR\desktop.log" -Pattern 'exit status 0' -Quiet)) { throw 'no clean exit logged' }
 
+  amiga:
+    name: ${{ matrix.target }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: amigaos-m68k }
+          - { target: amigaos4-ppc }
+          - { target: aros-x86 }
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build in the pinned amigadev/crosstools image and package
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tools/tmp
+          export TMPDIR="$PWD/.tools/tmp"
+          sh scripts/build_desktop_amiga.sh "$TARGET" "dist/release/$TARGET/wena"
+          python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena"
+          python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena" release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wena-${{ matrix.target }}
+          path: release/
+          if-no-files-found: error
+
+  android:
+    name: ${{ matrix.target }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: android-arm64 }
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build, sign and package the APK
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          WENA_VERSION: ${{ needs.prepare.outputs.tag }}
+          KEYSTORE_BASE64: ${{ secrets.WENA_ANDROID_KEYSTORE_BASE64 }}
+          WENA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WENA_ANDROID_KEYSTORE_PASSWORD }}
+          WENA_ANDROID_KEY_ALIAS: ${{ secrets.WENA_ANDROID_KEY_ALIAS }}
+          WENA_ANDROID_KEY_PASSWORD: ${{ secrets.WENA_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tools/tmp
+          export TMPDIR="$PWD/.tools/tmp"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          # The runner image has the SDK but does not put sdkmanager on PATH.
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$sdkmanager" --install "ndk;29.0.14206865" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/29.0.14206865"
+          # The same release key every time, or an update does not install over
+          # the previous version. Without the secrets the APK is debug-signed.
+          if test -n "$KEYSTORE_BASE64"; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/wena.keystore"
+            export WENA_ANDROID_KEYSTORE="$RUNNER_TEMP/wena.keystore"
+          else
+            unset WENA_ANDROID_KEYSTORE_PASSWORD WENA_ANDROID_KEY_ALIAS WENA_ANDROID_KEY_PASSWORD
+            echo "::warning::No WENA_ANDROID_KEYSTORE_BASE64 secret: the APK is signed with a debug key"
+          fi
+          sh scripts/build_desktop_android.sh "dist/release/$TARGET/wena.apk"
+          python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena.apk"
+          python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.apk" release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wena-${{ matrix.target }}
+          path: release/
+          if-no-files-found: error
+
+  ios:
+    name: ${{ matrix.target }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: ios-arm64 }
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build the unsigned IPA, smoke-test in the Simulator, and package
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          WENA_VERSION: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p .tools/tmp
+          export TMPDIR="$PWD/.tools/tmp"
+          sh scripts/build_desktop_ios.sh "dist/release/$TARGET/wena.ipa"
+          python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena.ipa"
+          sh scripts/build_desktop_ios.sh --simulator dist/simulator/Wena.app
+          device=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          print(next(d["udid"] for runtime, found in sorted(devices.items(), reverse=True)
+                     if "iOS" in runtime for d in found if d["name"].startswith("iPhone")))')
+          xcrun simctl boot "$device"
+          xcrun simctl install "$device" dist/simulator/Wena.app
+          xcrun simctl launch --console "$device" fi.wekan.wena --smoke | tee "$RUNNER_TEMP/smoke.log"
+          grep -q "Wena desktop smoke passed" "$RUNNER_TEMP/smoke.log"
+          python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.ipa" release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wena-${{ matrix.target }}
+          path: release/
+          if-no-files-found: error
+
   attach:
     name: Attach to the release
-    needs: [prepare, linux, bsd, macos, windows-build, windows-smoke]
+    needs: [prepare, linux, bsd, macos, windows-build, windows-smoke, amiga, android, ios]
     if: ${{ !cancelled() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30

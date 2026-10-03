@@ -1,6 +1,70 @@
 # Upcoming Wena release
 
 <details>
+<summary>The desktop for AmigaOS 3.x, AmigaOS 4 and AROS: wena-amigaos-m68k, wena-amigaos4-ppc, wena-aros-x86</summary>
+
+- `scripts/build_desktop_amiga.sh TARGET OUTPUT` compiles the desktop in the
+  pinned `amigadev/crosstools` image of each into one static executable: the
+  image's SDL2 2.30 on AmigaOS 4 (PowerPC ELF); SDL2 2.32.10 with AROS's own
+  port (`SDL2-2.32.10-aros.diff` from aros-development-team/contrib, without
+  OpenGL) on AROS x86-64 (relocatable ELF); and on AmigaOS 3.x the SDL2 fork
+  DevilutionX ships for 68040 with FPU and an RTG card (HUNK). Images and
+  sources are pinned by digest and SHA-256.
+- SQLite runs there without WAL, mmap or file locks, through an `amiga` VFS
+  that keeps AmigaDOS names such as `PROGDIR:x` as they are. Wena's
+  `journal_mode=WAL` then simply stays `delete`; other platforms keep WAL.
+- The platform code knows `Volume:` paths, keeps the board in
+  `PROGDIR:wena.sqlite` (`ENV:` is a RAM disk), publishes a new workspace with
+  dos.library `Rename()` (which never replaces), retries settings writes
+  because AmigaDOS `Rename()` does not replace, keeps the collapse preferences
+  file within the original FFS's 30 characters, asks `locale.library` for the
+  language and runs on a 1 MB stack (AmigaOS 4 `$STACK` cookie, libnix
+  `__stack`, AROS `NewStackSwap`).
+- Verified here: all three build, link statically and pass the format checks
+  (`scripts/check_release_executable.py` now knows HUNK, static PowerPC ELF
+  and AROS's relocatable ELF); the desktop with the exact Amiga SQLite options
+  and VFS creates and reopens a board on Linux. Not run on an Amiga or an
+  emulator yet. Tests: `amiga-desktop`, `debug-log`, `build-entrypoints`.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>The desktop for Android and iOS: wena-android-arm64.apk and wena-ios-arm64.ipa</summary>
+
+- `scripts/build_desktop_android.sh OUTPUT_APK` builds `libmain.so` - the
+  desktop with SDL2 2.32.10 and SQLite linked in - with SDL's own Java glue and
+  a small `fi.wekan.wena.WenaActivity`, directly with the NDK, javac, d8,
+  aapt2, zipalign and apksigner (no Gradle). Min SDK 21, target SDK 37,
+  16 KB-page aligned. It is signed with the release key from the repository
+  secrets, or a debug key with a warning.
+- `scripts/build_desktop_ios.sh OUTPUT_IPA` builds SDL2 for iOS with CMake and
+  links `Payload/Wena.app` (iOS 15 or newer), unsigned: re-sign it with your
+  own certificate, AltStore or Sideloadly. Apps built with the iOS 27 SDK must
+  use scenes, which SDL 2 does not, so `client/platform/ios/scene.m` puts
+  SDL's windows into the app's scene.
+- On a phone the board lives in the app's own data folder
+  (`SDL_GetPrefPath`), the language comes from the system, the board is laid
+  out in density-independent units and drawn at native pixels, touches land
+  where they are drawn, the keyboard shows only while a field is edited, and a
+  failure is shown in a message box. On Android a new workspace is published
+  with `rename()` after checking nothing is there, because SELinux refuses
+  `link()` in the app's folder.
+- Verified here: the APK passed the smoke test in the Android 17 (API 37)
+  emulator, on a second run and after an update over itself, and a card was
+  added by touch; the Simulator app passed on iOS 27.0 and 26.5. Real phones,
+  Android 5-16 and Xcode 16 builds are verified by use and the release run.
+  `scripts/check_release_executable.py` checks the APK's only library is
+  arm64 `libmain.so` loading Android's own libraries, and the IPA's `Wena`
+  loads only iOS's frameworks. Tests: `mobile-desktop`, `debug-log`,
+  `build-entrypoints`.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Every release file is the desktop GUI, one self-contained wena-TARGET per platform, from one workflow</summary>
 
 - `release-all.yml` is the only release workflow. `release-desktop.yml`, the
@@ -10,11 +74,12 @@
   `wena-linux-amd64`, `wena-windows-amd64.exe`, `wena-freebsd-amd64` - and
   attached beside one `SHA256SUMS`, without a `.sha256` per file or a separate
   notices archive.
-- 23 platforms: Linux amd64, arm64, armhf, armel, i686, riscv64, ppc64le,
+- 28 platforms: Linux amd64, arm64, armhf, armel, i686, riscv64, ppc64le,
   s390x and mips64le; FreeBSD amd64, arm64 and riscv64; NetBSD and OpenBSD
   amd64 and arm64; DragonFly BSD and Haiku amd64, built natively in virtual
   machines (cross-platform-actions v1.6.0, `scripts/build_desktop_release_vm.sh`);
-  macOS arm64 and amd64; Windows amd64, i686 and arm64.
+  macOS arm64 and amd64; Windows amd64, i686 and arm64; and, below, AmigaOS
+  3.x, AmigaOS 4, AROS, Android and iOS.
 - SDL2 and SQLite are linked into each one from the pinned sources, as before;
   the licenses of everything in it are now compiled in too
   (`scripts/generate_notices.py`), and `wena --licenses` prints them.

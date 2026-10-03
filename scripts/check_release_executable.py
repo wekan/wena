@@ -5,13 +5,17 @@
 
 Reads the executable's own dynamic-library list from its headers (no tool
 needed, so it works for cross-compiled files): ELF DT_NEEDED, Mach-O
-LC_LOAD_DYLIB, or the PE import table. Fails when SDL2 or SQLite is loaded at
-run time, when a Windows build needs a MinGW runtime DLL, or when the file is
+LC_LOAD_DYLIB, or the PE import table; an Android APK's libmain.so and an iOS
+IPA's Wena are read from inside the archive. Fails when SDL2 or SQLite is
+loaded at run time, when a Windows build needs a MinGW runtime DLL, when a
+phone build loads anything but its system's libraries, or when the file is
 not the format and CPU the target names. Prints the libraries it does need.
 """
 
+import io
 import struct
 import sys
+import zipfile
 
 ELF_MACHINES = {"amd64": 62, "arm64": 183, "armhf": 40, "armel": 40, "i686": 3, "riscv64": 243,
                 "ppc64le": 21, "s390x": 22, "loong64": 258, "mips64le": 8}
@@ -117,9 +121,90 @@ def pe_needed(data):
     return machine, needed
 
 
+# What a phone build may load: Android's NDK libraries, iOS's frameworks.
+ANDROID_SYSTEM = {"libc.so", "libm.so", "libdl.so", "liblog.so", "libandroid.so", "libEGL.so",
+                  "libGLESv1_CM.so", "libGLESv2.so", "libGLESv3.so", "libOpenSLES.so", "libaaudio.so"}
+IOS_SYSTEM = ("/System/Library/Frameworks/", "/usr/lib/libSystem.B.dylib", "/usr/lib/libobjc.A.dylib")
+
+
+def elf_header(data):
+    """(64-bit, little-endian, e_type, e_machine) of an ELF file."""
+    if data[:4] != b"\x7fELF":
+        raise ValueError("not an ELF executable")
+    e = "<" if data[5] == 1 else ">"
+    kind, machine = struct.unpack_from(e + "HH", data, 16)
+    return data[4] == 2, data[5] == 1, kind, machine
+
+
+def amiga(target, data):
+    """AmigaOS 3: a HUNK executable. AmigaOS 4: static big-endian PowerPC ELF.
+    AROS: a relocatable x86-64 ELF, which is what AROS loads."""
+    if target == "amigaos-m68k":
+        if data[:4] != b"\x00\x00\x03\xf3":
+            raise ValueError("not an AmigaOS HUNK executable")
+        return []
+    bits64, little, kind, machine = elf_header(data)
+    if target == "amigaos4-ppc":
+        if bits64 or little or kind != 2 or machine != 20:
+            raise ValueError("not a 32-bit big-endian PowerPC ELF executable")
+    elif target == "aros-x86":
+        if not bits64 or not little or kind != 1 or machine != 62:
+            raise ValueError("not a relocatable x86-64 ELF (AROS executable)")
+    else:
+        raise ValueError(f"unknown target {target}")
+    _machine, needed = elf_needed(data)
+    if needed:
+        raise ValueError("loads shared libraries: " + ", ".join(needed))
+    return needed
+
+
+def android(data):
+    with zipfile.ZipFile(io.BytesIO(data)) as apk:
+        names = apk.namelist()
+        if "AndroidManifest.xml" not in names or "classes.dex" not in names:
+            raise ValueError("not an Android APK")
+        libraries = [n for n in names if n.startswith("lib/")]
+        if libraries != ["lib/arm64-v8a/libmain.so"]:
+            raise ValueError("expected only lib/arm64-v8a/libmain.so, found " + ", ".join(libraries))
+        library = apk.read("lib/arm64-v8a/libmain.so")
+        dex = b"".join(apk.read(n) for n in names if n.endswith(".dex"))
+    if b"Lorg/libsdl/app/SDLActivity;" not in dex:
+        raise ValueError("SDL's activity is not in the APK")
+    bits64, little, _kind, machine = elf_header(library)
+    if not bits64 or not little or machine != 183:
+        raise ValueError("libmain.so is not arm64")
+    _machine, needed = elf_needed(library)
+    extra = [n for n in needed if n not in ANDROID_SYSTEM]
+    if extra:
+        raise ValueError("libmain.so loads libraries Android does not have: " + ", ".join(extra))
+    return needed
+
+
+def ios(data):
+    with zipfile.ZipFile(io.BytesIO(data)) as ipa:
+        names = ipa.namelist()
+        if any(not n.startswith("Payload/Wena.app/") for n in names if not n.endswith("/")) or \
+                "Payload/Wena.app/Wena" not in names or "Payload/Wena.app/Info.plist" not in names:
+            raise ValueError("not an IPA of Payload/Wena.app")
+        binary = ipa.read("Payload/Wena.app/Wena")
+    machine, needed = macho_needed(binary)
+    if machine != MACHO_CPUS["arm64"]:
+        raise ValueError(f"Mach-O CPU {machine:#x} is not arm64")
+    outside = [n for n in needed if not n.startswith(IOS_SYSTEM)]
+    if outside:
+        raise ValueError("loads libraries outside iOS: " + ", ".join(outside))
+    return needed
+
+
 def check(target, data):
     system, cpu = target.split("-", 1)
-    if system in ELF_SYSTEMS:
+    if system in ("amigaos", "amigaos4", "aros"):
+        needed = amiga(target, data)
+    elif system == "android":
+        needed = android(data)
+    elif system == "ios":
+        needed = ios(data)
+    elif system in ELF_SYSTEMS:
         machine, needed = elf_needed(data)
         if machine != ELF_MACHINES.get(cpu):
             raise ValueError(f"ELF machine {machine} is not {cpu}")
@@ -154,7 +239,7 @@ def main(argv):
     try:
         with open(argv[1], "rb") as stream:
             needed = check(argv[0], stream.read())
-    except (OSError, ValueError, struct.error, IndexError) as error:
+    except (OSError, ValueError, struct.error, IndexError, KeyError, zipfile.BadZipFile) as error:
         print(f"check_release_executable: {argv[1]}: {error}", file=sys.stderr)
         return 1
     print(f"{argv[0]}: self-contained; system libraries: {', '.join(needed) or 'none'}")

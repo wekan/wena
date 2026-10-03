@@ -34,7 +34,8 @@ PROVIDES = {
     "mingw64-gcc": {"x86_64-w64-mingw32-gcc"}, "mingw64-binutils": {"x86_64-w64-mingw32-objdump"},
     "gcc-mingw-w64-i686": {"i686-w64-mingw32-gcc"}, "binutils-mingw-w64-i686": {"i686-w64-mingw32-objdump"},
     "mingw32-gcc": {"i686-w64-mingw32-gcc"}, "mingw32-binutils": {"i686-w64-mingw32-objdump"},
-    "make": {"make"},
+    "make": {"make"}, "cmake": {"cmake"}, "openjdk@17": {"javac"}, "openjdk-17-jdk-headless": {"javac"},
+    "java-17-openjdk-devel": {"javac"},
     "mingw": {"gcc", "objdump", "readelf"}, "BrechtSanders.WinLibs.POSIX.UCRT": {"gcc", "objdump", "readelf"},
     "docker-desktop": {"docker"}, "docker.io": {"docker"}, "moby-engine": {"docker"},
     "Docker.DockerDesktop": {"docker"}, "git": {"git", "sh", "file"}, "Git.Git": {"git", "sh", "file"},
@@ -210,6 +211,22 @@ def test_targets():
         assert plan.env["DEVELOPER_DIR"].endswith("/Contents/Developer")
     computer = Computer(MAC, {"xcrun"}, sdks=("macosx", "iphoneos"))
     assert prepare(computer, "ios-arm64").env == {}
+    # iOS builds SDL with CMake; Homebrew installs it.
+    assert ["brew", "install", "cmake"] in computer.installs()
+    # Android: a JDK 17 from the system's packages, given to the build as JAVA_HOME.
+    saved = os.environ.pop("JAVA_HOME", None)
+    try:
+        for host, package in ((UBUNTU, "openjdk-17-jdk-headless"), (FEDORA, "java-17-openjdk-devel")):
+            computer = Computer(host)
+            from unittest.mock import patch as patched
+            with patched.object(toolchain, "ensure_ndk", return_value=Path("/ndk")):
+                plan = prepare(computer, "android-arm64")
+            assert any(package in command for command in computer.installs()), host
+            assert "JAVA_HOME" in plan.env and plan.env["ANDROID_NDK_ROOT"] == "/ndk"
+            assert commands(plan)[0] == "sh scripts/build_desktop_android.sh dist/release/android-arm64/wena.apk"
+    finally:
+        if saved is not None:
+            os.environ["JAVA_HOME"] = saved
     # The Windows build gets sh and a python3 the release scripts can call.
     computer = Computer(WINDOWS, {"docker"})
     with tempfile.TemporaryDirectory() as temp:

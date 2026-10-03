@@ -443,6 +443,61 @@ def test_release_executable_check():
             raise AssertionError((target, message))
 
 
+def zipped(files):
+    import zipfile
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w") as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+    return raw.getvalue()
+
+
+def elf_typed(data, kind, bits64=True, little=True):
+    import struct
+    data = bytearray(data)
+    struct.pack_into(("<" if little else ">") + "H", data, 16, kind)
+    return bytes(data)
+
+
+def test_release_package_check():
+    spec = importlib.util.spec_from_file_location("check", ROOT / "scripts" / "check_release_executable.py")
+    check = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(check)
+    # Amiga family: HUNK on AmigaOS 3, static PowerPC ELF on AmigaOS 4,
+    # relocatable x86-64 ELF on AROS - none loading a shared library.
+    assert check.check("amigaos-m68k", b"\x00\x00\x03\xf3" + b"\0" * 60) == []
+    assert check.check("amigaos4-ppc", elf_typed(elf(20, [], bits64=False, little=False), 2, little=False)) == []
+    assert check.check("aros-x86", elf_typed(elf(62, []), 1)) == []
+    # Android: only arm64 libmain.so, SDL's activity, and Android's own libraries.
+    library = elf(183, ["libandroid.so", "liblog.so", "libGLESv2.so", "libc.so"])
+    apk = {"AndroidManifest.xml": b"x", "classes.dex": b"dex Lorg/libsdl/app/SDLActivity;",
+           "lib/arm64-v8a/libmain.so": library}
+    assert check.check("android-arm64", zipped(apk)) == ["libandroid.so", "liblog.so", "libGLESv2.so", "libc.so"]
+    # iOS: Payload/Wena.app with an arm64 Mach-O loading only iOS's frameworks.
+    binary = macho(0x0100000C, ["/System/Library/Frameworks/UIKit.framework/UIKit", "/usr/lib/libSystem.B.dylib"])
+    ipa = {"Payload/Wena.app/Wena": binary, "Payload/Wena.app/Info.plist": b"plist"}
+    assert check.check("ios-arm64", zipped(ipa))
+    # Negative: each format's wrong file, and anything else loaded at run time.
+    for target, data, message in [
+            ("amigaos-m68k", elf(62, []), "HUNK"),
+            ("amigaos4-ppc", elf_typed(elf(62, []), 2), "PowerPC"),
+            ("aros-x86", elf_typed(elf(62, ["libSDL2.so"]), 1), "shared libraries"),
+            ("aros-x86", elf_typed(elf(62, []), 2), "relocatable"),
+            ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libSDL2.so": library})), "only lib/arm64-v8a/libmain.so"),
+            ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libmain.so": elf(183, ["libSDL2.so"])})), "Android does not have"),
+            ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libmain.so": elf(62, [])})), "not arm64"),
+            ("android-arm64", zipped({"classes.dex": b""}), "not an Android APK"),
+            ("ios-arm64", zipped(dict(ipa, **{"Payload/Wena.app/Wena": macho(0x0100000C, ["/opt/homebrew/lib/libSDL2.dylib"])})), "outside iOS"),
+            ("ios-arm64", zipped(dict(ipa, **{"Payload/Wena.app/Wena": macho(0x01000007, [])})), "is not arm64"),
+            ("ios-arm64", zipped(dict(ipa, **{"extra.txt": b""})), "Payload/Wena.app")]:
+        try:
+            check.check(target, data)
+        except ValueError as error:
+            assert message in str(error), (target, error)
+        else:
+            raise AssertionError((target, message))
+
+
 def test_desktop_release_packaging():
     spec = importlib.util.spec_from_file_location("package_desktop_release", ROOT / "scripts" / "package_desktop_release.py")
     package = importlib.util.module_from_spec(spec)
@@ -535,6 +590,7 @@ def main():
     test_release()
     test_release_versions()
     test_release_executable_check()
+    test_release_package_check()
     test_release_dependency_fetch()
     test_desktop_release_packaging()
     test_run()
