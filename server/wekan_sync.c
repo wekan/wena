@@ -1,5 +1,6 @@
 #include "wekan_sync.h"
 #include "ferretdb_sqlite.h"
+#include "wekan_defaults_data.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -606,7 +607,7 @@ fail:
 
 /* A field's JSON text and "$s" element, from a JSON object. */
 typedef struct Owned {
-    char *keys[32], *values[32], *elements[32];
+    char *keys[128], *values[128], *elements[128];
     size_t count;
 } Owned;
 
@@ -631,7 +632,7 @@ static int defaults_of(sqlite3 *db, const char *defaults, char **keys, size_t co
                                "wena_sjson_element(json(?1) -> ('$.\"' || key || '\"')) FROM json_each(?1)",
                            -1, &statement, NULL) != SQLITE_OK) return 0;
     sqlite3_bind_text(statement, 1, defaults, -1, SQLITE_STATIC);
-    while (sqlite3_step(statement) == SQLITE_ROW && out->count < 32) {
+    while (sqlite3_step(statement) == SQLITE_ROW && out->count < 128) {
         const char *key = (const char *)sqlite3_column_text(statement, 0);
         int present = 0;
         for (index = 0; index < count; ++index) if (!strcmp(keys[index], key)) present = 1;
@@ -643,6 +644,29 @@ static int defaults_of(sqlite3 *db, const char *defaults, char **keys, size_t co
     }
     sqlite3_finalize(statement);
     return 1;
+}
+
+/* A new board's defaults: Wena's base fields and WeKan's 101 Boolean ones
+ * (server/wekan_defaults_data.h), so WeKan shows every part of the board. */
+static const char *board_defaults(const char *base)
+{
+    static char json[8192];
+    size_t used, index, length;
+    if (json[0] != '\0') return json;
+    used = strlen(base);
+    if (used < 2 || used >= sizeof(json)) return base;
+    memcpy(json, base, used - 1);   /* without its closing brace */
+    --used;
+    for (index = 0; wekan_board_boolean_defaults[index] != NULL; ++index) {
+        length = strlen(wekan_board_boolean_defaults[index]);
+        if (used + length + 3 >= sizeof(json)) { json[0] = '\0'; return base; }
+        json[used++] = ',';
+        memcpy(json + used, wekan_board_boolean_defaults[index], length);
+        used += length;
+    }
+    json[used++] = '}';
+    json[used] = '\0';
+    return json;
 }
 
 /* A string as JSON text. */
@@ -664,7 +688,7 @@ static char *json_string(sqlite3 *db, const char *text)
 static int write_document(sqlite3 *db, const Kind *kind, const char *table, const char *id, int fresh,
                           const char *actor, char **keys, char **values, char **elements, size_t count)
 {
-    WenaFerretField fields[FIELD_CAPACITY + 40];
+    WenaFerretField fields[FIELD_CAPACITY + 140];
     char now[32];
     char *creator = NULL, *slug = NULL;
     Owned defaults;
@@ -673,7 +697,8 @@ static int write_document(sqlite3 *db, const Kind *kind, const char *table, cons
     sqlite3_snprintf(sizeof(now), now, "%lld", wena_ferretdb_now_ms());
     defaults.count = 0;
     if (fresh) {
-        if (!defaults_of(db, kind->defaults, keys, count, &defaults)) return 0;
+        if (!defaults_of(db, strcmp(kind->name, "boards") == 0 ? board_defaults(kind->defaults) : kind->defaults,
+                         keys, count, &defaults)) return 0;
         for (index = 0; index < defaults.count; ++index) {
             fields[used].key = defaults.keys[index];
             fields[used].value = defaults.values[index];
@@ -681,7 +706,7 @@ static int write_document(sqlite3 *db, const Kind *kind, const char *table, cons
             ++used;
         }
     }
-    for (index = 0; index < count && used < FIELD_CAPACITY + 30; ++index) {
+    for (index = 0; index < count && used < FIELD_CAPACITY + 130; ++index) {
         fields[used].key = keys[index];
         fields[used].value = values[index];
         fields[used].element = is_date(keys[index]) ? WENA_FERRET_DATE : elements[index];

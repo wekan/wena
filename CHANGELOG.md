@@ -1,6 +1,28 @@
 # Upcoming Wena release
 
 <details>
+<summary>WeKan itself opens what Wena wrote: checked with WeKan's bundle on the same wekan-files</summary>
+
+- `tools/wekan-ui/dropin.sh` checks Wena as a drop-in with WeKan itself: a
+  WeKan user is made through FerretDB on an empty `wekan-files/db`; Wena
+  opens those files as that user, makes its board and adds a list, a card,
+  a description and a checklist; then WeKan's own bundle serves the same
+  files through FerretDB, and its page (Playwright, `dropin.e2e.js`) shows
+  the board on All Boards, the list and card on it, and the card's details
+  with the description and the ticked checklist item. It passes.
+- What it found: a board WeKan makes carries its schema's defaults
+  (`allowsDescriptionText`, `allowsChecklists` and 99 more Booleans), and
+  WeKan hides a part of the board whose field is missing. A board Wena makes
+  now carries them all, generated from WeKan's `models/boards.js` into
+  `server/wekan_defaults_data.h` by `scripts/generate_wekan_defaults.py`,
+  whose `--check` runs with every desktop build (and passes without a WeKan
+  checkout, when there is nothing to compare with).
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>The language and collapsed lists and swimlanes are the user's, where WeKan keeps them</summary>
 
 - With WeKan's files, the language comes from the user's

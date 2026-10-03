@@ -5,3 +5,4 @@ release/
 
 # Release build work, downloads and temporary files (scripts/build_desktop_release.sh)
 .tools/
+tools/wekan-ui/capture/

@@ -201,6 +201,11 @@ int main(int argc, char **argv)
                              "(SELECT y->>'title' FROM (SELECT _ferretdb_sjson AS y FROM fdb.swimlanes_d9d57a4c) "
                              "WHERE y->>'boardId' = x->>'_id') FROM (SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) "
                              "WHERE x->>'title' = 'Fresh'"), "boardtruefreshDefault"));
+        /* WeKan's board defaults, so WeKan shows the board's parts. */
+        assert(!strcmp(q(db, "SELECT (x->>'allowsDescriptionText') || (x->>'allowsChecklists') || (x->>'allowsComments') "
+                             "|| (x->>'allowsCardNumber') || (x -> '$.\"$s\".p.allowsChecklists.t') FROM "
+                             "(SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) WHERE x->>'title' = 'Fresh'"),
+                       "1110\"bool\""));
         assert(wena_wekan_sync_export(db, "u1") == 0);
     }
     /* The user's language and per-board maps, where WeKan keeps them. */

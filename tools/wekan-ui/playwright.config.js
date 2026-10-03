@@ -10,7 +10,7 @@ const { defineConfig, devices } = require(path.join(process.env.WEKAN_ROOT || '.
 
 module.exports = defineConfig({
   testDir: __dirname,
-  testMatch: /capture\.e2e\.js$/,
+  testMatch: /(capture|dropin)\.e2e\.js$/,
   timeout: 180_000,
   workers: 1,
   globalSetup: path.join(process.env.WEKAN_ROOT || '../..', 'tests/playwright/global-setup.js'),
