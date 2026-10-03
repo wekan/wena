@@ -1,4 +1,5 @@
 #include "position_input.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <limits.h>
 int wena_position_input(struct nk_context *context,int selected,int count,int enabled)

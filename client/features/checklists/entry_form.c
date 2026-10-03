@@ -3,6 +3,7 @@
 #include "../../components/forms/input_limits.h"
 #include "../../../imports/ui/page_contract.h"
 #include "../../../models/checklist_item_titles.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdio.h>
 #include <string.h>

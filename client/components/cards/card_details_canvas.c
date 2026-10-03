@@ -1,6 +1,7 @@
 #include "card_details_canvas.h"
 #include "../../../imports/ui/page_contract.h"
 
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 
 unsigned int wena_card_details_canvas_render(struct nk_context *context,

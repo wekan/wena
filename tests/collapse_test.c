@@ -1,4 +1,5 @@
 #include "../client/components/boards/board_layout.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

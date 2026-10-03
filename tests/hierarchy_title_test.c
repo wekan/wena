@@ -1,8 +1,7 @@
 #include "../client/features/card_archives.h"
 #include "../client/features/card_selection_panel.h"
 #include "../client/features/labels/mutation.h"
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/hierarchy_title.h"

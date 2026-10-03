@@ -1,6 +1,7 @@
 #include "badges.h"
 #include "component.h"
 #include "../../components/cards/card_body.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 
 unsigned int wena_label_badges_render(struct nk_context *context,

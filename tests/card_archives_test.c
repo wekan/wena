@@ -1,4 +1,5 @@
 #include "../client/features/card_archives.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <string.h>

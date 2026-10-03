@@ -1,6 +1,7 @@
 #include "board.h"
 #include "../components/cards/card_body.h"
 
+#include "../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 

@@ -2,6 +2,7 @@
 #include "component.h"
 #include "../../../imports/ui/page_contract.h"
 #include "../../../models/text.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdio.h>
 #include <string.h>

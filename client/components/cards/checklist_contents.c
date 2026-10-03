@@ -1,6 +1,7 @@
 #include "checklist_contents.h"
 #include "card_body.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 

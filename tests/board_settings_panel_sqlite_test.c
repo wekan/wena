@@ -1,5 +1,6 @@
 #include "../client/features/boards/settings_panel.h"
 #include "../client/features/boards/settings.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

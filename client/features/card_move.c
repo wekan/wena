@@ -2,6 +2,7 @@
 #include "../components/forms/hierarchy_destination.h"
 #include "../components/forms/position_input.h"
 #include "../../imports/ui/page_contract.h"
+#include "../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdio.h>
 #include <stdlib.h>

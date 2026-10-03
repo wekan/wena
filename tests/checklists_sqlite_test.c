@@ -1,6 +1,7 @@
 #include "../client/features/checklists.h"
 #include "../client/features/checklist_mutation.h"
 #include "../imports/ui/page_contract.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

@@ -3,6 +3,7 @@
 
 #include "../../imports/ui/page_contract.h"
 
+#include "nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 

@@ -1,5 +1,6 @@
 #include "paginated_table.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 

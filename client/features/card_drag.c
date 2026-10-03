@@ -1,5 +1,6 @@
 #include "card_drag.h"
 #include "../../imports/ui/page_contract.h"
+#include "../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 #include "svg.h"
+#include "nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 #include "svg_data.h"

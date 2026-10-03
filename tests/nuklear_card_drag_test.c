@@ -1,4 +1,4 @@
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#include "../client/platform/nuklear_options.h"
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 #include "../client/features/card_drag.h"

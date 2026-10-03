@@ -1,5 +1,6 @@
 #include "../client/features/labels/badges.h"
 #include "../client/components/cards/card_body.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

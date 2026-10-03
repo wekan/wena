@@ -1,4 +1,5 @@
 #include "../client/features/boards/settings_panel.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <limits.h>

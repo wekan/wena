@@ -1,5 +1,6 @@
 #include "card_section.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 int wena_card_section_toggle(struct nk_context *context,WenaCardSectionControl *control,

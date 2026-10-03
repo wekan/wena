@@ -1,5 +1,5 @@
 #include "font.h"
-#define NK_INCLUDE_FONT_BAKING
+#include "nuklear_options.h"
 #include <nuklear.h>
 #include "font_data.h"
 struct nk_font *wena_native_font_add(struct nk_font_atlas *atlas, float height)

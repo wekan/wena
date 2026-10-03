@@ -1,5 +1,6 @@
 #include "hierarchy_destination.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <limits.h>
 #include <stdio.h>

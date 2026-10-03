@@ -341,7 +341,7 @@ static void desktop_usage(FILE *output)
           "       wena-desktop --dependency-info\n"
           "       wena-desktop --help\n"
           "\n"
-          "Without arguments it opens board my-board as local-user in WENA_DATABASE or\n"
+          "Without a workspace it opens board my-board as local-user in WENA_DATABASE or\n"
           "the user's data folder, creating it on the first run.\n",
           output);
     fputs("--create initializes a new local workspace without replacing files.\n"
@@ -434,9 +434,10 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    /* Started without arguments - double-clicked, or opened from a file
-     * manager: the local board, created on the first run. */
-    if (argc == 1) {
+    /* No workspace named - double-clicked, opened from a file manager, or only
+     * --smoke/--language given: the local board, created on the first run. */
+    if (database_path == NULL && actor_id == NULL && board_id == NULL &&
+        !create_workspace && board_title == NULL) {
         if (!wena_desktop_default_database(getenv("WENA_DATABASE"), getenv("HOME"),
                 getenv("XDG_DATA_HOME"), DESKTOP_APPLE, default_database, sizeof(default_database)) ||
             !wena_make_parent_directories(default_database)) {

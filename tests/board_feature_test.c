@@ -4,6 +4,7 @@
 #include "../client/components/cards/card_body.h"
 
 #include <assert.h>
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 

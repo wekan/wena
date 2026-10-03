@@ -1,5 +1,6 @@
 #include "../client/features/card_create.h"
 #include "../client/components/lists/list_header.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <string.h>

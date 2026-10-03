@@ -1,4 +1,5 @@
 #include "../client/features/card_move.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include "../client/features/card_mutation.h"
 #include <assert.h>

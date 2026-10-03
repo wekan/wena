@@ -1,5 +1,6 @@
 #include "component.h"
 #include "../../../models/color.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 
 int wena_label_badge_render(struct nk_context *context, const char *name,

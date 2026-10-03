@@ -293,6 +293,7 @@ TEST_SUITES = (
     ('checklist-models', 'test_checklist_models.sh', 'Pure checklist and item scope, defaults and validation models'),
     ('colors', 'test_colors.sh', 'Canonical palette, strict custom colors and independently checked readable contrast'),
     ('model-text', 'test_model_text.sh', 'Shared ECMAScript trim and bounded label-name normalization'),
+    ('nuklear-options', 'test_nuklear_options.py', 'One set of Nuklear options in every unit, so nk_context has one layout'),
     ('debug-log', 'test_debug_log.sh', 'Desktop debug log folder, default board file and crash signal record'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),

@@ -88,7 +88,7 @@ with sqlite3.connect(path) as db:
     assert db.execute('SELECT count(*) FROM schema_migrations').fetchone() == (expected,)
     assert db.execute('SELECT count(*) FROM card_descriptions').fetchone() == (0,)
 before = content()
-for args in [[], ['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],
+for args in [['--unknown'], valid + ['--smoke'], valid + ['--actor', 'actor'],
              ['--database', str(path)],
              ['--database', 'relative.sqlite', '--actor', 'actor', '--board', 'board', '--smoke'],
              ['--database', str(directory/'missing.sqlite'), '--actor', 'actor', '--board', 'board', '--smoke'],
@@ -107,7 +107,23 @@ run = subprocess.run([exe, '--database', str(corrupt), '--actor', 'actor',
                       '--board', 'board', '--smoke'], env=env, capture_output=True, timeout=20)
 assert run.returncode != 0
 assert corrupt.read_bytes() == b'not a sqlite database'
-# Explicit creation is the only startup path allowed to initialize a workspace.
+# With no workspace named (a double-click, or only --smoke) the local board
+# opens, created on the first run in WENA_DATABASE, and reopened afterwards.
+default_board = directory/'default'/'board.sqlite'
+default_env = dict(env, WENA_DATABASE=str(default_board), WENA_LOG_DIR=str(directory/'logs'))
+for first in (True, False):
+    run = subprocess.run([exe, '--smoke'], env=default_env, capture_output=True, text=True, timeout=20)
+    assert run.returncode == 0, (first, run.stdout, run.stderr)
+    assert 'Wena desktop smoke passed' in run.stdout
+    assert default_board.is_file()
+    log = (directory/'logs'/'desktop.log').read_text()
+    assert 'default board my-board' in log and ('(creating it)' in log) == first, log
+    (directory/'logs'/'desktop.log').unlink()
+# Negative: a relative WENA_DATABASE is refused and creates nothing.
+run = subprocess.run([exe, '--smoke'], env=dict(env, WENA_DATABASE='relative.sqlite'),
+                     capture_output=True, timeout=20)
+assert run.returncode != 0
+# Otherwise explicit creation is the only startup path that initializes a workspace.
 new = directory/'new-workspace.sqlite'
 args = ['--database', str(new), '--actor', 'local-user', '--board', 'new-board',
         '--create', '--title', 'Uusi taulu', '--language', 'fi', '--smoke']

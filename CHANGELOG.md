@@ -1,6 +1,30 @@
 # Upcoming Wena release
 
 <details>
+<summary>Fix the desktop crash when the mouse reaches a list or swimlane drag handle</summary>
+
+- 42 sources included `<nuklear.h>` without the `NK_INCLUDE_*` options that
+  `sdl_nuklear.h` set before compiling Nuklear itself. Those options add fields
+  to `struct nk_context`, so the drag handles read `context->current` at another
+  offset than Nuklear wrote it (0x4920 instead of 0x4a10), got NULL and crashed
+  with SIGSEGV, as three macOS crash reports and the debug log showed.
+- The options now live only in `client/platform/nuklear_options.h`, included
+  before `<nuklear.h>` in every source and test, and the tests that compiled
+  Nuklear with two or three of them now use the same set. The narrow clang
+  C23-extension silence for Nuklear's alignof moved there too, so 24 Nuklear
+  suites build and pass on macOS again.
+- `tests/test_nuklear_options.py` (suite `nuklear-options`) fails when any of
+  the 100 units includes Nuklear without the options first or sets an option
+  elsewhere, with negative cases for both.
+- With no workspace named, also when only `--smoke` or `--language` is given,
+  the desktop opens the default board; the desktop suite tests its creation,
+  reopening and a refused relative `WENA_DATABASE`.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Debug log for every desktop run, and the desktop opens its board when double-clicked</summary>
 
 - Each run writes `.tools/log/wena/YYYY-MM-DD_HH-MM-SS/desktop.log`: the

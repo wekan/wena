@@ -1,6 +1,7 @@
 #include "../client/features/card_details.h"
 #include "../client/features/card_mutation.h"
 #include "../server/sqlite_storage.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

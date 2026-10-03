@@ -4,6 +4,7 @@
 #include "../components/forms/position_input.h"
 #include "../../imports/ui/page_contract.h"
 #include "../../models/checklist_item_titles.h"
+#include "../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -2,6 +2,7 @@
 #include "entry_form.h"
 #include "../../components/forms/text_form.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <string.h>
 void wena_checklist_inline_cancel(WenaChecklistInlineEdit *edit)

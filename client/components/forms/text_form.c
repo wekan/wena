@@ -1,5 +1,6 @@
 #include "text_form.h"
 #include "../../../imports/ui/page_contract.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 unsigned int wena_text_form_keys(struct nk_context *context,unsigned int edit_result)
 {

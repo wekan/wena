@@ -1,5 +1,6 @@
 #include "../client/features/hierarchy_move.h"
 #include "../client/features/hierarchy_move_mutation.h"
+#include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
 #include <stdio.h>

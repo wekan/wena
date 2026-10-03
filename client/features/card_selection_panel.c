@@ -5,6 +5,7 @@
 #include "../components/cards/card_body.h"
 #include "../components/forms/text_form.h"
 #include "../../imports/ui/page_contract.h"
+#include "../platform/nuklear_options.h"
 #include <nuklear.h>
 #include <stdio.h>
 #include <limits.h>

@@ -1,5 +1,6 @@
 #include "color_heading.h"
 #include "../../../models/color.h"
+#include "../../platform/nuklear_options.h"
 #include <nuklear.h>
 
 static void paint_heading(struct nk_context *context,const char *title,
