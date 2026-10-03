@@ -20,8 +20,14 @@ struct nk_style_item nk_style_item_color(struct nk_color color)
 }
 int nk_style_push_style_item(struct nk_context *c, struct nk_style_item *a, struct nk_style_item b) { (void)c; (void)a; (void)b; return 1; }
 int nk_style_pop_style_item(struct nk_context *c) { (void)c; return 1; }
-int nk_style_push_vec2(struct nk_context *c, struct nk_vec2 *a, struct nk_vec2 b) { (void)c; (void)a; (void)b; return 1; }
-int nk_style_pop_vec2(struct nk_context *c) { (void)c; return 1; }
+int nk_style_push_vec2(struct nk_context *c, struct nk_vec2 *a, struct nk_vec2 b)
+{
+    if (c == NULL) return 0;
+    ++c->vec2_depth;
+    if (a == &c->style.window.scrollbar_size && b.x == 0.0f && b.y == 0.0f) ++c->scrollbar_hidden;
+    return 1;
+}
+int nk_style_pop_vec2(struct nk_context *c) { if (c == NULL || c->vec2_depth == 0) return 0; --c->vec2_depth; return 1; }
 int nk_style_push_color(struct nk_context *c, struct nk_color *a, struct nk_color b) { (void)c; (void)a; (void)b; return 1; }
 int nk_style_pop_color(struct nk_context *c) { (void)c; return 1; }
 int nk_style_push_font(struct nk_context *c, const struct nk_user_font *f) { (void)c; (void)f; return 1; }

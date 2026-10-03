@@ -278,6 +278,23 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Lists take their whole width as in WeKan, and Wena is checked to open on All Boards</summary>
+
+- A list's header and its icons were 10px short of WeKan's, because the
+  list kept room for a scrollbar. WeKan's lists scroll with overlay
+  scrollbars that take no room, and so do Wena's now: the header spans the
+  list's whole width and List Actions sits where WeKan has it.
+- WeKan mode logs that it shows All Boards, the page it opens on, and the
+  desktop test requires it.
+- Tests: `board-feature` requires the list scrollbar to take no room and
+  every style push to be popped (the fake Nuklear now counts them);
+  `desktop` requires the All Boards start.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

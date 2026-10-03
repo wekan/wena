@@ -35,7 +35,7 @@ struct nk_style_button {
 };
 struct nk_style_window {
     struct nk_style_item fixed_background;
-    struct nk_vec2 padding, group_padding, popup_padding, spacing;
+    struct nk_vec2 padding, group_padding, popup_padding, spacing, scrollbar_size;
     struct nk_color border_color;
 };
 struct nk_style_edit { struct nk_style_item normal, hover, active; float border; };
@@ -60,6 +60,8 @@ struct nk_context {
     int group_depth;
     int button_count;
     const char *button_to_press;
+    /* Style vec2 pushes still open, and those hiding the scrollbar. */
+    int vec2_depth, scrollbar_hidden;
     const char *edit_text;
     int edit_count;
     const char *combo_item_to_press;

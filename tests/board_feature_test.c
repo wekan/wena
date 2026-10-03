@@ -200,6 +200,9 @@ int main(void)
     assert(context.begin_count == 1);
     assert(context.end_count == 1);
     assert(context.group_depth == 0);
+    /* WeKan's lists take their whole width: their scrollbar takes no room;
+     * every style push is popped. */
+    assert(context.scrollbar_hidden > 0 && context.vec2_depth == 0);
     /* WeKan's controls: the header's title, Filter and sidebar toggle; the
      * lane's caret; the list's caret, Add Card to Top of List, Add List and
      * List Actions; each card's Card Actions; and + Add Card. */

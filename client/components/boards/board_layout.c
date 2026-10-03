@@ -530,6 +530,9 @@ static void wena_render_lists(struct nk_context *context,
                                  nk_style_item_color(nk_rgba(0, 0, 0, 0)));
         nk_style_push_vec2(context, &context->style.window.group_padding, nk_vec2(1.0f, 0.0f));
         nk_style_push_vec2(context, &context->style.window.spacing, nk_vec2(0.0f, 0.0f));
+        /* WeKan's lists scroll with overlay scrollbars that take no room, so
+         * the header and minicards keep the list's whole width. */
+        nk_style_push_vec2(context, &context->style.window.scrollbar_size, nk_vec2(0.0f, 0.0f));
         if (wena_model_group_begin_flags(context, "list/", layout->board->id,
                                     swimlane->id, list->id, 0)) {
             nk_style_pop_vec2(context);
@@ -592,6 +595,7 @@ static void wena_render_lists(struct nk_context *context,
             nk_style_pop_vec2(context);
             nk_style_pop_style_item(context);
         }
+        nk_style_pop_vec2(context);
         nk_layout_row_push(context, LIST_GAP);
         nk_spacing(context, 1);
     }
