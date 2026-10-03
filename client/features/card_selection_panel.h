@@ -52,6 +52,9 @@ typedef struct WenaCardSelectionPanel {
 void wena_card_selection_panel_init(WenaCardSelectionPanel *panel,WenaCardSelection *selection);
 int wena_card_selection_panel_open(WenaCardSelectionPanel *panel,const WenaCard *cards,
     size_t count,const char *board,const char *list,const char *lane);
+/* WeKan's header Multi-Selection: the whole board in scope, nothing added -
+ * cards are picked on the board or by Select All. */
+int wena_card_selection_panel_open_board(WenaCardSelectionPanel *panel,const char *board);
 /* Exact one-card entry point into the shared move form. Use separate selection
  * storage from the board's multi-selection. Failed capture preserves the panel;
  * Cancel/Close exits this mode. Call outside rendering. */

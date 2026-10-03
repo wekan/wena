@@ -193,6 +193,15 @@ int main(void)
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
  assert(!selection->count);(void)label_center(&ctx,"No items.");
  click(&ctx,&state,&layout,"Turn Multi-Selection off");assert(!state.visible&&!selection->count);
+ /* WeKan's header Multi-Selection: the whole board, nothing picked yet;
+    Select All takes the active card of another lane too. Negative: another
+    board's selection does not open. */
+ assert(!wena_card_selection_panel_open_board(&state,"other")&&!state.visible);
+ assert(!wena_card_selection_panel_open_board(NULL,"board"));
+ assert(wena_card_selection_panel_open_board(&state,"board")&&state.visible&&!selection->count);
+ nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+ click(&ctx,&state,&layout,"Select all");assert(selection->count==1&&wena_card_selection_contains(selection,"outside"));
+ click(&ctx,&state,&layout,"Turn Multi-Selection off");assert(!state.visible&&!selection->count);
  cards[0].archived=0;assert(wena_card_selection_panel_open(&state,cards,9,"board","list",NULL));
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_key(&ctx,NK_KEY_TEXT_RESET_MODE,1);nk_input_end(&ctx);render(&ctx,&state,&layout);

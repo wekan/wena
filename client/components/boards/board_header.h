@@ -17,6 +17,7 @@ struct nk_context;
 #define WENA_BOARD_HEADER_ALL_BOARDS 16u   /* the house before the title */
 #define WENA_BOARD_HEADER_STARRED 32u      /* the caret and count: what is starred */
 #define WENA_BOARD_HEADER_STAR 64u         /* the board's star */
+#define WENA_BOARD_HEADER_MULTI_SELECTION 128u /* Multi-Selection, second row */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
@@ -26,6 +27,7 @@ typedef struct WenaBoardHeaderInfo {
     int star;                 /* the star group: 0 none, 1 not starred, 2 starred */
     int starred_count;        /* places the user keeps starred */
     int board_stars;          /* the board's stars, shown from 2 as WeKan */
+    int multi_selection;      /* 0 hides Multi-Selection, 1 shows it, 2 active */
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

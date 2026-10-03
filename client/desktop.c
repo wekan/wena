@@ -913,8 +913,9 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "all-boards or open:BOARD (a board chosen on All Boards) first, with --smoke or\n"
-          "--screenshot, as WeKan's UI capture does.\n", output);
+          "multi-selection, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "with --smoke or"
+          " --screenshot, as WeKan's UI capture does.\n", output);
 }
 
 /* The frame drawn so far, read back from the renderer before it is shown. */
@@ -1653,6 +1654,8 @@ window_ready:
                 strcpy(add.swimlane_id, snapshot->swimlanes[0].id);
                 (void)wena_card_create_open(&editors.create, &layout, &add);
             } else if (!strcmp(show, "sidebar")) sidebar.visible = 1;
+            else if (!strcmp(show, "multi-selection"))
+                (void)wena_card_selection_panel_open_board(&editors.selection, snapshot->board.id);
             else if (!strncmp(show, "open:", 5) && all_boards_page && strlen(id) < sizeof(next_board)) {
                 /* A tile chosen on All Boards: the same switch a click makes. */
                 if (!strcmp(id, board_id)) all_boards_page = 0;
@@ -1756,6 +1759,7 @@ window_ready:
             layout.swimlane_count = snapshot->swimlane_count;
             wena_card_selection_traversal_begin(selection_traversal,selection);
             layout.header_filter_active = filter.query[0] != '\0';
+            layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             wena_ui_controls_begin();
             desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
                                  snapshot->board.id);
@@ -1778,6 +1782,15 @@ window_ready:
                     all_boards_view.section = WENA_ALL_BOARDS_STARRED;
                     all_boards_page = 1;
                     tiles_stale = 1;
+                }
+                /* WeKan's Multi-Selection: on with the whole board in
+                 * scope, off - clearing what was picked - when it was on. */
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_MULTI_SELECTION) != 0u) {
+                    if (editors.selection.visible) wena_card_selection_panel_close(&editors.selection);
+                    else if (wena_card_selection_panel_open_board(&editors.selection, snapshot->board.id)) {
+                        opened_panel = DESKTOP_PANEL_SELECTION;
+                        desktop_close_other_editors(&editors, DESKTOP_PANEL_SELECTION);
+                    }
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_STAR) != 0u && !smoke) {
                     if (!wena_wekan_sync_star(database, actor_id, snapshot->board.id, layout.header_star != 2))

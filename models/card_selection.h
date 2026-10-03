@@ -18,6 +18,8 @@ int wena_card_selection_contains(const WenaCardSelection *selection,const char *
  * active card in the selection's board. Existing order stays stable. */
 int wena_card_selection_add(WenaCardSelection *selection,const WenaCard *cards,
     size_t count,const char *list,const char *lane);
+/* Every active card of the selection's board, as WeKan's Select All. */
+int wena_card_selection_add_board(WenaCardSelection *selection,const WenaCard *cards,size_t count);
 int wena_card_selection_toggle(WenaCardSelection *selection,const WenaCard *cards,
     size_t count,const char *id);
 int wena_card_selection_sync(WenaCardSelection *selection,const WenaCard *cards,size_t count);

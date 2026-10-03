@@ -53,11 +53,15 @@ static int update(WenaCardSelection *selection,const WenaCard *cards,size_t coun
         !(remove&&!strcmp(selection->ids[i],toggle)))strcpy(next->ids[next->count++],selection->ids[i]);
     if(toggle&&!remove)strcpy(next->ids[next->count++],toggle);
     if(list)for(i=0;i<count;++i)if(!cards[i].archived&&!strcmp(cards[i].board_id,next->board_id)&&
-        !strcmp(cards[i].list_id,list)&&(!lane||!lane[0]||!strcmp(cards[i].swimlane_id,lane))&&
+        (!list[0]||!strcmp(cards[i].list_id,list))&&(!lane||!lane[0]||!strcmp(cards[i].swimlane_id,lane))&&
         !wena_card_selection_contains(next,cards[i].id))strcpy(next->ids[next->count++],cards[i].id);
     /* Every retained/added ID belongs to the validated cache, so count is
      * bounded by its unique active-card count and cannot exceed capacity. */
     memcpy(selection,next,sizeof(*next));free(next);return 1;
+}
+int wena_card_selection_add_board(WenaCardSelection *selection,const WenaCard *cards,size_t count)
+{
+    return update(selection,cards,count,"",NULL,NULL);
 }
 int wena_card_selection_add(WenaCardSelection *selection,const WenaCard *cards,
     size_t count,const char *list,const char *lane)

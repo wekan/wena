@@ -17,6 +17,13 @@ int main(void)
     assert(wena_card_selection_add(s,cards,5,"list","lane")&&s->count==1&&!strcmp(s->ids[0],"a"));
     assert(wena_card_selection_add(s,cards,5,"list",NULL)&&s->count==2&&!strcmp(s->ids[1],"b"));
     assert(wena_card_selection_add(s,cards,5,"list","")&&s->count==2);
+    /* WeKan's header Multi-Selection: Select All takes every active card of
+     * the board, in any list; not archived or foreign ones. */
+    assert(wena_card_selection_init(before,"b")&&wena_card_selection_add_board(before,cards,5)&&before->count==3);
+    assert(wena_card_selection_contains(before,"a")&&wena_card_selection_contains(before,"b")&&
+        wena_card_selection_contains(before,"e")&&!wena_card_selection_contains(before,"c")&&
+        !wena_card_selection_contains(before,"d"));
+    assert(!wena_card_selection_add_board(NULL,cards,5)&&!wena_card_selection_add_board(before,NULL,1));
     assert(wena_card_selection_toggle(s,cards,5,"a")&&s->count==1&&!strcmp(s->ids[0],"b"));
     assert(wena_card_selection_toggle(s,cards,5,"e")&&s->count==2);
     strcpy(order[0],"e");strcpy(order[1],"a");strcpy(order[2],"b");

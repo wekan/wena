@@ -112,6 +112,7 @@ typedef struct WenaBoardLayout {
     int header_star;                /* the star group: 0 none, 1 not starred, 2 starred */
     int header_starred_count;
     int header_board_stars;
+    int header_multi_selection;     /* 0 none, 1 Multi-Selection, 2 it is on */
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

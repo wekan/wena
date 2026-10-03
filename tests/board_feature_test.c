@@ -258,6 +258,14 @@ int main(void)
         context.button_to_press = "Click to unstar this board.";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
         assert(!has_control("Click to unstar this board.") && !has_control("2"));
+        /* WeKan's Multi-Selection on the second row; hidden when not given. */
+        context.button_to_press = "Multi-Selection";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.multi_selection = 1;
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_MULTI_SELECTION);
+        header.multi_selection = 2;
+        context.button_to_press = "Multi-Selection";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_MULTI_SELECTION);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

@@ -241,6 +241,28 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Multi-Selection is in the board header, as in WeKan, and opens as WeKan's sidebar</summary>
+
+- WeKan's Multi-Selection button sits at the left of the header's second
+  row, darker while it is on. It turns multi-selection on for the whole
+  board with nothing picked yet, as WeKan does, and off again, clearing
+  what was picked. Select All then takes every active card of the board in
+  any list; from a list's menu it stays that list's cards.
+- The selection panel is WeKan's sidebar: 420px at the right under the
+  header, so the board stays beside it, where the window is wide enough
+  (640px); narrower windows keep the wide panel.
+- `--show multi-selection` with `--screenshot` renders the state.
+- Tests: `card-selection` selects a whole board without archived or other
+  boards' cards, and refuses missing arguments; `nuklear-card-selection`
+  opens it for the board, refuses another board, selects all across lanes
+  and turns it off; `board-feature` clicks the header button and checks it
+  is hidden when not given.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

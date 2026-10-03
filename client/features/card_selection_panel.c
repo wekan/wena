@@ -29,7 +29,7 @@ static int in_scope(const SelectionRows *rows,size_t i)
 {
     const WenaCard *card;card=&rows->cards[i];
     return !card->archived&&!strcmp(card->board_id,rows->panel->selection->board_id)&&
-        !strcmp(card->list_id,rows->panel->list_id)&&
+        (!rows->panel->list_id[0]||!strcmp(card->list_id,rows->panel->list_id))&&
         (!rows->panel->lane_id[0]||!strcmp(card->swimlane_id,rows->panel->lane_id));
 }
 static const WenaCard *row_card(const SelectionRows *rows,size_t row)
@@ -202,6 +202,12 @@ int wena_card_selection_panel_open(WenaCardSelectionPanel *panel,const WenaCard 
     cancel_capture(panel);
     strcpy(panel->list_id,list_id);strcpy(panel->lane_id,lane_id);panel->visible=1;panel->error=0;panel->table.page=0;return 1;
 }
+int wena_card_selection_panel_open_board(WenaCardSelectionPanel *panel,const char *board)
+{
+    if(!panel||!panel->selection||!wena_model_identifier_valid(board)||strcmp(panel->selection->board_id,board))return 0;
+    cancel_capture(panel);
+    panel->list_id[0]=panel->lane_id[0]=0;panel->visible=1;panel->error=0;panel->table.page=0;return 1;
+}
 int wena_card_selection_panel_open_card(WenaCardSelectionPanel *panel,
     const char *board,const char *card)
 {
@@ -228,7 +234,7 @@ static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel
     const WenaCard *cards,size_t count,const char *board,const WenaBoardLayout *layout,float width,float height)
 {
     WenaBoardLayout target_layout;const WenaBoardLayout *move_layout;
-    SelectionRows rows;WenaTableView view;WenaTableResult result;size_t i,total;
+    SelectionRows rows;WenaTableView view;WenaTableResult result;size_t i,total;struct nk_rect window;
     char board_label[WENA_TITLE_CAPACITY+WENA_ID_CAPACITY+8];
     const WenaCard *card;char selected[32],chosen[WENA_LABEL_NAME_CAPACITY+WENA_ID_CAPACITY+8];int clear,all,close,archive,confirm,cancel,labels,assign,remove,move,save_move,move_valid,boards,choose;
     if(!panel||!panel->visible||!panel->selection)return 0;
@@ -241,8 +247,12 @@ static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel
     if(move_capture(panel))total=move_capture(panel)->count;
     else if(panel->captured)total=panel->captured_count;
     else if(!panel->error)for(i=0;i<count;++i)if(in_scope(&rows,i))++total;
+    /* Multi-Selection is WeKan's sidebar: 420px at the right under the
+     * 88px header, where the window is wide enough for the board beside it. */
+    if(!panel->single_card&&width>=640.0f&&height>176.0f)window=nk_rect(width-420.0f,88.0f,420.0f,height-88.0f);
+    else window=nk_rect(width*0.2f,0,width*0.8f,height);
     if(nk_begin_titled(context,"Card selection",panel->single_card?wena_ui_control_text(WENA_UI_MOVE_CARD_TO):wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION),
-        nk_rect(width*0.2f,0,width*0.8f,height),NK_WINDOW_BORDER)){
+        window,NK_WINDOW_BORDER)){
         if(wena_text_form_keys(context,0u)&WENA_TEXT_FORM_CANCEL){
             nk_end(context);if(panel->captured||panel->labels||move_capture(panel))cancel_capture(panel);else wena_card_selection_panel_close(panel);return 1;
         }
@@ -370,7 +380,8 @@ static int render_panel(struct nk_context *context,WenaCardSelectionPanel *panel
         }else panel->archive_error=1;
     }
     else if(clear){wena_card_selection_clear(panel->selection);panel->archive_error=0;}
-    else if(all&&!wena_card_selection_add(panel->selection,cards,count,panel->list_id,panel->lane_id))panel->error=1;
+    else if(all&&!(panel->list_id[0]?wena_card_selection_add(panel->selection,cards,count,panel->list_id,panel->lane_id):
+        wena_card_selection_add_board(panel->selection,cards,count)))panel->error=1;
     return 1;
 }
 

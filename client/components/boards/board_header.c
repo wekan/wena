@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 12);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 13);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -100,6 +100,17 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     nk_layout_space_push(context, nk_rect(width - 81.0f - filter_width, 14.0f, filter_width, 28.0f));
     if (wena_wekan_link(context, WENA_ICON_FILTER, filter, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
         action |= WENA_BOARD_HEADER_FILTER;
+
+    /* Second row, left: Multi-Selection, darker while it is on. */
+    if (info != NULL && info->multi_selection) {
+        const char *multi = wena_ui_text(WENA_UI_TEXT_MULTI_SELECTION);
+        float multi_width = text_width(context, WENA_WEKAN_FONT_LINK, multi) + 22.0f;
+        if (info->multi_selection == 2)
+            wena_wekan_fill(context, area.x + 12.0f, area.y + 50.0f, multi_width + 8.0f, 28.0f, 0x11A5080, 3.0f);
+        nk_layout_space_push(context, nk_rect(16.0f, 50.0f, multi_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_CHECK_SQUARE, multi, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_MULTI_SELECTION;
+    }
 
     /* Second row, right: the user's avatar - WeKan's initials in a gray
      * circle - and name, then the sidebar toggle. */
