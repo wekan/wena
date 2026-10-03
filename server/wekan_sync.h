@@ -60,6 +60,17 @@ int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int 
  * cards, as users.starredCount) and the board's own `stars` counter. */
 int wena_wekan_sync_starred(sqlite3 *db, const char *actor, const char *board, int *starred, int *count,
                             int *board_stars);
+/* WeKan's board visibility (boards.permission: "private" when not set) and
+ * `actor`'s watch level on it (boards.watchers, "muted" when not there), as
+ * the header's Private and Muted buttons show them. Each is at most 15
+ * characters. */
+int wena_wekan_sync_board_state(sqlite3 *db, const char *actor, const char *board, char *permission,
+                                char *watch);
+/* Sets them as WeKan does: permission "private" or "public"; the watch level
+ * "watching", "tracking" or "muted" - muted, WeKan's default, removes the
+ * user from boards.watchers. Other values are refused. */
+int wena_wekan_sync_set_permission(sqlite3 *db, const char *board, const char *permission);
+int wena_wekan_sync_set_watch(sqlite3 *db, const char *actor, const char *board, const char *level);
 /* A new board as WeKan makes one - with its "Default" swimlane, `actor` its
  * admin - in Wena's tables and written to WeKan's file. Writes its _id. */
 int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity);

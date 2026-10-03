@@ -33,7 +33,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
 {
     unsigned int action;
     struct nk_rect area;
-    float width, title_width, filter_width, user_width;
+    float width, title_width, filter_width, user_width, buttons_x;
     char tooltip[256];
     const char *filter;
 
@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 13);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 15);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -62,6 +62,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         title_width += context->style.font->height * 1.5f + 6.0f;
     if (title_width > width * 0.5f) title_width = width * 0.5f;
     nk_layout_space_push(context, nk_rect(info != NULL && info->all_boards ? 81.0f : 16.0f, 14.0f, title_width, 28.0f));
+    buttons_x = (info != NULL && info->all_boards ? 81.0f : 16.0f) + title_width + 12.0f;
     if (title_renderer) title_renderer(context, board->title);
     else if (wena_wekan_link(context, WENA_ICON_NONE, board->title, WENA_WEKAN_FONT_BODY,
                              WENA_WEKAN_HEADER_TEXT))
@@ -71,7 +72,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
      * keeps starred), then the board's star, darker when starred. */
     if (info != NULL && info->star) {
         char count[16];
-        float x = (info->all_boards ? 81.0f : 16.0f) + title_width + 12.0f, count_width;
+        float x = buttons_x, count_width;
         (void)sprintf(count, "%d", info->starred_count < 0 ? 0 : info->starred_count % 100000);
         count_width = text_width(context, WENA_WEKAN_FONT_SMALL, count) + 22.0f;
         nk_layout_space_push(context, nk_rect(x, 14.0f, count_width, 28.0f));
@@ -84,11 +85,34 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
                                    wena_ui_text(info->star == 2 ? WENA_UI_TEXT_CLICK_TO_UNSTAR :
                                                 WENA_UI_TEXT_CLICK_TO_STAR), 13.0f, WENA_WEKAN_HEADER_TEXT))
             action |= WENA_BOARD_HEADER_STAR;
+        x += 28.0f;
         if (info->board_stars >= 2) {
             (void)sprintf(count, "%d", info->board_stars % 100000);
-            nk_layout_space_push(context, nk_rect(x + 28.0f, 14.0f, text_width(context, WENA_WEKAN_FONT_SMALL, count) + 4.0f, 28.0f));
+            nk_layout_space_push(context, nk_rect(x, 14.0f, text_width(context, WENA_WEKAN_FONT_SMALL, count) + 4.0f, 28.0f));
             wena_wekan_text(context, count, WENA_WEKAN_FONT_SMALL, WENA_WEKAN_HEADER_TEXT, NK_TEXT_LEFT);
+            x += text_width(context, WENA_WEKAN_FONT_SMALL, count) + 4.0f;
         }
+        buttons_x = x + 12.0f;
+    }
+    /* WeKan's Private (or Public) and the user's watch level, each opening
+     * its popup. */
+    if (info != NULL && info->permission >= 1 && info->permission <= 2) {
+        const char *label = wena_ui_text(info->permission == 2 ? WENA_UI_TEXT_PUBLIC : WENA_UI_TEXT_PRIVATE);
+        float label_width = text_width(context, WENA_WEKAN_FONT_LINK, label) + 22.0f;
+        nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, label_width, 28.0f));
+        if (wena_wekan_link(context, info->permission == 2 ? WENA_ICON_GLOBE : WENA_ICON_LOCK, label,
+                            WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_VISIBILITY;
+        buttons_x += label_width + 8.0f;
+    }
+    if (info != NULL && info->watch >= 1 && info->watch <= 3) {
+        static const WenaIcon icons[3] = {WENA_ICON_EYE, WENA_ICON_BELL, WENA_ICON_BELL_SLASH};
+        static const WenaUiTextId names[3] = {WENA_UI_TEXT_WATCHING, WENA_UI_TEXT_TRACKING, WENA_UI_TEXT_MUTED};
+        const char *label = wena_ui_text(names[info->watch - 1]);
+        float label_width = text_width(context, WENA_WEKAN_FONT_LINK, label) + 22.0f;
+        nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, label_width, 28.0f));
+        if (wena_wekan_link(context, icons[info->watch - 1], label, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_WATCH;
     }
 
     /* Filter, last of the first row's board buttons. */

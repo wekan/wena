@@ -72,7 +72,7 @@ typedef enum WenaIcon {
     WENA_ICON_BAN, WENA_ICON_GLOBE, WENA_ICON_PENCIL, WENA_ICON_REFRESH, WENA_ICON_HISTORY,
     WENA_ICON_WINDOW_MAXIMIZE, WENA_ICON_WINDOW_MINIMIZE,
     WENA_ICON_STAR, WENA_ICON_STAR_O, WENA_ICON_FOLDER, WENA_ICON_CLIPBOARD,
-    WENA_ICON_FILE_TEXT_O,
+    WENA_ICON_FILE_TEXT_O, WENA_ICON_LOCK, WENA_ICON_EYE, WENA_ICON_BELL, WENA_ICON_BELL_SLASH,
     WENA_ICON_COUNT
 } WenaIcon;
 
@@ -160,6 +160,7 @@ typedef struct WenaWekanMenuItem {
     const char *text;
     int enabled;
     int separator_before;
+    int checked;          /* WeKan's check after the current choice */
 } WenaWekanMenuItem;
 #define WENA_WEKAN_MENU_CLOSED (-2)
 #define WENA_WEKAN_MENU_NONE (-1)

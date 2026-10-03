@@ -295,6 +295,28 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The board header has WeKan's Private / Public and watch level buttons with their popups</summary>
+
+- After the star group, as in WeKan's header: the board's visibility (a
+  lock and "Private", or a globe and "Public") and the user's watch level
+  ("Watching", "Tracking" or "Muted" with WeKan's eye, bell or slashed
+  bell). Each opens WeKan's popup - Change Visibility, Change Watch - with
+  a check at the current choice.
+- They are WeKan's own fields in wekan.sqlite: `boards.permission` (private
+  when not set) and `boards.watchers`, where muted, WeKan's default, removes
+  the user and the other users' entries stay as they were.
+- Popup items can carry WeKan's check mark; `--show visibility` and `--show
+  watch` render the popups for comparison.
+- Tests: `wekan-sync` reads and writes both, keeps another user's watcher,
+  types `permission` as a string, and refuses values WeKan does not have
+  and a missing board; `board-feature` clicks both buttons in each state
+  and checks that they are hidden when not given or out of range.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

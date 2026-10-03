@@ -269,6 +269,28 @@ int main(void)
         header.multi_selection = 2;
         context.button_to_press = "Multi-Selection";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_MULTI_SELECTION);
+        /* WeKan's Private / Public and watch level buttons open their popups;
+         * negative: hidden when not given or out of range. */
+        context.button_to_press = "Private";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.permission = 1;
+        context.button_to_press = "Private";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_VISIBILITY);
+        header.permission = 2;
+        context.button_to_press = "Public";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_VISIBILITY);
+        header.watch = 3;
+        context.button_to_press = "Muted";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_WATCH);
+        header.watch = 1;
+        context.button_to_press = "Watching";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_WATCH);
+        header.watch = 4;
+        header.permission = 3;
+        wena_ui_controls_begin();
+        context.button_to_press = NULL;
+        (void)wena_board_header_render_info(&context, &board, &header);
+        assert(!has_control("Watching") && !has_control("Muted") && !has_control("Private") && !has_control("Public"));
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

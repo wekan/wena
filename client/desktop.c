@@ -260,10 +260,11 @@ static int desktop_card_collapsed(struct nk_context *context,
 /* WeKan's popups: List Actions, Swimlane Actions, the user's menu. */
 typedef enum WenaDesktopMenuKind {
     DESKTOP_MENU_NONE, DESKTOP_MENU_LIST, DESKTOP_MENU_SWIMLANE, DESKTOP_MENU_MEMBER,
-    DESKTOP_MENU_CARD
+    DESKTOP_MENU_CARD, DESKTOP_MENU_VISIBILITY, DESKTOP_MENU_WATCH
 } WenaDesktopMenuKind;
 typedef struct WenaDesktopMenu {
     WenaDesktopMenuKind kind;
+    float x;                  /* where a header popup opens: its button */
     WenaId list_id, swimlane_id, card_id;
 } WenaDesktopMenu;
 typedef struct WenaDesktopToolbar {
@@ -277,6 +278,7 @@ typedef struct WenaDesktopToolbar {
     int filter_changed;
     int board_refresh;
     int card_menu_error;      /* a Card Actions item that could not be done */
+    int board_choice;         /* 1 Private, 2 Public, 3 Watching, 4 Tracking, 5 Muted */
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -523,6 +525,22 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         count = wena_card_actions_items(items, &editors->move, &editors->details);
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CARD_ACTIONS), 32.0f, 12.0f,
                                  menu_width, 3, items, count);
+    } else if (menu->kind == DESKTOP_MENU_VISIBILITY) {
+        DESKTOP_ITEM(WENA_ICON_LOCK, WENA_UI_TEXT_PRIVATE, 1, 0);
+        items[count - 1].checked = layout->header_permission == 1;
+        DESKTOP_ITEM(WENA_ICON_GLOBE, WENA_UI_TEXT_PUBLIC, 1, 0);
+        items[count - 1].checked = layout->header_permission == 2;
+        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CHANGE_VISIBILITY_TITLE),
+                                 menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
+    } else if (menu->kind == DESKTOP_MENU_WATCH) {
+        DESKTOP_ITEM(WENA_ICON_EYE, WENA_UI_TEXT_WATCHING, 1, 0);
+        items[count - 1].checked = layout->header_watch == 1;
+        DESKTOP_ITEM(WENA_ICON_BELL, WENA_UI_TEXT_TRACKING, 1, 0);
+        items[count - 1].checked = layout->header_watch == 2;
+        DESKTOP_ITEM(WENA_ICON_BELL_SLASH, WENA_UI_TEXT_MUTED, 1, 0);
+        items[count - 1].checked = layout->header_watch == 3;
+        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CHANGE_WATCH_TITLE),
+                                 menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_MEMBER) {
         DESKTOP_ITEM(WENA_ICON_GLOBE, WENA_UI_TEXT_CHANGE_LANGUAGE, 1, 0);
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_MEMBER_SETTINGS),
@@ -536,7 +554,12 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         strcpy(target.board_id, layout->board->id);
         strcpy(target.list_id, menu->list_id);
         strcpy(target.swimlane_id, menu->swimlane_id);
-        if (menu->kind == DESKTOP_MENU_MEMBER) {
+        if (menu->kind == DESKTOP_MENU_VISIBILITY || menu->kind == DESKTOP_MENU_WATCH) {
+            /* desktop.c's frame writes it to WeKan's board document. */
+            toolbar->board_choice = menu->kind == DESKTOP_MENU_VISIBILITY ? 1 + chosen : 3 + chosen;
+            menu->kind = DESKTOP_MENU_NONE;
+            return DESKTOP_PANEL_NONE;
+        } else if (menu->kind == DESKTOP_MENU_MEMBER) {
             toolbar->language_visible = 1;
         } else if (menu->kind == DESKTOP_MENU_CARD) {
             menu->kind = DESKTOP_MENU_NONE;
@@ -807,10 +830,15 @@ static void desktop_collapse_entry(void *context, const char *id, int value)
     }
 }
 
-/* WeKan's header star group for the board, from the user's profile. */
+/* WeKan's header star group, visibility and watch level for the board. */
 static void desktop_wekan_star(sqlite3 *db, const char *actor, const char *board, WenaBoardLayout *layout)
 {
     int starred, count, stars;
+    char permission[16], watch[16];
+    if (wena_wekan_sync_board_state(db, actor, board, permission, watch)) {
+        layout->header_permission = strcmp(permission, "public") ? 1 : 2;
+        layout->header_watch = !strcmp(watch, "watching") ? 1 : !strcmp(watch, "tracking") ? 2 : 3;
+    } else layout->header_permission = layout->header_watch = 0;
     if (wena_wekan_sync_starred(db, actor, board, &starred, &count, &stars)) {
         layout->header_star = starred ? 2 : 1;
         layout->header_starred_count = count;
@@ -913,7 +941,7 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1655,6 +1683,10 @@ window_ready:
                 strcpy(add.swimlane_id, snapshot->swimlanes[0].id);
                 (void)wena_card_create_open(&editors.create, &layout, &add);
             } else if (!strcmp(show, "sidebar")) sidebar.visible = 1;
+            else if (!strcmp(show, "visibility") || !strcmp(show, "watch")) {
+                toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH : DESKTOP_MENU_VISIBILITY;
+                toolbar.menu.x = 300.0f;
+            }
             else if (!strcmp(show, "multi-selection"))
                 (void)wena_card_selection_panel_open_board(&editors.selection, snapshot->board.id);
             else if (!strncmp(show, "open:", 5) && all_boards_page && strlen(id) < sizeof(next_board)) {
@@ -1792,6 +1824,21 @@ window_ready:
                         opened_panel = DESKTOP_PANEL_SELECTION;
                         desktop_close_other_editors(&editors, DESKTOP_PANEL_SELECTION);
                     }
+                }
+                if ((toolbar.header_actions & (WENA_BOARD_HEADER_VISIBILITY | WENA_BOARD_HEADER_WATCH)) != 0u) {
+                    toolbar.menu.kind = (toolbar.header_actions & WENA_BOARD_HEADER_VISIBILITY) != 0u ?
+                        DESKTOP_MENU_VISIBILITY : DESKTOP_MENU_WATCH;
+                    toolbar.menu.x = context->input.mouse.pos.x - 20.0f > 0.0f ? context->input.mouse.pos.x - 20.0f : 0.0f;
+                }
+                if (toolbar.board_choice != 0) {
+                    static const char *const choices[] = {"private", "public", "watching", "tracking", "muted"};
+                    const char *choice = choices[toolbar.board_choice - 1];
+                    if (!smoke && !(toolbar.board_choice <= 2 ?
+                                    wena_wekan_sync_set_permission(database, snapshot->board.id, choice) :
+                                    wena_wekan_sync_set_watch(database, actor_id, snapshot->board.id, choice)))
+                        wena_debug_log("%s %s: %s", choice, snapshot->board.id, wena_wekan_sync_error());
+                    toolbar.board_choice = 0;
+                    desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_STAR) != 0u && !smoke) {
                     if (!wena_wekan_sync_star(database, actor_id, snapshot->board.id, layout.header_star != 2))

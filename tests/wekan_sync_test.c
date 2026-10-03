@@ -178,9 +178,11 @@ int main(int argc, char **argv)
         size_t count;
         char made[64];
         int starred, starred_count, board_stars;
+        char permission[16], watch[16];
         doc(db, "boards", "{\"_id\":\"arch\",\"title\":\"Archived one\",\"type\":\"board\",\"archived\":true,"
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
         doc(db, "boards", "{\"_id\":\"tc\",\"title\":\"Templates\",\"type\":\"template-container\",\"stars\":3,"
+            "\"watchers\":[{\"userId\":\"u2\",\"level\":\"watching\"}],"
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
         doc(db, "boards", "{\"_id\":\"help\",\"title\":\"^Templates^\",\"type\":\"board\","
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
@@ -213,6 +215,29 @@ int main(int argc, char **argv)
         assert(starred == 0 && starred_count == 0);
         assert(!wena_wekan_sync_starred(db, "u1", NULL, &starred, &starred_count, &board_stars));
         assert(!wena_wekan_sync_starred(db, "u1", "tc", &starred, NULL, &board_stars));
+        /* WeKan's Private and Muted: private and muted when not set. */
+        assert(wena_wekan_sync_board_state(db, "u1", "tc", permission, watch));
+        assert(!strcmp(permission, "private") && !strcmp(watch, "muted"));
+        assert(wena_wekan_sync_board_state(db, "u2", "tc", permission, watch) && !strcmp(watch, "watching"));
+        assert(wena_wekan_sync_set_permission(db, "tc", "public") && wena_wekan_sync_set_watch(db, "u1", "tc", "tracking"));
+        assert(wena_wekan_sync_board_state(db, "u1", "tc", permission, watch));
+        assert(!strcmp(permission, "public") && !strcmp(watch, "tracking"));
+        /* Bob's watcher stays; Ada's is added after it, typed as WeKan's. */
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> 'watchers') || (_ferretdb_sjson ->> 'permission') || "
+                             "(_ferretdb_sjson -> '$.\"$s\".p.permission.t') FROM fdb.boards_7c666488 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"tc\"'"),
+                       "[{\"userId\":\"u2\",\"level\":\"watching\"},{\"userId\":\"u1\",\"level\":\"tracking\"}]"
+                       "public\"string\""));
+        /* Muted, WeKan's default, removes Ada's watcher; Bob's stays. */
+        assert(wena_wekan_sync_set_watch(db, "u1", "tc", "muted"));
+        assert(!strcmp(q(db, "SELECT _ferretdb_sjson -> 'watchers' FROM fdb.boards_7c666488 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"tc\"'"),
+                       "[{\"userId\":\"u2\",\"level\":\"watching\"}]"));
+        /* Negative: values WeKan does not have, and a board not there. */
+        assert(!wena_wekan_sync_set_permission(db, "tc", "instance") && !wena_wekan_sync_set_permission(db, "tc", NULL));
+        assert(!wena_wekan_sync_set_watch(db, "u1", "tc", "loud"));
+        assert(!wena_wekan_sync_board_state(db, "u1", "missing", permission, watch));
+        assert(wena_wekan_sync_board_state(db, "u1", "tc", permission, watch) && !strcmp(permission, "public"));
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

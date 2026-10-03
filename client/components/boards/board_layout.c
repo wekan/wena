@@ -705,6 +705,8 @@ int wena_board_layout_render(struct nk_context *context,
     info.starred_count = layout->header_starred_count;
     info.board_stars = layout->header_board_stars;
     info.multi_selection = layout->header_multi_selection;
+    info.permission = layout->header_permission;
+    info.watch = layout->header_watch;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {

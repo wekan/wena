@@ -324,6 +324,28 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         for (i = 0; i < 3; ++i)
             nk_stroke_line(out, x + P(5.5f), y + P(6 + i * 2.5f), x + P(10.5f), y + P(6 + i * 2.5f), t * 0.7f, c);
         break;
+    case WENA_ICON_LOCK:
+        /* fa-lock: the shackle over a filled body. */
+        nk_stroke_arc(out, x + P(8), y + P(6.5f), P(3.5f), 3.14159265f, 6.2831853f, t * 1.2f, c);
+        line(out, x + P(4.5f), y + P(6.5f), x + P(4.5f), y + P(8), t * 1.2f, c);
+        line(out, x + P(11.5f), y + P(6.5f), x + P(11.5f), y + P(8), t * 1.2f, c);
+        nk_fill_rect(out, nk_rect(x + P(2.5f), y + P(8), P(11), P(7)), P(1), c);
+        break;
+    case WENA_ICON_EYE:
+        /* fa-eye: the lid's outline and the pupil. */
+        nk_stroke_arc(out, x + P(8), y + P(14), P(8.5f), 3.14159265f * 1.22f, 3.14159265f * 1.78f, t, c);
+        nk_stroke_arc(out, x + P(8), y + P(2), P(8.5f), 3.14159265f * 0.22f, 3.14159265f * 0.78f, t, c);
+        nk_fill_circle(out, nk_rect(x + P(5.5f), y + P(5.5f), P(5), P(5)), c);
+        break;
+    case WENA_ICON_BELL:
+    case WENA_ICON_BELL_SLASH:
+        /* fa-bell: the dome, its rim and the clapper; slashed when muted. */
+        nk_fill_arc(out, x + P(8), y + P(7), P(5), 3.14159265f, 6.2831853f, c);
+        nk_fill_rect(out, nk_rect(x + P(3), y + P(7), P(10), P(5)), 0.0f, c);
+        nk_fill_rect(out, nk_rect(x + P(1.5f), y + P(11.5f), P(13), P(1.5f)), 0.0f, c);
+        nk_fill_circle(out, nk_rect(x + P(6.5f), y + P(13), P(3), P(3)), c);
+        if (icon == WENA_ICON_BELL_SLASH) line(out, x + P(1), y + P(1.5f), x + P(15), y + P(15), t * 1.2f, c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;
@@ -756,6 +778,9 @@ int wena_wekan_menu(struct nk_context *context, const char *title,
                 if (invisible_button(context) && item->enabled) chosen = (int)(column * per_column + row);
                 if (item->icon != WENA_ICON_NONE)
                     wena_wekan_icon_draw(context, item->icon, cell.x + 10.0f, cell.y + 11.0f, 14.0f,
+                                         hovered ? WENA_WEKAN_BUTTON_TEXT : WENA_WEKAN_ICON);
+                if (item->checked)
+                    wena_wekan_icon_draw(context, WENA_ICON_CHECK, cell.x + cell.w - 24.0f, cell.y + 11.0f, 14.0f,
                                          hovered ? WENA_WEKAN_BUTTON_TEXT : WENA_WEKAN_ICON);
                 if (bold != NULL && item->text != NULL)
                     nk_draw_text(out, nk_rect(cell.x + 30.0f, cell.y + (MENU_ROW - bold->height) / 2.0f,

@@ -1004,6 +1004,80 @@ int wena_wekan_sync_starred(sqlite3 *db, const char *actor, const char *board, i
     return ok;
 }
 
+static const char *const board_state_query[] = {
+    "SELECT CASE WHEN x->>'permission' = 'public' THEN 'public' ELSE 'private' END, coalesce((SELECT w.value->>'level' ",
+    "FROM json_each(x, '$.watchers') w WHERE w.value->>'userId' = ?1 AND w.value->>'level' IN ('watching', 'tracking') ",
+    "LIMIT 1), 'muted') FROM (SELECT _ferretdb_sjson AS x FROM {boards} WHERE _ferretdb_sjson->'_id' = json_quote(?2))",
+    NULL};
+
+int wena_wekan_sync_board_state(sqlite3 *db, const char *actor, const char *board, char *permission,
+                                char *watch)
+{
+    char joined[1024], sql[1024];
+    sqlite3_stmt *statement = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || board == NULL || permission == NULL || watch == NULL ||
+        !join(board_state_query, joined, sizeof(joined)) || !expand(db, joined, sql, sizeof(sql)) ||
+        sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        strcpy(permission, (const char *)sqlite3_column_text(statement, 0));
+        strcpy(watch, (const char *)sqlite3_column_text(statement, 1));
+        ok = 1;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+int wena_wekan_sync_set_permission(sqlite3 *db, const char *board, const char *permission)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    WenaFerretField field;
+    if (db == NULL || board == NULL || permission == NULL ||
+        (strcmp(permission, "private") && strcmp(permission, "public")) || !table_of(db, "boards", table)) return 0;
+    field.key = "permission";
+    field.element = WENA_FERRET_STRING;
+    field.value = strcmp(permission, "public") ? "\"private\"" : "\"public\"";
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, board, &field, 1);
+}
+
+int wena_wekan_sync_set_watch(sqlite3 *db, const char *actor, const char *board, const char *level)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[1024];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField field;
+    char *value = NULL, *element = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || board == NULL || level == NULL ||
+        (strcmp(level, "watching") && strcmp(level, "tracking") && strcmp(level, "muted")) ||
+        !table_of(db, "boards", table)) return 0;
+    /* The other users' watchers as they were, this user's at the end unless
+     * muted - setWatcher's $pull and $push. */
+    sprintf(sql, "SELECT json_group_array(json(v)), wena_sjson_element(json_group_array(json(v))) FROM ("
+                 "SELECT w.value AS v FROM " WENA_WEKAN_SCHEMA ".\"%s\" d, json_each(d._ferretdb_sjson, '$.watchers') w "
+                 "WHERE d._ferretdb_sjson->'_id' = json_quote(?2) AND w.value->>'userId' IS NOT ?1 "
+                 "UNION ALL SELECT json_object('userId', ?1, 'level', ?3) WHERE ?3 <> 'muted')", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 3, level, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        value = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+        element = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+    }
+    sqlite3_finalize(statement);
+    if (value != NULL && element != NULL) {
+        field.key = "watchers";
+        field.element = element;
+        field.value = value;
+        ok = wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, board, &field, 1);
+    }
+    sqlite3_free(value);
+    sqlite3_free(element);
+    return ok;
+}
+
 static void meteor_id(char out[18])
 {
     static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
