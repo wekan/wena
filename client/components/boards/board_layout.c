@@ -461,7 +461,7 @@ static void wena_render_cards(struct nk_context *context,
 
         if (!wena_same_id(card->board_id, layout->board->id) ||
             !wena_same_id(card->list_id, list->id) ||
-            !wena_same_id(card->swimlane_id, swimlane->id)) continue;
+            (!layout->lists_view && !wena_same_id(card->swimlane_id, swimlane->id))) continue;
         if (sorted != NULL) {
             sorted[ordinal].card = card;
             sorted[ordinal].position = ordinal;
@@ -530,7 +530,7 @@ static void wena_render_lists(struct nk_context *context,
     for (index = 0; index < layout->list_count; ++index) {
         const WenaList *list = &layout->lists[index];
         if (!list->archived && wena_same_id(list->board_id, layout->board->id) &&
-            (list->swimlane_id[0] == '\0' ||
+            (layout->lists_view || list->swimlane_id[0] == '\0' ||
              wena_same_id(list->swimlane_id, swimlane->id))) {
             ++visible_count;
         }
@@ -546,7 +546,7 @@ static void wena_render_lists(struct nk_context *context,
         const WenaList *list = &layout->lists[index];
 
         if (list->archived || !wena_same_id(list->board_id, layout->board->id) ||
-            (list->swimlane_id[0] != '\0' &&
+            (!layout->lists_view && list->swimlane_id[0] != '\0' &&
              !wena_same_id(list->swimlane_id, swimlane->id))) {
             continue;
         }
@@ -738,6 +738,7 @@ int wena_board_layout_render(struct nk_context *context,
     info.watch = layout->header_watch;
     info.search = layout->header_search;
     info.sort = layout->header_sort;
+    info.view = layout->header_view;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {
@@ -775,16 +776,25 @@ int wena_board_layout_render(struct nk_context *context,
             !wena_same_id(swimlane->board_id, layout->board->id)) {
             continue;
         }
-        lane_collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
-            WENA_COLLAPSE_SWIMLANE, swimlane->id);
-        lane_height = wena_board_swimlane_height(layout->collapse, layout->board->id,
-                                                 swimlane->id);
-        if (layout->swimlane_resize != NULL && layout->swimlane_resize->active &&
-            wena_same_id(layout->swimlane_resize->swimlane_id, swimlane->id))
-            lane_height = layout->swimlane_resize->height;
-        lane_collapsed = wena_render_swimlane_header(context, layout, swimlane, index, lane_collapsed);
-        if (!layout->swimlane_drag_area && layout->swimlane_drag_handle)
-            layout->swimlane_drag_handle(context, layout->hierarchy_drag_context, swimlane, index);
+        if (layout->lists_view) {
+            /* WeKan's Lists view: the first swimlane's place, no bar, the
+             * rest of the page high; new cards go to that swimlane. */
+            struct nk_panel *page = context->current->layout;
+            float rest = page->bounds.y + page->bounds.h - page->at_y - page->row.height - 8.0f;
+            lane_height = rest > 120.0f ? (unsigned int)rest : 120u;
+            lane_collapsed = 0;
+        } else {
+            lane_collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
+                WENA_COLLAPSE_SWIMLANE, swimlane->id);
+            lane_height = wena_board_swimlane_height(layout->collapse, layout->board->id,
+                                                     swimlane->id);
+            if (layout->swimlane_resize != NULL && layout->swimlane_resize->active &&
+                wena_same_id(layout->swimlane_resize->swimlane_id, swimlane->id))
+                lane_height = layout->swimlane_resize->height;
+            lane_collapsed = wena_render_swimlane_header(context, layout, swimlane, index, lane_collapsed);
+            if (!layout->swimlane_drag_area && layout->swimlane_drag_handle)
+                layout->swimlane_drag_handle(context, layout->hierarchy_drag_context, swimlane, index);
+        }
         if (lane_collapsed) continue;
         nk_layout_row_dynamic(context, (float)lane_height, 1);
         nk_style_push_style_item(context, &context->style.window.fixed_background,
@@ -803,6 +813,7 @@ int wena_board_layout_render(struct nk_context *context,
             nk_style_pop_vec2(context);
             nk_style_pop_style_item(context);
         }
+        if (layout->lists_view) break;
         if (layout->swimlane_resize_bar != NULL && layout->swimlane_resize != NULL &&
             layout->collapse != NULL)
             layout->swimlane_resize_bar(context, layout, swimlane, lane_height);

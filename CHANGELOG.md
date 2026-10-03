@@ -361,6 +361,30 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's board view switcher and Lists view, kept in the user's profile</summary>
+
+- After Multi-Selection on the header's second row, as in WeKan: the caret,
+  the view's icon and its name, "Swimlanes" or "Lists", opening WeKan's
+  Board View popup with a check at the current view. Calendar, Gantt and
+  Table are listed but cannot be chosen: Wena does not draw them.
+- The Lists view is WeKan's: no swimlane bars, and each list shows its
+  cards of every swimlane, the rest of the window high.
+- The choice is WeKan's own `users.profile.boardView`
+  ("board-view-lists" or "board-view-swimlanes"), so WeKan and Wena open
+  the board in the same view; a view Wena does not draw opens as
+  Swimlanes.
+- `--show view` renders the popup and `--show lists-view` the Lists view.
+- Tests: `wekan-sync` reads and writes the view with its string type,
+  treats an unknown view and a missing user as Swimlanes and refuses a
+  missing user; `board-feature` draws the Lists view without the swimlane
+  bar and with a card of another swimlane, the Swimlanes view without it,
+  and clicks the view button named by each view.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

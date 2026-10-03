@@ -262,7 +262,7 @@ static int desktop_card_collapsed(struct nk_context *context,
 /* WeKan's popups: List Actions, Swimlane Actions, the user's menu. */
 typedef enum WenaDesktopMenuKind {
     DESKTOP_MENU_NONE, DESKTOP_MENU_LIST, DESKTOP_MENU_SWIMLANE, DESKTOP_MENU_MEMBER,
-    DESKTOP_MENU_CARD, DESKTOP_MENU_VISIBILITY, DESKTOP_MENU_WATCH, DESKTOP_MENU_SORT
+    DESKTOP_MENU_CARD, DESKTOP_MENU_VISIBILITY, DESKTOP_MENU_WATCH, DESKTOP_MENU_SORT, DESKTOP_MENU_VIEW
 } WenaDesktopMenuKind;
 typedef struct WenaDesktopMenu {
     WenaDesktopMenuKind kind;
@@ -282,6 +282,7 @@ typedef struct WenaDesktopToolbar {
     int card_menu_error;      /* a Card Actions item that could not be done */
     int board_choice;         /* 1 Private, 2 Public, 3 Watching, 4 Tracking, 5 Muted */
     int card_sort;            /* WeKan's Sort Cards: WENA_BOARD_SORT_* */
+    int board_view;           /* chosen in Board View: 1 Swimlanes, 2 Lists */
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -544,6 +545,17 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         items[count - 1].checked = layout->header_watch == 3;
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CHANGE_WATCH_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
+    } else if (menu->kind == DESKTOP_MENU_VIEW) {
+        /* WeKan's views; Wena draws Swimlanes and Lists. */
+        DESKTOP_ITEM(WENA_ICON_GRID, WENA_UI_TEXT_BOARD_VIEW_SWIMLANES, 1, 0);
+        items[count - 1].checked = !layout->lists_view;
+        DESKTOP_ITEM(WENA_ICON_LIST, WENA_UI_TEXT_BOARD_VIEW_LISTS, 1, 0);
+        items[count - 1].checked = layout->lists_view;
+        DESKTOP_ITEM(WENA_ICON_CALENDAR, WENA_UI_TEXT_BOARD_VIEW_CALENDAR, 0, 1);
+        DESKTOP_ITEM(WENA_ICON_NONE, WENA_UI_TEXT_BOARD_VIEW_GANTT, 0, 0);
+        DESKTOP_ITEM(WENA_ICON_NONE, WENA_UI_TEXT_BOARD_VIEW_TABLE, 0, 0);
+        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_BOARD_VIEW_TITLE),
+                                 menu->x + 300.0f < width ? menu->x : width - 300.0f, 82.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_SORT) {
         /* WeKan's choices; Wena keeps the titles, not due dates or creation
          * times, so those cannot be chosen. WeKan's newer "Sort by votes" is
@@ -568,7 +580,11 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         strcpy(target.board_id, layout->board->id);
         strcpy(target.list_id, menu->list_id);
         strcpy(target.swimlane_id, menu->swimlane_id);
-        if (menu->kind == DESKTOP_MENU_SORT) {
+        if (menu->kind == DESKTOP_MENU_VIEW) {
+            toolbar->board_view = chosen == 1 ? 2 : 1;
+            menu->kind = DESKTOP_MENU_NONE;
+            return DESKTOP_PANEL_NONE;
+        } else if (menu->kind == DESKTOP_MENU_SORT) {
             toolbar->card_sort = chosen == 1 ? WENA_BOARD_SORT_TITLE : WENA_BOARD_SORT_NONE;
             menu->kind = DESKTOP_MENU_NONE;
             return DESKTOP_PANEL_NONE;
@@ -959,7 +975,7 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, sort, sorted, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
+          "multi-selection, visibility, watch, sort, sorted, view, lists-view, search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
@@ -1494,7 +1510,10 @@ board_session:
     layout.default_list_width = wekan_mode ? 220.0f : 0.0f;
     layout.header_actor = wekan_mode && user_name[0] != '\0' ? user_name : actor_id;
     layout.header_all_boards = wekan_mode;
-    if (wekan_mode) desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
+    if (wekan_mode) {
+        desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
+        layout.lists_view = wena_wekan_sync_board_view(database, actor_id) == 1;
+    }
     layout.header_actions = &toolbar.header_actions;
     layout.card_drag_area = desktop_card_drag_area;
     layout.list_drag_area = desktop_list_drag_area;
@@ -1713,6 +1732,8 @@ window_ready:
                     search.cards, WENA_SEARCH_RESULTS, &search.card_count);
             }
             else if (!strcmp(show, "sorted")) toolbar.card_sort = WENA_BOARD_SORT_TITLE;
+            else if (!strcmp(show, "lists-view")) layout.lists_view = 1;
+            else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
             else if (!strcmp(show, "visibility") || !strcmp(show, "watch") || !strcmp(show, "sort")) {
                 toolbar.menu.kind = !strcmp(show, "watch") ? DESKTOP_MENU_WATCH :
                                     !strcmp(show, "sort") ? DESKTOP_MENU_SORT : DESKTOP_MENU_VISIBILITY;
@@ -1826,6 +1847,7 @@ window_ready:
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             layout.header_search = search.visible ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
+            layout.header_view = layout.lists_view ? 2 : 1;
             layout.header_sort = toolbar.card_sort != WENA_BOARD_SORT_NONE ? 2 : 1;
             wena_ui_controls_begin();
             desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
@@ -1868,6 +1890,17 @@ window_ready:
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SEARCH) != 0u) {
                     if (search.visible) search.visible = 0;
                     else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_VIEW) != 0u) {
+                    toolbar.menu.kind = DESKTOP_MENU_VIEW;
+                    toolbar.menu.x = context->input.mouse.pos.x - 20.0f > 0.0f ? context->input.mouse.pos.x - 20.0f : 0.0f;
+                }
+                if (toolbar.board_view != 0) {
+                    /* Kept as WeKan keeps it: the user's profile.boardView. */
+                    layout.lists_view = toolbar.board_view == 2;
+                    if (wekan_mode && !smoke && !wena_wekan_sync_set_board_view(database, actor_id, layout.lists_view))
+                        wena_debug_log("board view: %s", wena_wekan_sync_error());
+                    toolbar.board_view = 0;
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SORT) != 0u) {
                     toolbar.menu.kind = DESKTOP_MENU_SORT;

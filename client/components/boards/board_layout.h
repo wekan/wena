@@ -122,6 +122,10 @@ typedef struct WenaBoardLayout {
     int header_sort;                /* 0 none, 1 Sort Cards, 2 a sort is on */
     /* WeKan's Sort Cards, for showing only: WENA_BOARD_SORT_*. */
     int card_sort;
+    /* WeKan's Lists view: each list's cards of every swimlane, without the
+     * swimlanes' bars. */
+    int lists_view;
+    int header_view;                /* 0 none, 1 Swimlanes, 2 Lists */
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

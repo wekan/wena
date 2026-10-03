@@ -33,7 +33,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
 {
     unsigned int action;
     struct nk_rect area;
-    float width, title_width, filter_width, filter_x, user_width, buttons_x;
+    float width, title_width, filter_width, filter_x, user_width, buttons_x, second_x = 16.0f;
     char tooltip[256];
     const char *filter;
 
@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 18);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 19);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -167,6 +167,19 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         nk_layout_space_push(context, nk_rect(16.0f, 50.0f, multi_width, 28.0f));
         if (wena_wekan_link(context, WENA_ICON_CHECK_SQUARE, multi, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
             action |= WENA_BOARD_HEADER_MULTI_SELECTION;
+        second_x = 16.0f + multi_width + 8.0f;
+    }
+    /* WeKan's board view: the caret, the view's icon and its name. */
+    if (info != NULL && (info->view == 1 || info->view == 2)) {
+        const char *view = wena_ui_text(info->view == 2 ? WENA_UI_TEXT_BOARD_VIEW_LISTS :
+                                        WENA_UI_TEXT_BOARD_VIEW_SWIMLANES);
+        float view_width = text_width(context, WENA_WEKAN_FONT_LINK, view) + 22.0f;
+        wena_wekan_icon_draw(context, WENA_ICON_CARET_DOWN, area.x + second_x, area.y + 59.0f, 10.0f,
+                             WENA_WEKAN_HEADER_LINK);
+        nk_layout_space_push(context, nk_rect(second_x + 12.0f, 50.0f, view_width, 28.0f));
+        if (wena_wekan_link(context, info->view == 2 ? WENA_ICON_LIST : WENA_ICON_GRID, view, WENA_WEKAN_FONT_LINK,
+                            WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_VIEW;
     }
 
     /* Second row, right: the user's avatar - WeKan's initials in a gray

@@ -1149,6 +1149,40 @@ int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, siz
     return ok;
 }
 
+int wena_wekan_sync_board_view(sqlite3 *db, const char *actor)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[256];
+    sqlite3_stmt *statement = NULL;
+    const unsigned char *found;
+    int view = -1;
+    if (db == NULL || actor == NULL || !table_of(db, "users", table)) return -1;
+    sprintf(sql, "SELECT _ferretdb_sjson ->> '$.profile.boardView' FROM " WENA_WEKAN_SCHEMA ".\"%s\" "
+                 "WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return -1;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    switch (sqlite3_step(statement)) {
+    case SQLITE_ROW:
+        found = sqlite3_column_text(statement, 0);
+        view = found != NULL && !strcmp((const char *)found, "board-view-lists");
+        break;
+    case SQLITE_DONE: view = 0; break;
+    default: break;
+    }
+    sqlite3_finalize(statement);
+    return view;
+}
+
+int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, int lists)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    WenaFerretField field;
+    if (db == NULL || actor == NULL || !table_of(db, "users", table)) return 0;
+    field.key = "profile.boardView";
+    field.element = WENA_FERRET_STRING;
+    field.value = lists ? "\"board-view-lists\"" : "\"board-view-swimlanes\"";
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+}
+
 int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language)
 {
     char table[WENA_FERRETDB_TABLE_CAPACITY];

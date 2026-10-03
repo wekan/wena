@@ -80,6 +80,13 @@ int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title,
 int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, size_t capacity);
 int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language);
 
+/* The user's board view as WeKan keeps it (users.profile.boardView): 1 for
+ * "board-view-lists", 0 for Swimlanes - WeKan's default - and for the views
+ * Wena does not draw; -1 on failure. Setting writes "board-view-lists" or
+ * "board-view-swimlanes". */
+int wena_wekan_sync_board_view(sqlite3 *db, const char *actor);
+int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, int lists);
+
 /* A per-board map in the user's profile, as WeKan keeps collapsed lists and
  * swimlanes and swimlane heights: profile.<field>.<board>.<id> = value.
  * Reading calls `entry` with each id and its value (true is 1); writing

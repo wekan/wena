@@ -240,6 +240,31 @@ int main(void)
         layout.card_sort = WENA_BOARD_SORT_NONE;
         strcpy(cards[0].title, "One");
     }
+    /* WeKan's Lists view: no swimlane bars, and each list's cards of every
+     * swimlane, as WeKan's list body; negative: the Swimlanes view keeps a
+     * card in another swimlane out of this one. */
+    {
+        int index, two = 0, lane = 0;
+        strcpy(cards[1].swimlane_id, "hidden");
+        context.label_count = 0;
+        assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+        for (index = 0; index < context.label_count; ++index) {
+            two |= !strcmp(context.labels[index], "Two");
+            lane |= !strcmp(context.labels[index], "Current");
+        }
+        assert(!two && lane);
+        layout.lists_view = 1;
+        two = lane = 0;
+        context.label_count = 0;
+        assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+        for (index = 0; index < context.label_count; ++index) {
+            two |= !strcmp(context.labels[index], "Two");
+            lane |= !strcmp(context.labels[index], "Current");
+        }
+        assert(two && !lane && context.group_depth == 0 && context.vec2_depth == 0);
+        layout.lists_view = 0;
+        strcpy(cards[1].swimlane_id, "lane");
+    }
     /* WeKan's description badge only on a card with a description. */
     assert(!has_control("Description"));
     cards[0].has_description = 1;
@@ -335,6 +360,15 @@ int main(void)
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SORT);
         context.button_to_press = "Remove sort";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_SORT_RESET);
+        /* WeKan's board view button, named by the view; hidden when not given. */
+        context.button_to_press = "Swimlanes";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.view = 1;
+        context.button_to_press = "Swimlanes";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_VIEW);
+        header.view = 2;
+        context.button_to_press = "Lists";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_VIEW);
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);
