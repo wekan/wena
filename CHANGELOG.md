@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.01 2026-10-03 Wena release
 
 <details>
 <summary>Security: no test runs SQL read from outside the program (18 GitHub CodeQL cpp/sql-injection alerts)</summary>
