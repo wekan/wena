@@ -18,6 +18,8 @@ typedef struct WenaList {
     char color[WENA_COLOR_CAPACITY];
     /* Defaults to value 1, disabled, hard. */
     WenaWipLimit wip_limit;
+    /* WeKan's list width in pixels (100..1000); 0 for the layout's default. */
+    unsigned int width;
 } WenaList;
 
 int wena_list_init(WenaList *list, const char *id, const char *board_id,

@@ -170,6 +170,27 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>A board from WeKan's file looks as WeKan draws it: list widths, checklists on minicards and the user's name</summary>
+
+- Lists are as wide as WeKan keeps them: each list's `width` (WeKan's
+  `DEFAULT_LIST_WIDTH` is 220) is read in, and the minicards in it are 34
+  narrower, as in WeKan. A list without a width of its own is 220 wide in
+  WeKan mode, 272 otherwise; a width outside WeKan's 100..1000 is not used.
+- Checklists on minicards follow WeKan's board field
+  `allowsChecklistsOnMinicard` (on unless the board turns it off), read in
+  and written back under that name; Wena wrote a field WeKan does not have.
+  A board made in Wena gets WeKan's default settings for this, card
+  collapse and the checklist count badge.
+- The header shows the user's name as WeKan does, not the user's `_id`.
+- Tests: `wekan-sync` reads a list's width and refuses one out of range,
+  and checks the new board's `allowsChecklistsOnMinicard`; `board-feature`
+  checks the list's own width, the layout default and the fallback.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

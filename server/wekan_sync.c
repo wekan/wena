@@ -313,7 +313,7 @@ static const char *const import_4[] = {
     NULL};
 static const char *const import_5[] = {
     "INSERT OR IGNORE INTO board_minicard_settings(board_id, show_checklists) SELECT b.id, ",
-    "CASE WHEN coalesce(x->>'allowsChecklistAtMinicard', 0) THEN 1 ELSE 0 END ",
+    "CASE WHEN coalesce(x->>'allowsChecklistsOnMinicard', 0) THEN 1 ELSE 0 END ",
     "FROM boards b JOIN (SELECT _ferretdb_sjson AS x FROM {boards}) ON " ID " = b.id",
     NULL};
 static const char *const import_6[] = {
@@ -409,8 +409,16 @@ static const char *const import_20[] = {
     "FROM (SELECT _ferretdb_sjson AS x FROM {checklistItems}) JOIN checklists k ON k.id = x->>'checklistId' ",
     "WHERE " VALID_ID(ID),
     NULL};
+/* Lists' widths, which WeKan keeps per list (DEFAULT_LIST_WIDTH 220); the
+ * board loader (server/sqlite_board.c) reads them from here. */
+static const char *const import_21[] = {
+    "CREATE TABLE IF NOT EXISTS main.wena_list_widths(list_id TEXT PRIMARY KEY, width INTEGER NOT NULL) STRICT; ",
+    "INSERT OR IGNORE INTO wena_list_widths(list_id, width) SELECT " ID ", CAST(x->>'width' AS INTEGER) ",
+    "FROM (SELECT _ferretdb_sjson AS x FROM {lists}) WHERE " ID " IN (SELECT id FROM lists) ",
+    "AND x->>'width' BETWEEN 100 AND 1000",
+    NULL};
 static const char *const *const import_sql[] = {
-    import_0, import_1, import_2, import_3, import_4, import_5, import_6, import_7, import_8, import_9, import_10, import_11, import_12, import_13, import_14, import_15, import_16, import_17, import_18, import_19, import_20};
+    import_0, import_1, import_2, import_3, import_4, import_5, import_6, import_7, import_8, import_9, import_10, import_11, import_12, import_13, import_14, import_15, import_16, import_17, import_18, import_19, import_20, import_21};
 
 /* Export ------------------------------------------------------------------ */
 
@@ -442,7 +450,7 @@ static const char *const projection_boards[] = {
      "ORDER BY m.created_at, m.actor_id)) ELSE json_array(json_object('userId', ?1, 'isAdmin', json('true'), ",
      "'isActive', json('true'), 'isNoComments', json('false'), 'isCommentOnly', json('false'), 'isWorker', json('false'))) END), ",
      "'allowsChecklistCountBadgeOnCard', " BOOL_OF("coalesce((SELECT show_checklist_count FROM board_settings WHERE board_id = b.id), 0)") ", ",
-     "'allowsChecklistAtMinicard', " BOOL_OF("coalesce((SELECT show_checklists FROM board_minicard_settings WHERE board_id = b.id), 0)") ", ",
+     "'allowsChecklistsOnMinicard', " BOOL_OF("coalesce((SELECT show_checklists FROM board_minicard_settings WHERE board_id = b.id), 1)") ", ",
      "'allowsCardCollapse', " BOOL_OF("coalesce((SELECT allow_collapse FROM board_card_collapse_settings WHERE board_id = b.id), 1)"),
      ") FROM boards b",
     NULL};
@@ -995,7 +1003,11 @@ int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title,
     if (!exec(db, "SAVEPOINT wena_new_board")) return 0;
     if (!insert_row(db, "INSERT INTO boards(id, title, version) VALUES (?1, wena_title(?2, 128), 1)", id, title, NULL) ||
         !insert_row(db, "INSERT INTO swimlanes(id, board_id, title, position, version) VALUES (?1, ?2, 'Default', 0, 1)",
-                    lane, id, NULL)) {
+                    lane, id, NULL) ||
+        /* WeKan's defaults for these settings (models/boards.js). */
+        !insert_row(db, "INSERT INTO board_minicard_settings(board_id, show_checklists) VALUES (?1, 1)", id, NULL, NULL) ||
+        !insert_row(db, "INSERT INTO board_card_collapse_settings(board_id, allow_collapse) VALUES (?1, 1)", id, NULL, NULL) ||
+        !insert_row(db, "INSERT INTO board_settings(board_id, show_checklist_count) VALUES (?1, 0)", id, NULL, NULL)) {
         exec(db, "ROLLBACK TO wena_new_board");
         exec(db, "RELEASE wena_new_board");
         return 0;

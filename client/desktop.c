@@ -1427,7 +1427,9 @@ board_session:
     layout.toolbar = desktop_toolbar;
     layout.toolbar_context = &toolbar;
     layout.swimlane_interaction = &swimlane_interaction;
-    layout.header_actor = actor_id;
+    /* WeKan's header shows the user's full name. */
+    layout.default_list_width = wekan_mode ? 220.0f : 0.0f;
+    layout.header_actor = wekan_mode && user_name[0] != '\0' ? user_name : actor_id;
     layout.header_all_boards = wekan_mode;
     layout.header_actions = &toolbar.header_actions;
     layout.card_drag_area = desktop_card_drag_area;

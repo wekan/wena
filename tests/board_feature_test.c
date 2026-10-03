@@ -434,5 +434,16 @@ int main(void)
     sidebar.section = (WenaSidebarSection)99;
     assert((wena_board_sidebar_render(&context, &sidebar) &
             WENA_SIDEBAR_INVALID_STATE) != 0u);
+    /* WeKan's list width: the list's own, else the layout's default, else
+     * 272; negative: widths outside WeKan's 100..1000 are not used. */
+    lists[0].width = 300u;
+    layout.default_list_width = 220.0f;
+    assert(wena_board_list_width(&layout, &lists[0]) == 300.0f);
+    lists[0].width = 5000u;
+    assert(wena_board_list_width(&layout, &lists[0]) == 220.0f);
+    lists[0].width = 0u;
+    layout.default_list_width = 20.0f;
+    assert(wena_board_list_width(&layout, &lists[0]) == 272.0f);
+    assert(wena_board_list_width(NULL, NULL) == 272.0f);
     return 0;
 }

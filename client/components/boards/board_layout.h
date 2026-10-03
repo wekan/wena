@@ -105,6 +105,8 @@ typedef struct WenaBoardLayout {
                                 const WenaSwimlane *swimlane, unsigned int height);
     /* WeKan's header bar: the user and filter state it shows, and what was
      * clicked in it this frame (WENA_BOARD_HEADER_*), when not NULL. */
+    /* The width of a list without its own (WenaList.width); 0 for 272. */
+    float default_list_width;
     const char *header_actor;
     int header_all_boards;          /* WeKan's house to All Boards in the header */
     int header_filter_active;
@@ -174,6 +176,9 @@ int wena_board_swimlane_height_set(WenaBoardCollapseState *state,
                                    const WenaBoardLayout *layout,
                                    const char *swimlane_id, unsigned int height);
 unsigned int wena_board_swimlane_height_clamp(long height);
+
+/* A list's width: its own when set, else the layout's default, else 272. */
+float wena_board_list_width(const WenaBoardLayout *layout, const WenaList *list);
 
 int wena_board_layout_render(struct nk_context *context,
                              const WenaBoardLayout *layout);

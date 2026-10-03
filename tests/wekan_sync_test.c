@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     doc(db, "boards", "{\"_id\":\"old\",\"title\":\"Old\",\"type\":\"board\",\"archived\":true}");
     doc(db, "swimlanes", "{\"_id\":\"s1\",\"title\":\"Default\",\"boardId\":\"b1\",\"sort\":0,\"archived\":false}");
     doc(db, "lists", "{\"_id\":\"li2\",\"title\":\"Done\",\"boardId\":\"b1\",\"sort\":5,\"archived\":true,\"archivedAt\":1700000000000,"
-        "\"color\":\"green\",\"wipLimit\":{\"value\":3,\"enabled\":true,\"soft\":false}}");
+        "\"width\":5000,\"color\":\"green\",\"wipLimit\":{\"value\":3,\"enabled\":true,\"soft\":false}}");
     doc(db, "lists", "{\"_id\":\"li1\",\"title\":\"To Do\",\"boardId\":\"b1\",\"sort\":1.5,\"width\":300}");
     doc(db, "cards", "{\"_id\":\"c1\",\"title\":\"First\",\"boardId\":\"b1\",\"listId\":\"li1\",\"swimlaneId\":\"s1\",\"sort\":2,"
         "\"labelIds\":[\"l1\",\"gone\"],\"members\":[\"u1\"],\"assignees\":[],\"type\":\"cardType-card\",\"dueAt\":1700000000000,"
@@ -110,6 +110,9 @@ int main(int argc, char **argv)
     snapshot = (WenaSqliteBoardSnapshot *)calloc(1, sizeof(*snapshot));
     assert(snapshot != NULL && wena_sqlite_board_load(db, "b1", snapshot));
     assert(snapshot->list_count == 2 && snapshot->card_count == 2);
+    /* WeKan's list width; negative: one out of WeKan's 100..1000 stays the layout's default. */
+    assert(!strcmp(snapshot->lists[0].id, "li1") && snapshot->lists[0].width == 300u);
+    assert(!strcmp(snapshot->lists[1].id, "li2") && snapshot->lists[1].width == 0u);
 
     /* Nothing changed: nothing written. */
     assert(wena_wekan_sync_export(db, "u1") == 0);
@@ -206,6 +209,10 @@ int main(int argc, char **argv)
                              "|| (x->>'allowsCardNumber') || (x -> '$.\"$s\".p.allowsChecklists.t') FROM "
                              "(SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) WHERE x->>'title' = 'Fresh'"),
                        "1110\"bool\""));
+        /* Checklists on minicards: WeKan's allowsChecklistsOnMinicard, on for a new board. */
+        assert(!strcmp(q(db, "SELECT (x->>'allowsChecklistsOnMinicard') || (SELECT show_checklists FROM board_minicard_settings "
+                             "WHERE board_id = x->>'_id') FROM (SELECT _ferretdb_sjson AS x FROM fdb.boards_7c666488) "
+                             "WHERE x->>'title' = 'Fresh'"), "11"));
         assert(wena_wekan_sync_export(db, "u1") == 0);
     }
     /* The user's language and per-board maps, where WeKan keeps them. */

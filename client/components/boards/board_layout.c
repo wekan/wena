@@ -295,15 +295,27 @@ static void card_extent_set(const char *id, float height)
     card_extents[index].height = height;
 }
 
-/* WeKan's minicard, 238 pixels wide at the list's left margin of 11. */
+/* WeKan's list: 272 pixels unless it has its own width (lists.width), with a
+ * line at its left and 24 between lists; WeKan's minicard is 34 narrower,
+ * at the list's left margin of 11. */
+#define LIST_WIDTH 272.0f
 #define MINICARD_MARGIN 11.0f
-#define MINICARD_WIDTH 238.0f
+#define MINICARD_INSET 34.0f
+
+float wena_board_list_width(const WenaBoardLayout *layout, const WenaList *list)
+{
+    if (list != NULL && list->width >= 100u && list->width <= 1000u) return (float)list->width;
+    if (layout != NULL && layout->default_list_width >= 100.0f && layout->default_list_width <= 1000.0f)
+        return layout->default_list_width;
+    return LIST_WIDTH;
+}
 #define MINICARD_GAP 10.0f
 static unsigned int wena_render_minicard(struct nk_context *context,
                                          const WenaBoardLayout *layout,
-                                         const WenaCard *card, size_t position)
+                                         const WenaCard *card, size_t position, float list_width)
 {
     unsigned int card_action;
+    const float minicard_width = list_width - MINICARD_INSET;
     int collapsed, selected, clicked;
     float height, used, title_height, width;
     struct nk_rect bounds, handle;
@@ -316,7 +328,7 @@ static unsigned int wena_render_minicard(struct nk_context *context,
     nk_layout_row_begin(context, NK_STATIC, height, 2);
     nk_layout_row_push(context, MINICARD_MARGIN);
     nk_spacing(context, 1);
-    nk_layout_row_push(context, MINICARD_WIDTH);
+    nk_layout_row_push(context, minicard_width);
     bounds = nk_widget_bounds(context);
     selected = layout->card_selected && layout->card_selected(layout->card_selected_context, card);
     wena_wekan_fill(context, bounds.x, bounds.y + 2.0f, bounds.w, bounds.h, WENA_WEKAN_MINICARD_SHADOW, 7.0f);
@@ -333,7 +345,7 @@ static unsigned int wena_render_minicard(struct nk_context *context,
         nk_style_pop_vec2(context);
         nk_style_pop_style_item(context);
         wena_ui_region("minicard");
-        width = MINICARD_WIDTH - 20.0f;
+        width = minicard_width - 20.0f;
         /* The caret and the Card Actions menu, as WeKan's first minicard row. */
         nk_layout_space_begin(context, NK_STATIC, 14.0f, 2);
         collapsed = 0;
@@ -410,7 +422,8 @@ static void wena_render_cards(struct nk_context *context,
         if (!card->archived &&
             (layout->card_visible == NULL ||
              layout->card_visible(layout->card_visible_context, card))) {
-            card_action = wena_render_minicard(context, layout, card, position);
+            card_action = wena_render_minicard(context, layout, card, position,
+                                               wena_board_list_width(layout, list));
             if (layout->card_interaction != NULL &&
                 card_action != WENA_CARD_BODY_NO_ACTION) {
                 layout->card_interaction->actions = card_action;
@@ -456,8 +469,6 @@ static void wena_render_collapsed_title(struct nk_context *context, const char *
     }
 }
 
-/* WeKan's list: 272 pixels with a line at its left, 24 between lists. */
-#define LIST_WIDTH 272.0f
 #define LIST_GAP 24.0f
 #define LIST_COLLAPSED_WIDTH 44.0f
 static void wena_render_lists(struct nk_context *context,
@@ -499,7 +510,7 @@ static void wena_render_lists(struct nk_context *context,
         }
         collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
                                             WENA_COLLAPSE_LIST, list->id);
-        nk_layout_row_push(context, collapsed ? LIST_COLLAPSED_WIDTH : LIST_WIDTH);
+        nk_layout_row_push(context, collapsed ? LIST_COLLAPSED_WIDTH : wena_board_list_width(layout, list));
         column = nk_widget_bounds(context);
         wena_wekan_fill(context, column.x, column.y, 1.0f, column.h, WENA_WEKAN_LIST_BORDER, 0.0f);
         nk_style_push_style_item(context, &context->style.window.fixed_background,
