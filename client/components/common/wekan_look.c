@@ -462,6 +462,44 @@ void wena_wekan_text(struct nk_context *context, const char *text,
     wena_ui_control_record(NULL, text, bounds.x, bounds.y, bounds.w, bounds.h);
 }
 
+void wena_wekan_initials(const char *name, char *out, size_t capacity)
+{
+    size_t used = 0, length;
+    int start = 1;
+    if (out == NULL || capacity == 0) return;
+    out[0] = '\0';
+    if (name == NULL) return;
+    for (; *name != '\0'; ++name) {
+        if (*name == ' ' || *name == '\t' || *name == '\n' || *name == '\r') { start = 1; continue; }
+        if (!start) continue;
+        start = 0;
+        /* The word's first letter, all of its UTF-8 bytes. */
+        length = 1;
+        while (((unsigned char)name[length] & 0xC0u) == 0x80u) ++length;
+        if (used + length >= capacity) break;
+        memcpy(out + used, name, length);
+        if (length == 1 && out[used] >= 'a' && out[used] <= 'z') out[used] = (char)(out[used] - 'a' + 'A');
+        /* Latin-1 letters too, as toUpperCase: a with ring to A with ring ... */
+        else if (length == 2 && (unsigned char)out[used] == 0xC3u && (unsigned char)out[used + 1] >= 0xA0u &&
+                 (unsigned char)out[used + 1] <= 0xBEu && (unsigned char)out[used + 1] != 0xB7u)
+            out[used + 1] = (char)((unsigned char)out[used + 1] - 0x20u);
+        used += length;
+        name += length - 1;
+    }
+    out[used] = '\0';
+}
+
+void wena_wekan_avatar(struct nk_context *context, const char *name)
+{
+    struct nk_rect bounds;
+    char initials[32];
+    if (context == NULL || context->current == NULL || name == NULL) return;
+    bounds = nk_widget_bounds(context);
+    wena_wekan_initials(name, initials, sizeof(initials));
+    wena_wekan_fill(context, bounds.x, bounds.y, bounds.w, bounds.h, 0x1DBDBDB, bounds.w * 0.5f);
+    wena_wekan_text(context, initials, WENA_WEKAN_FONT_SMALL, 0x1444444, NK_TEXT_CENTERED);
+}
+
 void wena_wekan_text_wrap(struct nk_context *context, const char *text,
                           WenaWekanFont font, int color)
 {

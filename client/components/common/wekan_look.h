@@ -109,6 +109,11 @@ int wena_wekan_link(struct nk_context *context, WenaIcon icon, const char *text,
 /* Text in the next slot, in one of WeKan's fonts and colors. */
 void wena_wekan_text(struct nk_context *context, const char *text,
                      WenaWekanFont font, int color, int align);
+/* WeKan's avatar initials (users.getInitials) of a full name: the first
+ * letter of each word, upper-cased - whole UTF-8 letters - into `out`. */
+void wena_wekan_initials(const char *name, char *out, size_t capacity);
+/* WeKan's initials avatar in the next slot: the gray circle, the initials. */
+void wena_wekan_avatar(struct nk_context *context, const char *name);
 /* The same, wrapped over as many lines as the slot holds. */
 void wena_wekan_text_wrap(struct nk_context *context, const char *text,
                           WenaWekanFont font, int color);

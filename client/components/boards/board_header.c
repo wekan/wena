@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 11);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 12);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -101,16 +101,19 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     if (wena_wekan_link(context, WENA_ICON_FILTER, filter, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
         action |= WENA_BOARD_HEADER_FILTER;
 
-    /* Second row, right: the user, then the sidebar toggle. */
+    /* Second row, right: the user's avatar - WeKan's initials in a gray
+     * circle - and name, then the sidebar toggle. */
     if (info != NULL && info->actor_name != NULL && info->actor_name[0] != '\0') {
         user_width = text_width(context, WENA_WEKAN_FONT_SMALL, info->actor_name) + 4.0f;
         if (user_width > 200.0f) user_width = 200.0f;
+        nk_layout_space_push(context, nk_rect(width - 95.0f - user_width, 52.0f, 24.0f, 24.0f));
+        wena_wekan_avatar(context, info->actor_name);
         nk_layout_space_push(context, nk_rect(width - 66.0f - user_width, 50.0f, user_width, 28.0f));
-        if (wena_wekan_link(context, WENA_ICON_USER, info->actor_name, WENA_WEKAN_FONT_SMALL,
+        if (wena_wekan_link(context, WENA_ICON_NONE, info->actor_name, WENA_WEKAN_FONT_SMALL,
                             WENA_WEKAN_HEADER_TEXT))
             action |= WENA_BOARD_HEADER_MEMBER_MENU;
         /* WeKan's separators around the user. */
-        wena_wekan_fill(context, area.x + width - 76.0f - user_width, area.y + 54.0f, 1.0f, 20.0f,
+        wena_wekan_fill(context, area.x + width - 105.0f - user_width, area.y + 54.0f, 1.0f, 20.0f,
                         WENA_WEKAN_HEADER_LINK, 0.0f);
         wena_wekan_fill(context, area.x + width - 56.0f, area.y + 54.0f, 1.0f, 20.0f,
                         WENA_WEKAN_HEADER_LINK, 0.0f);

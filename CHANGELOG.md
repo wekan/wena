@@ -226,6 +226,21 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The user is shown with WeKan's initials avatar on the board and All Boards</summary>
+
+- Before the user's name, as in WeKan's header, a 24px gray circle with the
+  user's initials: the first letter of each word of the name, upper-cased
+  as WeKan's `getInitials` does (Latin-1 letters too), in place of the user
+  icon. The board header and All Boards draw it the same way.
+- Tests: `all-boards` checks the initials of several names, whole UTF-8
+  letters and upper-casing, with no name, no room and an overlong result as
+  negatives, and that the page draws the avatar.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

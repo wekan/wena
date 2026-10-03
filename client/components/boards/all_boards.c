@@ -111,12 +111,15 @@ unsigned int wena_all_boards_render(struct nk_context *context, WenaAllBoardsVie
         label(context, wena_ui_text(WENA_UI_TEXT_ALL_BOARDS), WENA_WEKAN_FONT_BODY, WENA_WEKAN_HEADER_TEXT,
               area.x + 60.0f, area.y + 14.0f, 160.0f, 28.0f);
         if (user != NULL && user[0] != '\0') {
-            float user_width = text_width(context, WENA_WEKAN_FONT_SMALL, user) + 22.0f;
+            /* WeKan's avatar - initials in a gray circle - and the name. */
+            float user_width = text_width(context, WENA_WEKAN_FONT_SMALL, user) + 4.0f;
             if (user_width > 200.0f) user_width = 200.0f;
-            wena_wekan_fill(context, area.x + area.w - user_width - 30.0f, area.y + 54.0f, 1.0f, 20.0f,
+            wena_wekan_fill(context, area.x + area.w - user_width - 61.0f, area.y + 54.0f, 1.0f, 20.0f,
                             WENA_WEKAN_HEADER_LINK, 0.0f);
-            nk_layout_space_push(context, nk_rect(area.w - user_width - 20.0f, 50.0f, user_width, 25.0f));
-            (void)wena_wekan_link(context, WENA_ICON_USER, user, WENA_WEKAN_FONT_SMALL, WENA_WEKAN_HEADER_LINK);
+            nk_layout_space_push(context, nk_rect(area.w - user_width - 51.0f, 51.0f, 24.0f, 24.0f));
+            wena_wekan_avatar(context, user);
+            nk_layout_space_push(context, nk_rect(area.w - user_width - 22.0f, 50.0f, user_width, 25.0f));
+            (void)wena_wekan_link(context, WENA_ICON_NONE, user, WENA_WEKAN_FONT_SMALL, WENA_WEKAN_HEADER_LINK);
         }
 
         /* The left menu: the sections and how many boards each has. */

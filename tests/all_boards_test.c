@@ -40,10 +40,34 @@ static unsigned int frame(WenaAllBoardsView *view, const char *press, char *boar
     return wena_all_boards_render(&context, view, tiles, 4, "Ada", 1024.0f, 720.0f, board, 65);
 }
 
+static void initials_test(void)
+{
+    char initials[8];
+    /* WeKan's avatar initials: each word's first letter, upper-cased, whole
+     * UTF-8 letters; negatives: no name, no room, an overlong result. */
+    wena_wekan_initials("E2E Test User", initials, sizeof(initials));
+    assert(!strcmp(initials, "ETU"));
+    wena_wekan_initials("  ada \t lovelace ", initials, sizeof(initials));
+    assert(!strcmp(initials, "AL"));
+    wena_wekan_initials("\xc3\xa4iti \xc3\xb6ljy", initials, sizeof(initials));
+    assert(!strcmp(initials, "\xc3\x84\xc3\x96"));
+    wena_wekan_initials(NULL, initials, sizeof(initials));
+    assert(initials[0] == '\0');
+    wena_wekan_initials("", initials, sizeof(initials));
+    assert(initials[0] == '\0');
+    wena_wekan_initials("a b c d e f g h i j", initials, sizeof(initials));
+    assert(!strcmp(initials, "ABCDEFG"));
+    wena_wekan_initials("\xc3\xa4 \xc3\xa4 \xc3\xa4 \xc3\xa4", initials, sizeof(initials));
+    assert(!strcmp(initials, "\xc3\x84\xc3\x84\xc3\x84"));
+    wena_wekan_initials("x", initials, 0);
+}
+
 int main(void)
 {
+
     WenaAllBoardsView view;
     char board[65];
+    initials_test();
     tile(0, "b1", "Plans", 0, 1, 0, 1);
     tile(1, "b2", "Old plans", 1, 0, 0, 0);
     tile(2, "t1", "Templates", 0, 0, 1, 0);
@@ -54,6 +78,8 @@ int main(void)
     assert(control("Add Board") && control("Plans") && control("Work") && !control("Old plans"));
     assert(control("Remaining") && control("Starred") && control("Home") && control("Templates") &&
            control("Archives") && control("All Boards") && control("Ada"));
+    /* The user's avatar: WeKan's initials. */
+    assert(control("A"));
     assert(wena_all_boards_in_section(&tiles[0], WENA_ALL_BOARDS_STARRED) &&
            !wena_all_boards_in_section(&tiles[3], WENA_ALL_BOARDS_STARRED));
     /* A tile opens its board. */
