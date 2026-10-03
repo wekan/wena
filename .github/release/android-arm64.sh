@@ -11,9 +11,21 @@ if test -z "${ANDROID_NDK_ROOT:-}"; then
   exit 1
 fi
 
-toolchain="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+case "$(uname -s)" in
+  Darwin) prebuilt=darwin-x86_64 ;;
+  MINGW*|MSYS*|CYGWIN*) prebuilt=windows-x86_64 ;;
+  *) prebuilt=linux-x86_64 ;;
+esac
+toolchain="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$prebuilt/bin"
 compiler="$toolchain/aarch64-linux-android${android_api}-clang"
 readelf="$toolchain/llvm-readelf"
+# The Windows NDK names its compiler wrapper .cmd and its tools .exe.
+if ! test -e "$compiler" && test -e "$compiler.cmd"; then
+  compiler="$compiler.cmd"
+fi
+if ! test -e "$readelf" && test -e "$readelf.exe"; then
+  readelf="$readelf.exe"
+fi
 if ! test -x "$compiler" || ! test -x "$readelf"; then
   echo "Android arm64 toolchain is incomplete under ANDROID_NDK_ROOT" >&2
   exit 1

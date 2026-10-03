@@ -6,11 +6,14 @@ records tested slices, remaining work and the next resume checkpoint.
 
 ## Local desktop development
 
-Install a C compiler, Python 3, SDL2 development files and SQLite development
-files, then initialize the pinned MIT-licensed Nuklear source:
+`./build.sh` (`build.bat` on Windows) installs what a build needs on this
+computer before running it: the compiler, SDL2 and SQLite development files and
+the pinned MIT-licensed Nuklear source for the desktop, and for a release target
+its cross-compiler, SDK, Android NDK or Docker. It uses Homebrew on macOS, apt on
+Debian and Ubuntu, dnf on Fedora, and Chocolatey (or winget) on Windows; Python 3
+is installed first if it is missing.
 
 ```sh
-git submodule update --init
 ./build.sh build desktop
 ./dist/desktop/wena-desktop --database /absolute/path/wena.sqlite \
   --actor local-user --board my-board --create --title "My board" --language en
@@ -58,8 +61,17 @@ this path; complete theme/responsive parity remains in the roadmap.
 ./build.sh tests sanitizers
 ./build.sh --list
 ./build.sh build host
+./build.sh build all
+./build.sh install all
 ./build.sh run
 ```
+
+`build all` builds every release target this computer can build and lists the
+ones it cannot, with the reason: macOS and iOS need a Mac (iOS needs Xcode,
+which the App Store installs), and the Android NDK runs on amd64 Linux, macOS
+and Windows. Linux targets without a compiler here are built in an Ubuntu
+container. `install TARGET|all|desktop` installs without building, and
+`WENA_NO_INSTALL=1` only checks.
 
 `./build.sh run` (`build.bat run` on Windows, or menu option 2) Run) opens the
 native Nuklear desktop that `build desktop` (menu 1) Build, then d) Local

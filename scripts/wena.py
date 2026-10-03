@@ -51,6 +51,25 @@ def shell_command(script):
     return [str(script)]
 
 
+def toolchain_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("toolchain", ROOT / "scripts" / "toolchain.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def prepare_toolchain(target):
+    """Install what building target needs on this computer: a toolchain.Plan,
+    or None after saying why it cannot be built here."""
+    toolchain = toolchain_module()
+    try:
+        return toolchain.prepare(target)
+    except toolchain.Unavailable as error:
+        print(f"{target}: cannot build here: {error}", file=sys.stderr, flush=True)
+        return None
+
+
 def build_one(target):
     record = next((item for item in targets() if item["target"] == target), None)
     if record is None:
@@ -72,8 +91,13 @@ def build_one(target):
     )
     if verification:
         return verification
+    plan = prepare_toolchain(target)
+    if plan is None:
+        return UNAVAILABLE
     print(f"Building {record['name']} ({target})", flush=True)
-    return subprocess.call(shell_command(script), cwd=ROOT)
+    if plan.container:
+        return subprocess.call(plan.container_command(target, ROOT), cwd=ROOT)
+    return subprocess.call(shell_command(script), cwd=ROOT, env=plan.environment())
 
 
 def build(selection):
@@ -83,15 +107,45 @@ def build(selection):
         print("Building local SDL2/SQLite desktop app (create or open workspace)", flush=True)
         output = ROOT / "dist" / "desktop" / ("wena-desktop.exe" if sys.platform == "win32" else "wena-desktop")
         output.parent.mkdir(parents=True, exist_ok=True)
-        return subprocess.call(test_command(ROOT / "scripts" / "build_desktop.sh") + [str(output)], cwd=ROOT)
+        plan = prepare_toolchain("desktop")
+        if plan is None:
+            return 1
+        return subprocess.call(test_command(ROOT / "scripts" / "build_desktop.sh") + [str(output)],
+                               cwd=ROOT, env=plan.environment())
     selected = host_target() if selection == "host" else selection
-    records = [item for item in targets() if item["status"] == "ready"]
-    names = [item["target"] for item in records] if selected == "all" else [selected]
-    for name in names:
-        result = build_one(name)
-        if result:
-            return result
-    return 0
+    if selected != "all":
+        result = build_one(selected)
+        return 1 if result == UNAVAILABLE else result
+    # All: every target this computer can build; the others are only listed.
+    skipped, failed = [], []
+    for item in targets():
+        if item["status"] != "ready":
+            continue
+        result = build_one(item["target"])
+        if result == UNAVAILABLE:
+            skipped.append(item["target"])
+        elif result:
+            failed.append(item["target"])
+    if skipped:
+        print("Not buildable on this computer: " + ", ".join(skipped), flush=True)
+    if failed:
+        print("Failed: " + ", ".join(failed), flush=True)
+    return 1 if failed else 0
+
+
+# build_one's result for a target this computer cannot build (no exit code is negative 1000).
+UNAVAILABLE = -1000
+
+
+def install(selection):
+    """Install what building selection needs, without building it."""
+    selected = host_target() if selection == "host" else selection
+    names = ([item["target"] for item in targets() if item["status"] == "ready"]
+             if selected == "all" else [selected])
+    ready = [name for name in names if prepare_toolchain(name) is not None]
+    for name in ready:
+        print(f"{name}: ready", flush=True)
+    return 0 if len(ready) == len(names) or selected == "all" else 1
 
 
 DEFAULT_ACTOR = "local-user"
@@ -304,12 +358,17 @@ def build_menu():
     ready = [item for item in targets() if item["status"] == "ready"]
     choices = [("h", "Current host"), ("a", "All ready targets"),
                ("d", "Local SDL2/SQLite desktop app (create or open workspace)"),
-               ("p", "Verified Linux amd64 desktop package")]
+               ("p", "Verified Linux amd64 desktop package"),
+               ("i", "Install what all ready targets and the desktop app need")]
     choices += [(str(index), f"{item['name']} ({item['target']})")
                 for index, item in enumerate(ready, 1)]
     choices.append(("b", "Back"))
     answer = choose("Build", choices)
     if answer == "b":
+        return
+    if answer == "i":
+        install("all")
+        install("desktop")
         return
     selection = "host" if answer == "h" else "all" if answer == "a" else "desktop" if answer == "d" else "desktop-package" if answer == "p" else ready[int(answer) - 1]["target"]
     result = build(selection)
@@ -510,6 +569,7 @@ TEST_SUITES = (
     ('card-description-mutation', 'test_card_description_mutation.sh', 'Description persistence using isolated pinned schema-v2 fixture'),
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
+    ('toolchain', 'test_toolchain.py', 'Per-OS install of compilers, SDKs, NDK and Docker before a build'),
     ('collect-release-assets', 'test_collect_release_assets.py', 'Collect release assets regression checks'),
     ('generate-i18n-catalog', 'test_generate_i18n_catalog.py', 'Generate i18n catalog regression checks'),
     ('i18n-embedding', 'test_i18n_embedding.py', 'I18n embedding regression checks'),
@@ -643,7 +703,7 @@ def menu():
 
 
 def usage():
-    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | run [ARGS...] | release [next|missing] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
+    print("Usage: wena.py --list | build host|all|desktop|desktop-package|TARGET | install host|all|desktop|TARGET | run [ARGS...] | release [next|missing] | tests --list|all|SUITE | server status | tools targets | menu", file=sys.stderr)
     return 2
 
 
@@ -654,6 +714,8 @@ def main(argv):
         return menu()
     if len(argv) == 2 and argv[0] == "build":
         return build(argv[1])
+    if len(argv) == 2 and argv[0] == "install":
+        return install(argv[1])
     if argv[:1] == ["run"]:
         return run(argv[1:])
     if argv[:1] == ["release"] and len(argv) <= 2:

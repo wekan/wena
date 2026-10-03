@@ -1,6 +1,46 @@
 # Upcoming Wena release
 
 <details>
+<summary>build.sh and build.bat install what a build needs on macOS, Windows, Ubuntu, Debian and Fedora</summary>
+
+- `scripts/toolchain.py` runs before every build and installs what is
+  missing with the computer's own package manager: Homebrew on macOS, apt on
+  Debian and Ubuntu, dnf on Fedora, Chocolatey or else winget on Windows.
+  `build.sh` and `build.bat` install Python 3 first when it is missing.
+- Per target: gcc, Debian's cross-compilers with their C library, MinGW-w64,
+  Docker (started when it is not running, with QEMU on arm64 Linux) for
+  AmigaOS and AROS, and the Android NDK r29. The NDK is downloaded from Google
+  and checked against the size and SHA-1 in Google's own repository manifest
+  before it is unpacked into `.tools`. iOS uses an installed Xcode through
+  `DEVELOPER_DIR` without changing which one is selected.
+- Where this computer has no compiler for a Linux target (Fedora, macOS,
+  Windows), it is built in an Ubuntu 24.04 container with Ubuntu's compiler.
+  The container's name is a hash of its package list, so a changed list
+  builds a new one.
+- On Windows, Git for Windows provides `sh` and `file`, a native MinGW-w64 gcc
+  builds the Windows target, MSYS2 provides SDL2, SQLite and gcc for the
+  desktop, and a `python3` shim lets the release scripts call Python.
+  `android-arm64.sh` uses the NDK's prebuilt compiler for this computer
+  instead of always Linux's.
+- `build all` builds every target this computer can build and lists the
+  others with the reason, such as iOS without Xcode. `install TARGET|all|desktop`
+  installs without building. `WENA_NO_INSTALL=1` only checks.
+- `windows-amd64.sh` accepts both ways file words a PE executable: file 5.46
+  (Fedora 42) puts "Windows" before "x86-64".
+- Verified on this Mac: all ten release targets and the desktop built after
+  installing what was missing. On fresh Ubuntu 24.04, Debian 12 and Fedora 42
+  containers, starting without Python, these all built: the host target,
+  Windows amd64 and the desktop, plus armhf cross-built on Ubuntu and
+  Debian. Windows was not run here. `tests/test_toolchain.py` covers each
+  package manager and each target with fakes, including what is refused:
+  an NDK download that fails its checksum, a zip entry outside its folder,
+  a failed install and `WENA_NO_INSTALL`.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>The macOS, iOS, AmigaOS, AROS and Android release builds compile again</summary>
 
 - v0.01's `release-all.yml` built six of its ten targets' compilers into

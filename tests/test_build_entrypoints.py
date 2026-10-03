@@ -26,14 +26,62 @@ def command(*arguments):
     return subprocess.run([str(ROOT / "build.sh"), *arguments], text=True, capture_output=True)
 
 
+class FakePlan:
+    container = None
+
+    def __init__(self, env=None):
+        self.env = env or {}
+
+    def environment(self):
+        return dict(self.env)
+
+    def container_command(self, target, root):
+        return ["docker", "run", target]
+
+
 def test_runner():
-    with patch.object(wena.subprocess, "call", return_value=0) as call:
+    # What a build needs is installed first (scripts/toolchain.py, tested in
+    # test_toolchain.py); here nothing is installed.
+    with patch.object(wena, "prepare_toolchain", return_value=FakePlan({"WENA_CC": "gcc"})) as prepared, \
+            patch.object(wena.subprocess, "call", return_value=0) as call:
         with redirect_stdout(io.StringIO()):
             assert wena.build("desktop") == 0
+        prepared.assert_called_once_with("desktop")
+        assert call.call_args.kwargs["env"] == {"WENA_CC": "gcc"}
         assert call.call_args.args[0][-2] == str(ROOT / "scripts" / "build_desktop.sh")
         assert Path(call.call_args.args[0][-1]).parent == ROOT / "dist" / "desktop"
     with patch.object(wena.shutil, "which", return_value=None):
         assert "SDL2" in wena.test_prerequisite("desktop")
+    # Negative: a desktop build whose requirements cannot be installed runs nothing.
+    with patch.object(wena, "prepare_toolchain", return_value=None), \
+            patch.object(wena.subprocess, "call") as call, redirect_stdout(io.StringIO()):
+        assert wena.build("desktop") == 1
+    call.assert_not_called()
+    # All: a target this computer cannot build is listed and skipped, a
+    # failing one fails the whole build, and one in a container runs there.
+    plans = {"linux-arm64": FakePlan(), "ios-arm64": None, "windows-amd64": FakePlan()}
+    container = FakePlan()
+    container.container = "wena-build-linux-amd64:x"
+    plans["linux-amd64"] = container
+    ready = [item["target"] for item in wena.targets() if item["status"] == "ready"]
+    with patch.object(wena, "prepare_toolchain", lambda target: plans.get(target, FakePlan())), \
+            patch.object(wena.subprocess, "call", side_effect=lambda command, **kwargs:
+                         3 if "windows-amd64.sh" in command[-1] else 0) as call, \
+            redirect_stdout(io.StringIO()) as printed:
+        assert wena.build("all") == 1
+    builds = [c.args[0] for c in call.call_args_list
+              if c.args[0][0] == "docker" or "/.github/release/" in c.args[0][-1].replace("\\", "/")]
+    assert ["docker", "run", "linux-amd64"] in builds
+    assert not any("ios-arm64" in command[-1] for command in builds)
+    assert "Not buildable on this computer: ios-arm64" in printed.getvalue()
+    assert "Failed: windows-amd64" in printed.getvalue()
+    assert len(builds) == len(ready) - 1
+    # One target that cannot be built here is a failure, and runs nothing.
+    with patch.object(wena, "prepare_toolchain", return_value=None), \
+            patch.object(wena.subprocess, "call", return_value=0) as call, redirect_stdout(io.StringIO()):
+        assert wena.build("ios-arm64") == 1
+        assert wena.install("ios-arm64") == 1
+    assert not any("/.github/release/" in c.args[0][-1] for c in call.call_args_list)
     with patch.object(wena.subprocess, "call", return_value=7) as call:
         assert wena.run_test("sanitizers") == 7
         assert call.call_args.args[0][-1] == str(ROOT / "tests" / "test_native_sanitizers.sh")

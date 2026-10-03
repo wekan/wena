@@ -15,6 +15,7 @@ mkdir -p "$output_dir"
 # libnix and sys/types.h declare "static inline" functions, and "inline" is not
 # a C89 keyword; __inline__ is the spelling GCC accepts in every mode.
 docker run --rm \
+  --platform linux/amd64 \
   --user "$(id -u):$(id -g)" \
   --volume "$root_dir:/work" \
   --workdir /work \
