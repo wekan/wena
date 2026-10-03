@@ -200,6 +200,8 @@ int main(void)
  assert(!wena_card_selection_panel_open_board(NULL,"board"));
  assert(wena_card_selection_panel_open_board(&state,"board")&&state.visible&&!selection->count);
  nk_clear(&ctx);nk_input_begin(&ctx);nk_input_end(&ctx);render(&ctx,&state,&layout);
+ /* WeKan's sidebar: its title, and its links drawn as text. */
+ (void)label_center(&ctx,"Multi-Selection");(void)label_center(&ctx,"Turn Multi-Selection off");
  click(&ctx,&state,&layout,"Select all");assert(selection->count==1&&wena_card_selection_contains(selection,"outside"));
  click(&ctx,&state,&layout,"Turn Multi-Selection off");assert(!state.visible&&!selection->count);
  cards[0].archived=0;assert(wena_card_selection_panel_open(&state,cards,9,"board","list",NULL));

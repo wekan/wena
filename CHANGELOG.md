@@ -412,6 +412,23 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The Multi-Selection panel looks like WeKan's sidebar</summary>
+
+- WeKan's sidebar background and its "Multi-Selection" title, and WeKan's
+  sidebar buttons - an icon and the text, without a box - for Select all,
+  Select none, Archive selection, Labels, Move selection and Turn
+  Multi-Selection off. The one-card Move form keeps its own buttons.
+- Wena's list of the cards in scope, with their ids so that cards of the
+  same title can be told apart, stays where WeKan picks cards on the board
+  itself.
+- Tests: `nuklear-card-selection` requires the title and draws the links
+  as text, clicking them by where their text is drawn.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>
