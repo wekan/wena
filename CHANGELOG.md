@@ -1,6 +1,24 @@
 # Upcoming Wena release
 
 <details>
+<summary>The release builds again: v0.03 stopped on every platform on a stale compiled-in license file</summary>
+
+- wena4 log: every job of the v0.03 release stopped before compiling with
+  `client/platform/notices_data.h is stale`. The licenses compiled into the
+  executable include `config/release-dependencies.json`, which the AROS
+  rename (aros-x86 to aros-amd64) changed without regenerating them. The
+  current header matches its sources again.
+- New suite `generated-sources` runs the checks every desktop build runs
+  first (`scripts/check_desktop_sources.sh`: pinned dependencies, SVGs,
+  migrations, translations, font and licenses), so a stale generated file
+  fails the test run instead of the release. Its negative case changes the
+  dependencies on a copy and requires the check to report the stale header.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Card details, Card Actions, the Add Card composer and the sidebar look and work like WeKan's</summary>
 
 - Card details are WeKan's panel instead of a column of buttons: a header
