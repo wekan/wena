@@ -90,5 +90,29 @@
       "platforms": "linux/amd64 linux/arm64",
       "use": "m68k-amigaos-gcc (bebbo), libnix, CMake toolchain file in CMAKE_TOOLCHAIN_FILE"
     }
-  ]
+  ],
+  "android-cmdline-tools-linux": {
+    "version": "23.0 (16111833)",
+    "url": "https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip",
+    "sha256": "0877a1d048fe4a24efe2eff536ca4223f7adeb58648bb81909d33c446918cfa8",
+    "license": "Android Software Development Kit License (build tool only; nothing of it is in the APK)",
+    "verified": "SHA-1 e025545c62a8e64c7559119566a569fb1dec5f60 equals cmdline-tools;latest in https://dl.google.com/android/repository/repository2-3.xml; SHA-256 computed from that download",
+    "use": "Installs the pinned SDK packages with sdkmanager (scripts/build_desktop_android.sh: platforms;android-37.0 and build-tools;37.0.0), when ANDROID_HOME has no sdkmanager of its own"
+  },
+  "android-cmdline-tools-macos-arm64": {
+    "version": "23.0 (16111833)",
+    "url": "https://dl.google.com/android/repository/commandlinetools-mac_arm64-16111833_latest.zip",
+    "sha256": "58da8f215781cc0208743e88b65ae259780c55e7eb40e50373d377cf369232d6",
+    "license": "Android Software Development Kit License (build tool only; nothing of it is in the APK)",
+    "verified": "SHA-1 ad03dc49bfacfd52c110b14104ea548b8a07e830 equals cmdline-tools;latest in https://dl.google.com/android/repository/repository2-3.xml; SHA-256 computed from that download",
+    "use": "Installs the pinned SDK packages with sdkmanager (scripts/build_desktop_android.sh: platforms;android-37.0 and build-tools;37.0.0), when ANDROID_HOME has no sdkmanager of its own"
+  },
+  "android-cmdline-tools-macos-x86_64": {
+    "version": "23.0 (16111833)",
+    "url": "https://dl.google.com/android/repository/commandlinetools-mac_x86_64-16111833_latest.zip",
+    "sha256": "7e601c04e7173754b3d051a87bb4c3a8243c65a9d7bfa9356ed6499fb8953fa3",
+    "license": "Android Software Development Kit License (build tool only; nothing of it is in the APK)",
+    "verified": "SHA-1 112cf9618794a997ff273537d55bee02c22abffe equals cmdline-tools;latest in https://dl.google.com/android/repository/repository2-3.xml; SHA-256 computed from that download",
+    "use": "Installs the pinned SDK packages with sdkmanager (scripts/build_desktop_android.sh: platforms;android-37.0 and build-tools;37.0.0), when ANDROID_HOME has no sdkmanager of its own"
+  }
 }

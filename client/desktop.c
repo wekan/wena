@@ -334,7 +334,37 @@ static int actor_exists(sqlite3 *database, const char *actor)
         wena_debug_log("failed at %s:%d", __FILE__, __LINE__); goto cleanup; \
     } while (0)
 
-#if defined(_WIN32)
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+/* Android and iOS run the desktop as an SDL app: SDLActivity or SDL's UIKit
+ * delegate calls main (SDL.h renames it SDL_main). There is no command line
+ * from a launcher, no HOME or LANG to go by, and a touch screen. */
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+#define DESKTOP_IOS 1
+/* client/platform/ios/scene.m: shows SDL's window in the app's UIScene, and
+ * names the part of it clear of the status bar, notch and home indicator. */
+void wena_ios_scene_attach(SDL_Window *window);
+int wena_ios_safe_area(int *left, int *top, int *right, int *bottom);
+#else
+#define DESKTOP_IOS 0
+#endif
+#if defined(__ANDROID__) || DESKTOP_IOS
+#define DESKTOP_MOBILE 1
+#else
+#define DESKTOP_MOBILE 0
+#endif
+#if DESKTOP_MOBILE
+#define DESKTOP_SYSTEM WENA_SYSTEM_MOBILE
+#if defined(__ANDROID__)
+/* Full screen: with a current target SDK, Android draws an app under its
+ * status and navigation bars, which would hide the board's edges. */
+#define DESKTOP_WINDOW_FLAGS SDL_WINDOW_FULLSCREEN
+#else
+/* Retina-sized drawing; the window itself stays in points. */
+#define DESKTOP_WINDOW_FLAGS SDL_WINDOW_ALLOW_HIGHDPI
+#endif
+#elif defined(_WIN32)
 #define DESKTOP_SYSTEM WENA_SYSTEM_WINDOWS
 #define DESKTOP_HOME "APPDATA"
 #elif defined(__APPLE__)
@@ -358,6 +388,9 @@ static const char desktop_stack_cookie[] __attribute__((used)) = "$STACK:1048576
 /* libnix moves main() to a stack of this size (its swapstack module, which
  * scripts/build_desktop_amiga_container.sh links). */
 unsigned long __stack = DESKTOP_STACK;
+#endif
+#ifndef DESKTOP_WINDOW_FLAGS
+#define DESKTOP_WINDOW_FLAGS 0
 #endif
 #define DESKTOP_DEFAULT_ACTOR "local-user"
 #define DESKTOP_DEFAULT_BOARD "my-board"
@@ -391,11 +424,117 @@ static int desktop_licenses(FILE *output)
            fflush(output) == 0;
 }
 
-#if defined(__AROS__)
-static int desktop_main(int argc, char **argv)
+/* Where the default board lives: an environment variable on a desktop; on
+ * Android and iOS the app's own data folder - Android's internal files
+ * directory, iOS's Library/Application Support/wekan/wena - which is private,
+ * writable and kept when the app is updated. */
+static int desktop_home(char *out, size_t capacity)
+{
+#if DESKTOP_MOBILE
+    char *path;
+    int found;
+    path = SDL_GetPrefPath("wekan", "wena");
+    found = path != NULL && strlen(path) < capacity;
+    if (found) strcpy(out, path);
+    else if (capacity > 0) out[0] = '\0';
+    SDL_free(path);
+    return found;
 #else
-int main(int argc, char **argv)
+    return wena_environment(DESKTOP_HOME, out, capacity);
 #endif
+}
+
+/* The user's language. A phone has no LANG and setlocale() answers "C", so
+ * Android and iOS ask the system for its first preferred locale. */
+static void desktop_locale(char *out, size_t capacity)
+{
+#if DESKTOP_MOBILE
+    SDL_Locale *locales;
+    char tag[64];
+    int found;
+    found = 0;
+    locales = SDL_GetPreferredLocales();
+    if (locales != NULL && locales[0].language != NULL &&
+        strlen(locales[0].language) + 1 +
+        (locales[0].country != NULL ? strlen(locales[0].country) : 0) < sizeof(tag)) {
+        strcpy(tag, locales[0].language);
+        if (locales[0].country != NULL && locales[0].country[0] != '\0') {
+            strcat(tag, "-");
+            strcat(tag, locales[0].country);
+        }
+        found = wena_locale_normalize(tag, out, capacity);
+    }
+    SDL_free(locales);
+    if (found) return;
+#endif
+    (void)wena_locale_detect(out, capacity);
+}
+
+#if DESKTOP_MOBILE
+/* Drawing on a phone: the board is laid out in density-independent units
+ * (window size / input), drawn at the screen's own pixels (SDL_RenderSetScale
+ * by the returned factor) with the font baked at that size, so text stays
+ * sharp. input is how many window units one layout unit is: Android's density
+ * (densityDpi / 160), 1 on iOS, whose window is in points already. */
+static float desktop_mobile_scale(SDL_Window *window, SDL_Renderer *renderer, float *input)
+{
+    int window_width, window_height, output_width, output_height;
+    float density;
+    *input = 1.0f;
+#if defined(__ANDROID__)
+    {
+        float dpi;
+        int display;
+        display = SDL_GetWindowDisplayIndex(window);
+        if (display >= 0 && SDL_GetDisplayDPI(display, &dpi, NULL, NULL) == 0 && dpi > 160.0f)
+            *input = dpi > 640.0f ? 4.0f : dpi / 160.0f;
+    }
+#endif
+    density = 1.0f;
+    SDL_GetWindowSize(window, &window_width, &window_height);
+    if (window_width > 0 && SDL_GetRendererOutputSize(renderer, &output_width, &output_height) == 0 &&
+        output_width > window_width)
+        density = (float)output_width / (float)window_width;
+    return density * *input;
+}
+
+/* Touches arrive as mouse events in window units; the board is in layout
+ * units, from the corner of the safe area (left, top). */
+static void desktop_mobile_event(SDL_Event *event, float input, int left, int top)
+{
+    if (event->type == SDL_MOUSEMOTION) {
+        event->motion.x = (Sint32)((float)event->motion.x / input) - left;
+        event->motion.y = (Sint32)((float)event->motion.y / input) - top;
+        event->motion.xrel = (Sint32)((float)event->motion.xrel / input);
+        event->motion.yrel = (Sint32)((float)event->motion.yrel / input);
+    } else if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) {
+        event->button.x = (Sint32)((float)event->button.x / input) - left;
+        event->button.y = (Sint32)((float)event->button.y / input) - top;
+    }
+}
+
+/* The on-screen keyboard covers half a phone: show it only while a text field
+ * is being edited, instead of from the start as a desktop does. */
+static int desktop_mobile_editing(const struct nk_context *context)
+{
+    const struct nk_window *window;
+    for (window = context->begin; window != NULL; window = window->next)
+        if (window->edit.active ||
+            (window->popup.win != NULL && window->popup.win->edit.active)) return 1;
+    return 0;
+}
+#endif
+
+/* main below is the desktop's. On Android and iOS SDL_main, after it, reports
+ * how it ended; on AROS main, after it, first moves it to a larger stack. */
+#if DESKTOP_MOBILE || defined(__AROS__)
+static int desktop_main(int argc, char **argv);
+#define DESKTOP_MAIN desktop_main
+#else
+#define DESKTOP_MAIN main
+#endif
+
+int DESKTOP_MAIN(int argc, char **argv)
 {
     const char *database_path, *actor_id, *board_id, *board_title, *requested_language;
     const char *const *languages;
@@ -445,6 +584,11 @@ int main(int argc, char **argv)
     struct nk_context *context;
     struct nk_font_atlas *atlas;
     struct nk_font *font;
+    float ui_scale, input_scale;
+    int paused;
+#if DESKTOP_MOBILE
+    int inset_left, inset_top;
+#endif
     if (argc == 2 && !strcmp(argv[1], "--help")) {
         desktop_usage(stdout);
         return ferror(stdout) ? 1 : 0;
@@ -453,7 +597,12 @@ int main(int argc, char **argv)
         return desktop_licenses(stdout) ? 0 : 1;
     if (argc == 2 && !strcmp(argv[1], "--dependency-info"))
         return wena_desktop_dependency_report(stdout) ? 0 : 1;
+#if DESKTOP_MOBILE
+    /* Here executable holds the app's data folder: the log goes in there. */
+    (void)(desktop_home(executable, sizeof(executable)) && wena_debug_log_open_data(executable));
+#else
     (void)wena_debug_log_open(wena_executable_path_current(executable, sizeof(executable)) ? executable : NULL);
+#endif
     wena_debug_log("wena-desktop starting, %d argument(s)", argc - 1);
     for (i = 1; i < argc; ++i) wena_debug_log("argument %d: %s", i, argv[i]);
     if (wena_debug_log_directory()[0] != '\0')
@@ -489,7 +638,7 @@ int main(int argc, char **argv)
         char xdg[WENA_EXECUTABLE_PATH_CAPACITY];
         if (!wena_desktop_default_database(
                 wena_environment("WENA_DATABASE", database_env, sizeof(database_env)) ? database_env : NULL,
-                wena_environment(DESKTOP_HOME, home, sizeof(home)) ? home : NULL,
+                desktop_home(home, sizeof(home)) ? home : NULL,
                 wena_environment("XDG_DATA_HOME", xdg, sizeof(xdg)) ? xdg : NULL,
                 DESKTOP_SYSTEM, default_database, sizeof(default_database)) ||
             !wena_make_parent_directories(default_database)) {
@@ -538,7 +687,7 @@ int main(int argc, char **argv)
         DESKTOP_FAIL();
     languages = wena_ui_catalog_languages(&language_count);
     detected_locale[0] = '\0';
-    (void)wena_locale_detect(detected_locale, sizeof(detected_locale));
+    desktop_locale(detected_locale, sizeof(detected_locale));
     language_path[0] = '\0';
     /* Leave room for both ".language" and the settings writer's ".tmp". */
     if (strlen(database_path) + 14 < sizeof(language_path)) {
@@ -734,23 +883,44 @@ int main(int argc, char **argv)
     if (SDL_Init(SDL_INIT_VIDEO) != 0) DESKTOP_FAIL();
     sdl_started = 1;
     window = SDL_CreateWindow("WeKan Native", SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED, 1024, 720, SDL_WINDOW_RESIZABLE |
-        (smoke ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
+        SDL_WINDOWPOS_CENTERED, 1024, 720, SDL_WINDOW_RESIZABLE | DESKTOP_WINDOW_FLAGS |
+        (smoke && !DESKTOP_MOBILE ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
     if (window == NULL) DESKTOP_FAIL();
+#if DESKTOP_IOS
+    wena_ios_scene_attach(window);
+#endif
+    ui_scale = 1.0f; input_scale = 1.0f; paused = 0;
+#if DESKTOP_MOBILE
+    inset_left = 0; inset_top = 0;
+    /* The GPU where there is one (OpenGL ES, Metal): a phone's software
+     * framebuffer is itself a texture on it. */
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (renderer == NULL) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    if (renderer == NULL) DESKTOP_FAIL();
+    ui_scale = desktop_mobile_scale(window, renderer, &input_scale);
+    if (ui_scale != 1.0f && SDL_RenderSetScale(renderer, ui_scale, ui_scale) != 0) DESKTOP_FAIL();
+    wena_debug_log("display scale %.2f, touch scale %.2f", ui_scale, input_scale);
+#else
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (renderer == NULL) DESKTOP_FAIL();
+#endif
     context = nk_sdl_init(window, renderer);
     if (context == NULL) DESKTOP_FAIL();
     wena_sdl_install_clipboard(context);
     nk_sdl_font_stash_begin(&atlas);
-    font = wena_native_font_add(atlas, 14.0f);
-    if (font == NULL) font = nk_font_atlas_add_default(atlas, 14.0f, NULL);
+    /* Baked at the screen's pixels, measured in layout units (ui_scale is 1
+     * on a desktop). */
+    font = wena_native_font_add(atlas, 14.0f * ui_scale);
+    if (font == NULL) font = nk_font_atlas_add_default(atlas, 14.0f * ui_scale, NULL);
     if (font == NULL) DESKTOP_FAIL();
     nk_sdl_font_stash_end();
+    if (ui_scale != 1.0f) font->handle.height = 14.0f;
     nk_style_set_font(context, &font->handle);
     if (!wena_native_theme_apply(context)) DESKTOP_FAIL();
     wena_board_header_set_title_renderer(wena_svg_board_title);
+#if !DESKTOP_MOBILE
     SDL_StartTextInput();
+#endif
     /* Up-down arrows over the bar between swimlanes; optional decoration. */
     resize_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
     arrow_cursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
@@ -760,11 +930,40 @@ int main(int argc, char **argv)
         nk_input_begin(context);
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) { running = 0; wena_debug_log("window closed"); }
+#if DESKTOP_MOBILE
+            /* iOS ends an app that draws in the background. */
+            if (event.type == SDL_APP_WILLENTERBACKGROUND || event.type == SDL_APP_DIDENTERBACKGROUND)
+                paused = 1;
+            else if (event.type == SDL_APP_DIDENTERFOREGROUND) paused = 0;
+            desktop_mobile_event(&event, input_scale, inset_left, inset_top);
+#endif
             if (!smoke) (void)wena_sdl_handle_event(context, &event);
         }
         nk_input_end(context);
         SDL_GetWindowSize(window, &width, &height);
-        if (width > 0 && height > 0) {
+        if (input_scale != 1.0f) {
+            width = (int)((float)width / input_scale);
+            height = (int)((float)height / input_scale);
+        }
+#if DESKTOP_IOS
+        {
+            /* The board inside the safe area; the background fills the rest. */
+            int inset_right, inset_bottom;
+            SDL_Rect area;
+            if (wena_ios_safe_area(&inset_left, &inset_top, &inset_right, &inset_bottom) &&
+                width > inset_left + inset_right && height > inset_top + inset_bottom) {
+                area.x = inset_left; area.y = inset_top;
+                area.w = width - inset_left - inset_right;
+                area.h = height - inset_top - inset_bottom;
+                if (SDL_RenderSetViewport(renderer, &area) != 0) DESKTOP_FAIL();
+                width = area.w; height = area.h;
+            } else {
+                inset_left = 0; inset_top = 0;
+                if (SDL_RenderSetViewport(renderer, NULL) != 0) DESKTOP_FAIL();
+            }
+        }
+#endif
+        if (width > 0 && height > 0 && !paused) {
             opened_panel = DESKTOP_PANEL_NONE;
             if(selection->count)(void)wena_card_selection_sync(selection,snapshot->cards,snapshot->card_count);
             if (label_view.summary_valid)
@@ -1039,6 +1238,12 @@ int main(int argc, char **argv)
             }
             if (SDL_SetRenderDrawColor(renderer, 41, 128, 185, 255) != 0 ||
                 SDL_RenderClear(renderer) != 0) DESKTOP_FAIL();
+#if DESKTOP_MOBILE
+            if (desktop_mobile_editing(context) != (SDL_IsTextInputActive() == SDL_TRUE)) {
+                if (SDL_IsTextInputActive()) SDL_StopTextInput();
+                else SDL_StartTextInput();
+            }
+#endif
             nk_sdl_render(NK_ANTI_ALIASING_ON);
             SDL_RenderPresent(renderer);
         }
@@ -1073,6 +1278,11 @@ cleanup:
             fprintf(stderr, "See %s/desktop.log\n", wena_debug_log_directory());
     }
     else if (smoke) puts("Wena desktop smoke passed");
+#if DESKTOP_MOBILE
+    /* Android drops stdout; logcat (and the iOS console) gets the same line. */
+    if (status != 0) SDL_Log("Unable to open the local Wena desktop");
+    else if (smoke) SDL_Log("Wena desktop smoke passed");
+#endif
     wena_debug_log("exit status %d", status);
     wena_debug_log_close();
     return status;
@@ -1106,5 +1316,33 @@ int main(int argc, char **argv)
     status = NewStackSwap(&stack, function, &arguments);
     FreeVec(stack.stk_Lower);
     return (int)status;
+}
+#endif
+
+#if DESKTOP_MOBILE
+/* SDL_main, called by SDLActivity on Android and SDL's UIKit delegate on iOS. */
+int main(int argc, char **argv)
+{
+    int status;
+    char message[WENA_EXECUTABLE_PATH_CAPACITY + 64];
+    status = desktop_main(argc, argv);
+    /* Launched from the home screen (no arguments), a failure is shown rather
+     * than the app just closing; a test run with --smoke only logs it. */
+    if (status != 0 && argc <= 1) {
+        strcpy(message, "Wena could not open its board.");
+        if (wena_debug_log_directory()[0] != '\0' &&
+            strlen(wena_debug_log_directory()) + 64 < sizeof(message)) {
+            strcat(message, "\nSee ");
+            strcat(message, wena_debug_log_directory());
+            strcat(message, "/desktop.log");
+        }
+        (void)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Wena", message, NULL);
+    }
+#if DESKTOP_IOS
+    /* SDL's UIKit delegate keeps the app running after SDL_main returns. */
+    exit(status);
+#else
+    return status;
+#endif
 }
 #endif

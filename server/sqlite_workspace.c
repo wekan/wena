@@ -288,8 +288,17 @@ int wena_sqlite_workspace_create(const char *path,
             if (close(descriptor) != 0) ok = 0;
         }
     }
+#if defined(__ANDROID__)
+    /* Android's SELinux policy refuses hard links in an app's data (EACCES),
+     * and renameat2's no-replace is not in every Android's seccomp filter.
+     * Only this app can write its private folder, and its one activity is
+     * singleInstance, so nothing can create the board between this check and
+     * the rename. */
+    if (ok) ok = lstat(path, &existing) != 0 && rename(staging, path) == 0;
+#else
     /* link() is an atomic no-replace operation, including concurrent creators. */
     if (ok) ok = link(staging, path) == 0;
+#endif
     cleanup(directory, staging);
     return ok;
 }

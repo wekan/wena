@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- As SDL's android-project: no title bar; the desktop opens its window
+         full screen, so nothing is drawn under the system bars. -->
+    <style name="AppTheme" parent="android:Theme.NoTitleBar.Fullscreen" />
+</resources>

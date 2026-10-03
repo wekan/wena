@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Wena.app's Info.plist. scripts/build_desktop_ios.sh fills in the
+     @NAMES@: the version, the minimum iOS, and the platform and SDK the
+     executable was linked for (iPhoneOS or iPhoneSimulator).
+     The board is in Library/Application Support/wekan/wena (SDL_GetPrefPath),
+     which iOS keeps across updates and backs up; it is not in Documents, so
+     there is no UIFileSharingEnabled: the Files app would show an empty folder. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Wena</string>
+	<key>CFBundleExecutable</key>
+	<string>Wena</string>
+	<key>CFBundleIdentifier</key>
+	<string>fi.wekan.wena</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Wena</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@VERSION@</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>@PLATFORM@</string>
+	</array>
+	<key>DTPlatformName</key>
+	<string>@PLATFORM_NAME@</string>
+	<key>DTPlatformVersion</key>
+	<string>@SDK_VERSION@</string>
+	<key>DTSDKName</key>
+	<string>@PLATFORM_NAME@@SDK_VERSION@</string>
+	<key>MinimumOSVersion</key>
+	<string>@MINIMUM_OS@</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<!-- A launch screen, or iOS runs the app letterboxed at an old iPhone's size.
+	     SDL's UIKit delegate needs no storyboard: an empty UILaunchScreen is enough. -->
+	<key>UILaunchScreen</key>
+	<dict/>
+	<!-- The UIScene life cycle, which apps built with the iOS 27 SDK must use:
+	     one scene, whose delegate (client/platform/ios/scene.m) shows SDL's window. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>WenaSceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<!-- An iPad's mouse and trackpad reach SDL as a mouse, not as touches. -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon60x60</string>
+			</array>
+		</dict>
+	</dict>
+	<key>CFBundleIcons~ipad</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>AppIcon60x60</string>
+				<string>AppIcon76x76</string>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>

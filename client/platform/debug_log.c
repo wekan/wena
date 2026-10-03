@@ -21,6 +21,12 @@
 #define WENA_WRITE write
 #define WENA_STDERR STDERR_FILENO
 #endif
+#if defined(__ANDROID__)
+/* liblog's logcat writer. <android/log.h> needs C99 (static inline), so its
+ * one function used here is declared from the NDK's stable ABI instead. */
+int __android_log_vprint(int priority, const char *tag, const char *format, va_list arguments);
+#define WENA_ANDROID_LOG_INFO 4
+#endif
 
 #define LOG_PATH_CAPACITY 4096
 
@@ -70,6 +76,22 @@ int wena_debug_log_directory_for(const char *log_dir_env, const char *executable
            append_text(out, capacity, &used, stamp);
 }
 
+int wena_debug_log_data_directory_for(const char *log_dir_env, const char *data_directory,
+                                      char *out, size_t capacity)
+{
+    size_t used;
+    if (out == NULL || capacity == 0) return 0;
+    out[0] = '\0';
+    used = 0;
+    if (log_dir_env != NULL && log_dir_env[0] != '\0')
+        return wena_path_absolute_for(log_dir_env, 0) && append_text(out, capacity, &used, log_dir_env);
+    return wena_path_absolute_for(data_directory, 0) &&
+           append_text(out, capacity, &used, data_directory) &&
+           (data_directory[strlen(data_directory) - 1] == '/' ||
+            append(out, capacity, &used, "/", 1)) &&
+           append_text(out, capacity, &used, "log");
+}
+
 int wena_desktop_default_database(const char *database_env, const char *home,
                                   const char *xdg_data_home, int system,
                                   char *out, size_t capacity)
@@ -91,6 +113,11 @@ int wena_desktop_default_database(const char *database_env, const char *home,
         return wena_path_absolute_for(home, 1) &&
                append_text(out, capacity, &used, home) &&
                append_text(out, capacity, &used, "\\Wena\\wena.sqlite");
+    if (system == WENA_SYSTEM_MOBILE)
+        return wena_path_absolute_for(home, 0) &&
+               append_text(out, capacity, &used, home) &&
+               (home[strlen(home) - 1] == '/' || append(out, capacity, &used, "/", 1)) &&
+               append_text(out, capacity, &used, "wena.sqlite");
     if (system == WENA_SYSTEM_MACOS)
         return wena_path_absolute_for(home, 0) &&
                append_text(out, capacity, &used, home) &&
@@ -125,38 +152,29 @@ static void fatal_signal(int number)
     raise(number);
 }
 
-static FILE *open_append(const char *path)
+static FILE *open_log(const char *path, int truncate)
 {
 #if defined(_WIN32)
     wchar_t name[LOG_PATH_CAPACITY + 16];
     if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, name, LOG_PATH_CAPACITY + 16) <= 0)
         return NULL;
-    return _wfopen(name, L"a");
+    return _wfopen(name, truncate ? L"w" : L"a");
 #else
-    return fopen(path, "a");
+    return fopen(path, truncate ? "w" : "a");
 #endif
 }
 
-int wena_debug_log_open(const char *executable)
+/* desktop.log in log_directory, which the caller has named. */
+static int open_in_directory(int truncate, int handlers)
 {
-    char stamp[32], environment[LOG_PATH_CAPACITY], path[LOG_PATH_CAPACITY + 16];
-    time_t now = time(NULL);
-    struct tm *local = localtime(&now);
+    char path[LOG_PATH_CAPACITY + 16];
     size_t used = 0;
-    log_directory[0] = '\0';
-    if (local == NULL || strftime(stamp, sizeof(stamp), "%Y-%m-%d_%H-%M-%S", local) == 0) return 0;
-    if (!wena_debug_log_directory_for(wena_environment("WENA_LOG_DIR", environment, sizeof(environment)) ?
-                                      environment : NULL, executable, stamp,
-                                      log_directory, sizeof(log_directory))) {
-        log_directory[0] = '\0';
-        return 0;
-    }
     path[0] = '\0';
     if (!append_text(path, sizeof(path), &used, log_directory) ||
         !append(path, sizeof(path), &used, "/", 1) ||
         !append_text(path, sizeof(path), &used, "desktop.log") ||
         !wena_make_parent_directories(path) ||
-        (log_file = open_append(path)) == NULL) {
+        (log_file = open_log(path, truncate)) == NULL) {
         log_directory[0] = '\0';
         return 0;
     }
@@ -166,6 +184,7 @@ int wena_debug_log_open(const char *executable)
 #else
     log_fd = fileno(log_file);
 #endif
+    if (!handlers) return 1;
     signal(SIGSEGV, fatal_signal);
     signal(SIGABRT, fatal_signal);
     signal(SIGFPE, fatal_signal);
@@ -174,6 +193,39 @@ int wena_debug_log_open(const char *executable)
     signal(SIGBUS, fatal_signal);
 #endif
     return 1;
+}
+
+int wena_debug_log_open(const char *executable)
+{
+    char stamp[32], environment[LOG_PATH_CAPACITY];
+    time_t now = time(NULL);
+    struct tm *local = localtime(&now);
+    log_directory[0] = '\0';
+    if (local == NULL || strftime(stamp, sizeof(stamp), "%Y-%m-%d_%H-%M-%S", local) == 0) return 0;
+    if (!wena_debug_log_directory_for(wena_environment("WENA_LOG_DIR", environment, sizeof(environment)) ?
+                                      environment : NULL, executable, stamp,
+                                      log_directory, sizeof(log_directory))) {
+        log_directory[0] = '\0';
+        return 0;
+    }
+    return open_in_directory(0, 1);
+}
+
+int wena_debug_log_open_data(const char *data_directory)
+{
+    char environment[LOG_PATH_CAPACITY];
+    log_directory[0] = '\0';
+    if (!wena_debug_log_data_directory_for(wena_environment("WENA_LOG_DIR", environment, sizeof(environment)) ?
+                                           environment : NULL, data_directory,
+                                           log_directory, sizeof(log_directory))) {
+        log_directory[0] = '\0';
+        return 0;
+    }
+#if defined(__ANDROID__)
+    return open_in_directory(1, 0);
+#else
+    return open_in_directory(1, 1);
+#endif
 }
 
 const char *wena_debug_log_directory(void)
@@ -187,6 +239,12 @@ void wena_debug_log(const char *format, ...)
     time_t now = time(NULL);
     struct tm *local = localtime(&now);
     va_list arguments;
+#if defined(__ANDROID__)
+    /* Android discards stdout and stderr: every line also goes to logcat. */
+    va_start(arguments, format);
+    __android_log_vprint(WENA_ANDROID_LOG_INFO, "Wena", format, arguments);
+    va_end(arguments);
+#endif
     if (log_file == NULL) return;
     if (local == NULL || strftime(stamp, sizeof(stamp), "%H:%M:%S", local) == 0) strcpy(stamp, "--:--:--");
     fprintf(log_file, "%s ", stamp);

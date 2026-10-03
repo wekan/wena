@@ -93,6 +93,32 @@ int main(int argc, char **argv)
     assert(wena_path_absolute("PROGDIR:wena.sqlite") && !wena_path_absolute("/x"));
     assert(wena_debug_log_directory_for("RAM:log", NULL, "s", out, sizeof(out)) && !strcmp(out, "RAM:log"));
 #endif
+    /* Android and iOS: the app's own data folder (SDL_GetPrefPath), with or
+     * without its trailing separator; WENA_DATABASE still wins. */
+    assert(wena_desktop_default_database(NULL, "/data/user/0/fi.wekan.wena/files/", NULL,
+                                         WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!strcmp(out, "/data/user/0/fi.wekan.wena/files/wena.sqlite"));
+    assert(wena_desktop_default_database(NULL, "/var/mobile/Library/Application Support/wekan/wena",
+                                         NULL, WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!strcmp(out, "/var/mobile/Library/Application Support/wekan/wena/wena.sqlite"));
+    assert(wena_desktop_default_database("/x/b.sqlite", "/data/files/", NULL, WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!strcmp(out, "/x/b.sqlite"));
+    assert(wena_debug_log_data_directory_for(NULL, "/data/files/", out, sizeof(out)));
+    assert(!strcmp(out, "/data/files/log"));
+    assert(wena_debug_log_data_directory_for(NULL, "/data/files", out, sizeof(out)));
+    assert(!strcmp(out, "/data/files/log"));
+    assert(wena_debug_log_data_directory_for("/logs/x", "/data/files/", out, sizeof(out)));
+    assert(!strcmp(out, "/logs/x"));
+    /* Negative: no data folder (SDL_GetPrefPath failed), a relative one, and too small. */
+    assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, "", NULL, WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, "files/", NULL, WENA_SYSTEM_MOBILE, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, "/data/user/0/fi.wekan.wena/files/", NULL,
+                                          WENA_SYSTEM_MOBILE, small, sizeof(small)));
+    assert(!wena_debug_log_data_directory_for(NULL, NULL, out, sizeof(out)));
+    assert(!wena_debug_log_data_directory_for(NULL, "files/", out, sizeof(out)));
+    assert(!wena_debug_log_data_directory_for("relative", "/data/files/", out, sizeof(out)));
+    assert(!wena_debug_log_data_directory_for(NULL, "/data/user/0/fi.wekan.wena/files/", small, sizeof(small)));
     /* Negative: relative WENA_DATABASE, no home, and too small. */
     assert(!wena_desktop_default_database("b.sqlite", "/home/u", NULL, WENA_SYSTEM_OTHER, out, sizeof(out)));
     assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_MACOS, out, sizeof(out)));
@@ -120,6 +146,22 @@ int main(int argc, char **argv)
     assert(strstr(text, " hello 42\n") != NULL);
     sprintf(expected, "CRASH: fatal signal %d\n", SIGSEGV);
     assert(strstr(text, expected) != NULL);
+    /* The data-folder log keeps only the last run: opening truncates it. */
+    sprintf(path, "%s/data/", dir);
+    assert(unsetenv("WENA_LOG_DIR") == 0);
+    assert(wena_debug_log_open_data(path));
+    wena_debug_log("first run");
+    wena_debug_log_close();
+    assert(wena_debug_log_open_data(path));
+    sprintf(expected, "%s/data/log", dir);
+    assert(!strcmp(wena_debug_log_directory(), expected));
+    wena_debug_log("second run");
+    wena_debug_log_close();
+    sprintf(path, "%s/data/log/desktop.log", dir);
+    read_file(path, text, sizeof(text));
+    assert(strstr(text, " second run\n") != NULL && strstr(text, "first run") == NULL);
+    /* Negative: no data folder, no log. */
+    assert(!wena_debug_log_open_data(NULL) && wena_debug_log_directory()[0] == '\0');
     puts("debug log tests passed");
     return 0;
 }
