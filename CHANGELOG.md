@@ -263,6 +263,21 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The drop-in check goes both ways: a board made in WeKan's own UI opens in Wena</summary>
+
+- `tools/wekan-ui/dropin.sh` already showed WeKan's bundle opening what Wena
+  wrote. Now WeKan's UI then makes a board "Made in WeKan" with a list and a
+  card through FerretDB, WeKan is stopped, and Wena reads that board in -
+  its title, swimlane, list and card, loaded as Wena's board view loads them
+  - and opens it, with screenshots of both for comparison.
+- WeKan's bundle runs as the shell's own process now, so stopping it stops
+  the server and not only its subshell.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>
