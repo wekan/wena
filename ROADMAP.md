@@ -707,7 +707,7 @@ Architecture decisions for this cycle:
   - [x] AmigaOS 3.x m68k
     - Cross-builds strict C89 for the baseline Motorola 68000 with the maintained
       AmigaDev GCC 10 container, then verifies Amiga HUNK format and magic bytes.
-  - [x] AROS x86
+  - [x] AROS x86-64 (aros-amd64)
     - Cross-builds strict C89 for the AROS x86-64 ABI with a digest-pinned AROS
       SDK, verifies the compiler target triplet, and validates the x86-64 ELF output.
   - [x] Android arm64

@@ -32,7 +32,7 @@ case "$target" in
     strip=ppc-amigaos-strip
     sqlite_cflags=
     ;;
-  aros-x86)
+  aros-amd64)
     # This gcc has no include path of its own. Under -std=c89 (__STRICT_ANSI__)
     # AROS's headers hide the POSIX layer the file code needs; _XOPEN_SOURCE
     # restores what they give by default, and inline/restrict/asm are spelled
@@ -75,7 +75,7 @@ case "$target" in
     sdl_libs=/opt/ppc-amigaos/usr/lib/libSDL2.a
     test -f "$sdl_libs"
     ;;
-  aros-x86)
+  aros-amd64)
     if [ ! -f "$work/sdl/libSDL2.a" ]; then
       rm -rf "$work/sdl-src" "$work/sdl"
       mkdir -p "$work/sdl-src" "$work/sdl/obj"
@@ -232,7 +232,7 @@ case "$target" in
       echo "$output: needs shared objects" >&2; ppc-amigaos-readelf -d "$output" >&2; exit 1
     fi
     ;;
-  aros-x86)
+  aros-amd64)
     # ELF, 64-bit, little-endian, x86-64 relocatable object, which is what
     # AROS loads; nothing is resolved at run time but the OS's libraries.
     test "$magic" = 7f454c460201 || { echo "$output: not ELF64 little-endian ($magic)" >&2; exit 1; }

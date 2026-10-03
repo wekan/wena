@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "scripts" / "build_desktop_amiga.sh"
 CONTAINER = ROOT / "scripts" / "build_desktop_amiga_container.sh"
 PINS = json.loads((ROOT / "config" / "release-dependencies.json").read_text(encoding="utf-8"))
-TARGETS = ("amigaos4-ppc", "aros-x86", "amigaos-m68k")
+TARGETS = ("amigaos4-ppc", "aros-amd64", "amigaos-m68k")
 AMIGA = "defined(__amigaos__) || defined(__AROS__)"
 
 
@@ -37,7 +37,7 @@ def test_images_pinned_by_digest():
     assert sorted(images) == sorted(TARGETS)
     for target, image in images.items():
         assert re.fullmatch(r"amigadev/crosstools:[a-z0-9._-]+@sha256:[0-9a-f]{64}", image), target
-    assert images["aros-x86"].endswith(
+    assert images["aros-amd64"].endswith(
         "@sha256:9c4e978301da6b6584d68d4014caa1fa9e2689529e79e71f7190d40d1cb62e50")
     assert images["amigaos4-ppc"].startswith("amigadev/crosstools:ppc-amigaos@")
     assert images["amigaos-m68k"].startswith("amigadev/crosstools:m68k-amigaos-gcc10@")
@@ -46,7 +46,7 @@ def test_images_pinned_by_digest():
         assert not re.search(r"sha256:[0-9a-f]{64}", script.read_text(encoding="utf-8")), script.name
     assert '"docker-images"' in HOST.read_text(encoding="utf-8")
     # AROS's image is amd64 only; the others run natively on arm64 hosts.
-    assert 'aros-x86) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64' \
+    assert 'aros-amd64) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64' \
         in HOST.read_text(encoding="utf-8")
 
 
@@ -154,14 +154,14 @@ def test_refuses_unknown_target():
                 assert result.returncode == 2, (script.name, target, result.stderr)
                 assert "unknown Amiga desktop target" in result.stderr
                 assert not list(Path(temp).iterdir())
-        result = run([sh, str(script), "aros-x86"])
+        result = run([sh, str(script), "aros-amd64"])
         assert result.returncode == 2 and "Usage:" in result.stderr
     assert not (ROOT / ".tools" / "release" / "aros-i386").exists()
     # Without Docker the host script stops before fetching anything.
     with tempfile.TemporaryDirectory() as temp:
         for tool in ("dirname",):
             os.symlink(shutil.which(tool), Path(temp) / tool)
-        result = run([sh, str(HOST), "aros-x86", str(Path(temp) / "wena")], env={"PATH": temp})
+        result = run([sh, str(HOST), "aros-amd64", str(Path(temp) / "wena")], env={"PATH": temp})
         assert result.returncode == 1 and "Docker is required" in result.stderr, result.stderr
 
 

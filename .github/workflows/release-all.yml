@@ -2,7 +2,7 @@ name: Release all
 
 # The one release workflow: the Wena desktop - the native Nuklear GUI - for
 # every platform in config/targets.tsv, each one self-contained file named
-# wena-TARGET (wena-linux-amd64, wena-windows-amd64.exe, wena-aros-x86 ...)
+# wena-TARGET (wena-linux-amd64, wena-windows-amd64.exe, wena-aros-amd64 ...)
 # with SDL2, SQLite, the font, the translations and the licenses linked in,
 # attached to the release beside one SHA256SUMS.
 #
@@ -255,7 +255,7 @@ jobs:
         include:
           - { target: amigaos-m68k }
           - { target: amigaos4-ppc }
-          - { target: aros-x86 }
+          - { target: aros-amd64 }
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

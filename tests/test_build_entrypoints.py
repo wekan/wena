@@ -467,7 +467,8 @@ def test_release_package_check():
     # relocatable x86-64 ELF on AROS - none loading a shared library.
     assert check.check("amigaos-m68k", b"\x00\x00\x03\xf3" + b"\0" * 60) == []
     assert check.check("amigaos4-ppc", elf_typed(elf(20, [], bits64=False, little=False), 2, little=False)) == []
-    assert check.check("aros-x86", elf_typed(elf(62, []), 1)) == []
+    assert check.check("aros-amd64", elf_typed(elf(62, []), 1)) == []
+    assert check.check("aros-i386", elf_typed(elf(3, [], bits64=False), 1)) == []
     # Android: only arm64 libmain.so, SDL's activity, and Android's own libraries.
     library = elf(183, ["libandroid.so", "liblog.so", "libGLESv2.so", "libc.so"])
     apk = {"AndroidManifest.xml": b"x", "classes.dex": b"dex Lorg/libsdl/app/SDLActivity;",
@@ -481,8 +482,13 @@ def test_release_package_check():
     for target, data, message in [
             ("amigaos-m68k", elf(62, []), "HUNK"),
             ("amigaos4-ppc", elf_typed(elf(62, []), 2), "PowerPC"),
-            ("aros-x86", elf_typed(elf(62, ["libSDL2.so"]), 1), "shared libraries"),
-            ("aros-x86", elf_typed(elf(62, []), 2), "relocatable"),
+            ("aros-amd64", elf_typed(elf(62, ["libSDL2.so"]), 1), "shared libraries"),
+            ("aros-amd64", elf_typed(elf(62, []), 2), "relocatable"),
+            # The name says the CPU: an i386 file is not aros-amd64, nor the
+            # x86-64 file the old aros-x86 name was given an i386 one.
+            ("aros-amd64", elf_typed(elf(3, [], bits64=False), 1), "relocatable amd64"),
+            ("aros-i386", elf_typed(elf(62, []), 1), "relocatable i386"),
+            ("aros-x86", elf_typed(elf(62, []), 1), "unknown AROS CPU"),
             ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libSDL2.so": library})), "only lib/arm64-v8a/libmain.so"),
             ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libmain.so": elf(183, ["libSDL2.so"])})), "Android does not have"),
             ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libmain.so": elf(62, [])})), "not arm64"),
@@ -510,9 +516,9 @@ def test_desktop_release_packaging():
         # Each release file is named after its target, from the catalog.
         linux = package.binary("linux-riscv64", binary, out)
         windows = package.binary("windows-arm64", binary, out)
-        aros = package.binary("aros-x86", binary, out) if "aros-x86" in package.targets() else None
+        aros = package.binary("aros-amd64", binary, out) if "aros-amd64" in package.targets() else None
         assert linux.name == "wena-linux-riscv64" and windows.name == "wena-windows-arm64.exe"
-        assert aros is None or aros.name == "wena-aros-x86"
+        assert aros is None or aros.name == "wena-aros-amd64"
         for path in (linux, windows):
             assert path.read_bytes() == binary.read_bytes()
         # One SHA256SUMS for all of them, in sha256sum -c format, and no other file.

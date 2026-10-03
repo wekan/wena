@@ -30,6 +30,26 @@ Thanks to xet7.
 </details>
 
 <details>
+<summary>The AROS x86-64 release file is wena-aros-amd64, named for its CPU as every other file is</summary>
+
+- `wena-aros-x86` was an x86-64 file (`ELF 64-bit LSB relocatable, x86-64`),
+  while "x86" names 32-bit x86 everywhere else. The target is now
+  `aros-amd64`, its file `wena-aros-amd64`, as `wena-linux-amd64` and
+  `wena-windows-amd64.exe` are.
+- The release check takes the CPU from the name: an `aros-amd64` file must
+  be a 64-bit x86-64 relocatable ELF and an `aros-i386` one a 32-bit i386
+  one, and an AROS name with any other CPU is refused. The target catalog
+  allows no target ending in the ambiguous `-x86`.
+- `config/targets.tsv` lists AROS per CPU: `aros-i386` for the 32-bit ABIv0
+  line of deadwood2/AROS (planned until its build is in the release
+  workflow), AROS on m68k running `wena-amigaos-m68k`, and AROS on ARM having
+  no published toolchain or SDK to build with.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>The desktop opens again after it was closed normally</summary>
 
 - Run, and a double-click on the desktop, said "Unable to open the local Wena

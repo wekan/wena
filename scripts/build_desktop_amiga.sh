@@ -4,7 +4,7 @@
 #   scripts/build_desktop_amiga.sh TARGET OUTPUT_EXECUTABLE
 #
 #   amigaos4-ppc   AmigaOS 4, PowerPC: ELF, SDL2 from the image
-#   aros-x86       AROS x86-64: relocatable ELF, SDL2 2.32.10 with AROS's port
+#   aros-amd64     AROS x86-64: relocatable ELF, SDL2 2.32.10 with AROS's port
 #   amigaos-m68k   AmigaOS 3.x, 68040 + FPU + RTG: HUNK, diasurgical's SDL2
 #
 # Runs on the host: it fetches the pinned, checksum-verified sources
@@ -26,7 +26,7 @@ output=$2
 platform=
 case "$target" in
   amigaos4-ppc) sources="sqlite" ;;
-  aros-x86) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64 ;;
+  aros-amd64) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64 ;;
   amigaos-m68k) sources="sqlite sdl2-amigaos3" ;;
   *)
     echo "unknown Amiga desktop target: $target" >&2

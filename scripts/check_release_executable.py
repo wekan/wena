@@ -29,6 +29,8 @@ WINDOWS_SYSTEM = {"kernel32.dll", "user32.dll", "gdi32.dll", "winmm.dll", "imm32
 FORBIDDEN = ("sdl2", "sqlite")
 # Systems whose executables are ELF, checked alike: the CPU, and that SDL2 and
 # SQLite are linked in. Their C library and windowing system are the system's.
+# AROS CPUs: (ELF machine, 64-bit). AROS on m68k runs wena-amigaos-m68k.
+AROS_CPUS = {"amd64": (62, True), "i386": (3, False)}
 ELF_SYSTEMS = ("linux", "freebsd", "netbsd", "openbsd", "dragonflybsd", "haiku")
 
 
@@ -138,7 +140,7 @@ def elf_header(data):
 
 def amiga(target, data):
     """AmigaOS 3: a HUNK executable. AmigaOS 4: static big-endian PowerPC ELF.
-    AROS: a relocatable x86-64 ELF, which is what AROS loads."""
+    AROS: a relocatable ELF of the CPU its name says, which is what AROS loads."""
     if target == "amigaos-m68k":
         if data[:4] != b"\x00\x00\x03\xf3":
             raise ValueError("not an AmigaOS HUNK executable")
@@ -147,9 +149,15 @@ def amiga(target, data):
     if target == "amigaos4-ppc":
         if bits64 or little or kind != 2 or machine != 20:
             raise ValueError("not a 32-bit big-endian PowerPC ELF executable")
-    elif target == "aros-x86":
-        if not bits64 or not little or kind != 1 or machine != 62:
-            raise ValueError("not a relocatable x86-64 ELF (AROS executable)")
+    elif target.startswith("aros-"):
+        # The name says the CPU: an aros-amd64 file that is not x86-64 (or the
+        # other way round) is refused, as "aros-x86" once named an x86-64 one.
+        cpu = target.split("-", 1)[1]
+        if cpu not in AROS_CPUS:
+            raise ValueError(f"unknown AROS CPU {cpu}")
+        want_machine, want_64 = AROS_CPUS[cpu]
+        if bits64 != want_64 or not little or kind != 1 or machine != want_machine:
+            raise ValueError(f"not a relocatable {cpu} ELF (AROS executable)")
     else:
         raise ValueError(f"unknown target {target}")
     _machine, needed = elf_needed(data)

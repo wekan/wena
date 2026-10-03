@@ -79,7 +79,7 @@
       "use": "ppc-amigaos-gcc 11.5.0 (adtools), newlib, static SDL2 2.30.5 in /opt/ppc-amigaos/usr"
     },
     {
-      "target": "aros-x86",
+      "target": "aros-amd64",
       "image": "amigadev/crosstools:x86_64-aros@sha256:9c4e978301da6b6584d68d4014caa1fa9e2689529e79e71f7190d40d1cb62e50",
       "platforms": "linux/amd64",
       "use": "x86_64-aros-gcc 9.1.0 with the AROS SDK in /opt/x86_64-aros"

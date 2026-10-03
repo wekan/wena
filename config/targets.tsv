@@ -14,6 +14,10 @@
 # planned: freebsd-riscv64 - FreeBSD publishes no riscv64 packages (pkg.freebsd.org has
 #   no FreeBSD:14 or :15 riscv64 repository), so its VM has no Python, make or X11;
 #   the way there is cross-compiling from Linux against its base and X11 headers.
+# AROS, one file per CPU, named for the CPU as every other target is: aros-amd64
+#   is the x86-64 ABI (it was once misnamed aros-x86), aros-i386 the 32-bit ABIv0
+#   line of deadwood2/AROS. AROS on m68k runs AmigaOS 3 executables, so it uses
+#   wena-amigaos-m68k; AROS on ARM has no published toolchain or SDK to build with.
 # target	display name	job	status	release file
 linux-amd64	Linux x86-64	linux	ready	wena-linux-amd64
 linux-arm64	Linux ARM 64-bit	linux	ready	wena-linux-arm64
@@ -40,6 +44,7 @@ windows-i686	Windows x86 32-bit	windows	ready	wena-windows-i686.exe
 windows-arm64	Windows ARM 64-bit	windows	ready	wena-windows-arm64.exe
 amigaos-m68k	AmigaOS 3.x m68k (68040, RTG)	amiga	ready	wena-amigaos-m68k
 amigaos4-ppc	AmigaOS 4 PowerPC	amiga	ready	wena-amigaos4-ppc
-aros-x86	AROS x86-64	amiga	ready	wena-aros-x86
+aros-amd64	AROS x86-64	amiga	ready	wena-aros-amd64
+aros-i386	AROS x86 32-bit (ABIv0)	amiga	planned	wena-aros-i386
 android-arm64	Android ARM 64-bit	android	ready	wena-android-arm64.apk
 ios-arm64	iOS ARM 64-bit	ios	ready	wena-ios-arm64.ipa

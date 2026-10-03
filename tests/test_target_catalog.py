@@ -36,7 +36,7 @@ def main() -> None:
         assert name, target
         assert job in JOBS, (target, job)
         assert status in {"ready", "planned"}, (target, status)
-        # Every release file is named after its target: wena-aros-x86, wena-windows-amd64.exe.
+        # Every release file is named after its target: wena-aros-amd64, wena-windows-amd64.exe.
         assert release == release_file(target), (target, release)
     # Every platform family the desktop is released for is in the catalog.
     systems = {target.split("-", 1)[0] for target in targets}
@@ -46,6 +46,10 @@ def main() -> None:
     linux = {target for target in targets if target.startswith("linux-")}
     assert linux == {"linux-amd64", "linux-arm64", "linux-armhf", "linux-armel", "linux-i686",
                      "linux-riscv64", "linux-ppc64le", "linux-s390x", "linux-mips64le"}, linux
+    # The CPU in a name is a CPU, never the ambiguous "x86" (wena-aros-x86 was
+    # an x86-64 file); AROS has one target per CPU it is built for.
+    assert not [t for t in targets if t.endswith("-x86")], targets
+    assert {t for t in targets if t.startswith("aros-")} == {"aros-amd64", "aros-i386"}
     # Negative: no terminal-only program is released any more; every target is the GUI.
     text = CATALOG.read_text(encoding="utf-8")
     assert "wena-desktop-" not in text and "bootstrap" not in text
