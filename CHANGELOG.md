@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.03 2026-10-04 Wena release
 
 <details>
 <summary>The NetBSD, DragonFly BSD, Haiku and OpenBSD builds compile again; FreeBSD riscv64 waits for packages</summary>
