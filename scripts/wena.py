@@ -562,6 +562,7 @@ TEST_SUITES = (
     ('card-description-mutation', 'test_card_description_mutation.sh', 'Description persistence using isolated pinned schema-v2 fixture'),
     ('card-mutation', 'test_card_mutation.sh', 'Card mutation regression checks'),
     ('build-entrypoints', 'test_build_entrypoints.py', 'Build entrypoints regression checks'),
+    ('amiga-desktop', 'test_amiga_desktop.py', 'AmigaOS 4, AROS and AmigaOS 3 desktop builds: pinned images and sources, platform branches, SQLite without WAL'),
     ('toolchain', 'test_toolchain.py', 'Per-OS install of compilers, SDKs, NDK and Docker before a build'),
     ('generate-i18n-catalog', 'test_generate_i18n_catalog.py', 'Generate i18n catalog regression checks'),
     ('release-workflow', 'test_release_workflow.py', 'Release workflow regression checks'),

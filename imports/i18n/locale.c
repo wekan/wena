@@ -7,6 +7,9 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#elif defined(__amigaos__) || defined(__AROS__)
+#include <proto/exec.h>
+#include <proto/locale.h>
 #endif
 
 static int wena_copy(char *output, size_t capacity, const char *value)
@@ -90,6 +93,70 @@ int wena_locale_normalize(const char *input, char *output, size_t capacity)
     return 1;
 }
 
+#if defined(__amigaos__) || defined(__AROS__)
+/* locale.library names a language after its catalog drawer, in that language
+ * and in ISO-8859-1 ("fran\347ais"); these are the ones AmigaOS and AROS ship. */
+static const char *const wena_amiga_languages[][2] = {
+    {"english", "en"}, {"deutsch", "de"}, {"fran\347ais", "fr"}, {"italiano", "it"},
+    {"espa\361ol", "es"}, {"catal\340", "ca"}, {"portugu\352s", "pt"},
+    {"portugu\352s-brasil", "pt-BR"}, {"nederlands", "nl"}, {"dansk", "da"},
+    {"norsk", "nb"}, {"svenska", "sv"}, {"suomi", "fi"}, {"polski", "pl"},
+    {"czech", "cs"}, {"\350e\271tina", "cs"}, {"magyar", "hu"}, {"greek", "el"},
+    {"russian", "ru"}, {"srpski", "sr"}, {"hrvatski", "hr"}, {"slovensko", "sl"},
+    {"turkish", "tr"}, {"t\374rk\347e", "tr"}
+};
+
+/* The user's first preferred language in Locale prefs that Wena can name. */
+static int wena_amiga_locale(char *output, size_t capacity)
+{
+#if defined(__amigaos4__)
+    struct Library *LocaleBase;
+    struct LocaleIFace *ILocale;
+#else
+    struct LocaleBase *LocaleBase;
+#endif
+    struct Locale *locale;
+    size_t preference, index, length;
+    int found = 0;
+#if defined(__amigaos4__)
+    LocaleBase = IExec->OpenLibrary("locale.library", 38);
+    if (LocaleBase == NULL) return 0;
+    ILocale = (struct LocaleIFace *)IExec->GetInterface(LocaleBase, "main", 1, NULL);
+    locale = ILocale == NULL ? NULL : ILocale->OpenLocale(NULL);
+#else
+    LocaleBase = (struct LocaleBase *)OpenLibrary((CONST_STRPTR)"locale.library", 38);
+    if (LocaleBase == NULL) return 0;
+    locale = OpenLocale(NULL);
+#endif
+    for (preference = 0; locale != NULL && !found && preference < 10 &&
+         locale->loc_PrefLanguages[preference] != NULL; ++preference) {
+        const char *name = (const char *)locale->loc_PrefLanguages[preference];
+        /* "deutsch" or "deutsch.language" */
+        length = strlen(name);
+        if (length > 9 && strcmp(name + length - 9, ".language") == 0) length -= 9;
+        for (index = 0; !found && index < sizeof(wena_amiga_languages) /
+             sizeof(wena_amiga_languages[0]); ++index) {
+            const char *known = wena_amiga_languages[index][0];
+            size_t i;
+            for (i = 0; i < length && known[i] != '\0' &&
+                 tolower((unsigned char)name[i]) == (unsigned char)known[i]; ++i) {
+            }
+            if (i == length && known[i] == '\0')
+                found = wena_locale_normalize(wena_amiga_languages[index][1], output, capacity);
+        }
+    }
+#if defined(__amigaos4__)
+    if (locale != NULL) ILocale->CloseLocale(locale);
+    if (ILocale != NULL) IExec->DropInterface((struct Interface *)ILocale);
+    IExec->CloseLibrary(LocaleBase);
+#else
+    if (locale != NULL) CloseLocale(locale);
+    CloseLibrary((struct Library *)LocaleBase);
+#endif
+    return found;
+}
+#endif
+
 int wena_locale_detect(char *output, size_t capacity)
 {
     const char *detected;
@@ -104,9 +171,13 @@ int wena_locale_detect(char *output, size_t capacity)
             return 1;
         }
     }
+#elif defined(__amigaos__) || defined(__AROS__)
+    if (wena_amiga_locale(output, capacity)) {
+        return 1;
+    }
 #endif
-    /* POSIX covers Linux/BSD/macOS/iOS/Android. AmigaOS and AROS builds use
-       LANGUAGE/LANG when their optional locale.library integration is absent. */
+    /* POSIX covers Linux/BSD/macOS/iOS/Android. AmigaOS and AROS use
+       LANGUAGE/LANG when locale.library names no language Wena knows. */
     detected = setlocale(LC_ALL, "");
     if (detected != NULL && wena_locale_normalize(detected, output, capacity)) {
         return 1;

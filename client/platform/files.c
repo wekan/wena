@@ -25,10 +25,21 @@ int wena_path_absolute_for(const char *path, int windows)
     return path[0] == '\\' && path[1] == '\\' && path[2] != '\0' && path[2] != '\\';
 }
 
+int wena_path_absolute_amiga(const char *path)
+{
+    const char *colon = path == NULL ? NULL : strchr(path, ':');
+    /* One colon, after a volume or assign name without '/': "Work:Wena/x",
+     * "PROGDIR:x". ":x" names the current volume, "x" the current drawer. */
+    return colon != NULL && colon != path && strchr(colon + 1, ':') == NULL &&
+        memchr(path, '/', (size_t)(colon - path)) == NULL;
+}
+
 int wena_path_absolute(const char *path)
 {
 #if defined(_WIN32)
     return wena_path_absolute_for(path, 1);
+#elif defined(__amigaos__) || defined(__AROS__)
+    return wena_path_absolute_amiga(path);
 #else
     return wena_path_absolute_for(path, 0);
 #endif
@@ -88,6 +99,8 @@ static int separator(char c)
 {
 #if defined(_WIN32)
     return c == '\\' || c == '/';
+#elif defined(__amigaos__) || defined(__AROS__)
+    return c == '/' || c == ':';
 #else
     return c == '/';
 #endif
@@ -112,6 +125,9 @@ int wena_make_parent_directories(const char *file)
         for (start = 2; partial[start] && parts < 2; ++start)
             if (separator(partial[start])) ++parts;
     }
+#elif defined(__amigaos__) || defined(__AROS__)
+    /* "Work:" or "PROGDIR:" exists already; only drawers after it are made. */
+    start = (size_t)(strchr(partial, ':') - partial) + 1;
 #endif
     for (i = start; i < length; ++i) {
         if (separator(partial[i])) {

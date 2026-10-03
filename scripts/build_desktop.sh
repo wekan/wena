@@ -20,13 +20,9 @@ WENA_SQLITE_CFLAGS=${WENA_SQLITE_CFLAGS:-}
 WENA_SQLITE_LIBS=${WENA_SQLITE_LIBS:--lsqlite3}
 WENA_LDFLAGS=${WENA_LDFLAGS:-}
 WENA_CFLAGS=${WENA_CFLAGS:-}
-python3 "$root_dir/scripts/check_dependencies.py" > /dev/null
-python3 "$root_dir/scripts/compile_svg.py" --check
-python3 "$root_dir/scripts/verify_migrations.py"
-python3 "$root_dir/scripts/verify_i18n_catalog.py"
-python3 "$root_dir/scripts/generate_ui_i18n.py" --check
-python3 "$root_dir/scripts/generate_native_font.py" --check
-python3 "$root_dir/scripts/generate_notices.py" --check
+# scripts/build_desktop_amiga.sh runs these on the host and compiles in a
+# container, which need not see the checkout's git metadata.
+[ "${WENA_SOURCES_CHECKED:-}" = 1 ] || sh "$root_dir/scripts/check_desktop_sources.sh"
 $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WENA_CFLAGS \
   -I"$root_dir/third_party/nuklear" $WENA_SDL_CFLAGS $WENA_SQLITE_CFLAGS \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \

@@ -27,7 +27,7 @@ int wena_directory_picker_open_scoped(WenaDirectoryPicker *state,WenaDirectoryKi
     if (kind==WENA_DIRECTORY_CARDS ? !wena_model_identifier_valid(board_id) :
         (board_id && board_id[0])) return 0;
     scope[0]=0;
-    if (kind==WENA_DIRECTORY_CARDS) strcpy(scope,board_id);
+    if (kind==WENA_DIRECTORY_CARDS && board_id) strcpy(scope,board_id);
     wena_directory_picker_close(state);
     strcpy(state->board_id,scope);
     state->kind=kind;state->table.page=0;state->open=1;state->read_pending=1;

@@ -23,10 +23,12 @@ int wena_debug_log_directory_for(const char *log_dir_env, const char *executable
 /* The default board file when the desktop starts without arguments:
  * WENA_DATABASE, else the per-user data folder - %APPDATA%\Wena (pass APPDATA
  * as home), ~/Library/Application Support/Wena, or $XDG_DATA_HOME/wena
- * (default ~/.local/share/wena). 0 when it cannot be named. */
+ * (default ~/.local/share/wena) - or, on AmigaOS and AROS, PROGDIR:wena.sqlite.
+ * 0 when it cannot be named. */
 #define WENA_SYSTEM_OTHER 0
 #define WENA_SYSTEM_MACOS 1
 #define WENA_SYSTEM_WINDOWS 2
+#define WENA_SYSTEM_AMIGA 3
 int wena_desktop_default_database(const char *database_env, const char *home,
                                   const char *xdg_data_home, int system,
                                   char *out, size_t capacity);

@@ -71,6 +71,28 @@ int main(int argc, char **argv)
     assert(wena_path_absolute_for("\\\\server\\share", 1));
     assert(!wena_path_absolute_for("/x", 1) && !wena_path_absolute_for("C:x", 1));
     assert(!wena_path_absolute_for("\\\\", 1) && !wena_path_absolute_for("", 0) && !wena_path_absolute_for(NULL, 1));
+    /* AmigaOS and AROS: the program's drawer, and "Volume:" or "ASSIGN:" names. */
+    assert(wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_AMIGA, out, sizeof(out)));
+    assert(!strcmp(out, "PROGDIR:wena.sqlite"));
+    assert(wena_desktop_default_database("Work:Wena/b.sqlite", "/home/u", "/data", WENA_SYSTEM_AMIGA, out, sizeof(out)));
+    assert(!strcmp(out, "Work:Wena/b.sqlite"));
+    assert(!wena_desktop_default_database("/x/b.sqlite", NULL, NULL, WENA_SYSTEM_AMIGA, out, sizeof(out)));
+    assert(!wena_desktop_default_database("b.sqlite", NULL, NULL, WENA_SYSTEM_AMIGA, out, sizeof(out)));
+    assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_AMIGA, small, 19));
+    assert(!wena_desktop_default_database("Work:b.sqlite", NULL, NULL, WENA_SYSTEM_OTHER, out, sizeof(out)));
+    assert(wena_path_absolute_amiga("PROGDIR:wena.sqlite") && wena_path_absolute_amiga("DH0:a/b"));
+    assert(wena_path_absolute_amiga("Work:") && wena_path_absolute_amiga("RAM Disk:x"));
+    assert(!wena_path_absolute_amiga(":x") && !wena_path_absolute_amiga("x") && !wena_path_absolute_amiga("/x"));
+    assert(!wena_path_absolute_amiga("a/b:c") && !wena_path_absolute_amiga("a:b:c"));
+    assert(!wena_path_absolute_amiga("") && !wena_path_absolute_amiga(NULL));
+#if !defined(__amigaos__) && !defined(__AROS__)
+    /* Elsewhere a colon is part of a name: the host rules are unchanged. */
+    assert(!wena_path_absolute("Work:x") && !wena_path_absolute("PROGDIR:wena.sqlite"));
+    assert(!wena_debug_log_directory_for("RAM:log", NULL, "s", out, sizeof(out)));
+#else
+    assert(wena_path_absolute("PROGDIR:wena.sqlite") && !wena_path_absolute("/x"));
+    assert(wena_debug_log_directory_for("RAM:log", NULL, "s", out, sizeof(out)) && !strcmp(out, "RAM:log"));
+#endif
     /* Negative: relative WENA_DATABASE, no home, and too small. */
     assert(!wena_desktop_default_database("b.sqlite", "/home/u", NULL, WENA_SYSTEM_OTHER, out, sizeof(out)));
     assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_MACOS, out, sizeof(out)));

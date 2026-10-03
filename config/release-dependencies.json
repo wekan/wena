@@ -38,5 +38,57 @@
     "license": "Apache-2.0 WITH LLVM-exception (toolchain only; the executable links its MinGW-w64 runtime statically)",
     "verified": "SHA-256 equals the digest GitHub publishes for the release asset",
     "use": "Windows arm64 cross-compiler, on a macOS build host"
-  }
+  },
+  "sdl2-aros-patch": {
+    "version": "2.32.10 (aros-development-team/contrib ce77be61cfef)",
+    "url": "https://raw.githubusercontent.com/aros-development-team/contrib/ce77be61cfefd085cf22c2a9466f77a9ebd5d132/SDL2/main/SDL2-2.32.10-aros.diff",
+    "sha256": "b66551562d8732269e2b8920dd353b139cd7b0760b5e8fd32ddc5176568457c1",
+    "license": "Zlib (SDL2's licence; AROS port by the AROS Development Team)",
+    "verified": "SHA-256 of the file at that commit of github.com/aros-development-team/contrib, which AROS's own SDL2/main/mmakefile.src applies to SDL2-2.32.10.tar.gz",
+    "use": "AROS x86-64 port of the pinned sdl2 source (scripts/build_desktop_amiga.sh)"
+  },
+  "sdl2-aros-static": {
+    "version": "2.32.10 (aros-development-team/contrib ce77be61cfef)",
+    "url": "https://raw.githubusercontent.com/aros-development-team/contrib/ce77be61cfefd085cf22c2a9466f77a9ebd5d132/SDL2/main/SDL2_static.c",
+    "sha256": "36a888b97e664e0df2460c44a08e22896feb24e2bf29c24e1805187cdeb50648",
+    "license": "Zlib",
+    "verified": "SHA-256 of the file at that commit of github.com/aros-development-team/contrib",
+    "use": "AROS static SDL2 link library start-up (opens timer.device), compiled with -DSDL2_AROS_STATIC"
+  },
+  "sdl2-aros-intern": {
+    "version": "2.32.10 (aros-development-team/contrib ce77be61cfef)",
+    "url": "https://raw.githubusercontent.com/aros-development-team/contrib/ce77be61cfefd085cf22c2a9466f77a9ebd5d132/SDL2/main/SDL2_intern.h",
+    "sha256": "992b451a69ff2164d2fb895aeffb16f35b2971a6fce590680e51a42456121fd0",
+    "license": "Zlib",
+    "verified": "SHA-256 of the file at that commit of github.com/aros-development-team/contrib",
+    "use": "Header that SDL2_static.c includes"
+  },
+  "sdl2-amigaos3": {
+    "version": "2.x diasurgical/SDL 240bc700a9408171edad309590ec180e67c42aeb",
+    "url": "https://github.com/diasurgical/SDL/archive/240bc700a9408171edad309590ec180e67c42aeb.tar.gz",
+    "sha256": "f05477fb63a50b99e855e84daa10c13188b10b6cfb7653c7c37090e1ee689e69",
+    "license": "Zlib",
+    "verified": "MD5 220f9ea9e94c3e2c6a5054822c05c08f equals the pin in DevilutionX 3rdParty/SDL2/CMakeLists.txt for its AmigaOS 3 m68k release",
+    "use": "AmigaOS 3.x m68k SDL2 (68040, FPU, RTG), built static with CMake (scripts/build_desktop_amiga.sh)"
+  },
+  "docker-images": [
+    {
+      "target": "amigaos4-ppc",
+      "image": "amigadev/crosstools:ppc-amigaos@sha256:de69c1ddd5ea77c7202f50304919b45b94d45060a11f70eaf3767175cd73f8b3",
+      "platforms": "linux/amd64 linux/arm64",
+      "use": "ppc-amigaos-gcc 11.5.0 (adtools), newlib, static SDL2 2.30.5 in /opt/ppc-amigaos/usr"
+    },
+    {
+      "target": "aros-x86",
+      "image": "amigadev/crosstools:x86_64-aros@sha256:9c4e978301da6b6584d68d4014caa1fa9e2689529e79e71f7190d40d1cb62e50",
+      "platforms": "linux/amd64",
+      "use": "x86_64-aros-gcc 9.1.0 with the AROS SDK in /opt/x86_64-aros"
+    },
+    {
+      "target": "amigaos-m68k",
+      "image": "amigadev/crosstools:m68k-amigaos-gcc10@sha256:d066f82528673c831d3ce1d84720b7a6c01ab513888bb67895194222a16726f4",
+      "platforms": "linux/amd64 linux/arm64",
+      "use": "m68k-amigaos-gcc (bebbo), libnix, CMake toolchain file in CMAKE_TOOLCHAIN_FILE"
+    }
+  ]
 }

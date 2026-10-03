@@ -51,6 +51,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(__AROS__)
+#include <exec/memory.h>
+#include <exec/tasks.h>
+#include <proto/exec.h>
+#endif
 
 static unsigned int desktop_card_badges(struct nk_context *context,
     void *opaque, const WenaCard *card)
@@ -335,9 +340,24 @@ static int actor_exists(sqlite3 *database, const char *actor)
 #elif defined(__APPLE__)
 #define DESKTOP_SYSTEM WENA_SYSTEM_MACOS
 #define DESKTOP_HOME "HOME"
+#elif defined(__amigaos__) || defined(__AROS__)
+#define DESKTOP_SYSTEM WENA_SYSTEM_AMIGA
+#define DESKTOP_HOME "HOME"
 #else
 #define DESKTOP_SYSTEM WENA_SYSTEM_OTHER
 #define DESKTOP_HOME "HOME"
+#endif
+/* AmigaOS and AROS start a program on the stack its icon or the Shell gives,
+ * 4 KB to 40 KB by default; the desktop's --smoke run needs about 150 KB on
+ * x86-64 Linux. A megabyte leaves room for deeper editors and the OS. */
+#define DESKTOP_STACK 1048576UL
+#if defined(__amigaos4__)
+/* AmigaOS 4 reads the stack a program needs from this cookie. */
+static const char desktop_stack_cookie[] __attribute__((used)) = "$STACK:1048576";
+#elif defined(__amigaos__)
+/* libnix moves main() to a stack of this size (its swapstack module, which
+ * scripts/build_desktop_amiga_container.sh links). */
+unsigned long __stack = DESKTOP_STACK;
 #endif
 #define DESKTOP_DEFAULT_ACTOR "local-user"
 #define DESKTOP_DEFAULT_BOARD "my-board"
@@ -371,7 +391,11 @@ static int desktop_licenses(FILE *output)
            fflush(output) == 0;
 }
 
+#if defined(__AROS__)
+static int desktop_main(int argc, char **argv)
+#else
 int main(int argc, char **argv)
+#endif
 {
     const char *database_path, *actor_id, *board_id, *board_title, *requested_language;
     const char *const *languages;
@@ -1053,3 +1077,34 @@ cleanup:
     wena_debug_log_close();
     return status;
 }
+
+#if defined(__AROS__)
+/* AROS has no stack request a program can make, so main() moves to a larger
+ * stack itself when the one it was given is too small. */
+int main(int argc, char **argv)
+{
+    struct Task *self = FindTask(NULL);
+    struct StackSwapStruct stack;
+    struct StackSwapArgs arguments;
+    int (*entry)(int, char **) = desktop_main;
+    APTR function;
+    IPTR status;
+    if ((IPTR)self->tc_SPUpper - (IPTR)self->tc_SPLower >= DESKTOP_STACK)
+        return desktop_main(argc, argv);
+    stack.stk_Lower = AllocVec(DESKTOP_STACK, MEMF_ANY);
+    if (stack.stk_Lower == NULL) {
+        fputs("Not enough memory for the Wena desktop's stack\n", stderr);
+        return 1;
+    }
+    stack.stk_Upper = (APTR)((IPTR)stack.stk_Lower + DESKTOP_STACK);
+    stack.stk_Pointer = stack.stk_Upper;
+    memset(&arguments, 0, sizeof(arguments));
+    arguments.Args[0] = (IPTR)argc;
+    arguments.Args[1] = (IPTR)argv;
+    /* exec takes the entry point as an APTR; ISO C has no cast for that. */
+    memcpy(&function, &entry, sizeof(function));
+    status = NewStackSwap(&stack, function, &arguments);
+    FreeVec(stack.stk_Lower);
+    return (int)status;
+}
+#endif

@@ -15,6 +15,11 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
+#elif defined(__amigaos__) || defined(__AROS__)
+#if defined(__amigaos4__)
+#define __USE_INLINE__
+#endif
+#include <proto/dos.h>
 #endif
 #if defined(__FreeBSD__) || defined(__NetBSD__)
 static int bsd_query(void*x,char*out,size_t cap,size_t*n){size_t z=cap;int mib[4];(void)x;mib[0]=CTL_KERN;
@@ -28,6 +33,16 @@ if(z==0||z>cap)return 0;out[cap-1]=0;*n=strlen(out);return *n+1==z;}
 static int utf8(const char*s,size_t n){size_t i=0;while(i<n){unsigned char c=(unsigned char)s[i];size_t k;if(c==0||c<0x20)return 0;if(c<0x80){i++;continue;}if(c>=0xc2&&c<=0xdf)k=1;else if(c>=0xe0&&c<=0xef)k=2;else if(c>=0xf0&&c<=0xf4)k=3;else return 0;if(i+k>=n)return 0;while(k){if(((unsigned char)s[i+k]&0xc0)!=0x80)return 0;k--;}i+=(c<0xe0?2:c<0xf0?3:4);}return 1;}
 static int absolute(WenaExecutablePlatform p,const char*s){if(p==WENA_EXEC_WINDOWS)return ((s[0]>='A'&&s[0]<='Z')||(s[0]>='a'&&s[0]<='z'))&&s[1]==':'&&(s[2]=='\\'||s[2]=='/');if(p==WENA_EXEC_AMIGA||p==WENA_EXEC_AROS)return strchr(s,':')!=NULL;return s[0]=='/';}
 int wena_executable_path_validate(WenaExecutablePlatform p,WenaExecutablePathQuery q,void*x,char*out,size_t cap){size_t n;if(!q||!out||cap<2||cap>WENA_EXECUTABLE_PATH_CAPACITY)return 0;out[0]=0;if(!q(x,out,cap,&n)||n==0||n>=cap||out[n]!=0||strlen(out)!=n||!utf8(out,n)||!absolute(p,out)){out[0]=0;return 0;}return 1;}
+#if defined(__amigaos__) || defined(__AROS__)
+#if defined(__amigaos4__)
+#define PROGRAM_NAME GetCliProgramName
+#else
+#define PROGRAM_NAME GetProgramName
+#endif
+/* PROGDIR:'s full name plus the name the Shell started the program as; a
+ * Workbench start has no such name, and then there is none. */
+static int amiga_query(void*x,char*out,size_t cap,size_t*n){char name[256];BPTR dir=GetProgramDir();(void)x;if(!dir||!NameFromLock(dir,(STRPTR)out,(LONG)cap)||!PROGRAM_NAME((STRPTR)name,(LONG)sizeof(name))||!AddPart((STRPTR)out,FilePart((STRPTR)name),(ULONG)cap))return 0;*n=strlen(out);return 1;}
+#endif
 /* Only where it is used: an unused static function fails -Werror on the other BSDs. */
 #if defined(__linux__) || defined(__OpenBSD__)
 static int posix_query(void*x,char*out,size_t cap,size_t*n){const char*path=(const char*)x;long z;z=readlink(path,out,cap-1);if(z<=0||(size_t)z>=cap-1)return 0;out[z]=0;*n=(size_t)z;return 1;}
@@ -52,6 +67,10 @@ return wena_executable_path_validate(WENA_EXEC_LINUX,posix_query,(void*)"/proc/s
 return wena_executable_path_validate(WENA_EXEC_BSD,bsd_query,NULL,out,cap);
 #elif defined(__OpenBSD__)
 return wena_executable_path_validate(WENA_EXEC_BSD,posix_query,(void*)"/proc/curproc/file",out,cap);
+#elif defined(__AROS__)
+return wena_executable_path_validate(WENA_EXEC_AROS,amiga_query,NULL,out,cap);
+#elif defined(__amigaos__)
+return wena_executable_path_validate(WENA_EXEC_AMIGA,amiga_query,NULL,out,cap);
 #else
 if(out&&cap)out[0]=0;return 0;
 #endif

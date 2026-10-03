@@ -121,6 +121,11 @@ static int wena_language_save(const char *path, const char *value)
 #if defined(_WIN32)
     if (!MoveFileExA(temporary, path,
                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+#elif defined(__amigaos__) || defined(__AROS__)
+    /* AmigaDOS Rename() does not replace a file, and C libraries differ in
+     * whether rename() hides that: remove the old settings, then retry. */
+    if (rename(temporary, path) != 0 &&
+        (remove(path) != 0 || rename(temporary, path) != 0)) {
 #else
     if (rename(temporary, path) != 0) {
 #endif

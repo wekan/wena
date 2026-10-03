@@ -9,9 +9,20 @@
 #include "sqlite_storage.h"
 #include "../models/model.h"
 
-#if defined(__unix__) || defined(__APPLE__) || defined(_WIN32)
+#if defined(__unix__) || defined(__APPLE__) || defined(_WIN32) || \
+    defined(__amigaos__) || defined(__AROS__)
 #if defined(_WIN32)
 #include <windows.h>
+#elif defined(__amigaos__) || defined(__AROS__)
+#if defined(__amigaos4__)
+#define __USE_INLINE__
+#endif
+#include <proto/dos.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -148,6 +159,65 @@ int wena_sqlite_workspace_create(const char *path,
         }
     }
     if (ok) ok = MoveFileExW(wide_staging, wide_target, MOVEFILE_WRITE_THROUGH) != 0;
+    if (!ok) remove_staging(staging);
+    return ok;
+}
+#elif defined(__amigaos__) || defined(__AROS__)
+/* AmigaOS and AROS: stage beside the target and publish with dos.library's
+ * Rename(), which fails when the target exists - the same no-replace
+ * guarantee as link() below. AmigaDOS file systems need not have hard links,
+ * and a C library's rename() may delete the target first. */
+static void remove_staging(const char *staging)
+{
+    char sidecar[WORKSPACE_PATH_CAPACITY + 64];
+    (void)remove(staging);
+    strcpy(sidecar, staging);
+    strcat(sidecar, "-journal");
+    (void)remove(sidecar);
+}
+
+int wena_sqlite_workspace_create(const char *path,
+                                  const unsigned char *migration, size_t length,
+                                  const char *expected_sha256,
+                                  const WenaSqliteWorkspaceSeed *seed)
+{
+    char staging[WORKSPACE_PATH_CAPACITY + 64];
+    const char *colon;
+    size_t index;
+    struct stat existing;
+    sqlite3 *database;
+    int descriptor;
+    int ok;
+
+    if (path == NULL || !seed_valid(seed) || migration == NULL || length == 0 ||
+        expected_sha256 == NULL) return 0;
+    /* "Volume:name" or "ASSIGN:drawer/name", as wena_path_absolute(). */
+    colon = strchr(path, ':');
+    if (colon == NULL || colon == path || strchr(colon + 1, ':') != NULL ||
+        memchr(path, '/', (size_t)(colon - path)) != NULL) return 0;
+    for (index = 0; index < WORKSPACE_PATH_CAPACITY && path[index]; ++index) {
+        if ((unsigned char)path[index] < 32 || (unsigned char)path[index] == 127)
+            return 0;
+    }
+    if (index >= WORKSPACE_PATH_CAPACITY || path[index - 1] == '/' ||
+        path[index - 1] == ':') return 0;
+    if (stat(path, &existing) == 0 || errno != ENOENT) return 0;
+    /* Short enough for the 30-character names of the original FFS. */
+    sprintf(staging, "%s.%lx.tmp", path, (unsigned long)time(NULL) & 0xffffffUL);
+    descriptor = open(staging, O_CREAT | O_EXCL | O_RDWR, 0600);
+    if (descriptor < 0) return 0;
+    ok = close(descriptor) == 0;
+    database = NULL;
+    if (ok) ok = wena_sqlite_open(staging, migration, length, expected_sha256,
+                                  &database);
+    if (ok) ok = bootstrap(database, seed);
+    /* Publish a standalone main file, never a database still dependent on WAL. */
+    if (ok) ok = sqlite3_exec(database,
+        "PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;",
+        NULL, NULL, NULL) == SQLITE_OK && wena_sqlite_integrity(database);
+    if (database != NULL && sqlite3_close(database) != SQLITE_OK) ok = 0;
+    /* Close() has written the file out; AmigaDOS has no separate fsync(). */
+    if (ok) ok = Rename((CONST_STRPTR)staging, (CONST_STRPTR)path) != 0;
     if (!ok) remove_staging(staging);
     return ok;
 }

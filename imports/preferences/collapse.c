@@ -41,16 +41,29 @@ int wena_collapse_preferences_path(const char *workspace, const char *actor,
         if (workspace[i] == '/'
 #if defined(_WIN32)
             || workspace[i] == '\\'
+#elif defined(__amigaos__) || defined(__AROS__)
+            || workspace[i] == ':'
 #endif
         ) directory = i + 1;
     }
+#if defined(__amigaos__) || defined(__AROS__)
+    /* The original FFS holds 30 characters a name, ".tmp" included: 64 bits
+     * of the digest in "wena-<16 hex>.prf". */
+    needed = directory + sizeof("wena-") - 1 + 16 + sizeof(".prf");
+#else
     needed = directory + sizeof("wena-collapse-") - 1 + 64 + sizeof(".prefs");
+#endif
     if (needed > sizeof(result) || needed > capacity) return 0;
     wena_sha256_init(&hash);
     hash_part(&hash, workspace); hash_part(&hash, actor); hash_part(&hash, board);
     wena_sha256_final_hex(&hash, digest);
     memcpy(result, workspace, directory); result[directory] = 0;
+#if defined(__amigaos__) || defined(__AROS__)
+    digest[16] = 0;
+    strcat(result, "wena-"); strcat(result, digest); strcat(result, ".prf");
+#else
     strcat(result, "wena-collapse-"); strcat(result, digest); strcat(result, ".prefs");
+#endif
     memcpy(output, result, needed);
     return 1;
 }
@@ -272,6 +285,11 @@ int wena_collapse_preferences_save(const char *path, const char *workspace,
     }
 #if defined(_WIN32)
     if (!MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+#elif defined(__amigaos__) || defined(__AROS__)
+    /* AmigaDOS Rename() does not replace a file, and C libraries differ in
+     * whether rename() hides that: remove the old settings, then retry. */
+    if (rename(temporary, path) != 0 &&
+        (remove(path) != 0 || rename(temporary, path) != 0)) {
 #else
     if (rename(temporary, path)) {
 #endif

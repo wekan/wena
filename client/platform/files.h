@@ -11,10 +11,13 @@
 #define WENA_FILE_OTHER 2
 #define WENA_FILE_ERROR (-1)
 
-/* POSIX: starts with '/'. Windows: a drive ("C:\" or "C:/") or UNC ("\\server"). */
+/* POSIX: starts with '/'. Windows: a drive ("C:\" or "C:/") or UNC ("\\server").
+ * AmigaOS and AROS: wena_path_absolute_amiga(). */
 int wena_path_absolute(const char *path);
 /* Rules for one platform, for tests: windows != 0 applies the Windows rules. */
 int wena_path_absolute_for(const char *path, int windows);
+/* AmigaOS and AROS: "Volume:" or "ASSIGN:" before the rest ("Work:Wena/x"). */
+int wena_path_absolute_amiga(const char *path);
 /* What is at a path; a symbolic link counts as what it points to, as stat(). */
 int wena_file_kind(const char *path);
 /* mkdir -p of the directory holding an absolute file path. */

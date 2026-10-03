@@ -54,8 +54,11 @@ int wena_debug_log_directory_for(const char *log_dir_env, const char *executable
     out[0] = '\0';
     used = 0;
     if (log_dir_env != NULL && log_dir_env[0] != '\0')
-        return (wena_path_absolute_for(log_dir_env, 0) || wena_path_absolute_for(log_dir_env, 1)) &&
-               append_text(out, capacity, &used, log_dir_env);
+        return (wena_path_absolute_for(log_dir_env, 0) || wena_path_absolute_for(log_dir_env, 1)
+#if defined(__amigaos__) || defined(__AROS__)
+                || wena_path_absolute_amiga(log_dir_env)
+#endif
+               ) && append_text(out, capacity, &used, log_dir_env);
     if (executable == NULL) return 0;
     found = strstr(executable, posix_marker);
     windows = found == NULL;
@@ -76,8 +79,14 @@ int wena_desktop_default_database(const char *database_env, const char *home,
     out[0] = '\0';
     used = 0;
     if (database_env != NULL && database_env[0] != '\0')
-        return wena_path_absolute_for(database_env, system == WENA_SYSTEM_WINDOWS) &&
+        return (system == WENA_SYSTEM_AMIGA ? wena_path_absolute_amiga(database_env) :
+                wena_path_absolute_for(database_env, system == WENA_SYSTEM_WINDOWS)) &&
                append_text(out, capacity, &used, database_env);
+    /* The drawer Wena was started from, as Amiga programs keep their data:
+     * ENV: is a RAM disk and ENVARC: is copied into it at every boot, so
+     * neither is a place for a board that grows. */
+    if (system == WENA_SYSTEM_AMIGA)
+        return append_text(out, capacity, &used, "PROGDIR:wena.sqlite");
     if (system == WENA_SYSTEM_WINDOWS)
         return wena_path_absolute_for(home, 1) &&
                append_text(out, capacity, &used, home) &&
