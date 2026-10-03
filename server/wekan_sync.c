@@ -972,6 +972,38 @@ int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int 
     return ok;
 }
 
+static const char *const starred_query[] = {
+    "SELECT coalesce((SELECT EXISTS (SELECT 1 FROM json_each(x, '$.profile.starredBoards') ",
+    "WHERE value = ?2) + (SELECT sum(CASE WHEN json_type(x, '$.profile.' || f) = 'array' THEN ",
+    "json_array_length(x, '$.profile.' || f) ELSE 0 END) * 2 FROM (SELECT 'starredBoards' AS f UNION ALL ",
+    "SELECT 'starredPages' UNION ALL SELECT 'starredSwimlanes' UNION ALL SELECT 'starredLists' UNION ALL ",
+    "SELECT 'starredCards')) FROM (SELECT _ferretdb_sjson AS x FROM {users} ",
+    "WHERE _ferretdb_sjson->'_id' = json_quote(?1))), 0), coalesce((SELECT CAST(_ferretdb_sjson->>'stars' ",
+    "AS INTEGER) FROM {boards} WHERE _ferretdb_sjson->'_id' = json_quote(?2)), 0)",
+    NULL};
+
+int wena_wekan_sync_starred(sqlite3 *db, const char *actor, const char *board, int *starred, int *count,
+                            int *board_stars)
+{
+    char joined[1024], sql[1024];
+    sqlite3_stmt *statement = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || board == NULL || starred == NULL || count == NULL || board_stars == NULL ||
+        !join(starred_query, joined, sizeof(joined)) || !expand(db, joined, sql, sizeof(sql)) ||
+        sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, board, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        /* Starred in the low bit, the count above it: one row, one query. */
+        *starred = sqlite3_column_int(statement, 0) & 1;
+        *count = sqlite3_column_int(statement, 0) >> 1;
+        *board_stars = sqlite3_column_int(statement, 1);
+        ok = 1;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
 static void meteor_id(char out[18])
 {
     static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";

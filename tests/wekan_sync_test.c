@@ -174,9 +174,10 @@ int main(int argc, char **argv)
         WenaWekanBoardTile tiles[8];
         size_t count;
         char made[64];
+        int starred, starred_count, board_stars;
         doc(db, "boards", "{\"_id\":\"arch\",\"title\":\"Archived one\",\"type\":\"board\",\"archived\":true,"
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
-        doc(db, "boards", "{\"_id\":\"tc\",\"title\":\"Templates\",\"type\":\"template-container\","
+        doc(db, "boards", "{\"_id\":\"tc\",\"title\":\"Templates\",\"type\":\"template-container\",\"stars\":3,"
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
         doc(db, "boards", "{\"_id\":\"help\",\"title\":\"^Templates^\",\"type\":\"board\","
             "\"members\":[{\"userId\":\"u1\",\"isAdmin\":true,\"isActive\":true}]}");
@@ -195,6 +196,20 @@ int main(int argc, char **argv)
                        "{\"fullname\":\"Ada L\",\"starredBoards\":[\"tc\"]}"));
         /* Negative: a user without a profile object is not given a broken one. */
         assert(!wena_wekan_sync_star(db, "u2", "b1", 1));
+        /* WeKan's header star group: starred or not, the user's starred
+         * count (users.starredCount) and the board's own stars. */
+        assert(wena_wekan_sync_starred(db, "u1", "tc", &starred, &starred_count, &board_stars));
+        assert(starred == 1 && starred_count == 1 && board_stars == 3);
+        assert(wena_wekan_sync_starred(db, "u1", "b1", &starred, &starred_count, &board_stars));
+        assert(starred == 0 && starred_count == 1 && board_stars == 2);
+        /* Negative: a user without stars, or not there at all, has none;
+         * missing arguments are refused. */
+        assert(wena_wekan_sync_starred(db, "u2", "tc", &starred, &starred_count, &board_stars));
+        assert(starred == 0 && starred_count == 0);
+        assert(wena_wekan_sync_starred(db, "nobody", "tc", &starred, &starred_count, &board_stars));
+        assert(starred == 0 && starred_count == 0);
+        assert(!wena_wekan_sync_starred(db, "u1", NULL, &starred, &starred_count, &board_stars));
+        assert(!wena_wekan_sync_starred(db, "u1", "tc", &starred, NULL, &board_stars));
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

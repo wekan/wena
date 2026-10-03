@@ -228,6 +228,30 @@ int main(void)
     assert(wena_board_header_render(&context, &board) == WENA_BOARD_HEADER_RENAME);
     context.button_to_press = "Filter";
     assert(wena_board_header_render(&context, &board) == WENA_BOARD_HEADER_FILTER);
+    /* WeKan's star group: the caret and count list what is starred, the
+     * star toggles - its name says which way; the board's own stars show
+     * from 2. Negative: without star state there is no group. */
+    {
+        WenaBoardHeaderInfo header;
+        memset(&header, 0, sizeof(header));
+        header.star = 1;
+        header.starred_count = 2;
+        context.button_to_press = "Click to star this board.";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_STAR);
+        context.button_to_press = "2";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_STARRED);
+        header.star = 2;
+        header.board_stars = 1;
+        wena_ui_controls_begin();
+        context.button_to_press = "Click to unstar this board.";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_STAR);
+        assert(!has_control("Click to star this board."));
+        header.star = 0;
+        wena_ui_controls_begin();
+        context.button_to_press = "Click to unstar this board.";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        assert(!has_control("Click to unstar this board.") && !has_control("2"));
+    }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);
 

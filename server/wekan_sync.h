@@ -55,6 +55,11 @@ int wena_wekan_sync_boards(sqlite3 *db, const char *actor, WenaWekanBoardTile *t
 
 /* Stars or unstars a board for `actor`: WeKan's users.profile.starredBoards. */
 int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int starred);
+/* WeKan's header star group for `board`: whether `actor` starred it, how
+ * many places the user keeps starred (boards, pages, swimlanes, lists and
+ * cards, as users.starredCount) and the board's own `stars` counter. */
+int wena_wekan_sync_starred(sqlite3 *db, const char *actor, const char *board, int *starred, int *count,
+                            int *board_stars);
 /* A new board as WeKan makes one - with its "Default" swimlane, `actor` its
  * admin - in Wena's tables and written to WeKan's file. Writes its _id. */
 int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title, char *board, size_t capacity);

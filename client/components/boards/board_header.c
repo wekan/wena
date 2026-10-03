@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 8);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 11);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -66,6 +66,30 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     else if (wena_wekan_link(context, WENA_ICON_NONE, board->title, WENA_WEKAN_FONT_BODY,
                              WENA_WEKAN_HEADER_TEXT))
         action |= WENA_BOARD_HEADER_RENAME;
+
+    /* WeKan's star group after the title: caret and count (what the user
+     * keeps starred), then the board's star, darker when starred. */
+    if (info != NULL && info->star) {
+        char count[16];
+        float x = (info->all_boards ? 81.0f : 16.0f) + title_width + 12.0f, count_width;
+        (void)sprintf(count, "%d", info->starred_count < 0 ? 0 : info->starred_count % 100000);
+        count_width = text_width(context, WENA_WEKAN_FONT_SMALL, count) + 22.0f;
+        nk_layout_space_push(context, nk_rect(x, 14.0f, count_width, 28.0f));
+        if (wena_wekan_link(context, WENA_ICON_CARET_DOWN, count, WENA_WEKAN_FONT_SMALL, WENA_WEKAN_HEADER_TEXT))
+            action |= WENA_BOARD_HEADER_STARRED;
+        x += count_width + 4.0f;
+        if (info->star == 2) wena_wekan_fill(context, area.x + x, area.y + 14.0f, 26.0f, 28.0f, 0x1236D9D, 3.0f);
+        nk_layout_space_push(context, nk_rect(x, 14.0f, 26.0f, 28.0f));
+        if (wena_wekan_icon_button(context, info->star == 2 ? WENA_ICON_STAR : WENA_ICON_STAR_O,
+                                   wena_ui_text(info->star == 2 ? WENA_UI_TEXT_CLICK_TO_UNSTAR :
+                                                WENA_UI_TEXT_CLICK_TO_STAR), 13.0f, WENA_WEKAN_HEADER_TEXT))
+            action |= WENA_BOARD_HEADER_STAR;
+        if (info->board_stars >= 2) {
+            (void)sprintf(count, "%d", info->board_stars % 100000);
+            nk_layout_space_push(context, nk_rect(x + 28.0f, 14.0f, text_width(context, WENA_WEKAN_FONT_SMALL, count) + 4.0f, 28.0f));
+            wena_wekan_text(context, count, WENA_WEKAN_FONT_SMALL, WENA_WEKAN_HEADER_TEXT, NK_TEXT_LEFT);
+        }
+    }
 
     /* Filter, last of the first row's board buttons. */
     filter = wena_ui_text(WENA_UI_TEXT_FILTER);

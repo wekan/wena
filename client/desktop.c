@@ -807,6 +807,20 @@ static void desktop_collapse_entry(void *context, const char *id, int value)
     }
 }
 
+/* WeKan's header star group for the board, from the user's profile. */
+static void desktop_wekan_star(sqlite3 *db, const char *actor, const char *board, WenaBoardLayout *layout)
+{
+    int starred, count, stars;
+    if (wena_wekan_sync_starred(db, actor, board, &starred, &count, &stars)) {
+        layout->header_star = starred ? 2 : 1;
+        layout->header_starred_count = count;
+        layout->header_board_stars = stars;
+    } else {
+        layout->header_star = 0;
+        wena_debug_log("stars of %s: %s", board, wena_wekan_sync_error());
+    }
+}
+
 static void desktop_wekan_collapse_load(sqlite3 *db, const char *actor, const char *board,
                                         WenaBoardCollapseState *collapse, const WenaBoardLayout *layout)
 {
@@ -1431,6 +1445,7 @@ board_session:
     layout.default_list_width = wekan_mode ? 220.0f : 0.0f;
     layout.header_actor = wekan_mode && user_name[0] != '\0' ? user_name : actor_id;
     layout.header_all_boards = wekan_mode;
+    if (wekan_mode) desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
     layout.header_actions = &toolbar.header_actions;
     layout.card_drag_area = desktop_card_drag_area;
     layout.list_drag_area = desktop_list_drag_area;
@@ -1756,6 +1771,18 @@ window_ready:
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_ALL_BOARDS) != 0u) {
                     all_boards_page = 1;
                     tiles_stale = 1;
+                }
+                /* WeKan's star group: the caret and count list what is
+                 * starred (All Boards' Starred here), the star toggles. */
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_STARRED) != 0u) {
+                    all_boards_view.section = WENA_ALL_BOARDS_STARRED;
+                    all_boards_page = 1;
+                    tiles_stale = 1;
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_STAR) != 0u && !smoke) {
+                    if (!wena_wekan_sync_star(database, actor_id, snapshot->board.id, layout.header_star != 2))
+                        wena_debug_log("star %s: %s", snapshot->board.id, wena_wekan_sync_error());
+                    desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_RENAME) != 0u)
                     toolbar.actions |= DESKTOP_RENAME_BOARD;

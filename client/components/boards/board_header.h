@@ -6,7 +6,7 @@
 struct nk_context;
 
 /* WeKan's header bar: blue, two rows. The first has the board title (click to
- * rename) and, at the right, Filter; the second the user (its menu has the
+ * rename), the star group and, at the right, Filter; the second the user (its menu has the
  * language) and the sidebar toggle - each where WeKan has it
  * (tests/fixtures/wekan-ui/01-board.json). */
 #define WENA_BOARD_HEADER_NO_ACTION 0u
@@ -15,12 +15,17 @@ struct nk_context;
 #define WENA_BOARD_HEADER_FILTER 4u
 #define WENA_BOARD_HEADER_MEMBER_MENU 8u   /* the user's name */
 #define WENA_BOARD_HEADER_ALL_BOARDS 16u   /* the house before the title */
+#define WENA_BOARD_HEADER_STARRED 32u      /* the caret and count: what is starred */
+#define WENA_BOARD_HEADER_STAR 64u         /* the board's star */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
     const char *actor_name;   /* NULL hides the user */
     int filter_active;        /* "Filter is on" */
     int all_boards;           /* WeKan's house to All Boards before the title */
+    int star;                 /* the star group: 0 none, 1 not starred, 2 starred */
+    int starred_count;        /* places the user keeps starred */
+    int board_stars;          /* the board's stars, shown from 2 as WeKan */
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

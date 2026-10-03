@@ -54,6 +54,8 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_TEMPLATES, "templates", "Templates"},
     {WENA_UI_TEXT_HOME, "home", "Home"},
     {WENA_UI_TEXT_STAR_BOARD_TITLE, "star-board-title", "Click to star this board. It will show up at top of your boards list."},
+    {WENA_UI_TEXT_CLICK_TO_STAR, "click-to-star", "Click to star this board."},
+    {WENA_UI_TEXT_CLICK_TO_UNSTAR, "click-to-unstar", "Click to unstar this board."},
     {WENA_UI_TEXT_SELECTED, "selected-label", "Selected:"},
     {WENA_UI_TEXT_SELECT_LIST_CARDS, "list-select-cards", "Select all cards in this list"},
     {WENA_UI_TEXT_MULTI_SELECTION, "multi-selection", "Multi-Selection"},

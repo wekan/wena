@@ -191,6 +191,26 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>The board header has WeKan's star group: the starred count and the board's star</summary>
+
+- After the board title, as WeKan's header: the caret with the number of
+  places the user keeps starred (boards, pages, swimlanes, lists and cards,
+  as WeKan's `starredCount`), which opens All Boards on Starred, then the
+  board's star, filled and darker when starred, with WeKan's "Click to
+  star/unstar this board." The board's own `stars` count shows from 2, as
+  WeKan shows it.
+- The star toggles `profile.starredBoards` in WeKan's file, so the board is
+  starred in WeKan too.
+- Tests: `wekan-sync` reads the star state, count and board stars, with a
+  user without stars, a missing user and missing arguments as negatives;
+  `board-feature` clicks the star both ways and the count, and checks that
+  without star state no group is drawn.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

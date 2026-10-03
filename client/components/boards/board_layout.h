@@ -109,6 +109,9 @@ typedef struct WenaBoardLayout {
     float default_list_width;
     const char *header_actor;
     int header_all_boards;          /* WeKan's house to All Boards in the header */
+    int header_star;                /* the star group: 0 none, 1 not starred, 2 starred */
+    int header_starred_count;
+    int header_board_stars;
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

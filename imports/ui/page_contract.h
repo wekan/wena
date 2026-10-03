@@ -188,7 +188,9 @@ typedef enum WenaUiTextId {
     WENA_UI_TEXT_STARRED,
     WENA_UI_TEXT_TEMPLATES,
     WENA_UI_TEXT_HOME,
-    WENA_UI_TEXT_STAR_BOARD_TITLE
+    WENA_UI_TEXT_STAR_BOARD_TITLE,
+    WENA_UI_TEXT_CLICK_TO_STAR,
+    WENA_UI_TEXT_CLICK_TO_UNSTAR
 } WenaUiTextId;
 
 /* The renderer owns this process-local callback and its context lifetime.
