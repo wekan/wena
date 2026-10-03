@@ -117,7 +117,10 @@ jobs:
         if: matrix.target == 'android-arm64'
         shell: bash
         run: |
-          sdkmanager "ndk;29.0.14206865"
+          # The runner image has the SDK but does not put sdkmanager on PATH.
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          "$sdkmanager" --install "ndk;29.0.14206865"
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
 
       - name: Cross-compile

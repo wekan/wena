@@ -10,10 +10,14 @@ if test "$(uname -s)" != Darwin || ! command -v xcrun >/dev/null 2>&1; then
   exit 1
 fi
 
-compiler=$(xcrun --find clang)
+compiler=$(xcrun --sdk macosx --find clang)
+# Run by path, clang has no SDK of its own: without -isysroot it finds no
+# <stdio.h> (GitHub macos-15 and Command Line Tools alike).
+sdk=$(xcrun --sdk macosx --show-sdk-path)
 lipo=$(xcrun --find lipo)
 mkdir -p "$output_dir"
 "$compiler" \
+  -isysroot "$sdk" \
   -arch x86_64 \
   -std=c89 \
   -pedantic-errors \

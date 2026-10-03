@@ -84,6 +84,25 @@ def main() -> None:
         marker = "x" if display_name in completed else "_"
         assert f"- [{marker}] {display_name}" in roadmap
 
+    # Each of these failed on the release runners with a compiler that could
+    # not find or not parse <stdio.h>; the flags below are what makes it work.
+    def release_script(target: str) -> str:
+        return (ROOT / ".github" / "release" / f"{target}.sh").read_text(encoding="utf-8")
+
+    for target, sdk in (("macos-arm64", "macosx"), ("macos-amd64", "macosx"), ("ios-arm64", "iphoneos")):
+        script = release_script(target)
+        assert f"sdk=$(xcrun --sdk {sdk} --show-sdk-path)" in script, target
+        assert '  -isysroot "$sdk" \\\n' in script, f"{target}: clang run by path needs -isysroot"
+        assert "xcrun --find clang" not in script, f"{target}: clang must come from the {sdk} SDK"
+    assert "  -Dinline=__inline__ \\\n" in release_script("amigaos-m68k"), "libnix headers use inline"
+    aros = release_script("aros-x86")
+    assert "  --sysroot=/opt/x86_64-aros \\\n" in aros
+    assert aros.index("include/aros/stdc") < aros.index("-isystem /opt/x86_64-aros/include \\"), \
+        "AROS needs the ISO C headers ahead of the posixc layer"
+    # sdkmanager is not on PATH on ubuntu-24.04 runners.
+    assert not re.search(r"^\s+sdkmanager ", workflow, re.MULTILINE)
+    assert '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"' in workflow
+
 
 if __name__ == "__main__":
     main()

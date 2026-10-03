@@ -1,3 +1,32 @@
+# Upcoming Wena release
+
+<details>
+<summary>The macOS, iOS, AmigaOS, AROS and Android release builds compile again</summary>
+
+- v0.01's `release-all.yml` built six of its ten targets' compilers into
+  errors before a line of Wena was compiled.
+- macOS arm64, macOS amd64 and iOS arm64: clang, found with `xcrun --find`
+  and run by path, has no SDK of its own and found no `<stdio.h>`. It now
+  comes from the `macosx` or `iphoneos` SDK and gets that SDK's
+  `-isysroot`.
+- AmigaOS 3.x m68k: libnix and `sys/types.h` declare `static inline`
+  functions, and `inline` is not a C89 keyword; `-Dinline=__inline__` keeps
+  `-std=c89 -pedantic-errors` for Wena's own code.
+- AROS x86: the image's gcc has no include path. It gets
+  `--sysroot=/opt/x86_64-aros` and the ISO C headers in `aros/stdc` ahead of
+  the `aros/posixc` layer, which does not compile as C89.
+- Android arm64: `sdkmanager` is not on PATH on the ubuntu-24.04 runner; the
+  NDK step runs it from `$ANDROID_HOME/cmdline-tools/latest/bin`.
+- Verified here: the failures reproduced, then macOS arm64 and amd64,
+  AmigaOS and AROS built with `wena.py build` and passed their release
+  checks. iOS (no iphoneos SDK here) and Android are verified by the next
+  release run. `tests/test_release_workflow.py` pins each fix and fails
+  against the old scripts.
+
+Thanks to xet7.
+
+</details>
+
 # v0.01 2026-10-03 Wena release
 
 <details>

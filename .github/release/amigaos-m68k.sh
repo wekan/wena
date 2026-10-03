@@ -12,6 +12,8 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 mkdir -p "$output_dir"
+# libnix and sys/types.h declare "static inline" functions, and "inline" is not
+# a C89 keyword; __inline__ is the spelling GCC accepts in every mode.
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   --volume "$root_dir:/work" \
@@ -21,6 +23,7 @@ docker run --rm \
   -noixemul \
   -m68000 \
   -std=c89 \
+  -Dinline=__inline__ \
   -pedantic-errors \
   -Wall \
   -Wextra \

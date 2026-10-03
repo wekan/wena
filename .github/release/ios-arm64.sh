@@ -16,10 +16,13 @@ if ! xcrun --sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
 fi
 
 compiler=$(xcrun --sdk iphoneos --find clang)
+# Run by path, clang has no SDK of its own: -isysroot gives it the iphoneos headers.
+sdk=$(xcrun --sdk iphoneos --show-sdk-path)
 lipo=$(xcrun --find lipo)
 vtool=$(xcrun --find vtool)
 mkdir -p "$output_dir"
 "$compiler" \
+  -isysroot "$sdk" \
   -arch arm64 \
   -mios-version-min="$deployment_target" \
   -std=c89 \

@@ -13,12 +13,17 @@ fi
 
 mkdir -p "$output_dir"
 test "$(docker run --rm "$toolchain_image" x86_64-aros-gcc -dumpmachine)" = x86_64-aros
+# This gcc has no SDK include path of its own. aros/stdc is the ISO C library;
+# the default aros/posixc layer on top of it does not compile as C89.
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   --volume "$root_dir:/work" \
   --workdir /work \
   "$toolchain_image" \
   x86_64-aros-gcc \
+  --sysroot=/opt/x86_64-aros \
+  -isystem /opt/x86_64-aros/include/aros/stdc \
+  -isystem /opt/x86_64-aros/include \
   -std=c89 \
   -pedantic-errors \
   -Wall \
