@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.06 2026-10-04 Wena release
 
 <details>
 <summary>Debugging a start that fails, as on AmigaOS 3.2: wena-debug-log.txt beside the program, and the last steps on screen</summary>
