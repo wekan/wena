@@ -272,6 +272,16 @@ int main(int argc, char **argv)
         assert(wena_wekan_sync_drag_handles(db, "nobody") == 0);
         assert(wena_wekan_sync_drag_handles(db, NULL) == -1 && wena_wekan_sync_drag_handles(NULL, "u1") == -1);
         assert(!wena_wekan_sync_set_drag_handles(db, NULL, 1) && !wena_wekan_sync_set_drag_handles(db, "nobody", 1));
+        /* WeKan's mobile mode: desktop until set, a boolean, apart from the handles. */
+        assert(wena_wekan_sync_mobile_mode(db, "u1") == 0);
+        assert(wena_wekan_sync_set_mobile_mode(db, "u1", 1) && wena_wekan_sync_mobile_mode(db, "u1") == 1);
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> '$.profile.mobileMode') || "
+                             "(_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.mobileMode.t') FROM fdb.users_5e7cc513 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"), "true\"bool\""));
+        assert(wena_wekan_sync_drag_handles(db, "u1") == 0);
+        assert(wena_wekan_sync_set_mobile_mode(db, "u1", 0) && wena_wekan_sync_mobile_mode(db, "u1") == 0);
+        assert(wena_wekan_sync_mobile_mode(db, "nobody") == 0 && wena_wekan_sync_mobile_mode(db, NULL) == -1);
+        assert(!wena_wekan_sync_set_mobile_mode(db, NULL, 1) && !wena_wekan_sync_set_mobile_mode(db, "nobody", 1));
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

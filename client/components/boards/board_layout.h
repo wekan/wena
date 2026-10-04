@@ -140,6 +140,13 @@ typedef struct WenaBoardLayout {
     int header_notifications;       /* 0 none, 1 bell, 2 unread ones, 3 open */
     int header_add_board;           /* WeKan's + to Add Board */
     int header_collapse, header_icons_collapsed, header_drag_handles;
+    int header_mobile_mode;         /* WeKan's mobile/desktop toggle: 0 none, 1 desktop, 2 mobile */
+    /* WeKan's "Show desktop drag handles": cards, lists and swimlanes move by
+     * their arrows icon only, and the rest of them is clicked as usual. */
+    int drag_handles;
+    /* WeKan's mobile mode: every list this wide, one under another, each as
+     * high as its cards; 0 is the desktop's lists side by side. */
+    float mobile_list_width;
     void *header_logo;
     int header_logo_width, header_logo_height;
     int header_filter_active;
@@ -211,6 +218,10 @@ int wena_board_swimlane_height_set(WenaBoardCollapseState *state,
 unsigned int wena_board_swimlane_height_clamp(long height);
 
 /* A list's width: its own when set, else the layout's default, else 272. */
+/* Mobile mode's heights: a list's (60 when collapsed) and a lane's lists
+ * with their gaps. */
+float wena_board_mobile_list_height(const WenaBoardLayout *layout, const WenaList *list, int collapsed);
+float wena_board_mobile_lane_height(const WenaBoardLayout *layout, const WenaSwimlane *swimlane);
 float wena_board_list_width(const WenaBoardLayout *layout, const WenaList *list);
 
 int wena_board_layout_render(struct nk_context *context,

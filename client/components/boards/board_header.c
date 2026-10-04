@@ -83,8 +83,11 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     /* The icons the << folds: the desktop icon and the drag handles toggle. */
     if (info != NULL && !info->icons_collapsed && info->drag_handles) {
         nk_layout_space_push(context, nk_rect(buttons_x, 15.0f, 30.0f, 26.0f));
-        (void)wena_wekan_icon_button(context, WENA_ICON_DESKTOP, wena_ui_key_text("mobile-desktop-toggle", NULL), 17.0f,
-                                     WENA_WEKAN_HEADER_TEXT);
+        /* WeKan's .js-mobile-mode-toggle: fa-desktop, or fa-mobile in mobile mode. */
+        if (wena_wekan_icon_button(context, info->mobile_mode == 2 ? WENA_ICON_MOBILE : WENA_ICON_DESKTOP,
+                                   wena_ui_key_text("mobile-desktop-toggle", NULL), 17.0f, WENA_WEKAN_HEADER_TEXT) &&
+            info->mobile_mode)
+            action |= WENA_BOARD_HEADER_MOBILE_MODE;
         buttons_x += 30.0f + 18.0f;
         nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, 34.0f, 28.0f));
         if (wena_wekan_icon_button(context, WENA_ICON_ARROWS, wena_ui_key_text("show-desktop-drag-handles", NULL), 12.0f,

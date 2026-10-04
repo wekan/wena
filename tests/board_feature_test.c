@@ -422,6 +422,14 @@ int main(void)
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_DRAG_HANDLES);
         context.button_to_press = "Toggle between Mobile and Desktop Mode";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        /* WeKan's mobile/desktop toggle: clickable when given, either way. */
+        header.mobile_mode = 1;
+        context.button_to_press = "Toggle between Mobile and Desktop Mode";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_MOBILE_MODE);
+        header.mobile_mode = 2;
+        context.button_to_press = "Toggle between Mobile and Desktop Mode";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_MOBILE_MODE);
+        header.mobile_mode = 0;
         /* Folded: the toggle, the star group and the + are gone, the << stays. */
         header.icons_collapsed = 1;
         context.button_to_press = "Show desktop drag handles";

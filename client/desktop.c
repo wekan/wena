@@ -1177,6 +1177,7 @@ static void desktop_usage(FILE *output)
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
           "multi-selection, visibility, watch, sort, sorted, view, lists-view, view:KEY, notifications,\n"
+          "mobile, drag-handles, "
           "add-board, "
           "search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
@@ -1512,7 +1513,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaSearchSidebar search;
     WenaDesktopViews views;
     SDL_Texture *logo_texture;
-    int logo_width, logo_height, header_icons_collapsed, drag_handles;
+    int logo_width, logo_height, header_icons_collapsed, drag_handles, mobile_mode;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
     size_t notification_count;
     int notifications_open;
@@ -1609,6 +1610,7 @@ int DESKTOP_MAIN(int argc, char **argv)
      * WeKan's << folded, as a narrow screen would. */
     header_icons_collapsed = DESKTOP_AGA;
     drag_handles = 0;
+    mobile_mode = 0;
     notification_count = 0;
     notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
@@ -1954,6 +1956,7 @@ board_session:
         }
         desktop_views_reset(&views);
         drag_handles = wena_wekan_sync_drag_handles(database, actor_id) == 1;
+        mobile_mode = wena_wekan_sync_mobile_mode(database, actor_id) == 1;
         views.database = database;
         views.actor = actor_id;
         views.renderer = renderer;
@@ -2237,6 +2240,8 @@ window_ready:
                 layout.lists_view = layout.board_view == WENA_BOARD_VIEW_LISTS;
             }
             else if (!strcmp(show, "notifications")) notifications_open = 1;
+            else if (!strcmp(show, "mobile")) mobile_mode = 1;
+            else if (!strcmp(show, "drag-handles")) drag_handles = 1;
             else if (!strcmp(show, "add-board")) { add_board.visible = 1; add_board.focus = 1; }
             else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
             else if (!strcmp(show, "visibility") || !strcmp(show, "watch") || !strcmp(show, "sort")) {
@@ -2365,8 +2370,14 @@ window_ready:
             layout.header_logo = wekan_mode ? logo_texture : NULL;
             layout.header_logo_width = logo_width;
             layout.header_logo_height = logo_height;
-            /* Drag handles on: a card moves by its handle, as WeKan's. */
-            layout.card_drag_area = drag_handles ? NULL : desktop_card_drag_area;
+            /* Drag handles on: cards, lists and swimlanes move by their
+             * arrows only, as WeKan's. */
+            layout.drag_handles = drag_handles;
+            /* WeKan's mobile mode on a desktop window: each list the board's
+             * whole width, one under another. */
+            layout.header_mobile_mode = !wekan_mode ? 0 : mobile_mode ? 2 : 1;
+            layout.mobile_list_width = mobile_mode ? (float)width - 40.0f : 0.0f;
+            if (layout.mobile_list_width < 200.0f && mobile_mode) layout.mobile_list_width = 200.0f;
             layout.header_notifications = !wekan_mode ? 0 : notifications_open ? 3 :
                 wena_notifications_unread(notifications, notification_count) > 0 ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
@@ -2433,6 +2444,11 @@ window_ready:
                     drag_handles = !drag_handles;
                     if (!smoke && !wena_wekan_sync_set_drag_handles(database, actor_id, drag_handles))
                         wena_debug_log("drag handles: %s", wena_wekan_sync_error());
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_MOBILE_MODE) != 0u) {
+                    mobile_mode = !mobile_mode;
+                    if (!smoke && !wena_wekan_sync_set_mobile_mode(database, actor_id, mobile_mode))
+                        wena_debug_log("mobile mode: %s", wena_wekan_sync_error());
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_ADD_BOARD) != 0u) {
                     add_board.visible = 1; add_board.focus = 1; add_board.length = 0; add_board.title[0] = '\0';

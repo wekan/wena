@@ -28,6 +28,7 @@ struct nk_context;
 #define WENA_BOARD_HEADER_ADD_BOARD 32768u /* the + after the star group */
 #define WENA_BOARD_HEADER_COLLAPSE_ICONS 65536u /* the << beside the house */
 #define WENA_BOARD_HEADER_DRAG_HANDLES 131072u  /* Show desktop drag handles */
+#define WENA_BOARD_HEADER_MOBILE_MODE 262144u   /* the mobile/desktop toggle */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
@@ -52,6 +53,8 @@ typedef struct WenaBoardHeaderInfo {
     int collapse;
     int icons_collapsed;
     int drag_handles;         /* 0 hides the toggle, 1 off, 2 on */
+    int mobile_mode;          /* the desktop/mobile icon before it: 0 shows it
+                               * inert, 1 desktop, 2 mobile (clickable) */
     /* WeKan's header logo (public/logo-header.png) after the title: a
      * texture of the renderer, NULL for none. */
     void *logo;

@@ -1333,14 +1333,15 @@ int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int in
     return ok;
 }
 
-int wena_wekan_sync_drag_handles(sqlite3 *db, const char *actor)
+/* A Boolean of the user's profile, false when not set; -1 on failure. */
+static int profile_flag(sqlite3 *db, const char *actor, const char *field)
 {
     char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     int result = -1, step;
     if (db == NULL || actor == NULL || !table_of(db, "users", table)) return -1;
-    sprintf(sql, "SELECT CASE WHEN coalesce(_ferretdb_sjson ->> '$.profile.showDesktopDragHandles', 0) THEN 1 ELSE 0 END "
-                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    sprintf(sql, "SELECT CASE WHEN coalesce(_ferretdb_sjson ->> '$.profile.%s', 0) THEN 1 ELSE 0 END "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", field, table);
     if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return -1;
     sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
     step = sqlite3_step(statement);
@@ -1350,15 +1351,35 @@ int wena_wekan_sync_drag_handles(sqlite3 *db, const char *actor)
     return result;
 }
 
-int wena_wekan_sync_set_drag_handles(sqlite3 *db, const char *actor, int show)
+static int set_profile_flag(sqlite3 *db, const char *actor, const char *key, int value)
 {
     char table[WENA_FERRETDB_TABLE_CAPACITY];
     WenaFerretField field;
     if (db == NULL || actor == NULL || !table_of(db, "users", table)) return 0;
-    field.key = "profile.showDesktopDragHandles";
+    field.key = key;
     field.element = WENA_FERRET_BOOL;
-    field.value = show ? "true" : "false";
+    field.value = value ? "true" : "false";
     return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+}
+
+int wena_wekan_sync_drag_handles(sqlite3 *db, const char *actor)
+{
+    return profile_flag(db, actor, "showDesktopDragHandles");
+}
+
+int wena_wekan_sync_set_drag_handles(sqlite3 *db, const char *actor, int show)
+{
+    return set_profile_flag(db, actor, "profile.showDesktopDragHandles", show);
+}
+
+int wena_wekan_sync_mobile_mode(sqlite3 *db, const char *actor)
+{
+    return profile_flag(db, actor, "mobileMode");
+}
+
+int wena_wekan_sync_set_mobile_mode(sqlite3 *db, const char *actor, int mobile)
+{
+    return set_profile_flag(db, actor, "profile.mobileMode", mobile);
 }
 
 static double map_percent(double value)

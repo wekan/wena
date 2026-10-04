@@ -433,6 +433,96 @@ static void wip_headers(void)
  nk_free(&context);
 }
 
+/* WeKan's drag handles and mobile mode: what the board gives its drag areas. */
+static float card_area_w, list_area_w, lane_area_w;
+static void card_area_probe(struct nk_context *ctx, void *data, const WenaCard *card, size_t ordinal,
+                            const struct nk_rect *area, int *clicked)
+{ (void)ctx; (void)data; (void)card; (void)ordinal; (void)clicked; card_area_w = area->w; }
+static void list_area_probe(struct nk_context *ctx, void *data, const WenaList *list, size_t ordinal,
+                            const struct nk_rect *area, int *clicked)
+{ (void)ctx; (void)data; (void)list; (void)ordinal; (void)clicked; list_area_w = area->w; }
+static void lane_area_probe(struct nk_context *ctx, void *data, const WenaSwimlane *lane, size_t ordinal,
+                            const struct nk_rect *area, int *clicked)
+{ (void)ctx; (void)data; (void)lane; (void)ordinal; (void)clicked; lane_area_w = area->w; }
+
+static void mobile_and_handles(struct nk_context *context, WenaBoardLayout *layout)
+{
+    struct nk_vec2 first, local;
+    WenaCardInteraction interaction;
+    /* Mobile mode: the lists one under another, at the same place across. */
+    layout->mobile_list_width = 580.0f;
+    render(context, layout, 900.0f);
+    render(context, layout, 900.0f);
+    assert(visible_text(context, "First card", 640.0f, 900.0f, &first));
+    assert(visible_text(context, "Local card", 640.0f, 900.0f, &local));
+    assert(local.y > first.y + 100.0f && local.x > first.x - 2.0f && local.x < first.x + 2.0f);
+    assert(wena_board_list_width(layout, &layout->lists[0]) == 580.0f);
+    assert(wena_board_mobile_list_height(layout, &layout->lists[0], 1) == 60.0f);
+    assert(wena_board_mobile_list_height(layout, &layout->lists[0], 0) > WENA_LIST_HEADER_HEIGHT + 40.0f);
+    assert(wena_board_mobile_lane_height(layout, &layout->swimlanes[0]) >
+           wena_board_mobile_list_height(layout, &layout->lists[0], 0) +
+           wena_board_mobile_list_height(layout, &layout->lists[1], 0));
+    /* Negative: desktop again, side by side. */
+    layout->mobile_list_width = 0.0f;
+    render(context, layout, 480.0f);
+    assert(visible_text(context, "First card", 640.0f, 480.0f, &first));
+    assert(visible_text(context, "Local card", 640.0f, 480.0f, &local));
+    assert(local.x > first.x + 200.0f);
+    /* Without handles the whole minicard, list header and swimlane bar drag. */
+    layout->card_drag_area = card_area_probe;
+    layout->list_drag_area = list_area_probe;
+    layout->swimlane_drag_area = lane_area_probe;
+    render(context, layout, 480.0f);
+    assert(card_area_w > 150.0f && list_area_w > 150.0f && lane_area_w > 150.0f);
+    assert(!control_point("Show desktop drag handles", NULL));
+    /* With them, only WeKan's arrows icons do; the card body still opens it. */
+    layout->drag_handles = 1;
+    render(context, layout, 480.0f);
+    assert(card_area_w == 20.0f && list_area_w == 22.0f && lane_area_w == 26.0f);
+    assert(control_point("minicard:Show desktop drag handles", NULL));
+    assert(control_point("swimlane-header:Show desktop drag handles", NULL));
+    memset(&interaction, 0, sizeof(interaction));
+    layout->card_interaction = &interaction;
+    assert(visible_text(context, "First card", 640.0f, 480.0f, &first));
+    {
+        int down;
+        for (down = 1; down >= 0; --down) {
+            nk_clear(context);
+            nk_input_begin(context);
+            nk_input_motion(context, (int)first.x, (int)first.y);
+            nk_input_button(context, NK_BUTTON_LEFT, (int)first.x, (int)first.y, down);
+            nk_input_end(context);
+            assert(wena_board_feature_render(context, layout, 640.0f, 480.0f));
+            if (!down) assert((interaction.actions & WENA_CARD_BODY_OPEN_DETAILS) != 0u);
+        }
+    }
+    /* Negative: a click on the handle itself drags, it does not open. */
+    render(context, layout, 480.0f);
+    assert(control_point("minicard:Show desktop drag handles", &first));
+    {
+        int down;
+        for (down = 1; down >= 0; --down) {
+            nk_clear(context);
+            nk_input_begin(context);
+            nk_input_motion(context, (int)first.x, (int)first.y);
+            nk_input_button(context, NK_BUTTON_LEFT, (int)first.x, (int)first.y, down);
+            nk_input_end(context);
+            assert(wena_board_feature_render(context, layout, 640.0f, 480.0f));
+            assert((interaction.actions & WENA_CARD_BODY_OPEN_DETAILS) == 0u);
+        }
+    }
+    layout->card_interaction = NULL;
+    /* Mobile mode's handle: a 44 pixel strip. */
+    layout->mobile_list_width = 580.0f;
+    render(context, layout, 900.0f);
+    assert(card_area_w == 44.0f);
+    layout->mobile_list_width = 0.0f;
+    layout->drag_handles = 0;
+    layout->card_drag_area = NULL;
+    layout->list_drag_area = NULL;
+    layout->swimlane_drag_area = NULL;
+}
+
 int main(void)
 {
     struct nk_context context;
@@ -503,6 +593,7 @@ int main(void)
     strcpy(lists[0].title, "Same list");
     render(&context, &layout, 480.0f);
     assert((nk_window_find(&context, "WeKan")->flags & NK_WINDOW_NO_SCROLLBAR) == 0);
+    mobile_and_handles(&context, &layout);
 
     wena_board_collapse_init(&collapse);
     layout.collapse = &collapse;

@@ -305,6 +305,7 @@ static void card_extent_set(const char *id, float height)
 
 float wena_board_list_width(const WenaBoardLayout *layout, const WenaList *list)
 {
+    if (layout != NULL && layout->mobile_list_width > 0.0f) return layout->mobile_list_width;
     if (list != NULL && list->width >= 100u && list->width <= 1000u) return (float)list->width;
     if (layout != NULL && layout->default_list_width >= 100.0f && layout->default_list_width <= 1000.0f)
         return layout->default_list_width;
@@ -403,8 +404,25 @@ static unsigned int wena_render_minicard(struct nk_context *context,
         nk_style_pop_style_item(context);
     }
     nk_layout_row_end(context);
-    /* The card below its caret row is the handle: drag to move, click to open. */
-    if (layout->card_drag_area) {
+    if (layout->card_drag_area && layout->drag_handles) {
+        /* WeKan's .handle: the arrows at the card's right, 28 down (a 44 wide
+         * strip to the bottom in mobile mode); only it drags, and the rest of
+         * the card opens it. */
+        struct nk_rect body = nk_rect(bounds.x, bounds.y + 18.0f, bounds.w, bounds.h - 18.0f);
+        handle = layout->mobile_list_width > 0.0f ?
+            nk_rect(bounds.x + bounds.w - 44.0f, bounds.y + 32.0f, 44.0f, bounds.h - 32.0f > 36.0f ? bounds.h - 32.0f : 36.0f) :
+            nk_rect(bounds.x + bounds.w - 21.0f, bounds.y + 28.0f, 20.0f, 20.0f);
+        wena_wekan_icon_draw(context, WENA_ICON_ARROWS, handle.x + (handle.w - 13.0f) / 2.0f,
+                             handle.y + (handle.h > 20.0f ? 3.0f : (handle.h - 13.0f) / 2.0f), 13.0f, WENA_WEKAN_ICON);
+        wena_ui_control_record(NULL, wena_ui_key_text("show-desktop-drag-handles", NULL),
+                               handle.x, handle.y, handle.w, handle.h);
+        clicked = 0;
+        layout->card_drag_area(context, layout->card_drag_context, card, position, &handle, &clicked);
+        if (nk_input_mouse_clicked(&context->input, NK_BUTTON_LEFT, body) &&
+            !nk_input_is_mouse_hovering_rect(&context->input, handle))
+            card_action |= WENA_CARD_BODY_OPEN_DETAILS;
+    } else if (layout->card_drag_area) {
+        /* The card below its caret row is the handle: drag to move, click to open. */
         handle = nk_rect(bounds.x, bounds.y + 18.0f, bounds.w, bounds.h - 18.0f);
         clicked = 0;
         layout->card_drag_area(context, layout->card_drag_context, card, position, &handle, &clicked);
@@ -542,6 +560,149 @@ static void wena_render_collapsed_title(struct nk_context *context, const char *
 
 #define LIST_GAP 24.0f
 #define LIST_COLLAPSED_WIDTH 44.0f
+/* One list: its border, header, cards and composer, in the widget the
+ * caller has laid out (side by side, or one under another in mobile mode). */
+static void wena_render_list_column(struct nk_context *context, const WenaBoardLayout *layout,
+                                    const WenaSwimlane *swimlane, const WenaList *list, size_t index,
+                                    int collapsed)
+{
+    unsigned int list_action;
+    size_t card_index, active_count;
+    int collapse_clicked, clicked;
+    struct nk_rect title_area, column, rest;
+    struct nk_panel *panel;
+
+    column = nk_widget_bounds(context);
+    wena_wekan_fill(context, column.x, column.y, 1.0f, column.h, WENA_WEKAN_LIST_BORDER, 0.0f);
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+                             nk_style_item_color(nk_rgba(0, 0, 0, 0)));
+    nk_style_push_vec2(context, &context->style.window.group_padding, nk_vec2(1.0f, 0.0f));
+    nk_style_push_vec2(context, &context->style.window.spacing, nk_vec2(0.0f, 0.0f));
+    /* WeKan's lists scroll with overlay scrollbars that take no room, so
+     * the header and minicards keep the list's whole width. */
+    nk_style_push_vec2(context, &context->style.window.scrollbar_size, nk_vec2(0.0f, 0.0f));
+    if (wena_model_group_begin_flags(context, "list/", layout->board->id,
+                                swimlane->id, list->id, 0)) {
+        nk_style_pop_vec2(context);
+        nk_style_pop_vec2(context);
+        nk_style_pop_style_item(context);
+        active_count=0;
+        for(card_index=0;card_index<layout->card_count;++card_index){
+            const WenaCard *card=&layout->cards[card_index];
+            if(!card->archived&&wena_same_id(card->board_id,layout->board->id)&&
+                wena_same_id(card->list_id,list->id))++active_count;
+        }
+        list_action = wena_list_header_render_wekan(context, list, active_count, collapsed,
+                                                    &collapse_clicked, &title_area);
+        if (collapse_clicked && layout->collapse != NULL &&
+            wena_board_collapse_set(layout->collapse, layout, WENA_COLLAPSE_LIST, list->id, !collapsed))
+            collapsed = !collapsed;
+        if (layout->list_drag_area && layout->drag_handles) {
+            /* WeKan's .list-header-handle: the arrows before the header's
+             * icons; the title is clicked to rename, as without handles. */
+            struct nk_rect handle = nk_rect(title_area.x + title_area.w - 132.0f, title_area.y - 23.0f,
+                                            22.0f, 22.0f);
+            wena_wekan_icon_draw(context, WENA_ICON_ARROWS, handle.x + 4.0f, handle.y + 4.0f, 14.0f,
+                                 WENA_WEKAN_ICON);
+            wena_ui_control_record(NULL, wena_ui_key_text("moveListPopup-title", "Move List"),
+                                   handle.x, handle.y, handle.w, handle.h);
+            clicked = 0;
+            layout->list_drag_area(context, layout->hierarchy_drag_context, list, index, &handle, &clicked);
+            if (nk_input_mouse_clicked(&context->input, NK_BUTTON_LEFT, title_area))
+                list_action |= WENA_LIST_HEADER_EDIT_TITLE;
+        } else if (layout->list_drag_area) {
+            clicked = 0;
+            layout->list_drag_area(context, layout->hierarchy_drag_context, list, index, &title_area, &clicked);
+            if (clicked) list_action |= WENA_LIST_HEADER_EDIT_TITLE;
+        } else if (layout->list_drag_handle) layout->list_drag_handle(context,
+            layout->hierarchy_drag_context,list,index);
+        wena_list_interaction(layout, list_action, swimlane, list);
+        if (collapsed) wena_render_collapsed_title(context, list->title);
+        if (!collapsed) {
+            nk_layout_row_dynamic(context, 8.0f, 1);
+            nk_spacing(context, 1);
+            /* WeKan's inline composer: above the cards for "Add Card to
+             * Top of List", in place of "+ Add Card" for the bottom. */
+            wena_ui_region("composer");
+            if (layout->card_composer)
+                (void)layout->card_composer(context, layout->card_composer_context, list, swimlane, 0);
+            wena_ui_region("minicard");
+            wena_render_cards(context, layout, list, swimlane);
+            wena_ui_region("composer");
+            if (!layout->card_composer ||
+                !layout->card_composer(context, layout->card_composer_context, list, swimlane, 1)) {
+                wena_ui_region("list");
+                nk_layout_row_begin(context, NK_STATIC, 28.0f, 2);
+                nk_layout_row_push(context, 21.0f);
+                nk_spacing(context, 1);
+                nk_layout_row_push(context, 120.0f);
+                if (wena_wekan_link(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_CARD),
+                                    WENA_WEKAN_FONT_LINK, WENA_WEKAN_ADD_CARD))
+                    wena_list_interaction(layout, WENA_LIST_HEADER_ADD_CARD | WENA_LIST_HEADER_ADD_CARD_BOTTOM,
+                                          swimlane, list);
+                nk_layout_row_end(context);
+            }
+            wena_ui_region("list");
+            /* Below the cards: a card dropped there goes last in this list. */
+            panel = context->current->layout;
+            rest = nk_rect(panel->bounds.x, panel->at_y, panel->bounds.w,
+                           panel->bounds.y + panel->bounds.h - panel->at_y);
+            if (layout->card_drop_area && rest.h > 0.0f)
+                layout->card_drop_area(context, layout->card_drop_context, list, swimlane, &rest);
+        }
+        nk_group_end(context);
+    } else {
+        nk_style_pop_vec2(context);
+        nk_style_pop_vec2(context);
+        nk_style_pop_style_item(context);
+    }
+    nk_style_pop_vec2(context);
+}
+
+static int wena_list_in_lane(const WenaBoardLayout *layout, const WenaSwimlane *swimlane,
+                             const WenaList *list)
+{
+    return !list->archived && wena_same_id(list->board_id, layout->board->id) &&
+           (layout->lists_view || list->swimlane_id[0] == '\0' ||
+            wena_same_id(list->swimlane_id, swimlane->id));
+}
+
+/* Mobile mode: a list as high as its header, its cards and "+ Add Card"; a
+ * collapsed one is WeKan's 60 pixel .mini-list. */
+#define MOBILE_LIST_GAP 8.0f
+float wena_board_mobile_list_height(const WenaBoardLayout *layout, const WenaList *list, int collapsed)
+{
+    size_t index;
+    float height;
+    if (collapsed) return 60.0f;
+    /* The header, the gap above the cards, "+ Add Card" and room below it. */
+    height = WENA_LIST_HEADER_HEIGHT + 8.0f + 28.0f + 40.0f;
+    for (index = 0; index < layout->card_count; ++index) {
+        const WenaCard *card = &layout->cards[index];
+        if (card->archived || !wena_same_id(card->board_id, layout->board->id) ||
+            !wena_same_id(card->list_id, list->id) ||
+            (layout->card_visible != NULL && !layout->card_visible(layout->card_visible_context, card)))
+            continue;
+        height += card_extent(card->id) + MINICARD_GAP;
+    }
+    return height;
+}
+
+/* The lists of one lane, one under another, and the gaps between them. */
+float wena_board_mobile_lane_height(const WenaBoardLayout *layout, const WenaSwimlane *swimlane)
+{
+    size_t index;
+    float height = 0.0f;
+    for (index = 0; index < layout->list_count; ++index) {
+        const WenaList *list = &layout->lists[index];
+        if (!wena_list_in_lane(layout, swimlane, list)) continue;
+        height += wena_board_mobile_list_height(layout, list,
+            wena_board_is_collapsed(layout->collapse, layout->board->id, WENA_COLLAPSE_LIST, list->id)) +
+            MOBILE_LIST_GAP;
+    }
+    return height;
+}
+
 static void wena_render_lists(struct nk_context *context,
                               const WenaBoardLayout *layout,
                               const WenaSwimlane *swimlane,
@@ -549,22 +710,30 @@ static void wena_render_lists(struct nk_context *context,
 {
     size_t index;
     size_t visible_count;
-    unsigned int list_action;
-    size_t card_index, active_count;
-    int collapsed, collapse_clicked, clicked;
-    struct nk_rect title_area, column, rest;
-    struct nk_panel *panel;
+    int collapsed;
 
     visible_count = 0;
-    for (index = 0; index < layout->list_count; ++index) {
-        const WenaList *list = &layout->lists[index];
-        if (!list->archived && wena_same_id(list->board_id, layout->board->id) &&
-            (layout->lists_view || list->swimlane_id[0] == '\0' ||
-             wena_same_id(list->swimlane_id, swimlane->id))) {
-            ++visible_count;
-        }
-    }
+    for (index = 0; index < layout->list_count; ++index)
+        if (wena_list_in_lane(layout, swimlane, &layout->lists[index])) ++visible_count;
     if (visible_count == 0 || visible_count > (size_t)INT_MAX / 2) {
+        return;
+    }
+    if (layout->mobile_list_width > 0.0f) {
+        /* WeKan's mobile mode: every list the whole width, one under another. */
+        for (index = 0; index < layout->list_count; ++index) {
+            const WenaList *list = &layout->lists[index];
+            if (!wena_list_in_lane(layout, swimlane, list)) continue;
+            collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
+                                                WENA_COLLAPSE_LIST, list->id);
+            nk_layout_row_begin(context, NK_STATIC, wena_board_mobile_list_height(layout, list, collapsed), 2);
+            nk_layout_row_push(context, 12.0f);
+            nk_spacing(context, 1);
+            nk_layout_row_push(context, layout->mobile_list_width);
+            wena_render_list_column(context, layout, swimlane, list, index, collapsed);
+            nk_layout_row_end(context);
+            nk_layout_row_dynamic(context, MOBILE_LIST_GAP, 1);
+            nk_label(context, "", NK_TEXT_LEFT);
+        }
         return;
     }
     /* Fixed-width columns stay readable; the containing lane scrolls sideways. */
@@ -574,86 +743,11 @@ static void wena_render_lists(struct nk_context *context,
     for (index = 0; index < layout->list_count; ++index) {
         const WenaList *list = &layout->lists[index];
 
-        if (list->archived || !wena_same_id(list->board_id, layout->board->id) ||
-            (!layout->lists_view && list->swimlane_id[0] != '\0' &&
-             !wena_same_id(list->swimlane_id, swimlane->id))) {
-            continue;
-        }
+        if (!wena_list_in_lane(layout, swimlane, list)) continue;
         collapsed = wena_board_is_collapsed(layout->collapse, layout->board->id,
                                             WENA_COLLAPSE_LIST, list->id);
         nk_layout_row_push(context, collapsed ? LIST_COLLAPSED_WIDTH : wena_board_list_width(layout, list));
-        column = nk_widget_bounds(context);
-        wena_wekan_fill(context, column.x, column.y, 1.0f, column.h, WENA_WEKAN_LIST_BORDER, 0.0f);
-        nk_style_push_style_item(context, &context->style.window.fixed_background,
-                                 nk_style_item_color(nk_rgba(0, 0, 0, 0)));
-        nk_style_push_vec2(context, &context->style.window.group_padding, nk_vec2(1.0f, 0.0f));
-        nk_style_push_vec2(context, &context->style.window.spacing, nk_vec2(0.0f, 0.0f));
-        /* WeKan's lists scroll with overlay scrollbars that take no room, so
-         * the header and minicards keep the list's whole width. */
-        nk_style_push_vec2(context, &context->style.window.scrollbar_size, nk_vec2(0.0f, 0.0f));
-        if (wena_model_group_begin_flags(context, "list/", layout->board->id,
-                                    swimlane->id, list->id, 0)) {
-            nk_style_pop_vec2(context);
-            nk_style_pop_vec2(context);
-            nk_style_pop_style_item(context);
-            active_count=0;
-            for(card_index=0;card_index<layout->card_count;++card_index){
-                const WenaCard *card=&layout->cards[card_index];
-                if(!card->archived&&wena_same_id(card->board_id,layout->board->id)&&
-                    wena_same_id(card->list_id,list->id))++active_count;
-            }
-            list_action = wena_list_header_render_wekan(context, list, active_count, collapsed,
-                                                        &collapse_clicked, &title_area);
-            if (collapse_clicked && layout->collapse != NULL &&
-                wena_board_collapse_set(layout->collapse, layout, WENA_COLLAPSE_LIST, list->id, !collapsed))
-                collapsed = !collapsed;
-            if (layout->list_drag_area) {
-                clicked = 0;
-                layout->list_drag_area(context, layout->hierarchy_drag_context, list, index, &title_area, &clicked);
-                if (clicked) list_action |= WENA_LIST_HEADER_EDIT_TITLE;
-            } else if (layout->list_drag_handle) layout->list_drag_handle(context,
-                layout->hierarchy_drag_context,list,index);
-            wena_list_interaction(layout, list_action, swimlane, list);
-            if (collapsed) wena_render_collapsed_title(context, list->title);
-            if (!collapsed) {
-                nk_layout_row_dynamic(context, 8.0f, 1);
-                nk_spacing(context, 1);
-                /* WeKan's inline composer: above the cards for "Add Card to
-                 * Top of List", in place of "+ Add Card" for the bottom. */
-                wena_ui_region("composer");
-                if (layout->card_composer)
-                    (void)layout->card_composer(context, layout->card_composer_context, list, swimlane, 0);
-                wena_ui_region("minicard");
-                wena_render_cards(context, layout, list, swimlane);
-                wena_ui_region("composer");
-                if (!layout->card_composer ||
-                    !layout->card_composer(context, layout->card_composer_context, list, swimlane, 1)) {
-                    wena_ui_region("list");
-                    nk_layout_row_begin(context, NK_STATIC, 28.0f, 2);
-                    nk_layout_row_push(context, 21.0f);
-                    nk_spacing(context, 1);
-                    nk_layout_row_push(context, 120.0f);
-                    if (wena_wekan_link(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_CARD),
-                                        WENA_WEKAN_FONT_LINK, WENA_WEKAN_ADD_CARD))
-                        wena_list_interaction(layout, WENA_LIST_HEADER_ADD_CARD | WENA_LIST_HEADER_ADD_CARD_BOTTOM,
-                                              swimlane, list);
-                    nk_layout_row_end(context);
-                }
-                wena_ui_region("list");
-                /* Below the cards: a card dropped there goes last in this list. */
-                panel = context->current->layout;
-                rest = nk_rect(panel->bounds.x, panel->at_y, panel->bounds.w,
-                               panel->bounds.y + panel->bounds.h - panel->at_y);
-                if (layout->card_drop_area && rest.h > 0.0f)
-                    layout->card_drop_area(context, layout->card_drop_context, list, swimlane, &rest);
-            }
-            nk_group_end(context);
-        } else {
-            nk_style_pop_vec2(context);
-            nk_style_pop_vec2(context);
-            nk_style_pop_style_item(context);
-        }
-        nk_style_pop_vec2(context);
+        wena_render_list_column(context, layout, swimlane, list, index, collapsed);
         nk_layout_row_push(context, LIST_GAP);
         nk_spacing(context, 1);
     }
@@ -705,8 +799,19 @@ static int wena_render_swimlane_header(struct nk_context *context,
                                           SWIMLANE_HEADER_HEIGHT));
     wena_wekan_text(context, swimlane->title, WENA_WEKAN_FONT_BOLD, title_color, NK_TEXT_CENTERED);
     nk_layout_space_end(context);
-    handle = nk_rect(area.x + 135.0f, area.y, area.w - 135.0f, area.h);
-    if (layout->swimlane_drag_area) {
+    if (layout->swimlane_drag_area && layout->drag_handles) {
+        /* WeKan's .swimlane-header-handle: the arrows after the +; the title
+         * is clicked to rename. */
+        struct nk_rect title = nk_rect(area.x + 160.0f, area.y, area.w - 160.0f, area.h);
+        handle = nk_rect(area.x + 130.0f, area.y, 26.0f, area.h);
+        wena_wekan_icon_draw(context, WENA_ICON_ARROWS, handle.x + 5.0f, handle.y + 9.0f, 15.0f, WENA_WEKAN_ICON);
+        wena_ui_control_record(NULL, wena_ui_key_text("show-desktop-drag-handles", NULL),
+                               handle.x, handle.y, handle.w, handle.h);
+        clicked = 0;
+        layout->swimlane_drag_area(context, layout->hierarchy_drag_context, swimlane, index, &handle, &clicked);
+        if (nk_input_mouse_clicked(&context->input, NK_BUTTON_LEFT, title)) actions |= WENA_SWIMLANE_EDIT_TITLE;
+    } else if (layout->swimlane_drag_area) {
+        handle = nk_rect(area.x + 135.0f, area.y, area.w - 135.0f, area.h);
         clicked = 0;
         layout->swimlane_drag_area(context, layout->hierarchy_drag_context, swimlane, index, &handle, &clicked);
         if (clicked) actions |= WENA_SWIMLANE_EDIT_TITLE;
@@ -775,6 +880,7 @@ int wena_board_layout_render(struct nk_context *context,
     info.collapse = layout->header_collapse;
     info.icons_collapsed = layout->header_icons_collapsed;
     info.drag_handles = layout->header_drag_handles;
+    info.mobile_mode = layout->header_mobile_mode;
     info.logo = layout->header_logo;
     info.logo_width = layout->header_logo_width;
     info.logo_height = layout->header_logo_height;
@@ -843,6 +949,9 @@ int wena_board_layout_render(struct nk_context *context,
                 layout->swimlane_drag_handle(context, layout->hierarchy_drag_context, swimlane, index);
         }
         if (lane_collapsed) continue;
+        /* Mobile mode: the lane as high as its stacked lists; the page scrolls. */
+        if (layout->mobile_list_width > 0.0f)
+            lane_height = (unsigned int)(wena_board_mobile_lane_height(layout, swimlane) + 30.0f);
         nk_layout_row_dynamic(context, (float)lane_height, 1);
         nk_style_push_style_item(context, &context->style.window.fixed_background,
                                  nk_style_item_color(nk_rgba(0, 0, 0, 0)));

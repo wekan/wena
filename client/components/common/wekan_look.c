@@ -466,6 +466,12 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_fill_triangle(out, x + P(0.5f), y + P(8), x + P(3.5f), y + P(5.5f), x + P(3.5f), y + P(10.5f), c);
         nk_fill_triangle(out, x + P(15.5f), y + P(8), x + P(12.5f), y + P(5.5f), x + P(12.5f), y + P(10.5f), c);
         break;
+    case WENA_ICON_MOBILE:
+        /* fa-mobile: the phone, its screen and its button. */
+        nk_stroke_rect(out, nk_rect(x + P(4), y + P(0.5f), P(8), P(15)), P(1.5f), t * 1.1f, c);
+        nk_fill_rect(out, nk_rect(x + P(5.5f), y + P(2.5f), P(5), P(9.5f)), 0.0f, c);
+        nk_fill_circle(out, nk_rect(x + P(7.2f), y + P(12.8f), P(1.6f), P(1.6f)), c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;
