@@ -79,6 +79,14 @@ def missing(output, catalog=CATALOG):
             if record[2] == "ready" and not (output / record[3]).is_file()]
 
 
+def missing_from(names, catalog=CATALOG):
+    """The ready targets whose release file is not among `names` - a
+    release's asset names - in catalog order."""
+    present = set(names)
+    return [target for target, record in targets(catalog).items()
+            if record[2] == "ready" and record[3] not in present]
+
+
 def main(argv):
     try:
         if len(argv) == 4 and argv[0] == "binary":
@@ -87,8 +95,12 @@ def main(argv):
             print(sums(argv[1]))
         elif len(argv) == 2 and argv[0] == "missing":
             print(" ".join(missing(argv[1])))
+        elif len(argv) == 2 and argv[0] == "missing-from":
+            # A file of names, one a line (gh release view --jq '.assets[].name').
+            names = Path(argv[1]).read_text(encoding="utf-8").split()
+            print(" ".join(missing_from(names)))
         else:
-            print("Usage: package_desktop_release.py binary TARGET FILE OUTPUT_DIR | sums OUTPUT_DIR | missing OUTPUT_DIR",
+            print("Usage: package_desktop_release.py binary TARGET FILE OUTPUT_DIR | sums OUTPUT_DIR | missing OUTPUT_DIR | missing-from NAMES_FILE",
                   file=sys.stderr)
             return 2
     except (OSError, ValueError) as error:

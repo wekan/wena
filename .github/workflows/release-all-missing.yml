@@ -1,0 +1,84 @@
+name: Release all missing
+
+# Adds to a release the files it lacks - the ones whose build failed when it
+# was made - without building the others again, and without a new version.
+#
+# It reads the release's files, takes every ready target of config/targets.tsv
+# whose wena-TARGET file is not there (scripts/package_desktop_release.py
+# missing-from), and runs release-all.yml for just those, from this branch:
+# so a build that was fixed after the release is built with the fix. Each
+# file is attached as soon as its own job has built and checked it, and the
+# release's SHA256SUMS is then written again over all of its files.
+#
+# Started by `./build.sh release missing` (menu option 3, "Build missing
+# files for the newest release"), or:
+#
+#   gh workflow run release-all-missing.yml -R wekan/wena
+#   gh workflow run release-all-missing.yml -R wekan/wena -f version=v0.07
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release to complete (e.g. v0.07). Empty = the newest release'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# Not the group release-all.yml takes: it runs inside this one, and the same
+# group would have it wait for itself.
+concurrency:
+  group: wena-release-all-missing-${{ inputs.version || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  missing:
+    name: What the release lacks
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.find.outputs.tag }}
+      targets: ${{ steps.find.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the release's files with the ready targets
+        id: find
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if test -n "$VERSION"; then
+            tag=$VERSION
+          else
+            tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          test -n "$tag"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' \
+            > "$RUNNER_TEMP/assets.txt"
+          targets=$(python3 scripts/package_desktop_release.py missing-from "$RUNNER_TEMP/assets.txt")
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Wena ${tag}"
+            if test -n "$targets"; then
+              echo "Building what it lacks: $targets"
+            else
+              echo "It has every ready target's file: nothing to build."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build and attach
+    needs: missing
+    if: ${{ needs.missing.outputs.targets != '' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-all.yml
+    with:
+      version: ${{ needs.missing.outputs.tag }}
+      targets: ${{ needs.missing.outputs.targets }}
+    # The Android release key, as release-all.yml's own run has it.
+    secrets: inherit

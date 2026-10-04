@@ -315,6 +315,7 @@ def test_release():
     # Build missing files: no commit, no version.
     status, runs, pushes, log, text, _ = release("missing")
     assert status == 0 and runs[0][-2:] == ["--ref", "main"] and log.strip() == "start"
+    assert runs[0][3] == "release-all-missing.yml", "only what the release lacks"
     assert text.startswith("# Upcoming Wena release")
     # Retried, then given up with how to fix it.
     assert release(workflow=[1, 1, 0])[0] == 0 and sleeps == [5, 5]

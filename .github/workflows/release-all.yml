@@ -6,13 +6,22 @@ name: Release all
 # with SDL2, SQLite, the font, the translations and the licenses linked in,
 # attached to the release beside one SHA256SUMS.
 #
+# Each file is attached the moment its own job has built and checked it
+# (scripts/attach_release_files.sh), so the release fills in as builds
+# finish and a slow or failed one holds back nothing else. The last job
+# writes SHA256SUMS over everything the release then has, and names what is
+# still missing.
+#
 # Started by `./build.sh release` (menu option 3, Release):
 #   - with a version (Release next version): the CHANGELOG already names it
 #     (`# v0.02 2026-10-04 Wena release`); this workflow tags the commit,
 #     creates the GitHub Release with that section as its notes, and builds
 #     and attaches;
-#   - without (Build missing files): builds and attaches to the newest
-#     existing release, replacing files of the same name.
+#   - without: builds and attaches to the newest existing release, replacing
+#     files of the same name.
+# `targets` builds only those (space-separated, e.g. "haiku-amd64
+# amigaos4-ppc"); release-all-missing.yml calls this workflow with what the
+# release lacks.
 #
 #   gh workflow run release-all.yml -R wekan/wena -f version=v0.02
 #
@@ -26,6 +35,20 @@ on:
         description: 'New release, as named in CHANGELOG.md (e.g. v0.02). Empty = attach to the newest release'
         required: false
         type: string
+      targets:
+        description: 'Only these targets, space-separated (e.g. haiku-amd64 amigaos4-ppc). Empty = all'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        required: false
+        type: string
+        default: ''
+      targets:
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -69,6 +92,10 @@ jobs:
   linux:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -90,10 +117,13 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - uses: docker/setup-qemu-action@v3
+        if: env.WANTED == 'true'
       - name: Build, smoke-test and package in ${{ matrix.image }} (${{ matrix.platform }})
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -103,14 +133,26 @@ jobs:
           docker run --rm --platform "$PLATFORM" -v "$PWD:/w" -w /w "$IMAGE" \
             sh scripts/build_desktop_release_container.sh "$TARGET"
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   bsd:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -127,9 +169,11 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Build, smoke-test and package on ${{ matrix.os }} ${{ matrix.version }} (${{ matrix.arch }})
+        if: env.WANTED == 'true'
         uses: cross-platform-actions/action@v1.6.0
         with:
           operating_system: ${{ matrix.os }}
@@ -139,14 +183,26 @@ jobs:
           cpu_count: 4
           run: sh scripts/build_desktop_release_vm.sh ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   macos:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -156,9 +212,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Build, smoke-test and package
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -174,14 +232,24 @@ jobs:
           "dist/release/$TARGET/wena" --licenses > /dev/null
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena" release
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   windows-build:
     name: ${{ matrix.target }} (cross)
     needs: prepare
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -189,14 +257,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Install MinGW-w64
-        if: matrix.target != 'windows-arm64'
+        if: env.WANTED == 'true' && matrix.target != 'windows-arm64'
         run: |
           sudo apt-get update
           sudo apt-get install --yes gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 binutils-mingw-w64
       - name: Cross-compile and package
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -207,6 +277,7 @@ jobs:
           sh scripts/build_desktop_release.sh "$TARGET" "dist/release/$TARGET/wena.exe"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.exe" release
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
@@ -214,7 +285,11 @@ jobs:
 
   windows-smoke:
     name: ${{ matrix.target }} (smoke test)
-    needs: windows-build
+    needs: [prepare, windows-build]
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -224,11 +299,16 @@ jobs:
           - { target: windows-arm64, runner: windows-11-arm }
     runs-on: ${{ matrix.runner }}
     steps:
+      # The attach script: the file is attached here, once it has run on Windows.
+      - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
       - uses: actions/download-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release
       - name: Create a board, reopen it, check the log
+        if: env.WANTED == 'true'
         shell: pwsh
         env:
           TARGET: ${{ matrix.target }}
@@ -245,10 +325,21 @@ jobs:
           if (-not (Test-Path $env:WENA_DATABASE)) { throw 'the board was not created' }
           Get-Content "$env:WENA_LOG_DIR\desktop.log"
           if (-not (Select-String -Path "$env:WENA_LOG_DIR\desktop.log" -Pattern 'exit status 0' -Quiet)) { throw 'no clean exit logged' }
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   amiga:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -261,9 +352,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Build in the pinned amigadev/crosstools image and package
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -275,14 +368,26 @@ jobs:
           python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena" release
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   android:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -292,9 +397,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Build, sign and package the APK
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -325,14 +432,26 @@ jobs:
           python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena.apk"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.apk" release
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   ios:
     name: ${{ matrix.target }}
     needs: prepare
+    permissions:
+      contents: write
+    env:
+      WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), format(' {0} ', matrix.target)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -342,9 +461,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        if: env.WANTED == 'true'
         with:
           submodules: true
       - name: Build the unsigned IPA, smoke-test in the Simulator, and package
+        if: env.WANTED == 'true'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -367,13 +488,21 @@ jobs:
           grep -q "Wena desktop smoke passed" "$RUNNER_TEMP/smoke.log"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.ipa" release
       - uses: actions/upload-artifact@v4
+        if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      - name: Attach to ${{ needs.prepare.outputs.tag }}
+        if: env.WANTED == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: sh scripts/attach_release_files.sh "$TAG" release
 
   attach:
-    name: Attach to the release
+    name: Checksums of the release
     needs: [prepare, linux, bsd, macos, windows-build, windows-smoke, amiga, android, ios]
     if: ${{ !cancelled() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-24.04
@@ -382,37 +511,37 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: wena-*
-          path: release
-          merge-multiple: true
-      - name: Checksum and upload what was built
+      - name: SHA256SUMS over every file the release has, and what it still lacks
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           set -euo pipefail
+          # The build jobs attached their files as they finished; this run's
+          # and earlier runs' alike are summed, so a release completed by
+          # release-all-missing.yml keeps one SHA256SUMS for all of them.
+          mkdir -p release
+          gh release download --repo "$GITHUB_REPOSITORY" "$TAG" --pattern 'wena-*' --dir release --clobber
           python3 scripts/package_desktop_release.py sums release
           (cd release && sha256sum -c SHA256SUMS)
-          mapfile -t assets < <(find release -maxdepth 1 -type f -print | LC_ALL=C sort)
           uploaded=false
           for attempt in 1 2 3; do
-            if timeout 15m gh release upload --repo "$GITHUB_REPOSITORY" "$TAG" "${assets[@]}" --clobber; then
+            if timeout 15m gh release upload --repo "$GITHUB_REPOSITORY" "$TAG" release/SHA256SUMS --clobber; then
               uploaded=true
               break
             fi
             echo "::warning::Upload attempt ${attempt}/3 failed"
           done
           test "$uploaded" = true
+          mapfile -t assets < <(find release -maxdepth 1 -type f -print | LC_ALL=C sort)
           missing=$(python3 scripts/package_desktop_release.py missing release)
           {
             echo "### Wena on ${TAG}"
             printf -- '- %s\n' "${assets[@]#release/}"
-            if test -n "$missing"; then echo "**Not built:** $missing"; fi
+            if test -n "$missing"; then echo "**Not built:** $missing (run release-all-missing.yml after a fix)"; fi
           } >> "$GITHUB_STEP_SUMMARY"
           if test -n "$missing"; then
-            echo "::error::Not built: $missing (the others are attached; rerun to complete)"
+            echo "::error::Not built: $missing (the others are attached; release-all-missing.yml builds just these)"
             exit 1
           fi

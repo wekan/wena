@@ -262,8 +262,9 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
              push the branch and start release-all.yml with that version,
              which tags it, publishes the release with the section as its notes
              and attaches the desktop executable of every platform.
-    missing: push the branch and start release-all.yml without a version,
-             which builds and attaches to the newest existing release."""
+    missing: push the branch and start release-all-missing.yml, which
+             builds only the files the newest release lacks - those whose
+             build failed - and attaches each as it is built."""
     import time
     sleep = sleep or time.sleep
     if mode not in ("next", "missing"):
@@ -283,7 +284,8 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
     if git_output("status", "--porcelain", root=root):
         print("Commit or stash your changes first: a release builds only what is committed.", file=sys.stderr)
         return 1
-    workflow = ["gh", "workflow", "run", "release-all.yml", "-R", repository, "--ref", branch]
+    name = "release-all.yml" if mode == "next" else "release-all-missing.yml"
+    workflow = ["gh", "workflow", "run", name, "-R", repository, "--ref", branch]
     if mode == "next":
         versions = release_version_module(root)
         changelog_path = Path(root) / "CHANGELOG.md"
@@ -313,12 +315,12 @@ def release(mode="next", root=ROOT, run=subprocess.run, sleep=None, today=None):
         return 1
     for attempt in range(1, 4):
         if run(workflow).returncode == 0:
-            print(f"Started release-all.yml. Follow it at https://github.com/{repository}/actions", flush=True)
+            print(f"Started {name}. Follow it at https://github.com/{repository}/actions", flush=True)
             return 0
         if attempt < 3:
             print(f"Attempt {attempt}/3 failed; retrying in 5 seconds.", file=sys.stderr)
             sleep(5)
-    print("Could not start release-all.yml. A token needs the workflow scope "
+    print(f"Could not start {name}. A token needs the workflow scope "
           "(gh auth refresh -h github.com -s workflow), and the workflow must be on "
           f"{branch}. Start it at https://github.com/{repository}/actions", file=sys.stderr)
     return 1
@@ -463,6 +465,7 @@ TEST_SUITES = (
     ('aga-palette', 'test_aga_palette.sh', 'AmigaOS 3 AGA palette: WeKan colors exact, every color near, frame conversion'),
     ('amiga-aga', 'test_amiga_aga.py', 'AmigaOS 3 AGA build: SDL patch, desktop AGA branch, catalog and release check'),
     ('release-link-flags', 'test_release_link_flags.py', "Haiku links SDL's C++ runtime, no other release system does"),
+    ('attach-release-files', 'test_attach_release_files.py', 'Each release file attached as soon as its build job finishes'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),

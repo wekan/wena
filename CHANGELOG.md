@@ -20,6 +20,35 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Each release file is attached as soon as its own build passes, and Release all missing adds what a release lacks</summary>
+
+- `release-all.yml` attached nothing until every build had finished, so one
+  slow or failed job held back all the others' files. Now each build job
+  attaches its own file the moment it has been built and checked
+  (`scripts/attach_release_files.sh`, three tries, replacing a file of the
+  same name). Windows files are attached after their smoke test on Windows.
+  The last job no longer uploads binaries: it downloads what the release has,
+  writes `SHA256SUMS` over all of it, and names anything still missing.
+- `release-all.yml` builds only the given `targets` when asked, and can be
+  called by another workflow.
+- The new `release-all-missing.yml` ("Release all missing") compares the
+  newest release's files (or a named release's) with the ready targets
+  (`package_desktop_release.py missing-from`). It runs `release-all.yml` for
+  just the missing ones, from the current branch, so a build fixed after the
+  release is built with its fix. It never makes a new version, and starts
+  nothing when nothing is missing. Menu option 3's "Build missing files for
+  the newest release" now starts it.
+- Tests: `release-workflow` checks that every step is limited to the asked-for
+  targets, that each job's last step attaches its file, the Windows order,
+  the checksums job and the missing workflow; `attach-release-files` checks
+  the script with a fake `gh`; `build-entrypoints` checks the menu's
+  workflow. Both workflows pass actionlint.
+
+Thanks to xet7.
+
+</details>
+
 # v0.07 2026-10-04 Wena release
 
 <details>

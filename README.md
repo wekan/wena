@@ -150,12 +150,15 @@ throwaway debug key and warns.
 New entries go under `# Upcoming Wena release` in [CHANGELOG.md](CHANGELOG.md).
 Menu option 3) Release (`./build.sh release next`) numbers that section after
 the newest release (v0.01, v0.02, ... v9.99, v10.00), commits
-`Prepare vX release`, pushes, and starts `release-all.yml`, the only release
-workflow. It publishes the release with the section as its notes, builds and
-smoke-tests every platform - natively, under QEMU, in a BSD or Haiku virtual
-machine, or by cross-compiling - and attaches each file and `SHA256SUMS`. `./build.sh release missing`
-builds and attaches to the newest release without a new number. Release needs
-the GitHub CLI logged in and no uncommitted changes.
+`Prepare vX release`, pushes, and starts `release-all.yml`. It publishes the
+release with the section as its notes, builds and smoke-tests every platform -
+natively, under QEMU, in a BSD or Haiku virtual machine, or by cross-compiling -
+and attaches each file as soon as its own build has passed, so the release
+fills in as builds finish; its last job writes `SHA256SUMS` over them all.
+`./build.sh release missing` starts `release-all-missing.yml`, which builds
+only the files the newest release lacks (those whose build failed, once fixed)
+and adds them, without a new number. Release needs the GitHub CLI logged in and
+no uncommitted changes.
 
 `./build.sh build desktop-package` creates a verified local Linux amd64 archive
 with the desktop, licenses, checksums and actual host dependency requirements.
