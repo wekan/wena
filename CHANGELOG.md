@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.05 2026-10-04 Wena release
 
 <details>
 <summary>All of WeKan's 35 board views are in the Board View menu, and its 16 report charts are drawn</summary>
