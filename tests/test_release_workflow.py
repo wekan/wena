@@ -62,12 +62,16 @@ def main() -> None:
         assert "WANTED: ${{ inputs.targets == '' || contains(format(' {0} ', inputs.targets), " \
                "format(' {0} ', matrix.target)) }}" in block, job
         steps = block[block.index("    steps:"):]
-        assert steps.count("      - ") == steps.count("if: env.WANTED == 'true'"), f"{job}: an ungated step"
+        assert steps.count("      - ") == steps.count("env.WANTED == 'true'"), f"{job}: an ungated step"
         attaching = job_block(workflow, "windows-smoke") if job == "windows-build" else block
         assert 'run: sh scripts/attach_release_files.sh "$TAG" release' in attaching, job
         assert "TAG: ${{ needs.prepare.outputs.tag }}" in attaching and "contents: write" in attaching, job
         assert attaching.rstrip().endswith('run: sh scripts/attach_release_files.sh "$TAG" release'), \
             f"{job}: attaching is not the last step"
+        # A cancelled run still attaches what was built: the step runs after a
+        # cancel, but only when its own build step succeeded.
+        assert attaching.count("        id: build\n") == 1, f"{job}: no single build step"
+        assert "if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}" in attaching, job
     assert sorted(built) == sorted(ready), "every ready target is built exactly once"
     # Planned targets are not built yet.
     for target, record in catalog.items():
@@ -98,6 +102,9 @@ def main() -> None:
     # Checksums: after every job, over all the release's files, and a failure
     # naming what is missing.
     attach = job_block(workflow, "attach")
+    assert "if: ${{ always() && needs.prepare.result == 'success' }}" in attach, "cancelled runs skip SHA256SUMS"
+    # Negative: nothing that attaches or sums is skipped by a cancel.
+    assert "!cancelled()" not in workflow
     assert "gh release download" in attach and "--pattern 'wena-*'" in attach
     assert "release/SHA256SUMS --clobber" in attach
     for job in ["prepare", *[jobs[kind] for kind in {record[1] for record in ready.values()}]]:

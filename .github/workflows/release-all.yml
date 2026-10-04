@@ -123,6 +123,7 @@ jobs:
       - uses: docker/setup-qemu-action@v3
         if: env.WANTED == 'true'
       - name: Build, smoke-test and package in ${{ matrix.image }} (${{ matrix.platform }})
+        id: build
         if: env.WANTED == 'true'
         shell: bash
         env:
@@ -138,8 +139,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -173,6 +176,7 @@ jobs:
         with:
           submodules: true
       - name: Build, smoke-test and package on ${{ matrix.os }} ${{ matrix.version }} (${{ matrix.arch }})
+        id: build
         if: env.WANTED == 'true'
         uses: cross-platform-actions/action@v1.6.0
         with:
@@ -188,8 +192,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -216,6 +222,7 @@ jobs:
         with:
           submodules: true
       - name: Build, smoke-test and package
+        id: build
         if: env.WANTED == 'true'
         shell: bash
         env:
@@ -237,8 +244,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -308,6 +317,7 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release
       - name: Create a board, reopen it, check the log
+        id: build
         if: env.WANTED == 'true'
         shell: pwsh
         env:
@@ -325,8 +335,10 @@ jobs:
           if (-not (Test-Path $env:WENA_DATABASE)) { throw 'the board was not created' }
           Get-Content "$env:WENA_LOG_DIR\desktop.log"
           if (-not (Select-String -Path "$env:WENA_LOG_DIR\desktop.log" -Pattern 'exit status 0' -Quiet)) { throw 'no clean exit logged' }
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -356,6 +368,7 @@ jobs:
         with:
           submodules: true
       - name: Build in the pinned amigadev/crosstools image and package
+        id: build
         if: env.WANTED == 'true'
         shell: bash
         env:
@@ -373,8 +386,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -401,6 +416,7 @@ jobs:
         with:
           submodules: true
       - name: Build, sign and package the APK
+        id: build
         if: env.WANTED == 'true'
         shell: bash
         env:
@@ -437,8 +453,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -465,6 +483,7 @@ jobs:
         with:
           submodules: true
       - name: Build the unsigned IPA, smoke-test in the Simulator, and package
+        id: build
         if: env.WANTED == 'true'
         shell: bash
         env:
@@ -493,8 +512,10 @@ jobs:
           name: wena-${{ matrix.target }}
           path: release/
           if-no-files-found: error
+      # Also when the run is cancelled after this file was built: a finished
+      # file is attached whatever happens to the rest of the run.
       - name: Attach to ${{ needs.prepare.outputs.tag }}
-        if: env.WANTED == 'true'
+        if: ${{ always() && env.WANTED == 'true' && steps.build.outcome == 'success' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -504,7 +525,8 @@ jobs:
   attach:
     name: Checksums of the release
     needs: [prepare, linux, bsd, macos, windows-build, windows-smoke, amiga, android, ios]
-    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
+    # always(): also after a cancel, so SHA256SUMS covers what was attached.
+    if: ${{ always() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

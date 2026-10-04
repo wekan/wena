@@ -30,6 +30,10 @@ Thanks to xet7.
   same name). Windows files are attached after their smoke test on Windows.
   The last job no longer uploads binaries: it downloads what the release has,
   writes `SHA256SUMS` over all of it, and names anything still missing.
+- A cancelled run used to attach nothing. Now each attach step runs even
+  after a cancel, whenever its own build step succeeded, and the
+  `SHA256SUMS` job runs after a cancel too (`always()`). So every file that
+  finished building is on the release, with its checksum.
 - `release-all.yml` builds only the given `targets` when asked, and can be
   called by another workflow.
 - The new `release-all-missing.yml` ("Release all missing") compares the
@@ -40,7 +44,8 @@ Thanks to xet7.
   nothing when nothing is missing. Menu option 3's "Build missing files for
   the newest release" now starts it.
 - Tests: `release-workflow` checks that every step is limited to the asked-for
-  targets, that each job's last step attaches its file, the Windows order,
+  targets, that each job's last step attaches its file even after a cancel,
+  that no job or step is skipped by a cancel, the Windows order,
   the checksums job and the missing workflow; `attach-release-files` checks
   the script with a fake `gh`; `build-entrypoints` checks the menu's
   workflow. Both workflows pass actionlint.
