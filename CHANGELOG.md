@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.04 2026-10-04 Wena release
 
 <details>
 <summary>WeKan itself opens what Wena wrote: checked with WeKan's bundle on the same wekan-files</summary>
