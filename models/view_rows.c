@@ -4,6 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Bounded copy that always terminates (strncpy trips GCC's truncation check). */
+static void copy_text(char *out, size_t capacity, const char *text)
+{
+    size_t at = 0;
+    if (capacity == 0) return;
+    while (text != NULL && text[at] != '\0' && at + 1 < capacity) { out[at] = text[at]; at++; }
+    out[at] = '\0';
+}
+
 #define DAY_MS 86400000.0
 
 /* Array.prototype.sort is stable; a merge sort is too. */
@@ -280,8 +289,8 @@ static WenaTimeGroup *time_group(WenaTimeGroup *groups, size_t *count, const cha
     size_t i;
     for (i = 0; i < *count; ++i) if (!strcmp(groups[i].key, key)) return &groups[i];
     memset(&groups[*count], 0, sizeof(groups[*count]));
-    strncpy(groups[*count].key, key, sizeof(groups[*count].key) - 1);
-    strncpy(groups[*count].label, label, sizeof(groups[*count].label) - 1);
+    copy_text(groups[*count].key, sizeof(groups[*count].key), key);
+    copy_text(groups[*count].label, sizeof(groups[*count].label), label);
     return &groups[(*count)++];
 }
 
@@ -396,8 +405,8 @@ static WenaAssigneeGroup *group_of(WenaAssigneeGroup *groups, long *count, const
     long i;
     for (i = 0; i < *count; ++i) if (!strcmp(groups[i].key, key)) return &groups[i];
     memset(&groups[*count], 0, sizeof(groups[*count]));
-    strncpy(groups[*count].key, key, sizeof(groups[*count].key) - 1);
-    strncpy(groups[*count].label, label, sizeof(groups[*count].label) - 1);
+    copy_text(groups[*count].key, sizeof(groups[*count].key), key);
+    copy_text(groups[*count].label, sizeof(groups[*count].label), label);
     groups[*count].cards = (const WenaViewCard **)malloc((cards + 1) * sizeof(*groups[*count].cards));
     if (groups[*count].cards == NULL) return NULL;
     return &groups[(*count)++];
@@ -525,7 +534,7 @@ static void add_id(char ids[][WENA_VIEW_ID], size_t *count, size_t capacity, con
     size_t i;
     if (id == NULL || !id[0]) return;
     for (i = 0; i < *count; ++i) if (!strcmp(ids[i], id)) return;
-    if (*count < capacity) { strncpy(ids[*count], id, WENA_VIEW_ID - 1); ids[*count][WENA_VIEW_ID - 1] = '\0'; ++*count; }
+    if (*count < capacity) { copy_text(ids[*count], WENA_VIEW_ID, id); ++*count; }
 }
 
 typedef struct Future {
@@ -573,7 +582,7 @@ size_t wena_view_timeline(const WenaViewData *data, int live, double at, WenaTim
         for (j = 0; j < n; ++j) {
             const WenaViewActivity *a = future[j].activity;
             if (!strcmp(a->type, "createCard")) state->existed = 0;
-            else if (!strcmp(a->type, "a-changedTitle")) { strncpy(state->title, a->old_value, sizeof(state->title) - 1); state->title[sizeof(state->title) - 1] = '\0'; }
+            else if (!strcmp(a->type, "a-changedTitle")) { copy_text(state->title, sizeof(state->title), a->old_value); }
             else if (!strcmp(a->type, "a-changedDescription")) strcpy(state->description, a->old_value);
             else if (!strcmp(a->type, "a-dueAt")) { if (!strcmp(a->time_key, "dueAt")) state->due_at = a->time_old; }
             else if (!strcmp(a->type, "moveCard")) {

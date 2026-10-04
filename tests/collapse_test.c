@@ -19,6 +19,8 @@ void nk_layout_row_push(struct nk_context *context, float value)
 { (void)context; (void)value; }
 void nk_layout_row_end(struct nk_context *context)
 { (void)context; }
+struct nk_image nk_image_ptr(void *ptr) { struct nk_image image; image.ptr = ptr; return image; }
+void nk_image(struct nk_context *context, struct nk_image image) { (void)context; (void)image; }
 void nk_label(struct nk_context *context, const char *text, int alignment)
 {
     (void)alignment;

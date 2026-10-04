@@ -20,7 +20,12 @@ void wena_notifications_text(const WenaWekanNotification *item, char *out, size_
     out[0] = '\0';
     if (item == NULL) return;
     if (item->user[0] && item->title[0] && capacity > strlen(item->user) + strlen(item->title) + 3)
-        sprintf(out, "%s - %s", item->user, item->title);
+    {
+        size_t user = strlen(item->user), title = strlen(item->title);
+        memcpy(out, item->user, user);
+        memcpy(out + user, " - ", 3);
+        memcpy(out + user + 3, item->title, title + 1);
+    }
     else if (strlen(item->user[0] ? item->user : item->title) < capacity)
         strcpy(out, item->user[0] ? item->user : item->title);
 }

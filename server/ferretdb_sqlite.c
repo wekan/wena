@@ -61,7 +61,7 @@ static int exec(sqlite3 *db, const char *sql)
 
 int wena_ferretdb_prepare(sqlite3 *db, const char *schema)
 {
-    char sql[512];
+    char sql[4096];
     if (db == NULL || !plain(schema)) return 0;
     /* FerretDB's metadata/registry.go, byte for byte. */
     sprintf(sql, "CREATE TABLE IF NOT EXISTS \"%s\".\"_ferretdb_collections\" (name TEXT NOT NULL UNIQUE "
@@ -73,7 +73,7 @@ int wena_ferretdb_prepare(sqlite3 *db, const char *schema)
 static int lookup(sqlite3 *db, const char *schema, const char *column, const char *value,
                   char *table, size_t capacity)
 {
-    char sql[256];
+    char sql[4096];
     sqlite3_stmt *statement = NULL;
     const unsigned char *found;
     int ok = 0;
@@ -104,7 +104,7 @@ static void uuid4(char out[37])
 int wena_ferretdb_collection(sqlite3 *db, const char *schema, const char *collection, int create,
                              char *table, size_t capacity)
 {
-    char name[WENA_FERRETDB_TABLE_CAPACITY], sql[768], uuid[37];
+    char name[WENA_FERRETDB_TABLE_CAPACITY], sql[4096], uuid[37];
     unsigned long hash;
     int dqs = 1, ok;
     sqlite3_stmt *statement = NULL;
@@ -160,7 +160,7 @@ int wena_ferretdb_collection(sqlite3 *db, const char *schema, const char *collec
 static int set_field(sqlite3 *db, const char *schema, const char *table, const char *id,
                      const WenaFerretField *field)
 {
-    char sql[1800], value_path[240], type_path[280], order_path[240], parent[110];
+    char sql[4096], value_path[240], type_path[280], order_path[240], parent[110];
     const char *dot, *name;
     sqlite3_stmt *statement = NULL;
     int ok;
@@ -215,7 +215,7 @@ int wena_ferretdb_update(sqlite3 *db, const char *schema, const char *table, con
 int wena_ferretdb_unset(sqlite3 *db, const char *schema, const char *table, const char *id,
                         const char *const *keys, size_t count)
 {
-    char sql[1024];
+    char sql[4096];
     sqlite3_stmt *statement;
     size_t index;
     int ok = 1;
@@ -250,7 +250,7 @@ int wena_ferretdb_unset(sqlite3 *db, const char *schema, const char *table, cons
 int wena_ferretdb_insert(sqlite3 *db, const char *schema, const char *table, const char *id,
                          const WenaFerretField *fields, size_t count)
 {
-    char sql[512];
+    char sql[4096];
     sqlite3_stmt *statement = NULL;
     int ok;
     if (db == NULL || !plain(schema) || !plain(table) || id == NULL || id[0] == '\0') return 0;
@@ -277,7 +277,7 @@ int wena_ferretdb_insert(sqlite3 *db, const char *schema, const char *table, con
 
 int wena_ferretdb_delete(sqlite3 *db, const char *schema, const char *table, const char *id)
 {
-    char sql[256];
+    char sql[4096];
     sqlite3_stmt *statement = NULL;
     int ok;
     if (db == NULL || !plain(schema) || !plain(table) || id == NULL) return 0;

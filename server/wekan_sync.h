@@ -105,6 +105,12 @@ int wena_wekan_sync_notifications(sqlite3 *db, const char *actor, WenaWekanNotif
 /* WeKan's read checkbox: the entry's `read` becomes now (a Date) or null. */
 int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int index, int read);
 
+/* WeKan's "Show desktop drag handles": users.profile.showDesktopDragHandles,
+ * false when not set; setting writes it as WeKan's toggle does. Reading
+ * returns -1 on failure. */
+int wena_wekan_sync_drag_handles(sqlite3 *db, const char *actor);
+int wena_wekan_sync_set_drag_handles(sqlite3 *db, const char *actor, int show);
+
 /* The Map view's writes, as WeKan's Card.setMapPosition (each clamped to
  * 0..100 and rounded to hundredths; a value that is not a number removes
  * the card from the map) and Board.setMapImage(null). */

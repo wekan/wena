@@ -218,7 +218,7 @@ static int load_cards(sqlite3 *db, const char *cards, const char *where, const c
 
 static int load_board(sqlite3 *db, const char *board, WenaViewData *data)
 {
-    char boards[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    char boards[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[4096];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0;
     int step;
@@ -275,7 +275,7 @@ static int load_board(sqlite3 *db, const char *board, WenaViewData *data)
 
 static int load_custom_fields(sqlite3 *db, const char *board, WenaViewData *data)
 {
-    char fields[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    char fields[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[4096];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0, item_capacity = 0;
     int step;
@@ -463,7 +463,7 @@ static int load_lists_where(sqlite3 *db, const char *where, const char *bind, We
 
 static int load_swimlanes(sqlite3 *db, const char *board, WenaViewData *data)
 {
-    char swimlanes[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    char swimlanes[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[4096];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0;
     int step;
@@ -489,7 +489,7 @@ static int load_swimlanes(sqlite3 *db, const char *board, WenaViewData *data)
 
 static int load_users(sqlite3 *db, WenaViewData *data)
 {
-    char users[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[512];
+    char users[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[4096];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0;
     int step;
@@ -511,7 +511,7 @@ static int load_users(sqlite3 *db, WenaViewData *data)
 
 static int load_activities(sqlite3 *db, const char *board, WenaViewData *data)
 {
-    char activities[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    char activities[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[4096];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0;
     int step;
@@ -705,7 +705,7 @@ int wena_wekan_views_load_all(sqlite3 *db, const char *actor, WenaViewData *data
      * user's boards, not archived, not WeKan's helper boards, by sort), and
      * their lists. */
     {
-        char sql[1024], lists_where[1024];
+        char sql[4096], lists_where[1024];
         sqlite3_stmt *statement = NULL;
         size_t capacity = 0;
         int step;
@@ -731,7 +731,7 @@ int wena_wekan_views_load_all(sqlite3 *db, const char *actor, WenaViewData *data
     }
     /* Each card's board, by title, for the calendar to name. */
     for (i = 0; i < data->card_count; ++i) {
-        char sql[512];
+        char sql[4096];
         sqlite3_stmt *statement = NULL;
         sprintf(sql, "SELECT _ferretdb_sjson->>'title' FROM %s WHERE _ferretdb_sjson->'_id' = json_quote(?1)", boards);
         if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) continue;

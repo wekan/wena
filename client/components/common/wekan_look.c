@@ -104,8 +104,15 @@ void wena_ui_control_record(const char *region, const char *name,
     control = &controls[control_count++];
     control->name[0] = '\0';
     strncat(control->name, name, sizeof(control->name) - 1);
-    control->region[0] = '\0';
-    strncat(control->region, region != NULL ? region : current_region, sizeof(control->region) - 1);
+    {
+        const char *source = region != NULL ? region : current_region;
+        size_t at = 0;
+        while (source[at] != '\0' && at + 1 < sizeof(control->region)) {
+            control->region[at] = source[at];
+            at++;
+        }
+        control->region[at] = '\0';
+    }
     control->x = x; control->y = y; control->w = w; control->h = h;
 }
 
@@ -436,6 +443,28 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_fill_circle(out, nk_rect(x + P(3.5f), y + P(1), P(9), P(9)), c);
         nk_fill_triangle(out, x + P(4.2f), y + P(7.5f), x + P(11.8f), y + P(7.5f), x + P(8), y + P(15), c);
         nk_fill_circle(out, nk_rect(x + P(6.5f), y + P(3.5f), P(3), P(3)), color_of(WENA_WEKAN_PANEL));
+        break;
+    case WENA_ICON_ANGLES_RIGHT:
+        /* fa-angle-double-right: two chevrons. */
+        line(out, x + P(3), y + P(3), x + P(8), y + P(8), t * 1.2f, c);
+        line(out, x + P(8), y + P(8), x + P(3), y + P(13), t * 1.2f, c);
+        line(out, x + P(8), y + P(3), x + P(13), y + P(8), t * 1.2f, c);
+        line(out, x + P(13), y + P(8), x + P(8), y + P(13), t * 1.2f, c);
+        break;
+    case WENA_ICON_DESKTOP:
+        /* fa-desktop: the screen on its stand. */
+        nk_stroke_rect(out, nk_rect(x + P(1), y + P(2), P(14), P(9)), P(1), t * 1.1f, c);
+        nk_fill_rect(out, nk_rect(x + P(7), y + P(11), P(2), P(2.5f)), 0.0f, c);
+        nk_fill_rect(out, nk_rect(x + P(4.5f), y + P(13.5f), P(7), P(1.5f)), 0.0f, c);
+        break;
+    case WENA_ICON_ARROWS:
+        /* fa-arrows: the four ways a card moves. */
+        line(out, x + P(8), y + P(1.5f), x + P(8), y + P(14.5f), t, c);
+        line(out, x + P(1.5f), y + P(8), x + P(14.5f), y + P(8), t, c);
+        nk_fill_triangle(out, x + P(8), y + P(0.5f), x + P(5.5f), y + P(3.5f), x + P(10.5f), y + P(3.5f), c);
+        nk_fill_triangle(out, x + P(8), y + P(15.5f), x + P(5.5f), y + P(12.5f), x + P(10.5f), y + P(12.5f), c);
+        nk_fill_triangle(out, x + P(0.5f), y + P(8), x + P(3.5f), y + P(5.5f), x + P(3.5f), y + P(10.5f), c);
+        nk_fill_triangle(out, x + P(15.5f), y + P(8), x + P(12.5f), y + P(5.5f), x + P(12.5f), y + P(10.5f), c);
         break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:

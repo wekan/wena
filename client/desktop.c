@@ -27,6 +27,7 @@
 #include "components/boards/board_views.h"
 #include "../server/wekan_views.h"
 #include "../models/image_decode.h"
+#include "platform/logo_data.h"
 #include <time.h>
 #include "../server/board_search.h"
 #include "features/card_description.h"
@@ -1325,6 +1326,8 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaAllBoardsView all_boards_view;
     WenaSearchSidebar search;
     WenaDesktopViews views;
+    SDL_Texture *logo_texture;
+    int logo_width, logo_height, header_icons_collapsed, drag_handles;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
     size_t notification_count;
     int notifications_open;
@@ -1411,6 +1414,10 @@ int DESKTOP_MAIN(int argc, char **argv)
     memset(&all_boards_view, 0, sizeof(all_boards_view));
     memset(&search, 0, sizeof(search));
     memset(&views, 0, sizeof(views));
+    logo_texture = NULL;
+    logo_width = logo_height = 0;
+    header_icons_collapsed = 0;
+    drag_handles = 0;
     notification_count = 0;
     notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
@@ -1722,6 +1729,7 @@ board_session:
             layout.lists_view = layout.board_view == WENA_BOARD_VIEW_LISTS;
         }
         desktop_views_reset(&views);
+        drag_handles = wena_wekan_sync_drag_handles(database, actor_id) == 1;
         views.database = database;
         views.actor = actor_id;
         views.renderer = renderer;
@@ -1863,6 +1871,20 @@ board_session:
     context = nk_sdl_init(window, renderer);
     if (context == NULL) DESKTOP_FAIL();
     views.renderer = renderer;
+    /* WeKan's header logo, decoded once into a texture. */
+    if (logo_texture == NULL) {
+        WenaImage logo;
+        if (wena_image_decode(wena_logo_png, WENA_LOGO_BYTES, &logo) == WENA_IMAGE_OK) {
+            logo_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
+                                             (int)logo.width, (int)logo.height);
+            if (logo_texture != NULL && SDL_UpdateTexture(logo_texture, NULL, logo.rgba, (int)logo.width * 4) == 0) {
+                SDL_SetTextureBlendMode(logo_texture, SDL_BLENDMODE_BLEND);
+                logo_width = (int)logo.width;
+                logo_height = (int)logo.height;
+            }
+            wena_image_free(&logo);
+        }
+    }
     wena_sdl_install_clipboard(context);
     nk_sdl_font_stash_begin(&atlas);
     /* Baked at the screen's pixels, measured in layout units (ui_scale is 1
@@ -2073,6 +2095,14 @@ window_ready:
             layout.header_multi_selection = editors.selection.visible && !editors.selection.single_card ? 2 : 1;
             layout.header_search = search.visible ? 2 : 1;
             layout.header_add_board = wekan_mode;
+            layout.header_collapse = wekan_mode;
+            layout.header_icons_collapsed = header_icons_collapsed;
+            layout.header_drag_handles = !wekan_mode ? 0 : drag_handles ? 2 : 1;
+            layout.header_logo = wekan_mode ? logo_texture : NULL;
+            layout.header_logo_width = logo_width;
+            layout.header_logo_height = logo_height;
+            /* Drag handles on: a card moves by its handle, as WeKan's. */
+            layout.card_drag_area = drag_handles ? NULL : desktop_card_drag_area;
             layout.header_notifications = !wekan_mode ? 0 : notifications_open ? 3 :
                 wena_notifications_unread(notifications, notification_count) > 0 ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
@@ -2132,6 +2162,13 @@ window_ready:
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SEARCH) != 0u) {
                     if (search.visible) search.visible = 0;
                     else { wena_search_sidebar_open(&search); sidebar.visible = 0; }
+                }
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_COLLAPSE_ICONS) != 0u)
+                    header_icons_collapsed = !header_icons_collapsed;
+                if ((toolbar.header_actions & WENA_BOARD_HEADER_DRAG_HANDLES) != 0u) {
+                    drag_handles = !drag_handles;
+                    if (!smoke && !wena_wekan_sync_set_drag_handles(database, actor_id, drag_handles))
+                        wena_debug_log("drag handles: %s", wena_wekan_sync_error());
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_ADD_BOARD) != 0u) {
                     add_board.visible = 1; add_board.focus = 1; add_board.length = 0; add_board.title[0] = '\0';
@@ -2609,6 +2646,7 @@ cleanup:
         wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
     free(tiles);
     desktop_views_reset(&views);
+    if (logo_texture != NULL) SDL_DestroyTexture(logo_texture);
     wena_card_drag_cancel(&preview.card_drag);
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);

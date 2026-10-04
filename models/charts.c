@@ -33,7 +33,9 @@ void wena_chart_day_key(long day, char out[11])
     long year;
     int month, mday;
     civil(day, &year, &month, &mday);
-    sprintf(out, "%04ld-%02d-%02d", year % 10000, month, mday);
+    /* Ranges spelled out so the 11 bytes provably hold any result. */
+    sprintf(out, "%04lu-%02u-%02u", (unsigned long)((year % 10000 + 10000) % 10000),
+            (unsigned)month % 13u, (unsigned)mday % 32u);
 }
 
 /* A Date cell: the UTC day and minute. */

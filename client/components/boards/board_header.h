@@ -26,6 +26,8 @@ struct nk_context;
 #define WENA_BOARD_HEADER_VIEW 8192u       /* the board view: Swimlanes, Lists */
 #define WENA_BOARD_HEADER_NOTIFICATIONS 16384u /* the bell and "Notifications" */
 #define WENA_BOARD_HEADER_ADD_BOARD 32768u /* the + after the star group */
+#define WENA_BOARD_HEADER_COLLAPSE_ICONS 65536u /* the << beside the house */
+#define WENA_BOARD_HEADER_DRAG_HANDLES 131072u  /* Show desktop drag handles */
 #define WENA_BOARD_HEADER_HEIGHT 88.0f
 
 typedef struct WenaBoardHeaderInfo {
@@ -45,6 +47,15 @@ typedef struct WenaBoardHeaderInfo {
     int view_icon;
     int notifications;        /* 0 hides them, 1 the bell, 2 unread ones, 3 open */
     int add_board;            /* WeKan's + to Add Board */
+    /* WeKan's << that folds the header's icons, and whether they are folded:
+     * the desktop icon, the drag handles toggle, the star group and the +. */
+    int collapse;
+    int icons_collapsed;
+    int drag_handles;         /* 0 hides the toggle, 1 off, 2 on */
+    /* WeKan's header logo (public/logo-header.png) after the title: a
+     * texture of the renderer, NULL for none. */
+    void *logo;
+    int logo_width, logo_height;
 } WenaBoardHeaderInfo;
 
 /* Optional native vector decorator; NULL keeps the text-only baseline. */

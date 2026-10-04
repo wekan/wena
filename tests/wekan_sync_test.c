@@ -261,6 +261,17 @@ int main(int argc, char **argv)
             assert(wena_wekan_sync_board_view(db, "u1", view, 4) && view[0] == '\0');
             assert(!wena_wekan_sync_board_view(db, NULL, view, sizeof(view)));
         }
+        /* WeKan's "Show desktop drag handles": off until set, a boolean. */
+        assert(wena_wekan_sync_drag_handles(db, "u1") == 0);
+        assert(wena_wekan_sync_set_drag_handles(db, "u1", 1) && wena_wekan_sync_drag_handles(db, "u1") == 1);
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> '$.profile.showDesktopDragHandles') || "
+                             "(_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.showDesktopDragHandles.t') FROM fdb.users_5e7cc513 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"), "true\"bool\""));
+        assert(wena_wekan_sync_set_drag_handles(db, "u1", 0) && wena_wekan_sync_drag_handles(db, "u1") == 0);
+        /* Negative: nobody is off; no user or database fails. */
+        assert(wena_wekan_sync_drag_handles(db, "nobody") == 0);
+        assert(wena_wekan_sync_drag_handles(db, NULL) == -1 && wena_wekan_sync_drag_handles(NULL, "u1") == -1);
+        assert(!wena_wekan_sync_set_drag_handles(db, NULL, 1) && !wena_wekan_sync_set_drag_handles(db, "nobody", 1));
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

@@ -42,7 +42,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     }
     action = WENA_BOARD_HEADER_NO_ACTION;
     wena_ui_region("header");
-    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 21);
+    nk_layout_space_begin(context, NK_STATIC, WENA_BOARD_HEADER_HEIGHT, 25);
     wena_wekan_space_area(context, WENA_BOARD_HEADER_HEIGHT, &area.x, &area.y, &area.w);
     area.h = WENA_BOARD_HEADER_HEIGHT;
     width = area.w;
@@ -56,6 +56,12 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
                                    WENA_WEKAN_HEADER_TEXT))
             action |= WENA_BOARD_HEADER_ALL_BOARDS;
     }
+    if (info != NULL && info->collapse) {
+        nk_layout_space_push(context, nk_rect(52.0f, 14.0f, 25.0f, 28.0f));
+        if (wena_wekan_icon_button(context, info->icons_collapsed ? WENA_ICON_ANGLES_RIGHT : WENA_ICON_ANGLES_LEFT,
+                                   wena_ui_key_text("toggle-header-icons-collapsed", NULL), 13.0f, WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_COLLAPSE_ICONS;
+    }
     title_width = text_width(context, WENA_WEKAN_FONT_BODY, board->title) + 4.0f;
     /* A vector decorator draws its icon before the title: room for both. */
     if (title_renderer && context->style.font != NULL)
@@ -67,10 +73,32 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
     else if (wena_wekan_link(context, WENA_ICON_NONE, board->title, WENA_WEKAN_FONT_BODY,
                              WENA_WEKAN_HEADER_TEXT))
         action |= WENA_BOARD_HEADER_RENAME;
+    /* WeKan's logo after the title, 28 high. */
+    if (info != NULL && info->logo != NULL && info->logo_width > 0 && info->logo_height > 0) {
+        float logo_w = (float)info->logo_width * 28.0f / (float)info->logo_height;
+        nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, logo_w, 28.0f));
+        nk_image(context, nk_image_ptr(info->logo));
+        buttons_x += logo_w + 24.0f;
+    }
+    /* The icons the << folds: the desktop icon and the drag handles toggle. */
+    if (info != NULL && !info->icons_collapsed && info->drag_handles) {
+        nk_layout_space_push(context, nk_rect(buttons_x, 15.0f, 30.0f, 26.0f));
+        (void)wena_wekan_icon_button(context, WENA_ICON_DESKTOP, wena_ui_key_text("mobile-desktop-toggle", NULL), 17.0f,
+                                     WENA_WEKAN_HEADER_TEXT);
+        buttons_x += 30.0f + 18.0f;
+        nk_layout_space_push(context, nk_rect(buttons_x, 14.0f, 34.0f, 28.0f));
+        if (wena_wekan_icon_button(context, WENA_ICON_ARROWS, wena_ui_key_text("show-desktop-drag-handles", NULL), 12.0f,
+                                   WENA_WEKAN_HEADER_LINK))
+            action |= WENA_BOARD_HEADER_DRAG_HANDLES;
+        /* The check or the ban beside it says which. */
+        wena_wekan_icon_draw(context, info->drag_handles == 2 ? WENA_ICON_CHECK : WENA_ICON_BAN, area.x + buttons_x + 17.0f,
+                             area.y + 22.0f, 10.0f, WENA_WEKAN_HEADER_LINK);
+        buttons_x += 34.0f + 9.0f;
+    }
 
     /* WeKan's star group after the title: caret and count (what the user
      * keeps starred), then the board's star, darker when starred. */
-    if (info != NULL && info->star) {
+    if (info != NULL && info->star && !info->icons_collapsed) {
         char count[16];
         float x = buttons_x, count_width;
         (void)sprintf(count, "%d", info->starred_count < 0 ? 0 : info->starred_count % 100000);
@@ -95,7 +123,7 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         buttons_x = x + 12.0f;
     }
     /* WeKan's + that adds a board. */
-    if (info != NULL && info->add_board) {
+    if (info != NULL && info->add_board && !info->icons_collapsed) {
         nk_layout_space_push(context, nk_rect(buttons_x, 15.0f, 24.0f, 28.0f));
         if (wena_wekan_icon_button(context, WENA_ICON_PLUS, wena_ui_text(WENA_UI_TEXT_ADD_BOARD), 13.0f,
                                    WENA_WEKAN_HEADER_LINK))

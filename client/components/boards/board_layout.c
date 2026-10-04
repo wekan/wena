@@ -772,6 +772,12 @@ int wena_board_layout_render(struct nk_context *context,
     info.view_icon = layout->header_view_icon;
     info.notifications = layout->header_notifications;
     info.add_board = layout->header_add_board;
+    info.collapse = layout->header_collapse;
+    info.icons_collapsed = layout->header_icons_collapsed;
+    info.drag_handles = layout->header_drag_handles;
+    info.logo = layout->header_logo;
+    info.logo_width = layout->header_logo_width;
+    info.logo_height = layout->header_logo_height;
     header_action = wena_board_header_render_info(context, layout->board, &info);
     if (layout->header_actions != NULL) *layout->header_actions = header_action;
     if (layout->toolbar != NULL) {

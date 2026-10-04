@@ -847,7 +847,7 @@ int wena_wekan_sync_export(sqlite3 *db, const char *actor)
 
 int wena_wekan_sync_user(sqlite3 *db, const char *wanted, char *id, size_t capacity)
 {
-    char sql[1024];
+    char sql[4096];
     sqlite3_stmt *statement = NULL;
     const unsigned char *found;
     int ok = 0;
@@ -953,7 +953,7 @@ int wena_wekan_sync_boards(sqlite3 *db, const char *actor, WenaWekanBoardTile *t
 
 int wena_wekan_sync_star(sqlite3 *db, const char *actor, const char *board, int starred)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[1024];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     WenaFerretField field;
     char *value = NULL, *element = NULL;
@@ -997,7 +997,7 @@ static const char *const starred_query[] = {
 int wena_wekan_sync_starred(sqlite3 *db, const char *actor, const char *board, int *starred, int *count,
                             int *board_stars)
 {
-    char joined[1024], sql[1024];
+    char joined[1024], sql[4096];
     sqlite3_stmt *statement = NULL;
     int ok = 0;
     if (db == NULL || actor == NULL || board == NULL || starred == NULL || count == NULL || board_stars == NULL ||
@@ -1025,7 +1025,7 @@ static const char *const board_state_query[] = {
 int wena_wekan_sync_board_state(sqlite3 *db, const char *actor, const char *board, char *permission,
                                 char *watch)
 {
-    char joined[1024], sql[1024];
+    char joined[1024], sql[4096];
     sqlite3_stmt *statement = NULL;
     int ok = 0;
     if (db == NULL || actor == NULL || board == NULL || permission == NULL || watch == NULL ||
@@ -1056,7 +1056,7 @@ int wena_wekan_sync_set_permission(sqlite3 *db, const char *board, const char *p
 
 int wena_wekan_sync_set_watch(sqlite3 *db, const char *actor, const char *board, const char *level)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[1024];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     WenaFerretField field;
     char *value = NULL, *element = NULL;
@@ -1142,7 +1142,7 @@ int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title,
 
 int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, size_t capacity)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[256];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     const unsigned char *found;
     int ok = 0;
@@ -1163,7 +1163,7 @@ int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, siz
 
 int wena_wekan_sync_board_view(sqlite3 *db, const char *actor, char *view, size_t capacity)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[256];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     const unsigned char *found;
     int ok = 0, step;
@@ -1233,7 +1233,7 @@ static void copy_text(char *out, size_t capacity, const unsigned char *text)
 int wena_wekan_sync_notifications(sqlite3 *db, const char *actor, WenaWekanNotification *out, size_t capacity,
                                   size_t *count)
 {
-    char joined[2048], sql[2048], expanded[2048], activities[WENA_FERRETDB_TABLE_CAPACITY + 16];
+    char joined[2048], sql[4400], expanded[2048], activities[WENA_FERRETDB_TABLE_CAPACITY + 16];
     sqlite3_stmt *statement = NULL;
     size_t found = 0;
     int step;
@@ -1313,6 +1313,34 @@ int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int in
     return ok;
 }
 
+int wena_wekan_sync_drag_handles(sqlite3 *db, const char *actor)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int result = -1, step;
+    if (db == NULL || actor == NULL || !table_of(db, "users", table)) return -1;
+    sprintf(sql, "SELECT CASE WHEN coalesce(_ferretdb_sjson ->> '$.profile.showDesktopDragHandles', 0) THEN 1 ELSE 0 END "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return -1;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    step = sqlite3_step(statement);
+    if (step == SQLITE_ROW) result = sqlite3_column_int(statement, 0);
+    else if (step == SQLITE_DONE) result = 0;
+    sqlite3_finalize(statement);
+    return result;
+}
+
+int wena_wekan_sync_set_drag_handles(sqlite3 *db, const char *actor, int show)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    WenaFerretField field;
+    if (db == NULL || actor == NULL || !table_of(db, "users", table)) return 0;
+    field.key = "profile.showDesktopDragHandles";
+    field.element = WENA_FERRET_BOOL;
+    field.value = show ? "true" : "false";
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+}
+
 static double map_percent(double value)
 {
     if (value < 0.0) value = 0.0;
@@ -1374,7 +1402,7 @@ static int profile_field(const char *field)
 int wena_wekan_sync_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
                                       void (*entry)(void *context, const char *id, int value), void *context)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[512];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
     sqlite3_stmt *statement = NULL;
     if (db == NULL || actor == NULL || board == NULL || entry == NULL || !profile_field(field) ||
         !table_of(db, "users", table)) return 0;
@@ -1394,7 +1422,7 @@ int wena_wekan_sync_profile_board_map(sqlite3 *db, const char *actor, const char
 int wena_wekan_sync_set_profile_board_map(sqlite3 *db, const char *actor, const char *field, const char *board,
                                           const char *map)
 {
-    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[640], key[64];
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096], key[64];
     sqlite3_stmt *statement = NULL;
     WenaFerretField update;
     char *value = NULL, *element = NULL;

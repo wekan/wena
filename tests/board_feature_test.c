@@ -406,6 +406,33 @@ int main(void)
         header.add_board = 1;
         context.button_to_press = "Add Board";
         assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_ADD_BOARD);
+        /* WeKan's << beside the house, hidden when not given. */
+        context.button_to_press = "Collapse/expand header icons (mobile/desktop toggle to notifications)";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.collapse = 1;
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_COLLAPSE_ICONS);
+        /* "Show desktop drag handles", hidden when not given; the desktop
+         * icon beside it does nothing on a desktop. */
+        context.button_to_press = "Show desktop drag handles";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        header.drag_handles = 1;
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_DRAG_HANDLES);
+        header.drag_handles = 2;
+        context.button_to_press = "Show desktop drag handles";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_DRAG_HANDLES);
+        context.button_to_press = "Toggle between Mobile and Desktop Mode";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        /* Folded: the toggle, the star group and the + are gone, the << stays. */
+        header.icons_collapsed = 1;
+        context.button_to_press = "Show desktop drag handles";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        context.button_to_press = "Add Board";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_NO_ACTION);
+        context.button_to_press = "Collapse/expand header icons (mobile/desktop toggle to notifications)";
+        assert(wena_board_header_render_info(&context, &board, &header) == WENA_BOARD_HEADER_COLLAPSE_ICONS);
+        header.icons_collapsed = 0;
+        header.collapse = 0;
+        header.drag_handles = 0;
     }
     assert(wena_board_header_render(NULL, &board) ==
            WENA_BOARD_HEADER_NO_ACTION);

@@ -350,6 +350,9 @@ static const struct {
     {WENA_UI_KEY, "map-view-place-hint", "Drag a card onto the map, or choose it and then click where it belongs."},
     {WENA_UI_KEY, "map-view-remove-image", "Remove the map image"},
     {WENA_UI_KEY, "map-view-unplaced", "Not on the map"},
+    {WENA_UI_KEY, "mobile-desktop-toggle", "Toggle between Mobile and Desktop Mode"},
+    {WENA_UI_KEY, "show-desktop-drag-handles", "Show desktop drag handles"},
+    {WENA_UI_KEY, "toggle-header-icons-collapsed", "Collapse/expand header icons (mobile/desktop toggle to notifications)"},
     {WENA_UI_FORMAT, "chart-forecast-no-velocity", "__remaining__ card(s) still open; no recent completions to project a date from."},
     {WENA_UI_FORMAT, "chart-forecast-projected", "At the recent pace of __average__ card(s)/week, the __remaining__ card(s) still open should be done by __date__."},
 };

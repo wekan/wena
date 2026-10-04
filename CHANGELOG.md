@@ -1,3 +1,169 @@
+# Upcoming Wena release
+
+<details>
+<summary>All of WeKan's 35 board views are in the Board View menu, and its 16 report charts are drawn</summary>
+
+- The Board View menu lists every view WeKan has, in WeKan's order with
+  its six separators and each view's name and icon, in three columns so
+  that it fits. The header names the view that is on. The view is kept as
+  WeKan keeps it - its exact key in `users.profile.boardView` - so WeKan
+  and Wena open a board in the same view; a key WeKan does not have opens
+  as Swimlanes, as WeKan's own fallback does.
+- WeKan's 16 report charts are drawn from wekan.sqlite: Dashboard,
+  Burndown, Burnup, Cumulative Flow, Control Chart, Cycle Time, Lead Time,
+  Flow Efficiency, Throughput Histogram with its completion forecast, WIP
+  Run, Pulse, Aging WIP, Blocker Analysis, Monte Carlo Forecasts, Process
+  Behavior (XmR) and Work Item Size vs. Cycle Time. Each is WeKan's page:
+  the title, the method note, the chart (two for Monte Carlo and Process
+  Behavior), the data table and the details, in WeKan's colors.
+- The numbers are WeKan's: `models/charts.c` ports
+  `chartCalculations.js`, `flowAnalytics.js`, `chartExportRows.js` and
+  `flowAnalyticsRows.js` - completion at endAt else archivedAt, UTC days,
+  Mongo's sort order and JavaScript's stable sort, the Monte Carlo
+  bootstrap with WeKan's seed - reading cards, lists, activities and the
+  card change history, removed cards' snapshots included, as
+  `boardChartData.js` does (`server/wekan_views.c`).
+- The views' and charts' texts are WeKan's translations, looked up by key;
+  the two forecast texts with `__name__` placeholders are filled in.
+- The other views are listed and not yet drawn; they follow.
+- `--show view:KEY` with `--screenshot` renders a view.
+- Tests: `charts` (new) computes all 16 charts on three seeded boards both
+  with WeKan's own JavaScript in Node and with Wena, and requires every
+  table cell, detail row, note and bar to be the same; `wekan-views` (new)
+  loads cards with every field, a removed card's snapshot, lists, users,
+  activities and the history rows the charts replay, and not another
+  board's; `board-views` (new) checks the 35 views, their order,
+  separators and charts and draws a chart and an empty one; `wekan-sync`
+  keeps any view key and refuses a malformed one; `desktop` opens three
+  chart views on a WeKan file.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>WeKan's other board views are drawn: Table, Calendars, Time, Timeline, Stats, Gantts, Scrum, Roadmap, Bigboard</summary>
+
+- Table: WeKan's columns - Edit, Card, List, Swimlane, Assignees, Members,
+  Labels as chips, Received, Start, Due, End - with its search, sorting by
+  any column both ways, 25 cards a page and grouping by swimlane; Edit or
+  a title opens the card.
+- Calendar and the Calendar of every board: WeKan's month, week, day and
+  list, Monday first, opening on the month at today, with Today, Previous
+  and Next; a card spanning its start to its end and an hour at its
+  received, due and end dates, the other boards' cards named with their
+  board. A card clicked opens, on its own board.
+- Time (time spent, cards with time, overtime, the remaining time until
+  due, hours by assignee and by card, the adjustments by author), Stats
+  (the board's status) and Group by Assignee.
+- Timeline: the points in time of the board's activities, at most 50, and
+  the lists with every card as it was then - title, description, labels,
+  members, due date, archived - undoing what happened since.
+- Gantt (a table a week, a day a column, the received, start, due and end
+  dates in WeKan's colors), Frappe Gantt and DHTMLX Gantt (bars from start
+  to due, red when overdue, filled when done, by day, week or month, and
+  DHTMLX's Task / Start / Duration grid) and Roadmap (the cards grouped by
+  a text or dropdown custom field, each group's bars).
+- Product Backlog, Sprints (the sprints, a sprint's goal, state, cards and
+  events, the releases), Sprint Report and Velocity, from WeKan's sprints,
+  releases and events and their stored reports.
+- Bigboard: every board of the user stacked, each with its lists and cards.
+- What they read is WeKan's own: custom fields with dropdown items, card
+  numbers, card.scrum, the board's Scrum settings and members, sprints,
+  releases and events, and every board's lists (`server/wekan_views.c`).
+- The Map view is still listed and not drawn: it needs the uploaded image
+  decoded, which follows.
+- Tests: `view-rows` (new) computes the Table's order for every sortable
+  column both ways, grouped or not and with searches, the Calendar's
+  events, the Time sums, the assignee groups, the Timeline's markers and
+  its cards at three points in time, the Gantt tasks and the Scrum order
+  and estimates on three seeded boards both with WeKan's own JavaScript in
+  Node and with Wena, and requires them to be the same; `board-views`
+  draws every one of these views and opens a card from the Table;
+  `desktop` opens seven more views on a WeKan file.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>WeKan's Map view is drawn, with Wena's own decoder for the map image</summary>
+
+- The Map view shows the board's uploaded map image with a marker for each
+  card on it - its first label's color, its card number - and, beside it,
+  WeKan's "Not on the map" list: choose a card, then click where it
+  belongs. A marker opens its card. Remove the map image takes it off the
+  board. Both write WeKan's own fields: the card's `mapX` and `mapY`
+  (clamped to 0..100 and rounded, as Card.setMapPosition) and the board's
+  `mapImageAttachmentId`.
+- The image is the attachment's recorded file, or the same name in this
+  wekan-files/attachments when the bundle has moved.
+- Wena decodes it itself (`models/image_decode.c`, no new library): PNG in
+  every color type and bit depth with transparency and Adam7, baseline and
+  extended JPEG, and GIF's first frame with transparency and interlacing.
+  WebP and progressive JPEG are refused, and the view then says which file
+  could not be read.
+- With this, every one of WeKan's 35 board views is drawn.
+- Tests: `image-decode` (new) decodes 33 PNG, GIF and JPEG images with
+  known pixels - exactly, JPEG within its loss - and refuses WebP, a
+  progressive JPEG, a truncated PNG and unknown bytes; `wekan-sync` writes
+  and clears a card's place and removes the image; `wekan-views` reads the
+  image's file and the cards' places and numbers; `board-views` draws the
+  Map without an image, with one - choosing a card to place, Remove - and
+  with one that could not be read; `desktop` opens the Map.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>The release builds compile again with GCC's format and truncation checks</summary>
+
+- wena5 log: every Linux build stopped in `generate_wekan_defaults.py`,
+  which looked two folders up for a WeKan checkout that a CI checkout of
+  Wena alone does not have (`IndexError`). It, and the new logo generator,
+  take `WEKAN_ROOT` or fall back to Wena's own folder, and their `--check`
+  passes when there is nothing to compare with.
+- The BSD, Haiku, Windows cross, AmigaOS and AROS builds stopped on
+  `-Werror=format-overflow`: GCC could not prove the SQL built with
+  `sprintf` fits. The statements are built in 4096-byte buffers (the
+  notifications one in 4400, room for its two 2048-byte parts), a chart's
+  day key spells out its ranges, and the notification text and the
+  control names are copied with their lengths known.
+- AmigaOS m68k stopped on a label chip's `y` that GCC saw as maybe unset;
+  it starts from the row.
+- `strncpy` into the view rows' fixed fields became a terminating copy,
+  which GCC's `-O3` truncation check accepts.
+- Checked with MinGW-w64 GCC 16 at -O2, -O3 and -Os over every source with
+  the release flags: no warnings.
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>WeKan's header extras: its logo, the « that folds the icons, and Show desktop drag handles</summary>
+
+- WeKan's `public/logo-header.png` is drawn after the board title, from
+  `client/platform/logo_data.h`, generated by
+  `scripts/generate_wekan_logo.py` (whose `--check` runs with every desktop
+  build) and decoded with Wena's own PNG decoder.
+- The « beside the house folds the header's icons as WeKan's does: the
+  desktop icon, the drag handles toggle, the star group and the + go, and
+  » brings them back.
+- "Show desktop drag handles" is the user's
+  `profile.showDesktopDragHandles`, read when the board opens and written
+  as a Boolean when toggled; with it on, a card moves by its handle only,
+  and the check or the ban beside it says which.
+- Tests: `board-feature` (the «, the toggle in both states, the desktop
+  icon doing nothing, the folded header), `wekan-sync` (the field off until
+  set, written as FerretDB's bool, nobody and no user), `image-decode` (the
+  embedded logo decodes at 97 x 28 with transparency).
+
+Thanks to xet7.
+
+</details>
+
 # v0.04 2026-10-04 Wena release
 
 <details>
@@ -483,122 +649,6 @@ Thanks to xet7.
   for this; sorting stays for showing only, as in WeKan.
 - Tests: `wekan-sync` reads a due date and tells a missing one from 0;
   `board-feature` sorts a list each way, with a card missing a due date.
-
-Thanks to xet7.
-
-</details>
-
-<details>
-<summary>All of WeKan's 35 board views are in the Board View menu, and its 16 report charts are drawn</summary>
-
-- The Board View menu lists every view WeKan has, in WeKan's order with
-  its six separators and each view's name and icon, in three columns so
-  that it fits. The header names the view that is on. The view is kept as
-  WeKan keeps it - its exact key in `users.profile.boardView` - so WeKan
-  and Wena open a board in the same view; a key WeKan does not have opens
-  as Swimlanes, as WeKan's own fallback does.
-- WeKan's 16 report charts are drawn from wekan.sqlite: Dashboard,
-  Burndown, Burnup, Cumulative Flow, Control Chart, Cycle Time, Lead Time,
-  Flow Efficiency, Throughput Histogram with its completion forecast, WIP
-  Run, Pulse, Aging WIP, Blocker Analysis, Monte Carlo Forecasts, Process
-  Behavior (XmR) and Work Item Size vs. Cycle Time. Each is WeKan's page:
-  the title, the method note, the chart (two for Monte Carlo and Process
-  Behavior), the data table and the details, in WeKan's colors.
-- The numbers are WeKan's: `models/charts.c` ports
-  `chartCalculations.js`, `flowAnalytics.js`, `chartExportRows.js` and
-  `flowAnalyticsRows.js` - completion at endAt else archivedAt, UTC days,
-  Mongo's sort order and JavaScript's stable sort, the Monte Carlo
-  bootstrap with WeKan's seed - reading cards, lists, activities and the
-  card change history, removed cards' snapshots included, as
-  `boardChartData.js` does (`server/wekan_views.c`).
-- The views' and charts' texts are WeKan's translations, looked up by key;
-  the two forecast texts with `__name__` placeholders are filled in.
-- The other views are listed and not yet drawn; they follow.
-- `--show view:KEY` with `--screenshot` renders a view.
-- Tests: `charts` (new) computes all 16 charts on three seeded boards both
-  with WeKan's own JavaScript in Node and with Wena, and requires every
-  table cell, detail row, note and bar to be the same; `wekan-views` (new)
-  loads cards with every field, a removed card's snapshot, lists, users,
-  activities and the history rows the charts replay, and not another
-  board's; `board-views` (new) checks the 35 views, their order,
-  separators and charts and draws a chart and an empty one; `wekan-sync`
-  keeps any view key and refuses a malformed one; `desktop` opens three
-  chart views on a WeKan file.
-
-Thanks to xet7.
-
-</details>
-
-<details>
-<summary>WeKan's other board views are drawn: Table, Calendars, Time, Timeline, Stats, Gantts, Scrum, Roadmap, Bigboard</summary>
-
-- Table: WeKan's columns - Edit, Card, List, Swimlane, Assignees, Members,
-  Labels as chips, Received, Start, Due, End - with its search, sorting by
-  any column both ways, 25 cards a page and grouping by swimlane; Edit or
-  a title opens the card.
-- Calendar and the Calendar of every board: WeKan's month, week, day and
-  list, Monday first, opening on the month at today, with Today, Previous
-  and Next; a card spanning its start to its end and an hour at its
-  received, due and end dates, the other boards' cards named with their
-  board. A card clicked opens, on its own board.
-- Time (time spent, cards with time, overtime, the remaining time until
-  due, hours by assignee and by card, the adjustments by author), Stats
-  (the board's status) and Group by Assignee.
-- Timeline: the points in time of the board's activities, at most 50, and
-  the lists with every card as it was then - title, description, labels,
-  members, due date, archived - undoing what happened since.
-- Gantt (a table a week, a day a column, the received, start, due and end
-  dates in WeKan's colors), Frappe Gantt and DHTMLX Gantt (bars from start
-  to due, red when overdue, filled when done, by day, week or month, and
-  DHTMLX's Task / Start / Duration grid) and Roadmap (the cards grouped by
-  a text or dropdown custom field, each group's bars).
-- Product Backlog, Sprints (the sprints, a sprint's goal, state, cards and
-  events, the releases), Sprint Report and Velocity, from WeKan's sprints,
-  releases and events and their stored reports.
-- Bigboard: every board of the user stacked, each with its lists and cards.
-- What they read is WeKan's own: custom fields with dropdown items, card
-  numbers, card.scrum, the board's Scrum settings and members, sprints,
-  releases and events, and every board's lists (`server/wekan_views.c`).
-- The Map view is still listed and not drawn: it needs the uploaded image
-  decoded, which follows.
-- Tests: `view-rows` (new) computes the Table's order for every sortable
-  column both ways, grouped or not and with searches, the Calendar's
-  events, the Time sums, the assignee groups, the Timeline's markers and
-  its cards at three points in time, the Gantt tasks and the Scrum order
-  and estimates on three seeded boards both with WeKan's own JavaScript in
-  Node and with Wena, and requires them to be the same; `board-views`
-  draws every one of these views and opens a card from the Table;
-  `desktop` opens seven more views on a WeKan file.
-
-Thanks to xet7.
-
-</details>
-
-<details>
-<summary>WeKan's Map view is drawn, with Wena's own decoder for the map image</summary>
-
-- The Map view shows the board's uploaded map image with a marker for each
-  card on it - its first label's color, its card number - and, beside it,
-  WeKan's "Not on the map" list: choose a card, then click where it
-  belongs. A marker opens its card. Remove the map image takes it off the
-  board. Both write WeKan's own fields: the card's `mapX` and `mapY`
-  (clamped to 0..100 and rounded, as Card.setMapPosition) and the board's
-  `mapImageAttachmentId`.
-- The image is the attachment's recorded file, or the same name in this
-  wekan-files/attachments when the bundle has moved.
-- Wena decodes it itself (`models/image_decode.c`, no new library): PNG in
-  every color type and bit depth with transparency and Adam7, baseline and
-  extended JPEG, and GIF's first frame with transparency and interlacing.
-  WebP and progressive JPEG are refused, and the view then says which file
-  could not be read.
-- With this, every one of WeKan's 35 board views is drawn.
-- Tests: `image-decode` (new) decodes 33 PNG, GIF and JPEG images with
-  known pixels - exactly, JPEG within its loss - and refuses WebP, a
-  progressive JPEG, a truncated PNG and unknown bytes; `wekan-sync` writes
-  and clears a card's place and removes the image; `wekan-views` reads the
-  image's file and the cards' places and numbers; `board-views` draws the
-  Map without an image, with one - choosing a card to place, Remove - and
-  with one that could not be read; `desktop` opens the Map.
 
 Thanks to xet7.
 

@@ -139,6 +139,9 @@ typedef struct WenaBoardLayout {
     void *view_context;
     int header_notifications;       /* 0 none, 1 bell, 2 unread ones, 3 open */
     int header_add_board;           /* WeKan's + to Add Board */
+    int header_collapse, header_icons_collapsed, header_drag_handles;
+    void *header_logo;
+    int header_logo_width, header_logo_height;
     int header_filter_active;
     unsigned int *header_actions;
     /* WeKan's dragging: the whole minicard, list header or swimlane bar is

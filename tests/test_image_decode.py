@@ -229,6 +229,16 @@ def main():
             path.write_bytes(data)
             result = decode(tool, path)[0]
             assert result == want, (name, result)
+        # The header logo Wena embeds (WeKan's public/logo-header.png, 97 x 28
+        # grayscale with alpha) decodes, and its alpha is not all opaque.
+        logo = (ROOT / "client/platform/logo_data.h").read_text()
+        body = logo[logo.index("{") + 1:logo.index("}")]
+        path = work / "logo.png"
+        path.write_bytes(bytes(int(v, 16) for v in body.replace("\n", "").split(",") if v.strip()))
+        result, width, height, rgba = decode(tool, path)
+        assert (result, width, height) == (0, 97, 28), (result, width, height)
+        assert len(set(rgba[3::4])) > 1
+        cases += 1
         print("image decode: %d PNG, GIF and JPEG images with known pixels, and four refusals" % cases)
 
 

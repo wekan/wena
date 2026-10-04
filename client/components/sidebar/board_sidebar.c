@@ -78,6 +78,7 @@ static void label_chips(struct nk_context *context, const WenaSidebarItems *item
     row = nk_widget_bounds(context);
     nk_spacer(context);
     x = row.w;
+    chip = row;
     for (index = 0; index < items->label_count; ++index) {
         const char *name = items->labels[index] != NULL ? items->labels[index] : "";
         width = (face != NULL ? face->width(face->userdata, face->height, name, (int)strlen(name)) : 40.0f) + 16.0f;

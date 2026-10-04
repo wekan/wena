@@ -11,3 +11,4 @@ python3 "$root_dir/scripts/generate_ui_i18n.py" --check
 python3 "$root_dir/scripts/generate_native_font.py" --check
 python3 "$root_dir/scripts/generate_notices.py" --check
 python3 "$root_dir/scripts/generate_wekan_defaults.py" --check
+python3 "$root_dir/scripts/generate_wekan_logo.py" --check

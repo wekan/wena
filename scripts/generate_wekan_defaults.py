@@ -22,7 +22,7 @@ HEADER = ROOT / "server" / "wekan_defaults_data.h"
 
 
 def wekan_root():
-    return Path(os.environ.get("WEKAN_ROOT") or ROOT.parents[1])
+    return Path(os.environ.get("WEKAN_ROOT") or (ROOT.parents[1] if len(ROOT.parents) > 1 else ROOT))
 
 
 def board_defaults(models):
