@@ -144,7 +144,9 @@ case "$target" in
     sdl_libs="$work/sdl/libSDL2.a"
     ;;
   amigaos-m68k|amigaos-m68k-aga)
-    if [ ! -f "$work/sdl/lib/libSDL2.a" ]; then
+    # A kept build is reused only when it was made with today's patches.
+    patches_sum=$(cat "$root_dir"/scripts/patches/sdl2-amigaos3-*.patch | sha256sum | cut -d' ' -f1)
+    if [ ! -f "$work/sdl/lib/libSDL2.a" ] || [ "$(cat "$work/sdl/patches.sha256" 2>/dev/null)" != "$patches_sum" ]; then
       rm -rf "$work/sdl-src" "$work/sdl-build" "$work/sdl"
       mkdir -p "$work/sdl-src"
       tar -xzf "$(fetch sdl2-amigaos3)" -C "$work/sdl-src" --strip-components=1
@@ -154,6 +156,10 @@ case "$target" in
       # writes them and graphics.library's WriteChunkyPixels otherwise.
       # The c2p is assembled with vasm; without it the build still works,
       # through WriteChunkyPixels alone.
+      # Both: a window on the Workbench screen is drawn into its own
+      # RastPort, where the layers place and clip it, and its mouse counts
+      # from the inner area (the fork wrote the screen's top-left corner).
+      (cd "$work/sdl-src" && patch -p1 -s < "$root_dir/scripts/patches/sdl2-amigaos3-window.patch")
       aga_options="-DSDL_AMIGAOS3_AGA=OFF"
       if [ "$target" = amigaos-m68k-aga ]; then
         (cd "$work/sdl-src" && patch -p1 -s < "$root_dir/scripts/patches/sdl2-amigaos3-aga.patch")
@@ -177,6 +183,7 @@ case "$target" in
         { tail -40 "$work/sdl-make.log" >&2; exit 1; }
       cmake --build "$work/sdl-build" --target install > "$work/sdl-install.log" 2>&1 ||
         { tail -40 "$work/sdl-install.log" >&2; exit 1; }
+      printf '%s\n' "$patches_sum" > "$work/sdl/patches.sha256"
     fi
     sdl_cflags="-isystem $work/sdl/include/SDL2"
     sdl_libs="$(sh "$work/sdl/bin/sdl2-config" --static-libs)"

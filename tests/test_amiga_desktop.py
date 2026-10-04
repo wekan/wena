@@ -387,10 +387,59 @@ def test_sqlite_never_seeks_past_the_end():
         assert unfixed.returncode != 0, ("the libnix lseek model no longer reproduces the fault", unfixed.stdout)
 
 
+def test_window_patch():
+    """AmigaOS 3 in a Workbench window (wena7 screenshot): the fork wrote the
+    frame into the SCREEN's bitmap at its top-left corner, and every update was
+    taken as one to scale, since the outer width (borders included) is always
+    wider than the frame. The window patch draws into the window's own
+    RastPort - placed and clipped by the layers - and takes the mouse from the
+    inner area. Both m68k builds get it."""
+    patch = (ROOT / "scripts" / "patches" / "sdl2-amigaos3-window.patch").read_text(encoding="utf-8")
+    assert re.findall(r"^\+\+\+ b/(\S+)$", patch, re.M) == ["src/video/amigaos3/SDL_os3framebuffer.c",
+                                                          "src/video/amigaos3/SDL_os3events.c"]
+    assert not re.search(r"^(---|\+\+\+) \S+[ \t]", patch, re.M), "no timestamps"
+    added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+"))
+    windowed = added[added.index("if (!data->is_fullscreen) {"):added.index("return 0;", added.index("if (!data->is_fullscreen) {"))]
+    assert "WritePixelArray(" in windowed and "win->RPort" in windowed
+    assert "win->GZZWidth" in windowed and "win->GZZHeight" in windowed, "clipped to the inner area"
+    # Negative: the windowed path never touches the screen's bitmap itself.
+    for direct in ("LockBitMapTags", "BitMapScale", "RPort->BitMap", "->Width", "->Height"):
+        assert direct not in windowed, direct
+    assert "intuiwin->GZZMouseX" in added and "intuiwin->GZZMouseY" in added and "WFLG_GIMMEZEROZERO" in added
+    # Both builds, before CMake; a kept SDL is rebuilt when a patch changes.
+    script = CONTAINER.read_text(encoding="utf-8")
+    window_at = script.index('patch -p1 -s < "$root_dir/scripts/patches/sdl2-amigaos3-window.patch"')
+    assert window_at < script.index('if [ "$target" = amigaos-m68k-aga ]; then\n        (cd') < script.index("cmake -S")
+    assert 'patches.sha256' in script and "sdl2-amigaos3-*.patch | sha256sum" in script
+    # It applies to the pinned fork, alone and before the AGA patch.
+    cache = ROOT / ".tools" / "cache"
+    pin = PINS["sdl2-amigaos3"]
+    archive = cache / pin["url"].rsplit("/", 1)[1]
+    if not archive.is_file() or hashlib.sha256(archive.read_bytes()).hexdigest() != pin["sha256"] or not shutil.which("patch"):
+        print("skipped applying the window patch: no pinned fork in .tools/cache")
+        return
+    import tarfile
+    wanted = ("CMakeLists.txt", "src/video/amigaos3/SDL_os3aga.c", "src/video/amigaos3/SDL_os3framebuffer.c",
+              "src/video/amigaos3/SDL_os3events.c")
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as temp:
+        with tarfile.open(archive) as bundle:
+            for member in bundle.getmembers():
+                parts = member.name.split("/", 1)
+                if len(parts) == 2 and parts[1] in wanted:
+                    member.name = parts[1]
+                    bundle.extract(member, temp)
+        for name in ("sdl2-amigaos3-window.patch", "sdl2-amigaos3-aga.patch"):
+            result = subprocess.run(["patch", "-p1", "-s"], cwd=temp, capture_output=True,
+                                    stdin=(ROOT / "scripts" / "patches" / name).open("rb"))
+            assert result.returncode == 0, (name, result.stdout, result.stderr)
+        framebuffer = (Path(temp) / "src/video/amigaos3/SDL_os3framebuffer.c").read_text(encoding="utf-8")
+        assert framebuffer.index("if (!data->is_fullscreen) {") < framebuffer.index("/* --- RTG path (our own screen) --- */")
+
+
 def main():
     for test in (test_images_pinned_by_digest, test_sources_pinned, test_container_build,
                  test_c_platform_branches, test_host_build_unchanged, test_refuses_unknown_target,
-                 test_sqlite_options_with_wal_requests, test_sqlite_never_seeks_past_the_end):
+                 test_sqlite_options_with_wal_requests, test_sqlite_never_seeks_past_the_end, test_window_patch):
         test()
     print("Amiga desktop build checks passed")
 

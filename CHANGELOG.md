@@ -1,6 +1,42 @@
 # Upcoming Wena release
 
 <details>
+<summary>AmigaOS 3 with RTG draws Wena inside its window, and the mouse points where it is drawn</summary>
+
+- wena7 screenshot (FS-UAE, AmigaOS 3, 68040, RTG): Wena ran and showed
+  All Boards, but the frame was drawn at the Workbench screen's top-left
+  corner, over everything, and only a stray piece of it was in the "WeKan
+  Native" window.
+- The cause is in the pinned AmigaOS 3 SDL fork. The window is a
+  GimmeZeroZero one on the Workbench screen, and its RastPort's BitMap is
+  the screen's. The fork wrote that bitmap directly, or scaled into it, at
+  (0, 0). Every update took the scaling path, because the window's outer
+  Width, borders included, is always wider than the frame.
+- `scripts/patches/sdl2-amigaos3-window.patch`, applied for both
+  `wena-amigaos-m68k` and `wena-amigaos-m68k-aga`: a window on the
+  Workbench screen gets its frame through WritePixelArray into its own
+  RastPort, where the layers place and clip it, within the inner
+  GZZWidth/GZZHeight. The direct video memory path stays for a window on
+  its own screen.
+- The mouse is from the window's GZZMouseX/GZZMouseY. An IntuiMessage's
+  MouseX/Y count from the outer corner even in a GimmeZeroZero window, so
+  clicks were off by the border sizes.
+- A kept SDL build is reused only when it was made with the current
+  patches.
+- Checked for the same fault elsewhere: AROS's SDL port already draws
+  through the window's RastPort at its border offset, and AmigaOS 4 uses
+  the system's own SDL2, so neither needs it.
+- Tests: `amiga-desktop` checks that the window patch applies to the
+  pinned fork, alone and with the AGA patch. Its windowed path writes only
+  through the window's RastPort, clipped to the inner area, and never locks,
+  scales or reads the outer size. The mouse is the inner one, and both
+  builds apply the patch before CMake.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>WeKan's Admin Panel: People with Edit User, Login, Announcement and Version</summary>
 
 - The member menu's Admin Panel (for an admin) opens WeKan's Admin Panel:

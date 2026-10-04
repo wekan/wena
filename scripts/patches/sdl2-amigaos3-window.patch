@@ -1,0 +1,57 @@
+--- a/src/video/amigaos3/SDL_os3framebuffer.c
++++ b/src/video/amigaos3/SDL_os3framebuffer.c
+@@ -311,7 +311,35 @@
+         return 0;
+     }
+ 
+-    /* --- RTG path --- */
++    /* --- RTG, in a window on the Workbench screen ---
++     * The window is a GimmeZeroZero one: its RastPort is the inner area, and
++     * the layers there place and clip what is written - the window's spot on
++     * the screen, its borders, other windows over it. Its RastPort's BitMap
++     * is the SCREEN's, so writing that directly (or scaling into it) drew the
++     * frame at the screen's top-left corner, and the outer Width, borders
++     * included, is always wider than the frame, which sent every update
++     * through the scaling below. */
++    if (!data->is_fullscreen) {
++        struct Window *win = data->window;
++        int inner_w = win->GZZWidth, inner_h = win->GZZHeight;
++        for (i = 0; i < numrects; i++) {
++            int x = rects[i].x, y = rects[i].y, w = rects[i].w, h = rects[i].h;
++            if (x < 0) { w += x; x = 0; }
++            if (y < 0) { h += y; y = 0; }
++            if (x + w > surface->w) w = surface->w - x;
++            if (y + h > surface->h) h = surface->h - y;
++            if (x + w > inner_w) w = inner_w - x;
++            if (y + h > inner_h) h = inner_h - y;
++            if (w <= 0 || h <= 0) {
++                continue;
++            }
++            WritePixelArray((APTR)surface->pixels, (UWORD)x, (UWORD)y, (UWORD)surface->pitch, win->RPort,
++                            (UWORD)x, (UWORD)y, (UWORD)w, (UWORD)h, RECTFMT_ARGB);
++        }
++        return 0;
++    }
++
++    /* --- RTG path (our own screen) --- */
+     {
+         int win_w = data->window->Width;
+         int win_h = data->window->Height;
+--- a/src/video/amigaos3/SDL_os3events.c
++++ b/src/video/amigaos3/SDL_os3events.c
+@@ -259,7 +259,14 @@
+                 break;
+ 
+             case IDCMP_MOUSEMOVE:
+-                /* WA_GimmeZeroZero: coordinates are relative to inner area */
++                /* An IntuiMessage's MouseX/Y count from the window's OUTER
++                 * corner, borders included, even in a GimmeZeroZero window;
++                 * the window's own GZZMouseX/Y count from the inner area,
++                 * which is where the frame is drawn. */
++                if (intuiwin->Flags & WFLG_GIMMEZEROZERO) {
++                    mousex = intuiwin->GZZMouseX;
++                    mousey = intuiwin->GZZMouseY;
++                }
+                 SDL_SendMouseMotion(sdlwin, 0, 0, (int)mousex, (int)mousey);
+                 break;
+ 
