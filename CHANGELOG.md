@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.07 2026-10-04 Wena release
 
 <details>
 <summary>AmigaOS 3 opens WeKan's files: SQLite no longer seeks past the end of a file</summary>
