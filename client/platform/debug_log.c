@@ -32,7 +32,158 @@ int __android_log_vprint(int priority, const char *tag, const char *format, va_l
 
 static FILE *log_file;
 static char log_directory[LOG_PATH_CAPACITY];
+static char log_path[LOG_PATH_CAPACITY + 32];
 static int log_fd = -1;
+static int append(char *out, size_t capacity, size_t *used, const char *text, size_t length);
+static int append_text(char *out, size_t capacity, size_t *used, const char *text);
+static char recent[WENA_DEBUG_LOG_RECENT][WENA_DEBUG_LOG_RECENT_WIDTH];
+static size_t recent_next, recent_count;
+
+/* The bounded formatter behind wena_debug_log_format. */
+typedef struct Formatted { char *out; size_t capacity, used; } Formatted;
+
+static void put_char(Formatted *f, char c)
+{
+    if (f->used + 1 < f->capacity) f->out[f->used++] = c;
+}
+
+static void put_text(Formatted *f, const char *text)
+{
+    if (text == NULL) text = "(null)";
+    while (*text != '\0') put_char(f, *text++);
+}
+
+static void put_unsigned(Formatted *f, unsigned long value, unsigned base)
+{
+    char digits[32];
+    int count = 0;
+    do { digits[count++] = "0123456789abcdef"[value % base]; value /= base; } while (value != 0 && count < 31);
+    while (count > 0) put_char(f, digits[--count]);
+}
+
+static void put_signed(Formatted *f, long value)
+{
+    if (value < 0) { put_char(f, '-'); put_unsigned(f, 0UL - (unsigned long)value, 10); }
+    else put_unsigned(f, (unsigned long)value, 10);
+}
+
+static void put_double(Formatted *f, double value, int precision)
+{
+    double scale = 1.0, whole;
+    int i;
+    if (value != value) { put_text(f, "nan"); return; }
+    if (value < 0.0) { put_char(f, '-'); value = -value; }
+    if (value > 4.0e9) { put_text(f, "big"); return; }
+    if (precision > 9) precision = 9;
+    for (i = 0; i < precision; ++i) scale *= 10.0;
+    value = (double)(unsigned long)(value * scale + 0.5) / scale;
+    whole = (double)(unsigned long)value;
+    put_unsigned(f, (unsigned long)whole, 10);
+    if (precision <= 0) return;
+    put_char(f, '.');
+    value -= whole;
+    for (i = 0; i < precision; ++i) {
+        value *= 10.0;
+        put_char(f, (char)('0' + (int)value % 10));
+        value -= (double)(int)value;
+    }
+}
+
+static void format_into(char *out, size_t capacity, const char *format, va_list arguments)
+{
+    Formatted f;
+    if (out == NULL || capacity == 0) return;
+    f.out = out; f.capacity = capacity; f.used = 0;
+    while (format != NULL && *format != '\0') {
+        int is_long = 0, precision = 6;
+        if (*format != '%') { put_char(&f, *format++); continue; }
+        ++format;
+        if (*format == '.') {
+            precision = 0;
+            for (++format; *format >= '0' && *format <= '9'; ++format) precision = precision * 10 + (*format - '0');
+        }
+        if (*format == 'l') { is_long = 1; ++format; }
+        switch (*format) {
+        case 's': put_text(&f, va_arg(arguments, const char *)); break;
+        case 'c': put_char(&f, (char)va_arg(arguments, int)); break;
+        case 'd': case 'i':
+            put_signed(&f, is_long ? va_arg(arguments, long) : (long)va_arg(arguments, int)); break;
+        case 'u':
+            put_unsigned(&f, is_long ? va_arg(arguments, unsigned long) : (unsigned long)va_arg(arguments, unsigned), 10);
+            break;
+        case 'x':
+            put_unsigned(&f, is_long ? va_arg(arguments, unsigned long) : (unsigned long)va_arg(arguments, unsigned), 16);
+            break;
+        case 'f': put_double(&f, va_arg(arguments, double), precision); break;
+        case 'p': {
+            void *pointer = va_arg(arguments, void *);
+            unsigned long bits = 0;
+            memcpy(&bits, &pointer, sizeof(pointer) < sizeof(bits) ? sizeof(pointer) : sizeof(bits));
+            put_text(&f, "0x");
+            put_unsigned(&f, bits, 16);
+            break;
+        }
+        case '%': put_char(&f, '%'); break;
+        case '\0': --format; break;
+        default: put_char(&f, '%'); put_char(&f, *format); break;
+        }
+        ++format;
+    }
+    out[f.used] = '\0';
+}
+
+void wena_debug_log_format(char *out, size_t capacity, const char *format, ...)
+{
+    va_list arguments;
+    va_start(arguments, format);
+    format_into(out, capacity, format, arguments);
+    va_end(arguments);
+}
+
+size_t wena_debug_log_recent_count(void)
+{
+    return recent_count;
+}
+
+const char *wena_debug_log_recent_line(size_t index)
+{
+    if (index >= recent_count) return "";
+    return recent[(recent_next + WENA_DEBUG_LOG_RECENT - recent_count + index) % WENA_DEBUG_LOG_RECENT];
+}
+
+int wena_debug_log_beside_for(int system, const char *executable, char *out, size_t capacity)
+{
+    static const char name[] = "wena-debug-log.txt";
+    size_t used = 0, folder;
+    if (out == NULL || capacity == 0) return 0;
+    out[0] = '\0';
+    if (system == WENA_SYSTEM_AMIGA)
+        return append_text(out, capacity, &used, "PROGDIR:") && append_text(out, capacity, &used, name);
+    if (executable == NULL) return 0;
+    /* Up to and including the last separator; Windows takes either. */
+    for (folder = strlen(executable); folder > 0; --folder) {
+        char c = executable[folder - 1];
+        if (c == '/' || (system == WENA_SYSTEM_WINDOWS && c == '\\')) break;
+    }
+    if (folder == 0 || !append(out, capacity, &used, executable, folder) ||
+        !append_text(out, capacity, &used, name)) {
+        out[0] = '\0';
+        return 0;
+    }
+    return 1;
+}
+
+int wena_debug_log_file_for(const char *directory, char *out, size_t capacity)
+{
+    size_t used = 0, length;
+    if (out == NULL || capacity == 0) return 0;
+    out[0] = '\0';
+    if (directory == NULL || (length = strlen(directory)) == 0) return 0;
+    return append_text(out, capacity, &used, directory) &&
+           (directory[length - 1] == '/' || directory[length - 1] == ':' ||
+            directory[length - 1] == '\\' || append(out, capacity, &used, "/", 1)) &&
+           append_text(out, capacity, &used, "desktop.log");
+}
 
 static int append(char *out, size_t capacity, size_t *used, const char *text, size_t length)
 {
@@ -164,18 +315,13 @@ static FILE *open_log(const char *path, int truncate)
 #endif
 }
 
-/* desktop.log in log_directory, which the caller has named. */
-static int open_in_directory(int truncate, int handlers)
+/* The log at log_path; the folders above it are made first. */
+static int open_file(int truncate, int handlers)
 {
-    char path[LOG_PATH_CAPACITY + 16];
-    size_t used = 0;
-    path[0] = '\0';
-    if (!append_text(path, sizeof(path), &used, log_directory) ||
-        !append(path, sizeof(path), &used, "/", 1) ||
-        !append_text(path, sizeof(path), &used, "desktop.log") ||
-        !wena_make_parent_directories(path) ||
-        (log_file = open_log(path, truncate)) == NULL) {
+    if (!wena_make_parent_directories(log_path) ||
+        (log_file = open_log(log_path, truncate)) == NULL) {
         log_directory[0] = '\0';
+        log_path[0] = '\0';
         return 0;
     }
     setvbuf(log_file, NULL, _IOLBF, 0);
@@ -195,6 +341,17 @@ static int open_in_directory(int truncate, int handlers)
     return 1;
 }
 
+/* desktop.log in log_directory, which the caller has named. */
+static int open_in_directory(int truncate, int handlers)
+{
+    if (!wena_debug_log_file_for(log_directory, log_path, sizeof(log_path))) {
+        log_directory[0] = '\0';
+        log_path[0] = '\0';
+        return 0;
+    }
+    return open_file(truncate, handlers);
+}
+
 int wena_debug_log_open(const char *executable)
 {
     char stamp[32], environment[LOG_PATH_CAPACITY];
@@ -205,8 +362,26 @@ int wena_debug_log_open(const char *executable)
     if (!wena_debug_log_directory_for(wena_environment("WENA_LOG_DIR", environment, sizeof(environment)) ?
                                       environment : NULL, executable, stamp,
                                       log_directory, sizeof(log_directory))) {
+        /* Outside a checkout: wena-debug-log.txt beside the program, the
+         * last run only, so it does not grow. */
+        size_t folder;
         log_directory[0] = '\0';
-        return 0;
+        if (!wena_debug_log_beside_for(
+#if defined(__amigaos__) || defined(__AROS__)
+                WENA_SYSTEM_AMIGA,
+#elif defined(_WIN32)
+                WENA_SYSTEM_WINDOWS,
+#else
+                WENA_SYSTEM_OTHER,
+#endif
+                executable, log_path, sizeof(log_path)))
+            return 0;
+        folder = strlen(log_path) - strlen("wena-debug-log.txt");
+        if (folder < sizeof(log_directory)) {
+            memcpy(log_directory, log_path, folder);
+            log_directory[folder] = '\0';
+        }
+        return open_file(1, 1);
     }
     return open_in_directory(0, 1);
 }
@@ -233,6 +408,11 @@ const char *wena_debug_log_directory(void)
     return log_directory;
 }
 
+const char *wena_debug_log_path(void)
+{
+    return log_path;
+}
+
 void wena_debug_log(const char *format, ...)
 {
     char stamp[32];
@@ -245,6 +425,11 @@ void wena_debug_log(const char *format, ...)
     __android_log_vprint(WENA_ANDROID_LOG_INFO, "Wena", format, arguments);
     va_end(arguments);
 #endif
+    va_start(arguments, format);
+    format_into(recent[recent_next], sizeof(recent[recent_next]), format, arguments);
+    va_end(arguments);
+    recent_next = (recent_next + 1) % WENA_DEBUG_LOG_RECENT;
+    if (recent_count < WENA_DEBUG_LOG_RECENT) ++recent_count;
     if (log_file == NULL) return;
     if (local == NULL || strftime(stamp, sizeof(stamp), "%H:%M:%S", local) == 0) strcpy(stamp, "--:--:--");
     fprintf(log_file, "%s ", stamp);

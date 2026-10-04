@@ -124,6 +124,65 @@ int main(int argc, char **argv)
     assert(!wena_desktop_default_database(NULL, NULL, NULL, WENA_SYSTEM_MACOS, out, sizeof(out)));
     assert(!wena_desktop_default_database(NULL, "/home/u", NULL, WENA_SYSTEM_MACOS, small, sizeof(small)));
 
+    /* The bounded formatter: what the log's calls use, cut and terminated. */
+    {
+        char line[64], tiny[6];
+        size_t n;
+        wena_debug_log_format(line, sizeof(line), "%s %d %u %ld %lu %x %c %%", "a", -12, 7u, -300000L, 4000000000UL, 255u, 'z');
+        assert(!strcmp(line, "a -12 7 -300000 4000000000 ff z %"));
+        wena_debug_log_format(line, sizeof(line), "%.2f %.0f %f", 1.25, 2.5, -0.25);
+        assert(!strcmp(line, "1.25 3 -0.250000"));
+        wena_debug_log_format(line, sizeof(line), "%s|%q|%", (const char *)NULL);
+        assert(!strcmp(line, "(null)|%q|"));
+        wena_debug_log_format(tiny, sizeof(tiny), "%s", "abcdefgh");
+        assert(!strcmp(tiny, "abcde"));
+        /* Every line is kept in memory, oldest first, the last 48 only -
+         * with or without a log file. */
+        for (n = 0; n < WENA_DEBUG_LOG_RECENT + 5; ++n) wena_debug_log("step %d", (int)n);
+        assert(wena_debug_log_recent_count() == WENA_DEBUG_LOG_RECENT);
+        assert(!strcmp(wena_debug_log_recent_line(0), "step 5"));
+        wena_debug_log_format(line, sizeof(line), "step %d", WENA_DEBUG_LOG_RECENT + 4);
+        assert(!strcmp(wena_debug_log_recent_line(WENA_DEBUG_LOG_RECENT - 1), line));
+        assert(!strcmp(wena_debug_log_recent_line(WENA_DEBUG_LOG_RECENT), ""));
+        /* A long line is cut, not overflowed. */
+        {
+            char longer[600];
+            memset(longer, 'x', sizeof(longer) - 1);
+            longer[sizeof(longer) - 1] = '\0';
+            wena_debug_log("%s", longer);
+            assert(strlen(wena_debug_log_recent_line(WENA_DEBUG_LOG_RECENT - 1)) == WENA_DEBUG_LOG_RECENT_WIDTH - 1);
+        }
+    }
+    /* Outside a checkout the log is wena-debug-log.txt beside the program:
+     * PROGDIR: on AmigaOS and AROS, with or without an executable name. */
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_AMIGA, NULL, out, sizeof(out)) &&
+           !strcmp(out, "PROGDIR:wena-debug-log.txt"));
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_AMIGA, "Work:Wena/wena-amigaos-m68k", out, sizeof(out)) &&
+           !strcmp(out, "PROGDIR:wena-debug-log.txt"));
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_OTHER, "/opt/wena/wena-linux-amd64", out, sizeof(out)) &&
+           !strcmp(out, "/opt/wena/wena-debug-log.txt"));
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_MACOS, "/Applications/Wena.app/Contents/MacOS/wena", out, sizeof(out)) &&
+           !strcmp(out, "/Applications/Wena.app/Contents/MacOS/wena-debug-log.txt"));
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_WINDOWS, "C:\\Wena\\wena.exe", out, sizeof(out)) &&
+           !strcmp(out, "C:\\Wena\\wena-debug-log.txt"));
+    assert(wena_debug_log_beside_for(WENA_SYSTEM_WINDOWS, "C:/Wena/wena.exe", out, sizeof(out)) &&
+           !strcmp(out, "C:/Wena/wena-debug-log.txt"));
+    /* Negative: no executable, no folder in it, a backslash outside
+     * Windows, and too small. */
+    assert(!wena_debug_log_beside_for(WENA_SYSTEM_OTHER, NULL, out, sizeof(out)) && out[0] == '\0');
+    assert(!wena_debug_log_beside_for(WENA_SYSTEM_OTHER, "wena", out, sizeof(out)) && out[0] == '\0');
+    assert(!wena_debug_log_beside_for(WENA_SYSTEM_OTHER, "C:\\Wena\\wena.exe", out, sizeof(out)));
+    assert(!wena_debug_log_beside_for(WENA_SYSTEM_OTHER, "/opt/wena/wena", small, sizeof(small)) && small[0] == '\0');
+    assert(!wena_debug_log_beside_for(WENA_SYSTEM_AMIGA, NULL, small, sizeof(small)));
+    /* desktop.log joined without a "/" after a device or a separator. */
+    assert(wena_debug_log_file_for("PROGDIR:wena-log", out, sizeof(out)) && !strcmp(out, "PROGDIR:wena-log/desktop.log"));
+    assert(wena_debug_log_file_for("RAM:", out, sizeof(out)) && !strcmp(out, "RAM:desktop.log"));
+    assert(wena_debug_log_file_for("/logs/", out, sizeof(out)) && !strcmp(out, "/logs/desktop.log"));
+    assert(wena_debug_log_file_for("/logs", out, sizeof(out)) && !strcmp(out, "/logs/desktop.log"));
+    assert(wena_debug_log_file_for("C:\\logs\\", out, sizeof(out)) && !strcmp(out, "C:\\logs\\desktop.log"));
+    assert(!wena_debug_log_file_for("", out, sizeof(out)) && !wena_debug_log_file_for(NULL, out, sizeof(out)));
+    assert(!wena_debug_log_file_for("/a/long/folder", small, 12));
+
     if (dir == NULL) return 0;
     /* Folders are created, a line is written, and a crash leaves its signal. */
     sprintf(path, "%s/a/b/board.sqlite", dir);
@@ -162,6 +221,38 @@ int main(int argc, char **argv)
     assert(strstr(text, " second run\n") != NULL && strstr(text, "first run") == NULL);
     /* Negative: no data folder, no log. */
     assert(!wena_debug_log_open_data(NULL) && wena_debug_log_directory()[0] == '\0');
+    /* Outside a checkout, with no WENA_LOG_DIR: wena-debug-log.txt beside
+     * the executable, the last run only. */
+    sprintf(path, "%s/bin/x", dir);
+    assert(wena_make_parent_directories(path));
+    sprintf(path, "%s/bin/wena-linux-amd64", dir);
+    assert(wena_debug_log_open(path));
+    wena_debug_log("first start");
+    wena_debug_log_close();
+    assert(wena_debug_log_open(path));
+    sprintf(expected, "%s/bin/wena-debug-log.txt", dir);
+    assert(!strcmp(wena_debug_log_path(), expected));
+    sprintf(expected, "%s/bin/", dir);
+    assert(!strcmp(wena_debug_log_directory(), expected));
+    wena_debug_log("second start");
+    wena_debug_log_close();
+    sprintf(path, "%s/bin/wena-debug-log.txt", dir);
+    read_file(path, text, sizeof(text));
+    assert(strstr(text, " second start\n") != NULL && strstr(text, "first start") == NULL);
+    /* WENA_LOG_DIR still wins over the executable's folder. */
+    sprintf(path, "%s/chosen", dir);
+    assert(setenv("WENA_LOG_DIR", path, 1) == 0);
+    sprintf(path, "%s/bin/wena-linux-amd64", dir);
+    assert(wena_debug_log_open(path));
+    sprintf(expected, "%s/chosen/desktop.log", dir);
+    assert(!strcmp(wena_debug_log_path(), expected));
+    wena_debug_log_close();
+    assert(unsetenv("WENA_LOG_DIR") == 0);
+    /* Negative: an executable with no folder, a folder that cannot be
+     * written - no log, and nothing named. */
+    assert(!wena_debug_log_open("wena") && wena_debug_log_path()[0] == '\0');
+    sprintf(path, "%s/bin/wena-debug-log.txt/wena", dir);
+    assert(!wena_debug_log_open(path) && wena_debug_log_path()[0] == '\0');
     puts("debug log tests passed");
     return 0;
 }

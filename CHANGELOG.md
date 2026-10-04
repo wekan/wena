@@ -164,6 +164,38 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Debugging a start that fails, as on AmigaOS 3.2: wena-debug-log.txt beside the program, and the last steps on screen</summary>
+
+- On AmigaOS 3.2 Wena said only "Unable to open the local Wena desktop":
+  outside a checkout without `WENA_LOG_DIR` there was no log, and every
+  reason it had was dropped.
+- Each start now writes `wena-debug-log.txt` beside the executable
+  (`PROGDIR:wena-debug-log.txt` on AmigaOS and AROS, which needs no program
+  name - a Workbench start has none), holding the last run. `WENA_LOG_DIR`
+  and a checkout's `.tools/log/wena` still come first.
+- The log's lines are also kept in memory, and a start that fails prints
+  its last 16 where it was started - the Shell or Workbench output window -
+  then the log file's name.
+- What is logged: the compiler, the SDL built with and run with; on
+  AmigaOS 3 and AROS the Exec version, the stack, free memory (largest
+  block, fast and chip) and, on AmigaOS 3, the CPU and FPU, with a warning
+  when they are below the 68040 and FPU the build needs; each startup step;
+  SDL's video driver, display mode and renderer; and when SDL cannot start
+  video, open the window or make the renderer, SDL's reason and its video
+  drivers. On AmigaOS 3 it adds that SDL there needs an RTG screen
+  (Picasso96 or CyberGraphX), since it is built without AGA.
+- The log's formatter is Wena's own, bounded: C89 has no vsnprintf.
+- Tests: `debug-log` (the formatter, cut lines, the last 48 lines,
+  wena-debug-log.txt beside the program on each system and PROGDIR: on the
+  Amiga, the last run only, WENA_LOG_DIR first, no folder and an unwritable
+  one), `desktop` (a start SDL refuses prints its steps, SDL's reason and
+  drivers, with and without WENA_LOG_DIR; a start that works prints none).
+
+Thanks to xet7.
+
+</details>
+
 # v0.04 2026-10-04 Wena release
 
 <details>

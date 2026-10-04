@@ -6,7 +6,8 @@
 /* Desktop debug log: one directory per run, YYYY-MM-DD_HH-MM-SS, holding
  * desktop.log. The directory is WENA_LOG_DIR when set (build.sh run sets it),
  * otherwise <...>/.tools/log/wena/<time> when the executable lives under
- * <...>/.tools/wena/ (either separator), otherwise there is no log file.
+ * <...>/.tools/wena/ (either separator); otherwise the log is
+ * wena-debug-log.txt beside the executable (wena_debug_log_beside_for).
  * Opening also installs handlers that record a fatal signal before the
  * default action runs, so a crash leaves its signal in the log. */
 int wena_debug_log_open(const char *executable);
@@ -19,9 +20,32 @@ int wena_debug_log_open(const char *executable);
 int wena_debug_log_open_data(const char *data_directory);
 /* The run's directory, or "" when there is no log file. */
 const char *wena_debug_log_directory(void);
+/* The log file's full name, or "" when there is none. */
+const char *wena_debug_log_path(void);
 /* One timestamped line; printf-style. Never fails the caller. */
 void wena_debug_log(const char *format, ...);
 void wena_debug_log_close(void);
+
+/* The last WENA_DEBUG_LOG_RECENT lines, kept in memory whether or not there
+ * is a log file, so a failed start can show them where it was started - an
+ * Amiga Shell or Workbench output window has no other way to say why.
+ * Oldest first; each at most WENA_DEBUG_LOG_RECENT_WIDTH - 1 bytes, without
+ * the time. */
+#define WENA_DEBUG_LOG_RECENT 48
+#define WENA_DEBUG_LOG_RECENT_WIDTH 240
+size_t wena_debug_log_recent_count(void);
+const char *wena_debug_log_recent_line(size_t index);
+/* printf-style into `out`, always terminated and cut at `capacity` - C89
+ * has no vsnprintf. Knows %s %c %d %i %u %x %ld %li %lu %lx %f %.Nf %p %%. */
+void wena_debug_log_format(char *out, size_t capacity, const char *format, ...);
+
+/* Where the log goes when neither WENA_LOG_DIR nor a checkout names a place:
+ * wena-debug-log.txt beside the executable, holding the last run only. On
+ * AmigaOS and AROS that is PROGDIR:wena-debug-log.txt, which needs no
+ * executable name (a Workbench start has none). 0 when the executable's
+ * folder cannot be named or the result does not fit. */
+int wena_debug_log_beside_for(int system, const char *executable, char *out, size_t capacity);
+int wena_debug_log_file_for(const char *directory, char *out, size_t capacity);
 
 /* Pure path rules, exposed for tests. 0 when the result does not fit or the
  * input gives no directory. */

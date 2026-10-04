@@ -139,6 +139,28 @@ for first in (True, False):
     log = (directory/'logs'/'desktop.log').read_text()
     assert 'default board my-board' in log and ('(creating it)' in log) == first, log
     (directory/'logs'/'desktop.log').unlink()
+# A start that fails shows why where it was started, log file or not (an
+# Amiga Shell or Workbench window has nothing else): the failing step, SDL's
+# reason, its drivers and the steps before, then the usual line.
+for logged in (True, False):
+    failing_env = dict(default_env, SDL_VIDEODRIVER='no-such-driver')
+    if not logged:
+        failing_env.pop('WENA_LOG_DIR')
+    run = subprocess.run([exe, '--smoke'], env=failing_env, capture_output=True, text=True, timeout=20)
+    assert run.returncode != 0, run.stdout
+    assert "Wena's last steps:" in run.stderr and 'starting SDL video' in run.stderr, run.stderr
+    assert 'SDL_Init(SDL_INIT_VIDEO) failed' in run.stderr and 'SDL video driver 0: ' in run.stderr, run.stderr
+    # Without WENA_LOG_DIR the log is wena-debug-log.txt beside the program.
+    log_file = directory/'logs'/'desktop.log' if logged else directory/'wena-debug-log.txt'
+    assert run.stderr.rstrip().splitlines()[-2:] == ['Unable to open the local Wena desktop',
+                                                     'See ' + str(log_file)], run.stderr
+    log = log_file.read_text()
+    assert 'SDL_Init(SDL_INIT_VIDEO) failed' in log and 'SDL built ' in log, log
+    log_file.unlink()
+# Negative: a start that works prints no steps.
+run = subprocess.run([exe, '--smoke'], env=default_env, capture_output=True, text=True, timeout=20)
+assert run.returncode == 0 and "Wena's last steps:" not in run.stderr, run.stderr
+(directory/'logs'/'desktop.log').unlink()
 # Negative: a relative WENA_DATABASE is refused and creates nothing.
 run = subprocess.run([exe, '--smoke'], env=dict(env, WENA_DATABASE='relative.sqlite'),
                      capture_output=True, timeout=20)

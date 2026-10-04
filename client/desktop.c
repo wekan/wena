@@ -65,10 +65,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__AROS__)
+#if (defined(__amigaos__) && !defined(__amigaos4__)) || defined(__AROS__)
+#define DESKTOP_EXEC 1
+#include <exec/execbase.h>
 #include <exec/memory.h>
 #include <exec/tasks.h>
 #include <proto/exec.h>
+#else
+#define DESKTOP_EXEC 0
 #endif
 
 static unsigned int desktop_card_badges(struct nk_context *context,
@@ -1175,6 +1179,70 @@ static void desktop_usage(FILE *output)
           " --screenshot, as WeKan's UI capture does.\n", output);
 }
 
+/* What the debug log needs to tell one system from another: the build, the
+ * SDL it was built with and runs with, and on AmigaOS 3 and AROS the CPU,
+ * Exec, free memory and the stack - the things a Workbench start differs in. */
+static void desktop_log_system(void)
+{
+    SDL_version linked, compiled;
+    SDL_VERSION(&compiled);
+    SDL_GetVersion(&linked);
+#if defined(__VERSION__)
+    wena_debug_log("built with %s", __VERSION__);
+#endif
+    wena_debug_log("SDL built %d.%d.%d, running %d.%d.%d, platform %s", compiled.major, compiled.minor,
+                   compiled.patch, linked.major, linked.minor, linked.patch, SDL_GetPlatform());
+#if DESKTOP_EXEC
+    {
+        struct Task *self = FindTask(NULL);
+        unsigned long stack = (unsigned long)((char *)self->tc_SPUpper - (char *)self->tc_SPLower);
+        wena_debug_log("Exec %d.%d, stack %lu bytes", (int)SysBase->LibNode.lib_Version,
+                       (int)SysBase->LibNode.lib_Revision, stack);
+        wena_debug_log("free memory %lu bytes (largest block %lu), fast %lu, chip %lu",
+                       (unsigned long)AvailMem(MEMF_ANY), (unsigned long)AvailMem(MEMF_ANY | MEMF_LARGEST),
+                       (unsigned long)AvailMem(MEMF_FAST), (unsigned long)AvailMem(MEMF_CHIP));
+#if defined(__mc68000__)
+        {
+            unsigned int flags = SysBase->AttnFlags;
+            const char *cpu = (flags & AFF_68040) ? "68040" : (flags & AFF_68030) ? "68030" :
+                              (flags & AFF_68020) ? "68020" : (flags & AFF_68010) ? "68010" : "68000";
+#if defined(AFF_68060)
+            if (flags & AFF_68060) cpu = "68060";
+#endif
+            wena_debug_log("CPU %s, FPU %s (AttnFlags 0x%x)", cpu,
+                           (flags & AFF_FPU40) ? "68040/060" : (flags & (AFF_68881 | AFF_68882)) ? "6888x" : "none",
+                           flags);
+            /* scripts/build_desktop_amiga_container.sh builds for -m68040
+             * -mhard-float: a slower CPU or no FPU stops on its first
+             * instruction of those. */
+            if (!(flags & AFF_68040) || !(flags & (AFF_FPU40 | AFF_68881 | AFF_68882))) {
+                wena_debug_log("this build needs a 68040 or 68060 with its FPU");
+                fputs("Wena for AmigaOS 3 needs a 68040 or 68060 with its FPU\n", stderr);
+            }
+        }
+#endif
+        if (stack < DESKTOP_STACK)
+            wena_debug_log("stack is under the %lu bytes asked for", DESKTOP_STACK);
+    }
+#endif
+}
+
+/* SDL's video drivers in this build, and why the one that failed did: on
+ * AmigaOS 3 SDL is built for RTG screens only (Picasso96 or CyberGraphX),
+ * so a plain ECS or AGA Workbench has no driver that can open a window. */
+static void desktop_log_video_failure(const char *step)
+{
+    int index, count = SDL_GetNumVideoDrivers();
+    wena_debug_log("%s failed: %s", step, SDL_GetError());
+    fprintf(stderr, "%s failed: %s\n", step, SDL_GetError());
+    for (index = 0; index < count; ++index)
+        wena_debug_log("SDL video driver %d: %s", index, SDL_GetVideoDriver(index));
+#if defined(__amigaos__) && !defined(__amigaos4__)
+    wena_debug_log("AmigaOS 3: SDL needs an RTG screen (Picasso96 or CyberGraphX)");
+    fputs("Wena on AmigaOS 3 needs an RTG screen mode (Picasso96 or CyberGraphX), not ECS or AGA\n", stderr);
+#endif
+}
+
 /* The frame drawn so far, read back from the renderer before it is shown. */
 static int desktop_screenshot(SDL_Renderer *renderer, const char *path)
 {
@@ -1404,8 +1472,9 @@ int DESKTOP_MAIN(int argc, char **argv)
 #endif
     wena_debug_log("wena-desktop starting, %d argument(s)", argc - 1);
     for (i = 1; i < argc; ++i) wena_debug_log("argument %d: %s", i, argv[i]);
-    if (wena_debug_log_directory()[0] != '\0')
-        fprintf(stderr, "Wena debug log: %s/desktop.log\n", wena_debug_log_directory());
+    desktop_log_system();
+    if (wena_debug_log_path()[0] != '\0')
+        fprintf(stderr, "Wena debug log: %s\n", wena_debug_log_path());
     database_path = NULL; actor_id = NULL; board_id = NULL;
     board_title = NULL; requested_language = NULL;
     smoke = 0; create_workspace = 0; screenshot = NULL; show = NULL;
@@ -1512,7 +1581,13 @@ int DESKTOP_MAIN(int argc, char **argv)
     memset(&migration, 0, sizeof(migration));
     snapshot = (WenaSqliteBoardSnapshot *)calloc(1, sizeof(*snapshot));
     transfer_snapshot=(WenaSqliteBoardSnapshot*)calloc(1,sizeof(*transfer_snapshot));
-    if(!snapshot||!transfer_snapshot){free(snapshot);free(transfer_snapshot);return 1;}
+    if(!snapshot||!transfer_snapshot){
+        free(snapshot);free(transfer_snapshot);
+        wena_debug_log("no memory for two board snapshots of %lu bytes", (unsigned long)sizeof(*snapshot));
+        fprintf(stderr, "Not enough memory for the board: %lu bytes needed twice\n", (unsigned long)sizeof(*snapshot));
+        wena_debug_log_close();
+        return 1;
+    }
     memset(&layout, 0, sizeof(layout));
     memset(&preview, 0, sizeof(preview));
     memset(&editors, 0, sizeof(editors));
@@ -1527,8 +1602,10 @@ int DESKTOP_MAIN(int argc, char **argv)
     sdl_started = 0; status = 1;
     /* Compiled in: the desktop reads nothing from its own file, which an app
      * bundle, an APK or an Amiga PROGDIR: does not let it find reliably. */
+    wena_debug_log("schema");
     if (!wena_sqlite_compiled_bundle(&migration.bytes, &migration.length, migration.sha256))
         DESKTOP_FAIL();
+    wena_debug_log("languages");
     languages = wena_ui_catalog_languages(&language_count);
     detected_locale[0] = '\0';
     desktop_locale(detected_locale, sizeof(detected_locale));
@@ -1544,6 +1621,7 @@ int DESKTOP_MAIN(int argc, char **argv)
         requested_language != NULL ? requested_language : detected_locale,
         languages, language_count)) DESKTOP_FAIL();
     wena_ui_set_translator(wena_ui_catalog_translate, &language);
+    wena_debug_log("opening %s", database_path);
     if (wekan_mode) {
         char wanted[WENA_ID_CAPACITY + 64], salt[33];
         unsigned char random[16];
@@ -1844,12 +1922,25 @@ board_session:
     }
     /* Once: a board switch comes back to board_session with the window open. */
     if (window != NULL) goto window_ready;
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) DESKTOP_FAIL();
+    wena_debug_log("starting SDL video");
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        desktop_log_video_failure("SDL_Init(SDL_INIT_VIDEO)");
+        DESKTOP_FAIL();
+    }
     sdl_started = 1;
+    wena_debug_log("SDL video driver %s", SDL_GetCurrentVideoDriver() != NULL ? SDL_GetCurrentVideoDriver() : "(none)");
+    {
+        SDL_DisplayMode mode;
+        if (SDL_GetDesktopDisplayMode(0, &mode) == 0)
+            wena_debug_log("display %dx%d, %d bits per pixel", mode.w, mode.h, (int)SDL_BITSPERPIXEL(mode.format));
+    }
     window = SDL_CreateWindow("WeKan Native", SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED, 1024, 720, SDL_WINDOW_RESIZABLE | DESKTOP_WINDOW_FLAGS |
         (smoke && !DESKTOP_MOBILE ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
-    if (window == NULL) DESKTOP_FAIL();
+    if (window == NULL) {
+        desktop_log_video_failure("SDL_CreateWindow 1024x720");
+        DESKTOP_FAIL();
+    }
 #if DESKTOP_IOS
     wena_ios_scene_attach(window);
 #endif
@@ -1866,10 +1957,18 @@ board_session:
     wena_debug_log("display scale %.2f, touch scale %.2f", ui_scale, input_scale);
 #else
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-    if (renderer == NULL) DESKTOP_FAIL();
+    if (renderer == NULL) {
+        desktop_log_video_failure("SDL_CreateRenderer (software)");
+        DESKTOP_FAIL();
+    }
 #endif
+    {
+        SDL_RendererInfo info;
+        if (SDL_GetRendererInfo(renderer, &info) == 0) wena_debug_log("renderer %s", info.name);
+    }
     context = nk_sdl_init(window, renderer);
     if (context == NULL) DESKTOP_FAIL();
+    wena_debug_log("fonts");
     views.renderer = renderer;
     /* WeKan's header logo, decoded once into a texture. */
     if (logo_texture == NULL) {
@@ -2664,9 +2763,14 @@ cleanup:
     if (database != NULL && sqlite3_close(database) != SQLITE_OK) status = 1;
     wena_embedded_migration_free(&migration);
     if (status != 0) {
+        /* What it did last, here where it was started: an Amiga Shell or
+         * Workbench window has no other place to show it. */
+        size_t line, count = wena_debug_log_recent_count(), first = count > 16 ? count - 16 : 0;
+        if (count > 0) fputs("Wena's last steps:\n", stderr);
+        for (line = first; line < count; ++line) fprintf(stderr, "  %s\n", wena_debug_log_recent_line(line));
         fputs("Unable to open the local Wena desktop\n", stderr);
-        if (wena_debug_log_directory()[0] != '\0')
-            fprintf(stderr, "See %s/desktop.log\n", wena_debug_log_directory());
+        if (wena_debug_log_path()[0] != '\0')
+            fprintf(stderr, "See %s\n", wena_debug_log_path());
     }
     else if (smoke) puts("Wena desktop smoke passed");
 #if DESKTOP_MOBILE
@@ -2721,11 +2825,10 @@ int main(int argc, char **argv)
      * than the app just closing; a test run with --smoke only logs it. */
     if (status != 0 && argc <= 1) {
         strcpy(message, "Wena could not open its board.");
-        if (wena_debug_log_directory()[0] != '\0' &&
-            strlen(wena_debug_log_directory()) + 64 < sizeof(message)) {
+        if (wena_debug_log_path()[0] != '\0' &&
+            strlen(wena_debug_log_path()) + 64 < sizeof(message)) {
             strcat(message, "\nSee ");
-            strcat(message, wena_debug_log_directory());
-            strcat(message, "/desktop.log");
+            strcat(message, wena_debug_log_path());
         }
         (void)SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Wena", message, NULL);
     }

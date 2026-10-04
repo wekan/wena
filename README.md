@@ -126,6 +126,12 @@ where the board is kept in `PROGDIR:wena.sqlite`; Android ARM64
 (`wena-android-arm64.apk`) and iOS ARM64 (`wena-ios-arm64.ipa`), where it is
 kept in the app's own data folder.
 
+Each start writes `wena-debug-log.txt` beside the executable (on AmigaOS and
+AROS `PROGDIR:wena-debug-log.txt`), holding the last run: the system, CPU,
+memory and stack where it can tell, SDL's video driver, and every startup
+step. A start that fails also prints its last steps where it was started.
+`WENA_LOG_DIR` puts the log (`desktop.log`) in that folder instead.
+
 The iOS `.ipa` is not signed: iOS installs only signed apps, so re-sign it with
 your own certificate, or with AltStore or Sideloadly. The Android `.apk` is
 signed with the release key in the repository secrets
