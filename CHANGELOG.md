@@ -1,3 +1,25 @@
+# Upcoming Wena release
+
+<details>
+<summary>The amigaos4-ppc and haiku-amd64 release builds compile and link again</summary>
+
+- v0.07 was published without these two files.
+- **amigaos4-ppc:** the PowerPC GCC stopped on `-Werror=maybe-uninitialized`
+  in the JPEG decoder: it could not see that the component values are set
+  for each of the image's 1 or 3 components before they are read. They
+  start at zero now. Every source was rechecked with GCC at -O1, -O2, -O3,
+  -Os and -Og.
+- **haiku-amd64:** the link stopped on `std::__throw_length_error`. SDL's
+  Haiku video is C++ (`BWindow`, `std::vector`), and gcc links C only. The
+  Haiku release now links `-lstdc++` after SDL's static archive.
+  libstdc++ ships with Haiku, as its own `libbe` does.
+- Tests: `release-link-flags` checks that Haiku links the C++ runtime after
+  SDL and that no other system does.
+
+Thanks to xet7.
+
+</details>
+
 # v0.07 2026-10-04 Wena release
 
 <details>

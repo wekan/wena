@@ -621,7 +621,9 @@ static WenaImageResult jpeg(const unsigned char *data, size_t length, WenaImage 
                 for (y = 0; y < j.height; ++y)
                     for (x = 0; x < j.width; ++x) {
                         unsigned char *out = image->rgba + (y * j.width + x) * 4;
-                        int values[3];
+                        /* Set for each component the image has (1 or 3); zero
+                         * first, as older GCCs cannot see that. */
+                        int values[3] = {0, 0, 0};
                         for (i = 0; i < j.components; ++i) {
                             JpegComponent *c = &j.comp[i];
                             unsigned long sx = x * (unsigned long)c->h / (unsigned long)j.hmax;

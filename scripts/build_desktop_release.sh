@@ -45,9 +45,12 @@ case "$target" in
     ldflags="-pthread -s ${WENA_EXTRA_LDFLAGS:-}"
     ;;
   haiku-*)
-    # Threads are part of Haiku's libroot; SDL's Haiku video is C++ (libbe).
+    # Threads are part of Haiku's libroot; SDL's Haiku video is C++ (libbe),
+    # and its static archive needs the C++ runtime after it: gcc links C
+    # only (std::__throw_length_error from std::vector was missing).
+    # libstdc++ is part of Haiku, as libbe is.
     cc=${CC:-gcc}
-    ldflags="-s"
+    ldflags="-s -lstdc++"
     ;;
   macos-arm64)
     cc=${CC:-"clang -arch arm64 -mmacosx-version-min=11.0"}
