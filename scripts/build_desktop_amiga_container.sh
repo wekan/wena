@@ -32,12 +32,17 @@ case "$target" in
     strip=ppc-amigaos-strip
     sqlite_cflags=
     ;;
-  aros-amd64)
-    # This gcc has no include path of its own. Under -std=c89 (__STRICT_ANSI__)
-    # AROS's headers hide the POSIX layer the file code needs; _XOPEN_SOURCE
-    # restores what they give by default, and inline/restrict/asm are spelled
-    # as GNU C89 spells them for the posixc and proto/dos.h inline headers.
-    cc="x86_64-aros-gcc --sysroot=/opt/x86_64-aros"
+  aros-amd64|aros-i386|aros-arm64)
+    # Under -std=c89 (__STRICT_ANSI__) AROS's headers hide the POSIX layer the
+    # file code needs; _XOPEN_SOURCE restores what they give by default, and
+    # inline/restrict/asm are spelled as GNU C89 spells them for the posixc
+    # and proto/dos.h inline headers. The x86-64 image's gcc has no include
+    # path of its own; the midwan/aros-compiler ones have theirs built in.
+    case "$target" in
+      aros-amd64) tools=x86_64-aros; cc="x86_64-aros-gcc --sysroot=/opt/x86_64-aros" ;;
+      aros-i386) tools=i386-aros; cc=i386-aros-gcc ;;
+      aros-arm64) tools=aarch64-aros; cc=aarch64-aros-gcc ;;
+    esac
     cflags="-D_XOPEN_SOURCE=500 -Dinline=__inline__ -Drestrict=__restrict__ -Dasm=__asm__"
     # Not stripped: an AROS executable is a relocatable object, and the
     # loader needs its relocation symbols.
@@ -78,24 +83,15 @@ case "$target" in
     sdl_libs=/opt/ppc-amigaos/usr/lib/libSDL2.a
     test -f "$sdl_libs"
     ;;
-  aros-amd64)
+  aros-amd64|aros-i386|aros-arm64)
     if [ ! -f "$work/sdl/libSDL2.a" ]; then
       rm -rf "$work/sdl-src" "$work/sdl"
-      mkdir -p "$work/sdl-src" "$work/sdl/obj"
-      tar -xzf "$(fetch sdl2)" -C "$work/sdl-src" --strip-components=1
-      (cd "$work/sdl-src" && patch -p1 -s < "$(fetch sdl2-aros-patch)")
-      cp "$(fetch sdl2-aros-static)" "$work/sdl-src/SDL2_static.c"
-      cp "$(fetch sdl2-aros-intern)" "$work/sdl-src/SDL2_intern.h"
-      # No OpenGL: Wena draws with SDL's software renderer, and AROS's
-      # libGL.a would tie the executable to gl.library. The driver's GL hooks
-      # stay NULL, so SDL reports OpenGL as unsupported. This image has no
-      # libiconv and no wcslen/wcscmp; SDL has its own of each.
-      sed -i -e '/#define SDL_VIDEO_RENDER_OGL /d' -e '/#define SDL_VIDEO_OPENGL /d' \
-        -e '/#define SDL_VIDEO_OPENGL_AGL /d' -e '/#define HAVE_ICONV /d' \
-        -e '/#define HAVE_ICONV_H /d' -e '/#define SDL_USE_LIBICONV /d' \
-        -e '/#define HAVE_WCSLEN /d' -e '/#define HAVE_WCSCMP /d' \
-        "$work/sdl-src/include/SDL_config_aros.h"
-      sed -i -e '/device->GL_[A-Za-z]* = AROS_GL_/d' "$work/sdl-src/src/video/aros/SDL_arosvideo.c"
+      mkdir -p "$work/sdl/obj"
+      # AROS's SDL2 port applied on the host (scripts/prepare_amiga_sources.py:
+      # no OpenGL - Wena draws with SDL's software renderer and gl.library
+      # would be needed otherwise - and SDL's own iconv, wcslen and wcscmp).
+      test -f "$work/sources/sdl-src/SDL2_static.c"
+      cp -R "$work/sources/sdl-src" "$work/sdl-src"
       # The static library SDL2_static of AROS's SDL2/main/mmakefile.src:
       # its FILES, SDL2AROSCOREFILES and SDL2AROSHWFILES, less render/opengl
       # and SDL_arosopengl, plus SDL2_static.c (-DSDL2_AROS_STATIC).
@@ -137,7 +133,7 @@ case "$target" in
           -I"$work/sdl-src/include" -I"$work/sdl-src" -I"$work/sdl-src/src" \
           -c "$work/sdl-src/$file.c" -o "$work/sdl/obj/$(echo "$file" | tr / _).o"
       done
-      x86_64-aros-ar rcs "$work/sdl/libSDL2.a.part" "$work"/sdl/obj/*.o
+      "$tools-ar" rcs "$work/sdl/libSDL2.a.part" "$work"/sdl/obj/*.o
       mv "$work/sdl/libSDL2.a.part" "$work/sdl/libSDL2.a"
     fi
     sdl_cflags="-isystem $work/sdl-src/include"
@@ -220,16 +216,8 @@ esac
 sqlite_dir="$work/sqlite"
 rm -rf "$sqlite_dir"
 mkdir -p "$sqlite_dir"
-python3 - "$(fetch sqlite)" "$sqlite_dir" <<'PY'
-import sys, zipfile
-from pathlib import Path
-archive, target = sys.argv[1], Path(sys.argv[2])
-with zipfile.ZipFile(archive) as bundle:
-    for name in bundle.namelist():
-        base = name.rsplit("/", 1)[-1]
-        if base in {"sqlite3.c", "sqlite3.h"}:
-            (target / base).write_bytes(bundle.read(name))
-PY
+# Extracted on the host (scripts/prepare_amiga_sources.py).
+cp "$work/sources/sqlite3.c" "$work/sources/sqlite3.h" "$sqlite_dir/"
 $cc -O2 $sqlite_cflags -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_DQS=0 \
   -DSQLITE_OMIT_WAL -DSQLITE_MAX_MMAP_SIZE=0 -DSQLITE_TEMP_STORE=3 -DSQLITE_STMTJRNL_SPILL=-1 \
   -DSQLITE_DISABLE_DIRSYNC -DHAVE_NANOSLEEP=0 -Dfchmod=wena_sqlite_fchmod \
@@ -266,16 +254,22 @@ case "$target" in
       echo "$output: needs shared objects" >&2; ppc-amigaos-readelf -d "$output" >&2; exit 1
     fi
     ;;
-  aros-amd64)
-    # ELF, 64-bit, little-endian, x86-64 relocatable object, which is what
+  aros-amd64|aros-i386|aros-arm64)
+    # ELF of the CPU the name says - 64-bit little-endian for x86-64 and
+    # AArch64, 32-bit for i386 - and a relocatable object, which is what
     # AROS loads; nothing is resolved at run time but the OS's libraries.
-    test "$magic" = 7f454c460201 || { echo "$output: not ELF64 little-endian ($magic)" >&2; exit 1; }
-    x86_64-aros-readelf -h "$output" | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
-    x86_64-aros-readelf -h "$output" | grep -Eq 'Type:[[:space:]]+REL'
-    if x86_64-aros-readelf -d "$output" 2>/dev/null | grep -q NEEDED; then
+    case "$target" in
+      aros-amd64) want_magic=7f454c460201; want_machine='Advanced Micro Devices X86-64' ;;
+      aros-i386) want_magic=7f454c460101; want_machine='Intel 80386' ;;
+      aros-arm64) want_magic=7f454c460201; want_machine='AArch64' ;;
+    esac
+    test "$magic" = "$want_magic" || { echo "$output: not the ELF of $target ($magic)" >&2; exit 1; }
+    "$tools-readelf" -h "$output" | grep -Eq "Machine:[[:space:]]+$want_machine"
+    "$tools-readelf" -h "$output" | grep -Eq 'Type:[[:space:]]+REL'
+    if "$tools-readelf" -d "$output" 2>/dev/null | grep -q NEEDED; then
       echo "$output: needs shared objects" >&2; exit 1
     fi
-    if x86_64-aros-nm -u "$output" | grep -Eiq 'SDL_|sqlite3_'; then
+    if "$tools-nm" -u "$output" | grep -Eiq 'SDL_|sqlite3_'; then
       echo "$output: unresolved SDL or SQLite symbols" >&2; exit 1
     fi
     ;;

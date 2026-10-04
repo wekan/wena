@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "scripts" / "build_desktop_amiga.sh"
 CONTAINER = ROOT / "scripts" / "build_desktop_amiga_container.sh"
 PINS = json.loads((ROOT / "config" / "release-dependencies.json").read_text(encoding="utf-8"))
-TARGETS = ("amigaos4-ppc", "aros-amd64", "amigaos-m68k", "amigaos-m68k-aga")
+TARGETS = ("amigaos4-ppc", "aros-amd64", "aros-i386", "aros-arm64", "amigaos-m68k", "amigaos-m68k-aga")
 AMIGA = "defined(__amigaos__) || defined(__AROS__)"
 
 
@@ -36,7 +36,7 @@ def test_images_pinned_by_digest():
     images = {entry["target"]: entry["image"] for entry in PINS["docker-images"]}
     assert sorted(images) == sorted(TARGETS)
     for target, image in images.items():
-        assert re.fullmatch(r"amigadev/crosstools:[a-z0-9._-]+@sha256:[0-9a-f]{64}", image), target
+        assert re.fullmatch(r"(amigadev/crosstools|midwan/aros-compiler):[a-z0-9._-]+@sha256:[0-9a-f]{64}", image), target
     assert images["aros-amd64"].endswith(
         "@sha256:9c4e978301da6b6584d68d4014caa1fa9e2689529e79e71f7190d40d1cb62e50")
     assert images["amigaos4-ppc"].startswith("amigadev/crosstools:ppc-amigaos@")
@@ -47,9 +47,12 @@ def test_images_pinned_by_digest():
     for script in (HOST, CONTAINER):
         assert not re.search(r"sha256:[0-9a-f]{64}", script.read_text(encoding="utf-8")), script.name
     assert '"docker-images"' in HOST.read_text(encoding="utf-8")
-    # AROS's image is amd64 only; the others run natively on arm64 hosts.
-    assert 'aros-amd64) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64' \
-        in HOST.read_text(encoding="utf-8")
+    # The AROS images are amd64 only; the others run natively on arm64 hosts.
+    assert ('aros-amd64|aros-i386|aros-arm64)\n    sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static '
+            'sdl2-aros-intern"; platform=linux/amd64') in HOST.read_text(encoding="utf-8")
+    # The new AROS CPUs: BlitterStudio's images, i386 ABIv0 and AArch64.
+    assert images["aros-i386"].startswith("midwan/aros-compiler:i386-aros@")
+    assert images["aros-arm64"].startswith("midwan/aros-compiler:aarch64-aros@")
 
 
 def test_sources_pinned():
@@ -156,7 +159,7 @@ def run(command, env=None):
 def test_refuses_unknown_target():
     sh = shutil.which("sh")
     for script in (HOST, CONTAINER):
-        for target in ("amigaos-ppc", "aros-i386", "linux-amd64", ""):
+        for target in ("amigaos-ppc", "aros-ppc", "linux-amd64", ""):
             with tempfile.TemporaryDirectory() as temp:
                 result = run([sh, str(script), target, str(Path(temp) / "wena")])
                 assert result.returncode == 2, (script.name, target, result.stderr)
@@ -164,7 +167,7 @@ def test_refuses_unknown_target():
                 assert not list(Path(temp).iterdir())
         result = run([sh, str(script), "aros-amd64"])
         assert result.returncode == 2 and "Usage:" in result.stderr
-    assert not (ROOT / ".tools" / "release" / "aros-i386").exists()
+    assert not (ROOT / ".tools" / "release" / "aros-ppc").exists()
     # Without Docker the host script stops before fetching anything.
     with tempfile.TemporaryDirectory() as temp:
         for tool in ("dirname",):

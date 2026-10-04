@@ -95,6 +95,18 @@
       "image": "amigadev/crosstools:m68k-amigaos-gcc10@sha256:d066f82528673c831d3ce1d84720b7a6c01ab513888bb67895194222a16726f4",
       "platforms": "linux/amd64 linux/arm64",
       "use": "the amigaos-m68k image; vasmm68k_mot from it assembles SDL's AGA c2p"
+    },
+    {
+      "target": "aros-i386",
+      "image": "midwan/aros-compiler:i386-aros@sha256:ee7a865a2f5a25dcf36e3a2e5257cacc21e21a0d199e0b9ead0aaeba58ddd1a8",
+      "platforms": "linux/amd64",
+      "use": "i386-aros-gcc with the ABIv0 SDK (deadwood2/AROS alt-abiv0), from BlitterStudio/aros-compiler-docker"
+    },
+    {
+      "target": "aros-arm64",
+      "image": "midwan/aros-compiler:aarch64-aros@sha256:d5f1655b8ba3b17195972d90085d7abce0df4ad0bb33be4d0b46c3f48c52caec",
+      "platforms": "linux/amd64",
+      "use": "aarch64-aros-gcc with the raspi-aarch64 SDK (aros-development-team/AROS), from BlitterStudio/aros-compiler-docker"
     }
   ],
   "android-cmdline-tools-linux": {

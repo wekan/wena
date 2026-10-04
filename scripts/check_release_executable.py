@@ -30,7 +30,7 @@ FORBIDDEN = ("sdl2", "sqlite")
 # Systems whose executables are ELF, checked alike: the CPU, and that SDL2 and
 # SQLite are linked in. Their C library and windowing system are the system's.
 # AROS CPUs: (ELF machine, 64-bit). AROS on m68k runs wena-amigaos-m68k.
-AROS_CPUS = {"amd64": (62, True), "i386": (3, False)}
+AROS_CPUS = {"amd64": (62, True), "i386": (3, False), "arm64": (183, True)}
 ELF_SYSTEMS = ("linux", "freebsd", "netbsd", "openbsd", "dragonflybsd", "haiku")
 
 

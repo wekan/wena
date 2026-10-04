@@ -4,7 +4,10 @@
 #   scripts/build_desktop_amiga.sh TARGET OUTPUT_EXECUTABLE
 #
 #   amigaos4-ppc   AmigaOS 4, PowerPC: ELF, SDL2 from the image
-#   aros-amd64     AROS x86-64: relocatable ELF, SDL2 2.32.10 with AROS's port
+#   aros-amd64     AROS x86-64 (ABIv11): relocatable ELF, SDL2 2.32.10 with AROS's port
+#   aros-i386      AROS x86 32-bit (ABIv0, AROS One and the other i386
+#                  distributions): the same, built with deadwood2's alt-abiv0
+#   aros-arm64     AROS AArch64 (raspi-aarch64: Raspberry Pi 3/4/5): the same
 #   amigaos-m68k   AmigaOS 3.x, 68040 + FPU + RTG: HUNK, diasurgical's SDL2
 #   amigaos-m68k-aga
 #                  the same for AGA without RTG: an 8-bit 640x512 screen,
@@ -24,12 +27,13 @@ if [ "$#" -ne 2 ]; then
 fi
 target=$1
 output=$2
-# AROS's image is published for amd64 only; the other two are multi-arch and
+# The AROS images are published for amd64 only; the others are multi-arch and
 # run natively on an arm64 host.
 platform=
 case "$target" in
   amigaos4-ppc) sources="sqlite" ;;
-  aros-amd64) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64 ;;
+  aros-amd64|aros-i386|aros-arm64)
+    sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64 ;;
   amigaos-m68k|amigaos-m68k-aga) sources="sqlite sdl2-amigaos3" ;;
   *)
     echo "unknown Amiga desktop target: $target" >&2
@@ -52,6 +56,10 @@ for name in $sources; do
   python3 "$root_dir/scripts/fetch_release_dependency.py" "$name" "$cache" > /dev/null
 done
 sh "$root_dir/scripts/check_desktop_sources.sh"
+# What needs Python or patch is done here, so an image needs only its
+# compiler: SQLite's amalgamation, and AROS's SDL2 port applied.
+python3 "$root_dir/scripts/prepare_amiga_sources.py" "$target" "$cache" \
+  "$root_dir/.tools/release/$target/sources" > /dev/null
 built=".tools/release/$target/wena-desktop"
 rm -f "$root_dir/$built"
 docker run --rm ${platform:+--platform "$platform"} \

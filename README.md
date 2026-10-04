@@ -122,7 +122,8 @@ little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64 and ARM64;
 NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
 x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64; AmigaOS
 3.x (68040 with FPU: `wena-amigaos-m68k` for an RTG graphics card,
-`wena-amigaos-m68k-aga` for AGA), AmigaOS 4 and AROS x86-64,
+`wena-amigaos-m68k-aga` for AGA), AmigaOS 4, and AROS x86-64, x86 32-bit (ABIv0, as AROS
+One) and ARM 64-bit (Raspberry Pi 3/4/5),
 where the board is kept in `PROGDIR:wena.sqlite`; Android ARM64
 (`wena-android-arm64.apk`) and iOS ARM64 (`wena-ios-arm64.ipa`), where it is
 kept in the app's own data folder.

@@ -468,6 +468,7 @@ TEST_SUITES = (
     ('attach-release-files', 'test_attach_release_files.py', 'Each release file attached as soon as its build job finishes'),
     ('member-settings', 'test_member_settings.sh', "WeKan's member menu, Edit Profile and Change Settings"),
     ('admin-panel', 'test_admin_panel.sh', "WeKan's Admin Panel: tabs, left menus, People, Edit User, Announcement, Login"),
+    ('prepare-amiga-sources', 'test_prepare_amiga_sources.py', 'Amiga and AROS sources prepared on the host for the containers'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),

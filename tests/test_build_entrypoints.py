@@ -482,6 +482,7 @@ def test_release_package_check():
     assert check.check("amigaos4-ppc", elf_typed(elf(20, [], bits64=False, little=False), 2, little=False)) == []
     assert check.check("aros-amd64", elf_typed(elf(62, []), 1)) == []
     assert check.check("aros-i386", elf_typed(elf(3, [], bits64=False), 1)) == []
+    assert check.check("aros-arm64", elf_typed(elf(183, []), 1)) == []
     # Android: only arm64 libmain.so, SDL's activity, and Android's own libraries.
     library = elf(183, ["libandroid.so", "liblog.so", "libGLESv2.so", "libc.so"])
     apk = {"AndroidManifest.xml": b"x", "classes.dex": b"dex Lorg/libsdl/app/SDLActivity;",
@@ -501,6 +502,7 @@ def test_release_package_check():
             # x86-64 file the old aros-x86 name was given an i386 one.
             ("aros-amd64", elf_typed(elf(3, [], bits64=False), 1), "relocatable amd64"),
             ("aros-i386", elf_typed(elf(62, []), 1), "relocatable i386"),
+            ("aros-arm64", elf_typed(elf(62, []), 1), "relocatable arm64"),
             ("aros-x86", elf_typed(elf(62, []), 1), "unknown AROS CPU"),
             ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libSDL2.so": library})), "only lib/arm64-v8a/libmain.so"),
             ("android-arm64", zipped(dict(apk, **{"lib/arm64-v8a/libmain.so": elf(183, ["libSDL2.so"])})), "Android does not have"),

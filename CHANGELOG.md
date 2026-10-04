@@ -1,6 +1,40 @@
 # Upcoming Wena release
 
 <details>
+<summary>AROS x86 32-bit (ABIv0) and ARM 64-bit builds: wena-aros-i386 and wena-aros-arm64</summary>
+
+- AROS runs on more CPUs than x86-64, and Wena is now built for every one
+  that has a published cross-compiler and SDK:
+  - `wena-aros-i386`: the 32-bit ABIv0 line of deadwood2/AROS that AROS
+    One and the other i386 distributions run. It was in the catalog as
+    planned.
+  - `wena-aros-arm64`: AROS's AArch64 port (raspi-aarch64, Raspberry Pi
+    3/4/5).
+- Both build in BlitterStudio's AROS cross-compiler images
+  (`midwan/aros-compiler:i386-aros` and `:aarch64-aros`), pinned by digest,
+  with the same SDL2 2.32.10 and AROS port as `wena-aros-amd64`. They are
+  two more Amiga jobs in the release workflow, and the release check takes
+  each file only as a relocatable ELF of its own CPU.
+- AROS on m68k runs `wena-amigaos-m68k`. AROS's 32-bit ARM (raspi-armhf)
+  and PowerPC (sam440, Efika) ports have no published cross-compiler or SDK,
+  so they are noted in `config/targets.tsv` rather than built.
+- Those images carry a compiler and an SDK and little else, so what needed
+  Python or patch in the container now happens on the host first
+  (`scripts/prepare_amiga_sources.py`). It extracts SQLite for every Amiga
+  target, and applies AROS's SDL2 port with Wena's edits (no OpenGL, SDL's
+  own iconv, wcslen and wcscmp) for every AROS CPU. It stops when the port
+  no longer has the lines it drops.
+- Tests: `prepare-amiga-sources` checks the prepared tree, a missing archive
+  and a changed port refused, and that the AROS container path needs no
+  Python, patch or sed. `amiga-desktop`, `target-catalog` and
+  `build-entrypoints` check the two images, the catalog, and a refused ELF
+  of the wrong CPU.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>AmigaOS 3 with RTG draws Wena inside its window, and the mouse points where it is drawn</summary>
 
 - wena7 screenshot (FS-UAE, AmigaOS 3, 68040, RTG): Wena ran and showed

@@ -360,6 +360,8 @@ jobs:
           - { target: amigaos-m68k-aga }
           - { target: amigaos4-ppc }
           - { target: aros-amd64 }
+          - { target: aros-i386 }
+          - { target: aros-arm64 }
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

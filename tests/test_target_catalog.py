@@ -52,7 +52,7 @@ def main() -> None:
     # The CPU in a name is a CPU, never the ambiguous "x86" (wena-aros-x86 was
     # an x86-64 file); AROS has one target per CPU it is built for.
     assert not [t for t in targets if t.endswith("-x86")], targets
-    assert {t for t in targets if t.startswith("aros-")} == {"aros-amd64", "aros-i386"}
+    assert {t for t in targets if t.startswith("aros-")} == {"aros-amd64", "aros-i386", "aros-arm64"}
     # Negative: no terminal-only program is released any more; every target is the GUI.
     text = CATALOG.read_text(encoding="utf-8")
     assert "wena-desktop-" not in text and "bootstrap" not in text
