@@ -1,3 +1,33 @@
+# Upcoming Wena release
+
+<details>
+<summary>WeKan's mobile/desktop toggle and Show desktop drag handles work on the board</summary>
+
+- **The mobile/desktop toggle** in the header works now. In mobile mode, as
+  WeKan's `body.mobile-mode`, every list takes the board's whole width and
+  the lists stack one under another, each as high as its cards (a collapsed
+  one is WeKan's 60 pixel bar), and the page scrolls. The icon is WeKan's
+  fa-desktop or fa-mobile, and the choice is the user's
+  `profile.mobileMode`, as `Users.setMobileMode` writes it.
+- **Show desktop drag handles** now draws WeKan's arrows icon on every
+  minicard (20 pixels at its right, 28 down; a 44 pixel strip in mobile
+  mode), every list header and every swimlane bar, and only those icons drag.
+  A click elsewhere on a card still opens it, and a click on a list's or
+  swimlane's title still renames it. Before, the toggle swapped the card
+  drag for an older labelled handle row.
+- `--show mobile` and `--show drag-handles` capture either state.
+- Tests: `nuklear-board` renders with the real Nuklear. In mobile mode the
+  lists stack at the same left edge and the heights add up. Without
+  handles the whole card, header and bar drag; with them only the 20, 22
+  and 26 pixel icons (44 in mobile mode), a card body click opens the card,
+  and a click on the handle does not. `board-feature` checks the toggle's
+  action in both states, and `wekan-sync` the `profile.mobileMode` round
+  trip, apart from the drag handles.
+
+Thanks to xet7.
+
+</details>
+
 # v0.08 2026-10-04 Wena release
 
 <details>
