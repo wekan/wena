@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.08 2026-10-04 Wena release
 
 <details>
 <summary>The amigaos4-ppc and haiku-amd64 release builds compile and link again</summary>
