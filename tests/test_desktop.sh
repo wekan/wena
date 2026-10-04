@@ -423,6 +423,12 @@ assert run.returncode == 0, (run.stdout, run.stderr)
 log = (directory / 'wekan-logs' / 'desktop.log').read_text()
 assert 'user ' + user[0][0] + ', board second-board' in log, log
 assert 'board ' + first[0][0] + '\n' in log and log.count('window open') == 2, log
+# WeKan's report views draw from the same file: a chart and its table.
+for view in ('board-view-burndown', 'board-view-aging-wip', 'board-view-monte-carlo'):
+    run = subprocess.run([exe, '--smoke', '--show', 'view:' + view], env=wekan_env, capture_output=True,
+                         text=True, timeout=30)
+    assert run.returncode == 0, (view, run.stdout, run.stderr)
+    assert 'board view' not in (directory / 'wekan-logs' / 'desktop.log').read_text(), view
 # All Boards, drawn: the page a WeKan bundle opens on.
 shot = directory / 'all-boards.bmp'
 run = subprocess.run([exe, '--screenshot', str(shot)], env=wekan_env, capture_output=True, text=True, timeout=30)

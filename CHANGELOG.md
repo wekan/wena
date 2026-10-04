@@ -488,6 +488,47 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>All of WeKan's 35 board views are in the Board View menu, and its 16 report charts are drawn</summary>
+
+- The Board View menu lists every view WeKan has, in WeKan's order with
+  its six separators and each view's name and icon, in three columns so
+  that it fits. The header names the view that is on. The view is kept as
+  WeKan keeps it - its exact key in `users.profile.boardView` - so WeKan
+  and Wena open a board in the same view; a key WeKan does not have opens
+  as Swimlanes, as WeKan's own fallback does.
+- WeKan's 16 report charts are drawn from wekan.sqlite: Dashboard,
+  Burndown, Burnup, Cumulative Flow, Control Chart, Cycle Time, Lead Time,
+  Flow Efficiency, Throughput Histogram with its completion forecast, WIP
+  Run, Pulse, Aging WIP, Blocker Analysis, Monte Carlo Forecasts, Process
+  Behavior (XmR) and Work Item Size vs. Cycle Time. Each is WeKan's page:
+  the title, the method note, the chart (two for Monte Carlo and Process
+  Behavior), the data table and the details, in WeKan's colors.
+- The numbers are WeKan's: `models/charts.c` ports
+  `chartCalculations.js`, `flowAnalytics.js`, `chartExportRows.js` and
+  `flowAnalyticsRows.js` - completion at endAt else archivedAt, UTC days,
+  Mongo's sort order and JavaScript's stable sort, the Monte Carlo
+  bootstrap with WeKan's seed - reading cards, lists, activities and the
+  card change history, removed cards' snapshots included, as
+  `boardChartData.js` does (`server/wekan_views.c`).
+- The views' and charts' texts are WeKan's translations, looked up by key;
+  the two forecast texts with `__name__` placeholders are filled in.
+- The other views are listed and not yet drawn; they follow.
+- `--show view:KEY` with `--screenshot` renders a view.
+- Tests: `charts` (new) computes all 16 charts on three seeded boards both
+  with WeKan's own JavaScript in Node and with Wena, and requires every
+  table cell, detail row, note and bar to be the same; `wekan-views` (new)
+  loads cards with every field, a removed card's snapshot, lists, users,
+  activities and the history rows the charts replay, and not another
+  board's; `board-views` (new) checks the 35 views, their order,
+  separators and charts and draws a chart and an empty one; `wekan-sync`
+  keeps any view key and refuses a malformed one; `desktop` opens three
+  chart views on a WeKan file.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

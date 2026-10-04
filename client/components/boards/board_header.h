@@ -40,7 +40,9 @@ typedef struct WenaBoardHeaderInfo {
     int watch;                /* 0 hides it, 1 Watching, 2 Tracking, 3 Muted */
     int search;               /* 0 hides Search, 1 shows it, 2 its sidebar is open */
     int sort;                 /* 0 hides Sort Cards, 1 shows it, 2 a sort is on */
-    int view;                 /* 0 hides the view, 1 Swimlanes, 2 Lists */
+    int view;                 /* 0 hides the view, 1 Swimlanes, 2 Lists, else view_name */
+    const char *view_name;    /* any of WeKan's views, with its icon (WenaIcon) */
+    int view_icon;
     int notifications;        /* 0 hides them, 1 the bell, 2 unread ones, 3 open */
     int add_board;            /* WeKan's + to Add Board */
 } WenaBoardHeaderInfo;

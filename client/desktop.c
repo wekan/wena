@@ -24,6 +24,9 @@
 #include "features/card_selection_panel.h"
 #include "components/sidebar/search_sidebar.h"
 #include "components/sidebar/notifications_drawer.h"
+#include "components/boards/board_views.h"
+#include "../server/wekan_views.h"
+#include <time.h>
 #include "../server/board_search.h"
 #include "features/card_description.h"
 #include "features/card_description_mutation.h"
@@ -283,7 +286,8 @@ typedef struct WenaDesktopToolbar {
     int card_menu_error;      /* a Card Actions item that could not be done */
     int board_choice;         /* 1 Private, 2 Public, 3 Watching, 4 Tracking, 5 Muted */
     int card_sort;            /* WeKan's Sort Cards: WENA_BOARD_SORT_* */
-    int board_view;           /* chosen in Board View: 1 Swimlanes, 2 Lists */
+    int board_view;           /* chosen in Board View: its index + 1 */
+    int views_available;      /* WeKan's file is open: its views can be drawn */
     int collapse_error;
     int collapse_retry;
     int collapse_writable;
@@ -488,11 +492,94 @@ static int desktop_card_to_top(void *opaque, const WenaBoardLayout *layout)
  * menus (their items carry out the same actions as Wena's panels), the
  * user's menu with the language, and the Filter panel at the right. Returns
  * an opened panel. */
+/* WeKan's board views other than the lists, drawn from WeKan's file. */
+typedef struct WenaDesktopViews {
+    sqlite3 *database;
+    const char *actor;
+    char board[WENA_ID_CAPACITY];
+    size_t view;
+    WenaViewData data;
+    int loaded;
+    sqlite3_int64 changes;
+    size_t chart_view;
+    int chart_ready;
+    WenaChartResult chart;
+    char open_card[WENA_ID_CAPACITY];
+} WenaDesktopViews;
+
+/* Which views Wena draws so far: the lists and WeKan's report charts. */
+static int desktop_view_drawn(size_t view)
+{
+    size_t count;
+    const WenaBoardView *views = wena_board_views(&count);
+    return view < count && (view <= WENA_BOARD_VIEW_LISTS || views[view].chart != NULL);
+}
+
+static const char *desktop_view_text(const char *key, const char *fallback)
+{
+    return wena_ui_key_text(key, fallback);
+}
+
+static void desktop_views_reset(WenaDesktopViews *views)
+{
+    wena_view_data_free(&views->data);
+    wena_chart_result_free(&views->chart);
+    views->loaded = 0;
+    views->chart_ready = 0;
+}
+
+static void desktop_board_view(struct nk_context *context, void *opaque, float height)
+{
+    WenaDesktopViews *views = (WenaDesktopViews *)opaque;
+    size_t count;
+    const WenaBoardView *table = wena_board_views(&count);
+    const WenaBoardView *view = views->view < count ? &table[views->view] : &table[0];
+    sqlite3_int64 changes = sqlite3_total_changes(views->database);
+    /* WeKan's records again whenever the file changed. */
+    if (!views->loaded || views->changes != changes) {
+        desktop_views_reset(views);
+        views->loaded = wena_wekan_views_load(views->database, views->board, &views->data);
+        views->changes = changes;
+        if (!views->loaded) wena_debug_log("board view %s: %s", view->key, sqlite3_errmsg(views->database));
+    }
+    if (view->chart != NULL && views->loaded && (!views->chart_ready || views->chart_view != views->view)) {
+        wena_chart_result_free(&views->chart);
+        views->chart_ready = wena_chart_compute(view->chart, &views->data, (double)time(NULL) * 1000.0, NULL,
+                                                desktop_view_text, &views->chart);
+        views->chart_view = views->view;
+    }
+    nk_layout_row_dynamic(context, height, 1);
+    nk_style_push_style_item(context, &context->style.window.fixed_background,
+                             nk_style_item_color(nk_rgb(0xf7, 0xf7, 0xf7)));
+    nk_style_push_vec2(context, &context->style.window.group_padding, nk_vec2(16.0f, 12.0f));
+    if (nk_group_begin(context, "board-view", 0)) {
+        nk_style_pop_vec2(context);
+        nk_style_pop_style_item(context);
+        if (view->chart != NULL && views->chart_ready) {
+            static const char *const flow[] = {"agingWip", "blockerAnalysis", "monteCarlo", "processBehavior", "sizeCycleTime"};
+            const char *note = NULL;
+            char key[64];
+            size_t f;
+            for (f = 0; f < sizeof(flow) / sizeof(flow[0]); ++f)
+                if (!strcmp(view->chart, flow[f])) { sprintf(key, "flow-note-%s", flow[f]); note = wena_ui_key_text(key, NULL); }
+            (void)wena_board_chart_render(context, wena_ui_key_text(view->label_key, NULL), note, &views->chart);
+        } else {
+            nk_layout_row_dynamic(context, 24.0f, 1);
+            wena_wekan_text(context, wena_ui_key_text(views->loaded ? "no-results" : "flow-error", NULL),
+                            WENA_WEKAN_FONT_BODY, WENA_WEKAN_ICON, NK_TEXT_LEFT);
+        }
+        nk_group_end(context);
+    } else {
+        nk_style_pop_vec2(context);
+        nk_style_pop_style_item(context);
+    }
+}
+
 static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToolbar *toolbar,
     WenaDesktopEditors *editors, const WenaBoardLayout *layout, float width, float height)
 {
     WenaDesktopMenu *menu;
-    WenaWekanMenuItem items[8];
+    WenaWekanMenuItem items[40];
     WenaListInteraction target;
     WenaHierarchyKind kind;
     float menu_width;
@@ -547,16 +634,20 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CHANGE_WATCH_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_VIEW) {
-        /* WeKan's views; Wena draws Swimlanes and Lists. */
-        DESKTOP_ITEM(WENA_ICON_GRID, WENA_UI_TEXT_BOARD_VIEW_SWIMLANES, 1, 0);
-        items[count - 1].checked = !layout->lists_view;
-        DESKTOP_ITEM(WENA_ICON_LIST, WENA_UI_TEXT_BOARD_VIEW_LISTS, 1, 0);
-        items[count - 1].checked = layout->lists_view;
-        DESKTOP_ITEM(WENA_ICON_CALENDAR, WENA_UI_TEXT_BOARD_VIEW_CALENDAR, 0, 1);
-        DESKTOP_ITEM(WENA_ICON_NONE, WENA_UI_TEXT_BOARD_VIEW_GANTT, 0, 0);
-        DESKTOP_ITEM(WENA_ICON_NONE, WENA_UI_TEXT_BOARD_VIEW_TABLE, 0, 0);
+        /* WeKan's Board View menu: every view, in WeKan's order and groups,
+         * three columns so that it fits; the views drawn from WeKan's file
+         * need it. */
+        size_t view_count, v;
+        const WenaBoardView *views = wena_board_views(&view_count);
+        for (v = 0; v < view_count && count < sizeof(items) / sizeof(items[0]); ++v, ++count) {
+            items[count].icon = views[v].icon;
+            items[count].text = wena_board_view_name(v);
+            items[count].enabled = v <= WENA_BOARD_VIEW_LISTS || (toolbar->views_available && desktop_view_drawn(v));
+            items[count].separator_before = v > 0 && views[v - 1].separator_after;
+            items[count].checked = layout->board_view == v;
+        }
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_BOARD_VIEW_TITLE),
-                                 menu->x + 300.0f < width ? menu->x : width - 300.0f, 82.0f, 300.0f, 1, items, count);
+                                 width > 760.0f ? 20.0f : 0.0f, 82.0f, width > 760.0f ? 740.0f : width, 3, items, count);
     } else if (menu->kind == DESKTOP_MENU_SORT) {
         /* WeKan's choices, in its order; the item's place picks the sort. */
         static const int sorts[] = {WENA_BOARD_SORT_DUE, WENA_BOARD_SORT_TITLE, WENA_BOARD_SORT_CREATED_NEWEST,
@@ -584,7 +675,7 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         strcpy(target.list_id, menu->list_id);
         strcpy(target.swimlane_id, menu->swimlane_id);
         if (menu->kind == DESKTOP_MENU_VIEW) {
-            toolbar->board_view = chosen == 1 ? 2 : 1;
+            toolbar->board_view = chosen + 1;
             menu->kind = DESKTOP_MENU_NONE;
             return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_SORT) {
@@ -980,7 +1071,8 @@ static void desktop_usage(FILE *output)
           "--licenses prints the licenses of everything compiled into this program.\n",
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
-          "multi-selection, visibility, watch, sort, sorted, view, lists-view, notifications, add-board,\n"
+          "multi-selection, visibility, watch, sort, sorted, view, lists-view, view:KEY, notifications,\n"
+          "add-board, "
           "search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
           " --screenshot, as WeKan's UI capture does.\n", output);
@@ -1136,6 +1228,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     int all_boards_page, tiles_stale;
     WenaAllBoardsView all_boards_view;
     WenaSearchSidebar search;
+    WenaDesktopViews views;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
     size_t notification_count;
     int notifications_open;
@@ -1221,6 +1314,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     all_boards_page = 0; tiles_stale = 1; tiles = NULL; tile_count = 0;
     memset(&all_boards_view, 0, sizeof(all_boards_view));
     memset(&search, 0, sizeof(search));
+    memset(&views, 0, sizeof(views));
     notification_count = 0;
     notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
@@ -1523,7 +1617,17 @@ board_session:
     layout.header_all_boards = wekan_mode;
     if (wekan_mode) {
         desktop_wekan_star(database, actor_id, snapshot->board.id, &layout);
-        layout.lists_view = wena_wekan_sync_board_view(database, actor_id) == 1;
+        {
+            /* The board view as WeKan keeps it: the user's profile.boardView. */
+            char view_key[64];
+            layout.board_view = wena_wekan_sync_board_view(database, actor_id, view_key, sizeof(view_key)) ?
+                wena_board_view_index(view_key) : WENA_BOARD_VIEW_SWIMLANES;
+            layout.lists_view = layout.board_view == WENA_BOARD_VIEW_LISTS;
+        }
+        desktop_views_reset(&views);
+        views.database = database;
+        views.actor = actor_id;
+        strcpy(views.board, snapshot->board.id);
         if (!wena_wekan_sync_notifications(database, actor_id, notifications, WENA_WEKAN_NOTIFICATIONS,
                                            &notification_count)) {
             notification_count = 0;
@@ -1748,7 +1852,12 @@ window_ready:
                     search.cards, WENA_SEARCH_RESULTS, &search.card_count);
             }
             else if (!strcmp(show, "sorted")) toolbar.card_sort = WENA_BOARD_SORT_TITLE;
-            else if (!strcmp(show, "lists-view")) layout.lists_view = 1;
+            else if (!strcmp(show, "lists-view")) { layout.lists_view = 1; layout.board_view = WENA_BOARD_VIEW_LISTS; }
+            else if (!strncmp(show, "view:", 5)) {
+                /* One of WeKan's views, by its key: view:board-view-burndown. */
+                layout.board_view = wena_board_view_index(id);
+                layout.lists_view = layout.board_view == WENA_BOARD_VIEW_LISTS;
+            }
             else if (!strcmp(show, "notifications")) notifications_open = 1;
             else if (!strcmp(show, "add-board")) { add_board.visible = 1; add_board.focus = 1; }
             else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
@@ -1868,7 +1977,20 @@ window_ready:
             layout.header_notifications = !wekan_mode ? 0 : notifications_open ? 3 :
                 wena_notifications_unread(notifications, notification_count) > 0 ? 2 : 1;
             layout.card_sort = toolbar.card_sort;
-            layout.header_view = layout.lists_view ? 2 : 1;
+            {
+                size_t view_count;
+                const WenaBoardView *view_table = wena_board_views(&view_count);
+                if (layout.board_view >= view_count || (!wekan_mode && layout.board_view > WENA_BOARD_VIEW_LISTS) ||
+                    !desktop_view_drawn(layout.board_view))
+                    layout.board_view = layout.lists_view ? WENA_BOARD_VIEW_LISTS : WENA_BOARD_VIEW_SWIMLANES;
+                layout.header_view = 3;
+                layout.header_view_name = wena_board_view_name(layout.board_view);
+                layout.header_view_icon = (int)view_table[layout.board_view].icon;
+                layout.view_render = layout.board_view > WENA_BOARD_VIEW_LISTS ? desktop_board_view : NULL;
+                layout.view_context = &views;
+                views.view = layout.board_view;
+                toolbar.views_available = wekan_mode;
+            }
             layout.header_sort = toolbar.card_sort != WENA_BOARD_SORT_NONE ? 2 : 1;
             wena_ui_controls_begin();
             desktop_sidebar_fill(&sidebar_data, &sidebar, &label_view, database, actor_id,
@@ -1925,9 +2047,15 @@ window_ready:
                 }
                 if (toolbar.board_view != 0) {
                     /* Kept as WeKan keeps it: the user's profile.boardView. */
-                    layout.lists_view = toolbar.board_view == 2;
-                    if (wekan_mode && !smoke && !wena_wekan_sync_set_board_view(database, actor_id, layout.lists_view))
-                        wena_debug_log("board view: %s", wena_wekan_sync_error());
+                    size_t view_count;
+                    const WenaBoardView *view_table = wena_board_views(&view_count);
+                    if ((size_t)toolbar.board_view <= view_count) {
+                        layout.board_view = (size_t)toolbar.board_view - 1;
+                        layout.lists_view = layout.board_view == WENA_BOARD_VIEW_LISTS;
+                        if (wekan_mode && !smoke &&
+                            !wena_wekan_sync_set_board_view(database, actor_id, view_table[layout.board_view].key))
+                            wena_debug_log("board view: %s", wena_wekan_sync_error());
+                    }
                     toolbar.board_view = 0;
                 }
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_SORT) != 0u) {
@@ -2370,6 +2498,7 @@ cleanup:
         wena_wekan_sync_export(database, actor_id) < 0)
         wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
     free(tiles);
+    desktop_views_reset(&views);
     wena_card_drag_cancel(&preview.card_drag);
     wena_ui_set_translator(NULL, NULL);
     desktop_close_other_editors(&editors, DESKTOP_PANEL_NONE);

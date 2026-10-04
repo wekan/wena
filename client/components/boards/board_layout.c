@@ -383,11 +383,11 @@ static unsigned int wena_render_minicard(struct nk_context *context,
         if (!collapsed && card->has_description) {
             struct nk_rect badge;
             nk_layout_row_dynamic(context, 8.0f, 1);
-            nk_spacing(context, 1);
+            nk_label(context, "", NK_TEXT_LEFT);
             nk_layout_row_begin(context, NK_STATIC, 16.0f, 1);
             nk_layout_row_push(context, 14.0f);
             badge = nk_widget_bounds(context);
-            nk_spacing(context, 1);
+            nk_label(context, "", NK_TEXT_LEFT);
             nk_layout_row_end(context);
             wena_wekan_icon_draw(context, WENA_ICON_FILE_TEXT_O, badge.x, badge.y + 1.0f, 13.0f, WENA_WEKAN_ICON);
             wena_ui_control_record(NULL, wena_ui_text(WENA_UI_TEXT_DESCRIPTION), badge.x, badge.y, badge.w, badge.h);
@@ -768,6 +768,8 @@ int wena_board_layout_render(struct nk_context *context,
     info.search = layout->header_search;
     info.sort = layout->header_sort;
     info.view = layout->header_view;
+    info.view_name = layout->header_view_name;
+    info.view_icon = layout->header_view_icon;
     info.notifications = layout->header_notifications;
     info.add_board = layout->header_add_board;
     header_action = wena_board_header_render_info(context, layout->board, &info);
@@ -797,6 +799,14 @@ int wena_board_layout_render(struct nk_context *context,
                             WENA_WEKAN_TEXT, NK_TEXT_LEFT);
             nk_layout_row_end(context);
         }
+    }
+    if (layout->view_render != NULL) {
+        /* Another of WeKan's views: the rest of the window is its. */
+        struct nk_panel *page = context->current->layout;
+        float rest = page->bounds.y + page->bounds.h - page->at_y - page->row.height - 8.0f;
+        layout->view_render(context, layout->view_context, rest > 120.0f ? rest : 120.0f);
+        if (!layout->sidebar_as_window) (void)wena_board_sidebar_render(context, layout->sidebar);
+        return 1;
     }
     for (index = 0; index < layout->swimlane_count; ++index) {
         const WenaSwimlane *swimlane = &layout->swimlanes[index];

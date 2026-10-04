@@ -371,6 +371,72 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_stroke_rect(out, nk_rect(x + P(6), y + P(6.5f), P(8.5f), P(8.5f)), P(2), t * 0.8f, c);
         line(out, x + P(6.5f), y + P(7), x + P(9.5f), y + P(1.5f), t, c);
         break;
+    case WENA_ICON_TABLE:
+        nk_stroke_rect(out, nk_rect(x + P(1), y + P(2), P(14), P(12)), P(1), t * 0.8f, c);
+        nk_fill_rect(out, nk_rect(x + P(1), y + P(2), P(14), P(3)), P(1), c);
+        line(out, x + P(1), y + P(9), x + P(15), y + P(9), t * 0.7f, c);
+        line(out, x + P(6), y + P(5), x + P(6), y + P(14), t * 0.7f, c);
+        break;
+    case WENA_ICON_CLOCK:
+        nk_stroke_circle(out, nk_rect(x + P(1.5f), y + P(1.5f), P(13), P(13)), t, c);
+        line(out, x + P(8), y + P(4), x + P(8), y + P(8), t, c);
+        line(out, x + P(8), y + P(8), x + P(11), y + P(10), t, c);
+        break;
+    case WENA_ICON_PIE_CHART:
+        nk_fill_arc(out, x + P(8), y + P(8), P(6.5f), 0.0f, 4.712389f, c);
+        nk_fill_arc(out, x + P(9), y + P(7), P(6), 4.712389f, 6.2831853f, c);
+        break;
+    case WENA_ICON_BAR_CHART:
+        line(out, x + P(1.5f), y + P(14.5f), x + P(15), y + P(14.5f), t, c);
+        nk_fill_rect(out, nk_rect(x + P(3), y + P(8), P(2.5f), P(6)), 0.0f, c);
+        nk_fill_rect(out, nk_rect(x + P(7), y + P(4), P(2.5f), P(10)), 0.0f, c);
+        nk_fill_rect(out, nk_rect(x + P(11), y + P(6), P(2.5f), P(8)), 0.0f, c);
+        break;
+    case WENA_ICON_TASKS:
+        for (i = 0; i < 3; ++i) {
+            nk_stroke_rect(out, nk_rect(x + P(1.5f), y + P(2 + i * 4.5f), P(3), P(3)), 0.0f, t * 0.7f, c);
+            line(out, x + P(6.5f), y + P(3.5f + i * 4.5f), x + P(14.5f), y + P(3.5f + i * 4.5f), t, c);
+        }
+        break;
+    case WENA_ICON_LINE_CHART:
+        line(out, x + P(1.5f), y + P(14.5f), x + P(15), y + P(14.5f), t, c);
+        points[0] = x + P(2); points[1] = y + P(11);
+        points[2] = x + P(6); points[3] = y + P(6);
+        points[4] = x + P(9.5f); points[5] = y + P(9);
+        points[6] = x + P(14); points[7] = y + P(3);
+        nk_stroke_polyline(out, points, 4, t, c);
+        break;
+    case WENA_ICON_AREA_CHART:
+        line(out, x + P(1.5f), y + P(14.5f), x + P(15), y + P(14.5f), t, c);
+        nk_fill_triangle(out, x + P(2), y + P(14), x + P(7), y + P(5), x + P(10), y + P(14), c);
+        nk_fill_triangle(out, x + P(7), y + P(14), x + P(11), y + P(8), x + P(14.5f), y + P(14), c);
+        break;
+    case WENA_ICON_ROAD:
+        line(out, x + P(4), y + P(15), x + P(6.5f), y + P(1), t, c);
+        line(out, x + P(12), y + P(15), x + P(9.5f), y + P(1), t, c);
+        line(out, x + P(8), y + P(3), x + P(8), y + P(5.5f), t, c);
+        line(out, x + P(8), y + P(8), x + P(8), y + P(10.5f), t, c);
+        line(out, x + P(8), y + P(13), x + P(8), y + P(15), t, c);
+        break;
+    case WENA_ICON_TACHOMETER:
+        nk_stroke_arc(out, x + P(8), y + P(11), P(6.5f), 3.14159265f, 6.2831853f, t, c);
+        line(out, x + P(8), y + P(11), x + P(11.5f), y + P(6), t, c);
+        nk_fill_circle(out, nk_rect(x + P(6.5f), y + P(9.5f), P(3), P(3)), c);
+        break;
+    case WENA_ICON_HEARTBEAT:
+        points[0] = x + P(1); points[1] = y + P(9);
+        points[2] = x + P(5); points[3] = y + P(9);
+        points[4] = x + P(7); points[5] = y + P(3);
+        points[6] = x + P(9.5f); points[7] = y + P(14);
+        points[8] = x + P(11.5f); points[9] = y + P(9);
+        points[10] = x + P(15); points[11] = y + P(9);
+        nk_stroke_polyline(out, points, 6, t, c);
+        break;
+    case WENA_ICON_MAP_MARKER:
+        nk_fill_circle(out, nk_rect(x + P(3.5f), y + P(1), P(9), P(9)), c);
+        nk_fill_triangle(out, x + P(4.2f), y + P(7.5f), x + P(11.8f), y + P(7.5f), x + P(8), y + P(15), c);
+        nk_fill_circle(out, nk_rect(x + P(6.5f), y + P(3.5f), P(3), P(3)), color_of(WENA_WEKAN_PANEL));
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;

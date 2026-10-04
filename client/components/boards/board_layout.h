@@ -129,7 +129,14 @@ typedef struct WenaBoardLayout {
     /* WeKan's Lists view: each list's cards of every swimlane, without the
      * swimlanes' bars. */
     int lists_view;
-    int header_view;                /* 0 none, 1 Swimlanes, 2 Lists */
+    size_t board_view;              /* board_views.h: the view the header names */
+    int header_view;                /* 0 none, 1 Swimlanes, 2 Lists, 3 header_view_name */
+    const char *header_view_name;
+    int header_view_icon;
+    /* A board view that is not the lists (board_views.h): drawn in place of
+     * the swimlanes, in the rest of the window, when not NULL. */
+    void (*view_render)(struct nk_context *context, void *view_context, float height);
+    void *view_context;
     int header_notifications;       /* 0 none, 1 bell, 2 unread ones, 3 open */
     int header_add_board;           /* WeKan's + to Add Board */
     int header_filter_active;

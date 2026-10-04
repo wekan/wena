@@ -178,15 +178,15 @@ unsigned int wena_board_header_render_info(struct nk_context *context,
         second_x = 16.0f + multi_width + 8.0f;
     }
     /* WeKan's board view: the caret, the view's icon and its name. */
-    if (info != NULL && (info->view == 1 || info->view == 2)) {
-        const char *view = wena_ui_text(info->view == 2 ? WENA_UI_TEXT_BOARD_VIEW_LISTS :
-                                        WENA_UI_TEXT_BOARD_VIEW_SWIMLANES);
+    if (info != NULL && info->view) {
+        const char *view = info->view_name != NULL ? info->view_name :
+                           wena_ui_text(info->view == 2 ? WENA_UI_TEXT_BOARD_VIEW_LISTS : WENA_UI_TEXT_BOARD_VIEW_SWIMLANES);
+        WenaIcon icon = info->view_name != NULL ? (WenaIcon)info->view_icon : info->view == 2 ? WENA_ICON_LIST : WENA_ICON_GRID;
         float view_width = text_width(context, WENA_WEKAN_FONT_LINK, view) + 22.0f;
         wena_wekan_icon_draw(context, WENA_ICON_CARET_DOWN, area.x + second_x, area.y + 59.0f, 10.0f,
                              WENA_WEKAN_HEADER_LINK);
         nk_layout_space_push(context, nk_rect(second_x + 12.0f, 50.0f, view_width, 28.0f));
-        if (wena_wekan_link(context, info->view == 2 ? WENA_ICON_LIST : WENA_ICON_GRID, view, WENA_WEKAN_FONT_LINK,
-                            WENA_WEKAN_HEADER_LINK))
+        if (wena_wekan_link(context, icon, view, WENA_WEKAN_FONT_LINK, WENA_WEKAN_HEADER_LINK))
             action |= WENA_BOARD_HEADER_VIEW;
         second_x += 12.0f + view_width + 8.0f;
     }

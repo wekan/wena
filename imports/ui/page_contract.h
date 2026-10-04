@@ -224,6 +224,10 @@ typedef enum WenaUiTextId {
 typedef const char *(*WenaUiTranslator)(void *context, const char *key);
 void wena_ui_set_translator(WenaUiTranslator translator, void *context);
 const char *wena_ui_text(WenaUiTextId id);
+/* A WeKan text by its key, as the board views name theirs: translated when
+ * the key is in imports/ui/page_contract.c's key_texts, else `fallback` -
+ * or, when `fallback` is NULL, the English of key_texts, else the key. */
+const char *wena_ui_key_text(const char *key, const char *fallback);
 
 const WenaUiControlContract *wena_ui_control(WenaUiControlId id);
 const char *wena_ui_control_text(WenaUiControlId id);

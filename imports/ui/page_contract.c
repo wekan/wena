@@ -1,4 +1,5 @@
 #include "page_contract.h"
+#include <string.h>
 
 static WenaUiTranslator translation_callback;
 static void *translation_context;
@@ -171,6 +172,117 @@ static const char *translated(const char *key, const char *fallback)
         if (value != NULL && value[0] != '\0') return value;
     }
     return fallback;
+}
+
+/* WeKan's texts looked up by their key, for what has many of them - the
+ * board views and their charts. WENA_UI_FORMAT marks a text with __name__
+ * placeholders that its caller fills in (scripts/generate_ui_i18n.py). */
+#define WENA_UI_KEY 0
+#define WENA_UI_FORMAT 1
+static const struct {
+    int kind;
+    const char *key;
+    const char *fallback;
+} key_texts[] = {
+    {WENA_UI_KEY, "date", "Date"},
+    {WENA_UI_KEY, "board-view-wip-run", "WIP Run"},
+    {WENA_UI_KEY, "card", "Card"},
+    {WENA_UI_KEY, "completed", "Completed"},
+    {WENA_UI_KEY, "board-view-cycle-time", "Cycle Time"},
+    {WENA_UI_KEY, "board-view-lead-time", "Lead Time"},
+    {WENA_UI_KEY, "board-view-burndown", "Burndown"},
+    {WENA_UI_KEY, "board-view-throughput-histogram", "Throughput Histogram"},
+    {WENA_UI_KEY, "cards", "Cards"},
+    {WENA_UI_KEY, "chart-forecast-none-remaining", "Nothing left open to project - every card is done."},
+    {WENA_UI_KEY, "board-view-flow-efficiency", "Flow Efficiency"},
+    {WENA_UI_KEY, "board-view-pulse", "Pulse"},
+    {WENA_UI_KEY, "no-assignee", "No assignee"},
+    {WENA_UI_KEY, "no-label", "No label"},
+    {WENA_UI_KEY, "name", "Name"},
+    {WENA_UI_KEY, "assignees", "Assignees"},
+    {WENA_UI_KEY, "labels", "Labels"},
+    {WENA_UI_KEY, "lists", "Lists"},
+    {WENA_UI_KEY, "list", "List"},
+    {WENA_UI_KEY, "flow-age-days", "Age in stage (days)"},
+    {WENA_UI_KEY, "flow-p85", "Stage 85th percentile (days)"},
+    {WENA_UI_KEY, "flow-samples", "Historical stays"},
+    {WENA_UI_KEY, "flow-signal", "Signal"},
+    {WENA_UI_KEY, "flow-unknown", "Unknown"},
+    {WENA_UI_KEY, "flow-unusual", "Outside limit"},
+    {WENA_UI_KEY, "flow-cycle-days", "Cycle time (days)"},
+    {WENA_UI_KEY, "flow-mean", "Mean"},
+    {WENA_UI_KEY, "flow-moving-range", "Moving range"},
+    {WENA_UI_KEY, "flow-mr-mean", "Mean moving range"},
+    {WENA_UI_KEY, "flow-size-source", "Size field"},
+    {WENA_UI_KEY, "flow-size", "Estimate"},
+    {WENA_UI_KEY, "poker-question", "Planning Poker"},
+    {WENA_UI_KEY, "flow-confidence", "Confidence"},
+    {WENA_UI_KEY, "flow-target-count", "Target cards"},
+    {WENA_UI_KEY, "flow-finish-days", "Days to finish"},
+    {WENA_UI_KEY, "flow-finish-date", "Finish date"},
+    {WENA_UI_KEY, "flow-target-date", "Target date"},
+    {WENA_UI_KEY, "flow-capacity", "At least this many cards"},
+    {WENA_UI_KEY, "flow-history-days", "History days"},
+    {WENA_UI_KEY, "flow-beyond-horizon", "Beyond simulation horizon"},
+    {WENA_UI_KEY, "flow-blocker", "Blocking card"},
+    {WENA_UI_KEY, "flow-episodes", "Episodes"},
+    {WENA_UI_KEY, "flow-active", "Open episodes"},
+    {WENA_UI_KEY, "flow-blocked-days", "Blocked card-days"},
+    {WENA_UI_KEY, "flow-unknown-start", "Unknown starts"},
+    {WENA_UI_KEY, "card-start", "Start"},
+    {WENA_UI_KEY, "card-end", "End"},
+    {WENA_UI_KEY, "days", "days"},
+    {WENA_UI_KEY, "flow-note-agingWip", "Open cards: days since entering the current stage. Red bars exceed its historical 85th percentile (at least five stays). Missing entry history is unknown."},
+    {WENA_UI_KEY, "flow-note-blockerAnalysis", "Dependency history gives blocker start/end times per stage. Older links may have unknown starts. Deleted cards require retained history snapshots. Overlapping causes count separately."},
+    {WENA_UI_KEY, "flow-note-monteCarlo", "2,000 trials sample full UTC calendar days, including zero-throughput days. Dates are upper-tail forecasts; counts are lower-tail commitments. Assumes similar future throughput; not a guarantee. Maximum horizon: 3,650 days. No completions means no forecast."},
+    {WENA_UI_KEY, "flow-note-processBehavior", "Cycle time uses Start, falling back to creation, and End, falling back to archive. XmR shows individuals and successive differences, with mean and natural process limits; at least two valid completions are required."},
+    {WENA_UI_KEY, "flow-note-sizeCycleTime", "Current Planning Poker estimate or one numeric custom field versus completed cycle time in days. Missing estimates and invalid dates are omitted. Start falls back to creation; End falls back to archive."},
+    {WENA_UI_KEY, "flow-details", "Underlying history"},
+    {WENA_UI_KEY, "export", "Export"},
+    {WENA_UI_KEY, "no-results", "No results"},
+    {WENA_UI_KEY, "loading", "Loading, please wait."},
+    {WENA_UI_KEY, "flow-error", "Could not load the report. Check the values and try again."},
+    {WENA_UI_KEY, "apply", "Apply"},
+    {WENA_UI_KEY, "swimlanes", "Swimlanes"},
+    {WENA_UI_KEY, "board-view-lists", "Lists"},
+    {WENA_UI_KEY, "board-view-table", "Table"},
+    {WENA_UI_KEY, "board-view-cal", "Calendar"},
+    {WENA_UI_KEY, "board-view-multiboard-cal", "Multi Board Calendar"},
+    {WENA_UI_KEY, "board-view-time", "Time"},
+    {WENA_UI_KEY, "board-view-timeline", "Timeline"},
+    {WENA_UI_KEY, "board-view-stats", "Statistics"},
+    {WENA_UI_KEY, "board-view-group-by-assignee", "Group by Assignee"},
+    {WENA_UI_KEY, "board-view-gantt", "Gantt"},
+    {WENA_UI_KEY, "board-view-gantt-frappe", "Frappe Gantt"},
+    {WENA_UI_KEY, "board-view-gantt-dhtmlx", "DHTMLX Gantt"},
+    {WENA_UI_KEY, "board-view-product-backlog", "Product Backlog"},
+    {WENA_UI_KEY, "board-view-sprints", "Sprints"},
+    {WENA_UI_KEY, "board-view-sprint-report", "Sprint Report"},
+    {WENA_UI_KEY, "board-view-velocity", "Velocity"},
+    {WENA_UI_KEY, "board-view-roadmap", "Roadmap"},
+    {WENA_UI_KEY, "board-view-dashboard", "Dashboard"},
+    {WENA_UI_KEY, "board-view-bigboard", "Bigboard"},
+    {WENA_UI_KEY, "board-view-burnup", "Burnup"},
+    {WENA_UI_KEY, "board-view-cumulative-flow", "Cumulative Flow"},
+    {WENA_UI_KEY, "board-view-control-chart", "Control"},
+    {WENA_UI_KEY, "board-view-aging-wip", "Aging WIP"},
+    {WENA_UI_KEY, "board-view-blocker-analysis", "Blocker Analysis"},
+    {WENA_UI_KEY, "board-view-monte-carlo", "Monte Carlo Forecasts"},
+    {WENA_UI_KEY, "board-view-process-behavior", "Process Behavior (XmR)"},
+    {WENA_UI_KEY, "board-view-size-cycle-time", "Work Item Size vs. Cycle Time"},
+    {WENA_UI_KEY, "board-view-map", "Map"},
+    {WENA_UI_FORMAT, "chart-forecast-no-velocity", "__remaining__ card(s) still open; no recent completions to project a date from."},
+    {WENA_UI_FORMAT, "chart-forecast-projected", "At the recent pace of __average__ card(s)/week, the __remaining__ card(s) still open should be done by __date__."},
+};
+
+const char *wena_ui_key_text(const char *key, const char *fallback)
+{
+    size_t i;
+    if (key == NULL) return fallback != NULL ? fallback : "";
+    if (fallback == NULL)
+        for (i = 0; i < sizeof(key_texts) / sizeof(key_texts[0]); ++i)
+            if (!strcmp(key_texts[i].key, key)) { fallback = key_texts[i].fallback; break; }
+    return translated(key, fallback != NULL ? fallback : key);
 }
 
 const char *wena_ui_text(WenaUiTextId id)

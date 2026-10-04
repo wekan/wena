@@ -17,7 +17,7 @@ static void heading(struct nk_context *context, const char *text)
     struct nk_rect line;
     nk_layout_row_dynamic(context, 10.0f, 1);
     line = nk_widget_bounds(context);
-    nk_spacing(context, 1);
+    nk_label(context, "", NK_TEXT_LEFT);
     wena_wekan_fill(context, line.x, line.y + 4.0f, line.w, 1.0f, WENA_WEKAN_POPUP_BORDER, 0.0f);
     nk_layout_row_dynamic(context, 20.0f, 1);
     wena_wekan_text(context, text, WENA_WEKAN_FONT_BODY, WENA_WEKAN_TEXT, NK_TEXT_LEFT);

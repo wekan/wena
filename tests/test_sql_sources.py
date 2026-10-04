@@ -49,6 +49,8 @@ APP_SQL_TEXT = {
     "server/ferretdb_sqlite.c": "schema/table names refused when they hold a quote, and field names "
                                 "limited to [A-Za-z0-9_$-] before they reach a JSON path",
     "server/wekan_sync.c": "collection table names FerretDB derives (FNV-1a), into fixed SQL of this file",
+    "server/wekan_views.c": "collection table names from FerretDB's metadata (quoted) and fixed clauses of this "
+                            "file; every value is bound",
 }
 
 

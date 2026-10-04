@@ -80,12 +80,13 @@ int wena_wekan_sync_new_board(sqlite3 *db, const char *actor, const char *title,
 int wena_wekan_sync_language(sqlite3 *db, const char *actor, char *language, size_t capacity);
 int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language);
 
-/* The user's board view as WeKan keeps it (users.profile.boardView): 1 for
- * "board-view-lists", 0 for Swimlanes - WeKan's default - and for the views
- * Wena does not draw; -1 on failure. Setting writes "board-view-lists" or
- * "board-view-swimlanes". */
-int wena_wekan_sync_board_view(sqlite3 *db, const char *actor);
-int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, int lists);
+/* The user's board view as WeKan keeps it (users.profile.boardView): a
+ * WeKan view key - "board-view-swimlanes", "board-view-table" ... - into
+ * `view`, empty when not set (WeKan's default is Swimlanes). Returns 0 on
+ * failure. Setting takes a key of that shape ("board-view-" and letters and
+ * dashes) and refuses anything else. */
+int wena_wekan_sync_board_view(sqlite3 *db, const char *actor, char *view, size_t capacity);
+int wena_wekan_sync_set_board_view(sqlite3 *db, const char *actor, const char *view);
 
 /* The user's notifications as WeKan's drawer lists them: newest first, those
  * whose activity is gone left out (#5325). `index` is the entry's place in

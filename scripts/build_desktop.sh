@@ -28,7 +28,7 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/imports/preferences/collapse.c" \
   "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" "$root_dir/client/platform/files.c" "$root_dir/client/platform/wekan_files.c" \
-  "$root_dir/server/ferretdb_sqlite.c" "$root_dir/server/wekan_sync.c" "$root_dir/server/board_search.c" \
+  "$root_dir/server/ferretdb_sqlite.c" "$root_dir/server/wekan_sync.c" "$root_dir/server/board_search.c" "$root_dir/server/wekan_views.c" \
   "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \
   "$root_dir/client/features/boards/settings_panel.c" "$root_dir/client/features/boards/presentation.c" "$root_dir/imports/preferences/sections.c" \
@@ -52,6 +52,7 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   "$root_dir/client/components/boards/board_header.c" "$root_dir/client/components/boards/all_boards.c" \
   "$root_dir/client/components/sidebar/board_sidebar.c" "$root_dir/client/components/sidebar/search_sidebar.c" \
   "$root_dir/client/components/sidebar/notifications_drawer.c" \
+  "$root_dir/client/components/boards/board_views.c" "$root_dir/models/charts.c" "$root_dir/models/view_data.c" \
   "$root_dir/client/components/common/paginated_table.c" \
   "$root_dir/client/components/lists/list_header.c" "$root_dir/client/components/common/color_heading.c" \
   "$root_dir/client/components/cards/card_body.c" "$root_dir/client/components/common/reorder_drag.c" "$root_dir/client/components/common/wekan_look.c" "$root_dir/client/features/checklists/drag.c" \

@@ -62,10 +62,13 @@ def selected_catalog(root=ROOT):
     lock, languages = load_catalog(root)
     keys = ui_keys((root / "imports/ui/page_contract.c").read_text())
     english = dict(next(language["entries"] for language in languages if language["tag"] == "en"))
+    source = (root / "imports/ui/page_contract.c").read_text()
+    formatted = set(re.findall(r'\{WENA_UI_FORMAT,\s*"([^"\n]+)"', source))
     for key in keys:
         if key not in english:
             raise ValueError("UI key is not canonical: " + key)
-        if placeholders(english[key]):
+        # Only a text its caller formats (WENA_UI_FORMAT) may carry placeholders.
+        if placeholders(english[key]) and key not in formatted:
             raise ValueError("UI key needs an explicit formatter: " + key)
     selected = []
     for language in languages:

@@ -242,19 +242,25 @@ int main(int argc, char **argv)
         assert(!wena_wekan_sync_set_watch(db, "u1", "tc", "loud"));
         assert(!wena_wekan_sync_board_state(db, "u1", "missing", permission, watch));
         assert(wena_wekan_sync_board_state(db, "u1", "tc", permission, watch) && !strcmp(permission, "public"));
-        /* WeKan's board view: Swimlanes until set; Lists and back. */
-        assert(wena_wekan_sync_board_view(db, "u1") == 0);
-        assert(wena_wekan_sync_set_board_view(db, "u1", 1) && wena_wekan_sync_board_view(db, "u1") == 1);
-        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson ->> '$.profile.boardView') || "
-                             "(_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.boardView.t') FROM fdb.users_5e7cc513 "
-                             "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"), "board-view-lists\"string\""));
-        assert(wena_wekan_sync_set_board_view(db, "u1", 0) && wena_wekan_sync_board_view(db, "u1") == 0);
-        /* Negative: a view Wena does not draw is Swimlanes; no user, none. */
-        x(db, "UPDATE fdb.users_5e7cc513 SET _ferretdb_sjson = json_set(_ferretdb_sjson, '$.profile.boardView', "
-              "'board-view-gantt') WHERE _ferretdb_sjson->'_id' = '\"u1\"'");
-        assert(wena_wekan_sync_board_view(db, "u1") == 0);
-        assert(wena_wekan_sync_board_view(db, "nobody") == 0 && wena_wekan_sync_board_view(db, NULL) == -1);
-        assert(!wena_wekan_sync_set_board_view(db, NULL, 1));
+        /* WeKan's board view: none until set; any of WeKan's view keys. */
+        {
+            char view[64];
+            assert(wena_wekan_sync_board_view(db, "u1", view, sizeof(view)) && view[0] == '\0');
+            assert(wena_wekan_sync_set_board_view(db, "u1", "board-view-lists"));
+            assert(wena_wekan_sync_board_view(db, "u1", view, sizeof(view)) && !strcmp(view, "board-view-lists"));
+            assert(!strcmp(q(db, "SELECT (_ferretdb_sjson ->> '$.profile.boardView') || "
+                                 "(_ferretdb_sjson -> '$.\"$s\".p.profile.\"$s\".p.boardView.t') FROM fdb.users_5e7cc513 "
+                                 "WHERE _ferretdb_sjson->'_id' = '\"u1\"'"), "board-view-lists\"string\""));
+            assert(wena_wekan_sync_set_board_view(db, "u1", "board-view-cumulative-flow"));
+            assert(wena_wekan_sync_board_view(db, "u1", view, sizeof(view)) && !strcmp(view, "board-view-cumulative-flow"));
+            /* Negative: not a view key; no user; no room. */
+            assert(!wena_wekan_sync_set_board_view(db, "u1", "board-view-") && !wena_wekan_sync_set_board_view(db, "u1", "lists"));
+            assert(!wena_wekan_sync_set_board_view(db, "u1", "board-view-X\"; x") && !wena_wekan_sync_set_board_view(db, NULL, "board-view-lists"));
+            assert(wena_wekan_sync_board_view(db, "u1", view, sizeof(view)) && !strcmp(view, "board-view-cumulative-flow"));
+            assert(wena_wekan_sync_board_view(db, "nobody", view, sizeof(view)) && view[0] == '\0');
+            assert(wena_wekan_sync_board_view(db, "u1", view, 4) && view[0] == '\0');
+            assert(!wena_wekan_sync_board_view(db, NULL, view, sizeof(view)));
+        }
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));
