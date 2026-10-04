@@ -1,6 +1,53 @@
 # Upcoming Wena release
 
 <details>
+<summary>WeKan's Admin Panel: People with Edit User, Login, Announcement and Version</summary>
+
+- The member menu's Admin Panel (for an admin) opens WeKan's Admin Panel:
+  its header's tabs (Settings, People, Attachments, Problems) and each tab's
+  left menu, in WeKan's order. Wena's panes work; the rest are there,
+  disabled. The house goes back to the board.
+- **People / People**: WeKan's table of every user, by username: Edit,
+  Username, Email, Admin, Active Person and Created at (WeKan's 'LLL'
+  date). A disabled account is struck through, as WeKan's `<s>`. The Active
+  icon (a check or a ban) toggles `loginDisabled`. **Edit User** edits
+  Username, Full Name, Initials, Admin, Email and Active, with WeKan's taken
+  and invalid errors. The last admin who can log in cannot be demoted or
+  deactivated (WeKan's "there must be at least one admin"), and an admin
+  who removes their own rights is taken back to the board.
+- **People / Login**: WeKan's "Login: Allow" with Forgot password and
+  Self-Registration, ticked when allowed and written at once to
+  `settings.disableForgotPassword` and `disableRegistration`. Wena never
+  makes WeKan's settings document: until WeKan has run on the files, the
+  checkboxes cannot be changed and the pane says so.
+- **Settings / Announcement**: WeKan's Active System-Wide Announcement and
+  its message, saved to WeKan's announcement. It is made as WeKan's
+  bootstrap makes it when there is none. Its version - WeKan's
+  `announcementVersion`, a djb2 over the id, title and body in UTF-16
+  units - and the user's `profile.dismissedAnnouncementVersion` are read
+  and written, matching WeKan's own values.
+- **Settings / Version**: what Wena runs on: the database file, SQLite, SDL,
+  the platform, and the counts of people and boards.
+- `--show admin-version`, `admin-announcement`, `admin-people` and
+  `admin-login` capture the panes.
+- Tests:
+  - `admin-panel`: the tabs and panes, Wena's four enabled, the house,
+    People's Active and Edit, Edit User's Save and close, Announcement's
+    Save, Login's checkbox writing the flag the other way and doing nothing
+    without WeKan's settings, a disabled pane falling back, and the date.
+  - `wekan-sync`: People by username; the last-admin guard, with a
+    disabled admin not counting; Announcement made, then changed;
+    `announcementVersion` matching Node's for three texts, one with Finnish
+    letters, an emoji and a dash; the dismissal round trip; Login refused
+    without WeKan's settings and keeping its other fields.
+  - `amiga-aga` now checks that every page that presents a frame also
+    gives it to the AGA screen.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>WeKan's member menu, with Edit Profile and Change Settings that save to the user's WeKan profile</summary>
 
 - The menu under the user's name is WeKan's memberMenuPopup now, in its

@@ -341,6 +341,90 @@ int main(int argc, char **argv)
             strcpy(profile.email, "ada@wekan.example");
             assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_SAVED);
         }
+        /* Admin Panel: People, by username, and its Admin and Active. */
+        {
+            WenaWekanPerson people[8];
+            size_t people_count;
+            WenaWekanAnnouncement note, read_note;
+            int registration, forgot;
+            assert(wena_wekan_sync_people(db, people, 8, &people_count) && people_count == 2);
+            assert(!strcmp(people[0].username, "ada") && people[0].is_admin && !people[0].login_disabled &&
+                   !strcmp(people[0].email, "ada@wekan.example") && !strcmp(people[0].fullname, "Ada L") &&
+                   people[0].created_at == 1.0);
+            assert(!strcmp(people[1].username, "bob") && !people[1].is_admin && !strcmp(people[1].id, "u2"));
+            /* The last admin who can log in stays one, and active. */
+            assert(wena_wekan_sync_set_person(db, "u1", 0, 0) == WENA_WEKAN_PERSON_LAST_ADMIN);
+            assert(wena_wekan_sync_set_person(db, "u1", 1, 1) == WENA_WEKAN_PERSON_LAST_ADMIN);
+            assert(wena_wekan_sync_set_person(db, "u2", 1, 0) == WENA_WEKAN_PERSON_SAVED);
+            assert(wena_wekan_sync_set_person(db, "u2", 1, 1) == WENA_WEKAN_PERSON_SAVED);
+            assert(wena_wekan_sync_people(db, people, 8, &people_count) && people[1].is_admin && people[1].login_disabled);
+            /* bob, disabled, does not count: ada is still the last one. */
+            assert(wena_wekan_sync_set_person(db, "u1", 0, 0) == WENA_WEKAN_PERSON_LAST_ADMIN);
+            assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> '$.loginDisabled') || (_ferretdb_sjson -> '$.\"$s\".p.loginDisabled.t') "
+                                 "FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u2\"'"), "true\"bool\""));
+            assert(wena_wekan_sync_set_person(db, "u2", 0, 0) == WENA_WEKAN_PERSON_SAVED);
+            assert(wena_wekan_sync_set_person(db, "nobody", 1, 0) == WENA_WEKAN_PERSON_FAILED);
+            assert(wena_wekan_sync_people(db, people, 1, &people_count) && people_count == 1);
+            /* Announcement: none, then WeKan's first one, then changed. */
+            assert(wena_wekan_sync_announcement(db, &read_note) && !read_note.enabled && read_note.title[0] == '\0');
+            memset(&note, 0, sizeof(note));
+            note.enabled = 1;
+            strcpy(note.title, "Maintenance");
+            strcpy(note.body, "Down \"tonight\" at 22:00");
+            assert(wena_wekan_sync_set_announcement(db, &note));
+            assert(wena_wekan_sync_announcement(db, &read_note) && read_note.enabled &&
+                   !strcmp(read_note.title, "Maintenance") && !strcmp(read_note.body, note.body));
+            note.enabled = 0;
+            assert(wena_wekan_sync_set_announcement(db, &note));
+            assert(!strcmp(q(db, "SELECT count(*) FROM fdb.sqlite_schema WHERE name LIKE 'announcements_%' AND type = 'table'"), "1"));
+            assert(wena_wekan_sync_announcement(db, &read_note) && !read_note.enabled);
+            /* WeKan's announcementVersion, the same as Node computes it (with
+             * a character outside the BMP as its two UTF-16 units). */
+            {
+                WenaWekanAnnouncement fixed;
+                char version[128], dismissed[128];
+                memset(&fixed, 0, sizeof(fixed));
+                strcpy(fixed.id, "abc123");
+                strcpy(fixed.body, "Down tonight at 22:00");
+                assert(wena_wekan_announcement_version(&fixed, version, sizeof(version)) &&
+                       !strcmp(version, "abc123:1cglwcp"));
+                strcpy(fixed.id, "Xy9");
+                strcpy(fixed.title, "Maintenance");
+                strcpy(fixed.body, "Hyv\303\244\303\244 y\303\266t\303\244 \360\237\230\200 \342\200\224 ok");
+                assert(wena_wekan_announcement_version(&fixed, version, sizeof(version)) &&
+                       !strcmp(version, "Xy9:1wjct5v"));
+                memset(&fixed, 0, sizeof(fixed));
+                strcpy(fixed.id, "q");
+                assert(wena_wekan_announcement_version(&fixed, version, sizeof(version)) && !strcmp(version, "q:377efq"));
+                /* Negative: no id, no version; too small. */
+                fixed.id[0] = '\0';
+                assert(!wena_wekan_announcement_version(&fixed, version, sizeof(version)) && version[0] == '\0');
+                strcpy(fixed.id, "q");
+                assert(!wena_wekan_announcement_version(&fixed, version, 4));
+                /* The user's dismissal round trip. */
+                assert(read_note.id[0] != '\0' && wena_wekan_announcement_version(&read_note, version, sizeof(version)));
+                assert(wena_wekan_sync_dismissed_announcement(db, "u1", dismissed, sizeof(dismissed)) && dismissed[0] == '\0');
+                assert(wena_wekan_sync_dismiss_announcement(db, "u1", version));
+                assert(wena_wekan_sync_dismissed_announcement(db, "u1", dismissed, sizeof(dismissed)) &&
+                       !strcmp(dismissed, version));
+                assert(!wena_wekan_sync_dismiss_announcement(db, "u1", "x\"y") &&
+                       !wena_wekan_sync_dismiss_announcement(db, "u1", ""));
+            }
+            /* Login: Wena never makes WeKan's settings document. */
+            assert(!wena_wekan_sync_registration(db, &registration, &forgot));
+            assert(!wena_wekan_sync_set_registration(db, 1, 0));
+            doc(db, "settings", "{\"_id\":\"s1\",\"disableRegistration\":false,\"mailServer\":{\"host\":\"\"}}");
+            assert(wena_wekan_sync_registration(db, &registration, &forgot) && !registration && !forgot);
+            assert(wena_wekan_sync_set_registration(db, 1, 1));
+            assert(wena_wekan_sync_registration(db, &registration, &forgot) && registration && forgot);
+            /* WeKan's other settings are kept. */
+            {
+                char settings_table[WENA_FERRETDB_TABLE_CAPACITY], query[256];
+                assert(wena_ferretdb_collection(db, "fdb", "settings", 0, settings_table, sizeof(settings_table)));
+                sprintf(query, "SELECT json_type(_ferretdb_sjson, '$.mailServer') FROM fdb.\"%s\"", settings_table);
+                assert(!strcmp(q(db, query), "object"));
+            }
+        }
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

@@ -73,7 +73,11 @@ def test_desktop_branch():
     # WeKan's UI colors and its label and board colors go in exact.
     assert "wena_wekan_rgb((WenaWekanColor)index)" in branch and "wena_color_contracts(" in branch
     assert "SDL_CreateSoftwareRenderer(aga_frame)" in desktop
-    assert desktop.count("if (!desktop_aga_present(window)) DESKTOP_FAIL();") == 2, "both pages present"
+    # Every page that presents a frame gives it to the AGA screen too (the
+    # board, All Boards and the Admin Panel, and any page added later).
+    presents = desktop.count("SDL_RenderPresent(renderer);")
+    assert presents >= 3 and desktop.count("if (!desktop_aga_present(window)) DESKTOP_FAIL();") == presents, \
+        "a page presents without the AGA frame"
     assert "header_icons_collapsed = DESKTOP_AGA;" in desktop
     # Negative: the other builds keep their 1024x720 resizable window.
     assert "#define DESKTOP_WIDTH 1024" in desktop and "#define DESKTOP_HEIGHT 720" in desktop

@@ -1548,6 +1548,269 @@ done:
     return result;
 }
 
+/* Admin Panel ---------------------------------------------------------- */
+
+int wena_wekan_sync_people(sqlite3 *db, WenaWekanPerson *out, size_t capacity, size_t *count)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int step;
+    if (db == NULL || out == NULL || count == NULL || !table_of(db, "users", table)) return 0;
+    *count = 0;
+    /* WeKan's People: every user, by username. */
+    sprintf(sql, "SELECT _ferretdb_sjson ->> '$._id', coalesce(_ferretdb_sjson ->> '$.username', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$.profile.fullname', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$.emails[0].address', ''), "
+                 "CASE WHEN coalesce(_ferretdb_sjson ->> '$.isAdmin', 0) THEN 1 ELSE 0 END, "
+                 "CASE WHEN coalesce(_ferretdb_sjson ->> '$.loginDisabled', 0) THEN 1 ELSE 0 END, "
+                 "coalesce(_ferretdb_sjson ->> '$.createdAt', 0) "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" ORDER BY lower(coalesce(_ferretdb_sjson ->> '$.username', '')), "
+                 "_ferretdb_sjson ->> '$._id'", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW && *count < capacity) {
+        WenaWekanPerson *person = &out[*count];
+        memset(person, 0, sizeof(*person));
+        copy_column(person->id, sizeof(person->id), statement, 0);
+        copy_column(person->username, sizeof(person->username), statement, 1);
+        copy_column(person->fullname, sizeof(person->fullname), statement, 2);
+        copy_column(person->email, sizeof(person->email), statement, 3);
+        person->is_admin = sqlite3_column_int(statement, 4);
+        person->login_disabled = sqlite3_column_int(statement, 5);
+        person->created_at = sqlite3_column_double(statement, 6);
+        if (person->id[0] != '\0') ++*count;
+    }
+    sqlite3_finalize(statement);
+    return step == SQLITE_ROW || step == SQLITE_DONE;
+}
+
+int wena_wekan_sync_set_person(sqlite3 *db, const char *id, int is_admin, int login_disabled)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField fields[2];
+    int others = 0, exists = 0;
+    if (db == NULL || id == NULL || !table_of(db, "users", table)) return WENA_WEKAN_PERSON_FAILED;
+    /* The last admin who can log in stays one: the Admin Panel would
+     * otherwise lock everybody out of it. */
+    sprintf(sql, "SELECT (SELECT count(*) FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' <> json_quote(?1) "
+                 "AND coalesce(_ferretdb_sjson ->> '$.isAdmin', 0) AND NOT coalesce(_ferretdb_sjson ->> '$.loginDisabled', 0)), "
+                 "(SELECT count(*) FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1))", table, table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return WENA_WEKAN_PERSON_FAILED;
+    sqlite3_bind_text(statement, 1, id, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        others = sqlite3_column_int(statement, 0);
+        exists = sqlite3_column_int(statement, 1);
+    }
+    sqlite3_finalize(statement);
+    if (!exists) return WENA_WEKAN_PERSON_FAILED;
+    if ((!is_admin || login_disabled) && others == 0) return WENA_WEKAN_PERSON_LAST_ADMIN;
+    fields[0].key = "isAdmin"; fields[0].element = WENA_FERRET_BOOL; fields[0].value = is_admin ? "true" : "false";
+    fields[1].key = "loginDisabled"; fields[1].element = WENA_FERRET_BOOL;
+    fields[1].value = login_disabled ? "true" : "false";
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, id, fields, 2) ? WENA_WEKAN_PERSON_SAVED
+                                                                             : WENA_WEKAN_PERSON_FAILED;
+}
+
+int wena_wekan_sync_announcement(sqlite3 *db, WenaWekanAnnouncement *announcement)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    if (db == NULL || announcement == NULL) return 0;
+    memset(announcement, 0, sizeof(*announcement));
+    if (!wena_ferretdb_collection(db, WENA_WEKAN_SCHEMA, "announcements", 0, table, sizeof(table))) return 1;
+    /* WeKan reads the first one (Announcements.findOne()). */
+    sprintf(sql, "SELECT CASE WHEN coalesce(_ferretdb_sjson ->> '$.enabled', 0) THEN 1 ELSE 0 END, "
+                 "coalesce(_ferretdb_sjson ->> '$.title', ''), coalesce(_ferretdb_sjson ->> '$.body', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$._id', '') "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" ORDER BY rowid LIMIT 1", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        announcement->enabled = sqlite3_column_int(statement, 0);
+        copy_column(announcement->title, sizeof(announcement->title), statement, 1);
+        copy_column(announcement->body, sizeof(announcement->body), statement, 2);
+        copy_column(announcement->id, sizeof(announcement->id), statement, 3);
+    }
+    sqlite3_finalize(statement);
+    return 1;
+}
+
+/* djb2 over JavaScript's UTF-16 code units, as WeKan's announcementVersion:
+ * a character above U+FFFF counts as its two surrogates. */
+static unsigned long djb2_utf16(unsigned long hash, const char *text)
+{
+    const unsigned char *at = (const unsigned char *)text;
+    while (*at != '\0') {
+        unsigned long code;
+        int extra;
+        if (*at < 0x80) { code = *at; extra = 0; }
+        else if ((*at & 0xe0) == 0xc0) { code = *at & 0x1f; extra = 1; }
+        else if ((*at & 0xf0) == 0xe0) { code = *at & 0x0f; extra = 2; }
+        else if ((*at & 0xf8) == 0xf0) { code = *at & 0x07; extra = 3; }
+        else { code = 0xfffd; extra = 0; }
+        ++at;
+        while (extra-- > 0 && (*at & 0xc0) == 0x80) code = (code << 6) | (*at++ & 0x3f);
+        if (code > 0xffff) {
+            code -= 0x10000;
+            hash = (hash * 33 + (0xd800 + (code >> 10))) & 0xffffffffUL;
+            code = 0xdc00 + (code & 0x3ff);
+        }
+        hash = (hash * 33 + code) & 0xffffffffUL;
+    }
+    return hash;
+}
+
+int wena_wekan_announcement_version(const WenaWekanAnnouncement *announcement, char *out, size_t capacity)
+{
+    unsigned long hash = 5381;
+    char digits[16];
+    int count = 0;
+    size_t used;
+    if (out == NULL || capacity == 0) return 0;
+    out[0] = '\0';
+    if (announcement == NULL || announcement->id[0] == '\0') return 0;
+    hash = djb2_utf16(hash, announcement->id);
+    hash = djb2_utf16(hash, " ");
+    hash = djb2_utf16(hash, announcement->title);
+    hash = djb2_utf16(hash, " ");
+    hash = djb2_utf16(hash, announcement->body);
+    do { digits[count++] = "0123456789abcdefghijklmnopqrstuvwxyz"[hash % 36]; hash /= 36; } while (hash != 0);
+    used = strlen(announcement->id);
+    if (used + 1 + (size_t)count + 1 > capacity) return 0;
+    memcpy(out, announcement->id, used);
+    out[used++] = ':';
+    while (count > 0) out[used++] = digits[--count];
+    out[used] = '\0';
+    return 1;
+}
+
+int wena_wekan_sync_dismissed_announcement(sqlite3 *db, const char *actor, char *out, size_t capacity)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || out == NULL || capacity == 0 || !table_of(db, "users", table)) return 0;
+    out[0] = '\0';
+    sprintf(sql, "SELECT coalesce(_ferretdb_sjson ->> '$.profile.dismissedAnnouncementVersion', '') FROM "
+                 WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) { copy_column(out, capacity, statement, 0); ok = 1; }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+int wena_wekan_sync_dismiss_announcement(sqlite3 *db, const char *actor, const char *version)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], quoted[200];
+    WenaFerretField field;
+    size_t index;
+    if (db == NULL || actor == NULL || version == NULL || version[0] == '\0' || strlen(version) > 180 ||
+        !table_of(db, "users", table)) return 0;
+    for (index = 0; version[index] != '\0'; ++index)
+        if (version[index] == '"' || version[index] == '\\' || (unsigned char)version[index] < 0x20) return 0;
+    sprintf(quoted, "\"%s\"", version);
+    field.key = "profile.dismissedAnnouncementVersion";
+    field.element = WENA_FERRET_STRING;
+    field.value = quoted;
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+}
+
+int wena_wekan_sync_set_announcement(sqlite3 *db, const WenaWekanAnnouncement *announcement)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096], now[32], id[32];
+    sqlite3_stmt *statement = NULL;
+    char *title = NULL, *body = NULL;
+    WenaFerretField fields[6];
+    int ok = 0, step;
+    if (db == NULL || announcement == NULL ||
+        !wena_ferretdb_collection(db, WENA_WEKAN_SCHEMA, "announcements", 1, table, sizeof(table))) return 0;
+    sqlite3_snprintf(sizeof(now), now, "%lld", wena_ferretdb_now_ms());
+    if (sqlite3_prepare_v2(db, "SELECT json_quote(?1), json_quote(?2)", -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, announcement->title, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, announcement->body, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        title = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+        body = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+    }
+    sqlite3_finalize(statement);
+    statement = NULL;
+    if (title == NULL || body == NULL) goto done;
+    fields[0].key = "enabled"; fields[0].element = WENA_FERRET_BOOL; fields[0].value = announcement->enabled ? "true" : "false";
+    fields[1].key = "title"; fields[1].element = WENA_FERRET_STRING; fields[1].value = title;
+    fields[2].key = "body"; fields[2].element = WENA_FERRET_STRING; fields[2].value = body;
+    fields[3].key = "modifiedAt"; fields[3].element = WENA_FERRET_DATE; fields[3].value = now;
+    sprintf(sql, "SELECT _ferretdb_sjson ->> '$._id' FROM " WENA_WEKAN_SCHEMA ".\"%s\" ORDER BY rowid LIMIT 1", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) goto done;
+    step = sqlite3_step(statement);
+    if (step == SQLITE_ROW) {
+        copy_column(id, sizeof(id), statement, 0);
+        sqlite3_finalize(statement);
+        statement = NULL;
+        ok = id[0] != '\0' && wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, id, fields, 4);
+    } else if (step == SQLITE_DONE) {
+        /* None yet: one as WeKan's bootstrap makes it, with this text. */
+        static const char alphabet[] = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
+        unsigned char random[17];
+        size_t index;
+        sqlite3_finalize(statement);
+        statement = NULL;
+        sqlite3_randomness(17, random);
+        for (index = 0; index < 17; ++index) id[index] = alphabet[random[index] % (sizeof(alphabet) - 1)];
+        id[17] = '\0';
+        fields[4].key = "sort"; fields[4].element = WENA_FERRET_INT; fields[4].value = "0";
+        fields[5].key = "createdAt"; fields[5].element = WENA_FERRET_DATE; fields[5].value = now;
+        ok = wena_ferretdb_insert(db, WENA_WEKAN_SCHEMA, table, id, fields, 6);
+    }
+done:
+    if (statement != NULL) sqlite3_finalize(statement);
+    sqlite3_free(title);
+    sqlite3_free(body);
+    return ok;
+}
+
+int wena_wekan_sync_registration(sqlite3 *db, int *disable_registration, int *disable_forgot_password)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int found = 0;
+    if (db == NULL || disable_registration == NULL || disable_forgot_password == NULL ||
+        !wena_ferretdb_collection(db, WENA_WEKAN_SCHEMA, "settings", 0, table, sizeof(table))) return 0;
+    sprintf(sql, "SELECT CASE WHEN coalesce(_ferretdb_sjson ->> '$.disableRegistration', 0) THEN 1 ELSE 0 END, "
+                 "CASE WHEN coalesce(_ferretdb_sjson ->> '$.disableForgotPassword', 0) THEN 1 ELSE 0 END "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" ORDER BY rowid LIMIT 1", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        *disable_registration = sqlite3_column_int(statement, 0);
+        *disable_forgot_password = sqlite3_column_int(statement, 1);
+        found = 1;
+    }
+    sqlite3_finalize(statement);
+    return found;
+}
+
+int wena_wekan_sync_set_registration(sqlite3 *db, int disable_registration, int disable_forgot_password)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096], id[64], now[32];
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField fields[3];
+    if (db == NULL || !wena_ferretdb_collection(db, WENA_WEKAN_SCHEMA, "settings", 0, table, sizeof(table))) return 0;
+    /* Only WeKan's own settings document: one made here would stop WeKan
+     * from writing its defaults (mail server, authentication) at start. */
+    sprintf(sql, "SELECT _ferretdb_sjson ->> '$._id' FROM " WENA_WEKAN_SCHEMA ".\"%s\" ORDER BY rowid LIMIT 1", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    id[0] = '\0';
+    if (sqlite3_step(statement) == SQLITE_ROW) copy_column(id, sizeof(id), statement, 0);
+    sqlite3_finalize(statement);
+    if (id[0] == '\0') return 0;
+    sqlite3_snprintf(sizeof(now), now, "%lld", wena_ferretdb_now_ms());
+    fields[0].key = "disableRegistration"; fields[0].element = WENA_FERRET_BOOL;
+    fields[0].value = disable_registration ? "true" : "false";
+    fields[1].key = "disableForgotPassword"; fields[1].element = WENA_FERRET_BOOL;
+    fields[1].value = disable_forgot_password ? "true" : "false";
+    fields[2].key = "modifiedAt"; fields[2].element = WENA_FERRET_DATE; fields[2].value = now;
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, id, fields, 3);
+}
+
 static double map_percent(double value)
 {
     if (value < 0.0) value = 0.0;

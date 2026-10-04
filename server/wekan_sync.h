@@ -140,6 +140,45 @@ int wena_wekan_sync_set_profile_flag(sqlite3 *db, const char *actor, const char 
 int wena_wekan_sync_cards_count_at(sqlite3 *db, const char *actor, long *count);
 int wena_wekan_sync_set_cards_count_at(sqlite3 *db, const char *actor, long count);
 
+/* Admin Panel. People: every user by username; another user's profile is
+ * edited with wena_wekan_sync_set_profile, admin and active here, keeping at
+ * least one admin who can log in. */
+typedef struct WenaWekanPerson {
+    char id[64];
+    char username[128];
+    char fullname[256];
+    char email[256];
+    int is_admin;
+    int login_disabled;         /* WeKan's "Active: No" */
+    double created_at;          /* ms */
+} WenaWekanPerson;
+int wena_wekan_sync_people(sqlite3 *db, WenaWekanPerson *out, size_t capacity, size_t *count);
+#define WENA_WEKAN_PERSON_SAVED 1
+#define WENA_WEKAN_PERSON_FAILED 0
+#define WENA_WEKAN_PERSON_LAST_ADMIN (-1)
+int wena_wekan_sync_set_person(sqlite3 *db, const char *id, int is_admin, int login_disabled);
+/* Announcement: WeKan's first one (enabled, title, body); setting makes it
+ * as WeKan's bootstrap does when there is none. */
+typedef struct WenaWekanAnnouncement {
+    char id[64];                /* read; "" when there is none */
+    int enabled;
+    char title[256];
+    char body[2048];
+} WenaWekanAnnouncement;
+int wena_wekan_sync_announcement(sqlite3 *db, WenaWekanAnnouncement *announcement);
+int wena_wekan_sync_set_announcement(sqlite3 *db, const WenaWekanAnnouncement *announcement);
+/* WeKan's banner: shown while enabled until the user dismisses this text.
+ * The version is WeKan's announcementVersion - "<_id>:<djb2 base 36>" over
+ * the id, title and body in UTF-16 code units - so a dismissal in WeKan holds
+ * in Wena and back; profile.dismissedAnnouncementVersion keeps it. */
+int wena_wekan_announcement_version(const WenaWekanAnnouncement *announcement, char *out, size_t capacity);
+int wena_wekan_sync_dismissed_announcement(sqlite3 *db, const char *actor, char *out, size_t capacity);
+int wena_wekan_sync_dismiss_announcement(sqlite3 *db, const char *actor, const char *version);
+/* Login: settings.disableRegistration and disableForgotPassword. 0 when
+ * WeKan has not made its settings document yet - Wena does not make one. */
+int wena_wekan_sync_registration(sqlite3 *db, int *disable_registration, int *disable_forgot_password);
+int wena_wekan_sync_set_registration(sqlite3 *db, int disable_registration, int disable_forgot_password);
+
 /* The Map view's writes, as WeKan's Card.setMapPosition (each clamped to
  * 0..100 and rounded to hundredths; a value that is not a number removes
  * the card from the map) and Board.setMapImage(null). */

@@ -11,6 +11,7 @@
 #include "platform/font.h"
 #include "platform/debug_log.h"
 #include "components/users/member_settings.h"
+#include "components/settings/admin_panel.h"
 #if defined(WENA_AMIGA_AGA)
 #include "platform/aga_palette.h"
 #include "../models/color.h"
@@ -1194,7 +1195,8 @@ static void desktop_usage(FILE *output)
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
           "multi-selection, visibility, watch, sort, sorted, view, lists-view, view:KEY, notifications,\n"
-          "mobile, drag-handles, member-menu, edit-profile, change-settings, "
+          "mobile, drag-handles, member-menu, edit-profile, change-settings, admin-version,\n"
+          "admin-announcement, admin-people, admin-login, "
           "add-board, "
           "search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
@@ -1353,6 +1355,58 @@ static void desktop_aga_wait(int had_events, int *quiet)
 #define DESKTOP_HEIGHT 720
 #define DESKTOP_RESIZABLE SDL_WINDOW_RESIZABLE
 #endif
+
+static void desktop_admin_info(WenaAdminPanel *admin, const char *label, const char *value)
+{
+    if (admin->info_count >= WENA_ADMIN_INFO_LINES) return;
+    admin->info_label[admin->info_count] = label;
+    admin->info_value[admin->info_count][0] = '\0';
+    strncat(admin->info_value[admin->info_count], value, sizeof(admin->info_value[0]) - 1);
+    ++admin->info_count;
+}
+
+/* The Admin Panel's data for its pane, from WeKan's file. */
+#define DESKTOP_PEOPLE 512
+static void desktop_admin_load(sqlite3 *database, const char *database_path, WenaAdminPanel *admin,
+                               WenaWekanPerson *people, size_t *people_count)
+{
+    WenaWekanAnnouncement note;
+    size_t boards = 0;
+    SDL_version linked;
+    sqlite3_stmt *query;
+    *people_count = 0;
+    if (!wena_wekan_sync_people(database, people, DESKTOP_PEOPLE, people_count))
+        wena_debug_log("admin panel people: %s", sqlite3_errmsg(database));
+    admin->people = people;
+    admin->people_count = *people_count;
+    if (wena_wekan_sync_announcement(database, &note)) {
+        admin->announcement_enabled = note.enabled;
+        strcpy(admin->announcement, note.body);
+        admin->announcement_length = (int)strlen(note.body);
+    }
+    admin->login_available = wena_wekan_sync_registration(database, &admin->disable_registration,
+                                                          &admin->disable_forgot_password);
+    /* Version: what WeKan's lists about its server, of this program. */
+    if (sqlite3_prepare_v2(database, "SELECT count(*) FROM boards", -1, &query, NULL) == SQLITE_OK) {
+        if (sqlite3_step(query) == SQLITE_ROW) boards = (size_t)sqlite3_column_int64(query, 0);
+        sqlite3_finalize(query);
+    }
+    SDL_GetVersion(&linked);
+    admin->info_count = 0;
+    {
+        char sdl[32], users[32], board_count[32];
+        sprintf(sdl, "%d.%d.%d", linked.major, linked.minor, linked.patch);
+        sprintf(users, "%lu", (unsigned long)*people_count);
+        sprintf(board_count, "%lu", (unsigned long)boards);
+        desktop_admin_info(admin, "Wena", "WeKan's board, native");
+        desktop_admin_info(admin, "Database", database_path != NULL ? database_path : "");
+        desktop_admin_info(admin, "SQLite", sqlite3_libversion());
+        desktop_admin_info(admin, "SDL", sdl);
+        desktop_admin_info(admin, "Platform", SDL_GetPlatform());
+        desktop_admin_info(admin, wena_ui_key_text("people", NULL), users);
+        desktop_admin_info(admin, wena_ui_text(WENA_UI_TEXT_ALL_BOARDS), board_count);
+    }
+}
 
 /* The frame drawn so far, read back from the renderer before it is shown. */
 static int desktop_screenshot(SDL_Renderer *renderer, const char *path)
@@ -1533,6 +1587,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     int logo_width, logo_height, header_icons_collapsed, drag_handles, mobile_mode, user_is_admin;
     WenaMemberProfileForm profile_form;
     WenaMemberSettingsForm settings_form;
+    WenaAdminPanel admin;
+    WenaWekanPerson *people;
+    size_t people_count;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
     size_t notification_count;
     int notifications_open;
@@ -1633,6 +1690,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     user_is_admin = 0;
     memset(&profile_form, 0, sizeof(profile_form));
     memset(&settings_form, 0, sizeof(settings_form));
+    memset(&admin, 0, sizeof(admin));
+    people = NULL;
+    people_count = 0;
     notification_count = 0;
     notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
@@ -2268,6 +2328,20 @@ window_ready:
             else if (!strcmp(show, "notifications")) notifications_open = 1;
             else if (!strcmp(show, "mobile")) mobile_mode = 1;
             else if (!strcmp(show, "member-menu")) toolbar.menu.kind = DESKTOP_MENU_MEMBER;
+            else if (!strncmp(show, "admin-", 6)) {
+                /* admin-version, admin-announcement, admin-people, admin-login */
+                static const struct { const char *name; WenaAdminPane pane; } admin_panes[] = {
+                    {"admin-version", WENA_ADMIN_PANE_VERSION}, {"admin-announcement", WENA_ADMIN_PANE_ANNOUNCEMENT},
+                    {"admin-people", WENA_ADMIN_PANE_PEOPLE}, {"admin-login", WENA_ADMIN_PANE_LOGIN}};
+                size_t a;
+                if (people == NULL) people = (WenaWekanPerson *)calloc(DESKTOP_PEOPLE, sizeof(*people));
+                for (a = 0; a < sizeof(admin_panes) / sizeof(admin_panes[0]) && people != NULL; ++a)
+                    if (!strcmp(show, admin_panes[a].name)) {
+                        wena_admin_panel_open(&admin, wena_admin_pane_tab(admin_panes[a].pane));
+                        admin.pane = admin_panes[a].pane;
+                        desktop_admin_load(database, database_path, &admin, people, &people_count);
+                    }
+            }
             else if (!strcmp(show, "edit-profile") || !strcmp(show, "change-settings"))
                 toolbar.member_choice = 1 + (int)(!strcmp(show, "edit-profile") ? WENA_MEMBER_EDIT_PROFILE :
                                                   WENA_MEMBER_CHANGE_SETTINGS);
@@ -2311,6 +2385,65 @@ window_ready:
             }
         }
 #endif
+        if (admin.open && width > 0 && height > 0 && !paused) {
+            size_t person = 0;
+            unsigned int admin_action;
+            admin_action = wena_admin_panel_render(context, &admin, (float)width, (float)height, &person);
+            if ((admin_action & WENA_ADMIN_CLOSE) != 0u) admin.open = 0;
+            if ((admin_action & WENA_ADMIN_PANE) != 0u)
+                desktop_admin_load(database, database_path, &admin, people, &people_count);
+            if ((admin_action & WENA_ADMIN_TOGGLE_ACTIVE) != 0u && person < people_count && !smoke) {
+                /* WeKan's Active icon: loginDisabled the other way. */
+                admin.people_error = wena_wekan_sync_set_person(database, people[person].id, people[person].is_admin,
+                                                                !people[person].login_disabled);
+                desktop_admin_load(database, database_path, &admin, people, &people_count);
+            }
+            if ((admin_action & WENA_ADMIN_EDIT_SAVE) != 0u && !smoke) {
+                WenaWekanProfile edited;
+                wena_member_profile_read(&admin.edit, &edited);
+                admin.edit.error = wena_wekan_sync_set_profile(database, admin.edit_id, &edited);
+                admin.people_error = admin.edit.error == WENA_WEKAN_PROFILE_SAVED ?
+                    wena_wekan_sync_set_person(database, admin.edit_id, admin.edit_admin, !admin.edit_active) : 0;
+                if (admin.edit.error == WENA_WEKAN_PROFILE_SAVED && admin.people_error == WENA_WEKAN_PERSON_SAVED)
+                    admin.edit_visible = 0;
+                if (!strcmp(admin.edit_id, actor_id))
+                    desktop_display_name(database, actor_id, user_name, sizeof(user_name));
+                desktop_admin_load(database, database_path, &admin, people, &people_count);
+            }
+            if ((admin_action & WENA_ADMIN_ANNOUNCEMENT_SAVE) != 0u && !smoke) {
+                WenaWekanAnnouncement note;
+                memset(&note, 0, sizeof(note));
+                note.enabled = admin.announcement_enabled;
+                if (admin.announcement_length > 0 && (size_t)admin.announcement_length < sizeof(note.body))
+                    memcpy(note.body, admin.announcement, (size_t)admin.announcement_length);
+                if (!wena_wekan_sync_set_announcement(database, &note))
+                    wena_debug_log("announcement: %s", sqlite3_errmsg(database));
+            }
+            if ((admin_action & WENA_ADMIN_LOGIN) != 0u && !smoke &&
+                !wena_wekan_sync_set_registration(database, admin.disable_registration, admin.disable_forgot_password))
+                wena_debug_log("login settings: %s", sqlite3_errmsg(database));
+            /* Your own Admin rights gone: back to the board. */
+            {
+                WenaWekanProfile me;
+                if (wena_wekan_sync_profile(database, actor_id, &me)) user_is_admin = me.is_admin;
+                if (!user_is_admin) admin.open = 0;
+            }
+            if (SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255) != 0 || SDL_RenderClear(renderer) != 0)
+                DESKTOP_FAIL();
+            nk_sdl_render(NK_ANTI_ALIASING_ON);
+            if (screenshot != NULL && frames == 2 && !desktop_screenshot(renderer, screenshot)) DESKTOP_FAIL();
+            SDL_RenderPresent(renderer);
+#if DESKTOP_AGA
+            if (!desktop_aga_present(window)) DESKTOP_FAIL();
+#endif
+            if (smoke) { ++frames; if (frames >= 3) running = 0; }
+#if DESKTOP_AGA
+            if (!smoke) desktop_aga_wait(had_events, &quiet_frames);
+#else
+            if (!smoke) SDL_Delay(16);
+#endif
+            continue;
+        }
         if (all_boards_page && width > 0 && height > 0 && !paused) {
             char chosen[WENA_ID_CAPACITY], made[WENA_ID_CAPACITY];
             unsigned int page_action;
@@ -2442,6 +2575,14 @@ window_ready:
                     WenaMemberItem item = (WenaMemberItem)(toolbar.member_choice - 1);
                     toolbar.member_choice = 0;
                     if (item == WENA_MEMBER_ALL_BOARDS) { all_boards_page = 1; tiles_stale = 1; }
+                    else if (item == WENA_MEMBER_ADMIN_PANEL && wekan_mode && user_is_admin) {
+                        /* WeKan's member menu opens the Admin Panel on Settings. */
+                        if (people == NULL) people = (WenaWekanPerson *)calloc(DESKTOP_PEOPLE, sizeof(*people));
+                        if (people != NULL) {
+                            wena_admin_panel_open(&admin, WENA_ADMIN_TAB_SETTINGS);
+                            desktop_admin_load(database, database_path, &admin, people, &people_count);
+                        }
+                    }
                     else if (item == WENA_MEMBER_EDIT_PROFILE && wekan_mode) {
                         WenaWekanProfile me;
                         if (wena_wekan_sync_profile(database, actor_id, &me)) wena_member_profile_open(&profile_form, &me);
@@ -3014,6 +3155,7 @@ cleanup:
         wena_wekan_sync_export(database, actor_id) < 0)
         wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
     free(tiles);
+    free(people);
     desktop_views_reset(&views);
     if (logo_texture != NULL) SDL_DestroyTexture(logo_texture);
     wena_card_drag_cancel(&preview.card_drag);
