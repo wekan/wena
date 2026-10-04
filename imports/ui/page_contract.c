@@ -352,6 +352,32 @@ static const struct {
     {WENA_UI_KEY, "map-view-unplaced", "Not on the map"},
     {WENA_UI_KEY, "mobile-desktop-toggle", "Toggle between Mobile and Desktop Mode"},
     {WENA_UI_KEY, "show-desktop-drag-handles", "Show desktop drag handles"},
+    {WENA_UI_KEY, "admin-panel", "Admin Panel"},
+    {WENA_UI_KEY, "dueCards-title", "Due Cards"},
+    {WENA_UI_KEY, "globalSearch-title", "Search All Boards"},
+    {WENA_UI_KEY, "my-cards", "My Cards"},
+    {WENA_UI_KEY, "save", "Save"},
+    {WENA_UI_KEY, "card-settings", "Card Settings"},
+    {WENA_UI_KEY, "change-avatar", "Change Avatar"},
+    {WENA_UI_KEY, "change-color", "Change Color"},
+    {WENA_UI_KEY, "change-font", "Font"},
+    {WENA_UI_KEY, "change-settings", "Change Settings"},
+    {WENA_UI_KEY, "changePasswordPopup-title", "Change Password"},
+    {WENA_UI_KEY, "changeSettingsPopup-title", "Change Settings"},
+    {WENA_UI_KEY, "checklist-ding-sound", "Play a sound when a checklist item is completed"},
+    {WENA_UI_KEY, "edit-profile", "Edit Profile"},
+    {WENA_UI_KEY, "editProfilePopup-title", "Edit Profile"},
+    {WENA_UI_KEY, "email", "Email"},
+    {WENA_UI_KEY, "error-email-taken", "Email has already been taken"},
+    {WENA_UI_KEY, "error-username-taken", "This username is already taken"},
+    {WENA_UI_KEY, "fullname", "Full Name"},
+    {WENA_UI_KEY, "initials", "Initials"},
+    {WENA_UI_KEY, "log-out", "Log Out"},
+    {WENA_UI_KEY, "my-attachments", "My Attachments"},
+    {WENA_UI_KEY, "open-many-cards-at-once", "Open many cards at once"},
+    {WENA_UI_KEY, "rescue-card-description", "Show rescue dialogue before closing for unsaved card descriptions"},
+    {WENA_UI_KEY, "show-cards-minimum-count", "Show cards count if list contains more than"},
+    {WENA_UI_KEY, "submit-on-enter", "Submit editors with Enter"},
     {WENA_UI_KEY, "toggle-header-icons-collapsed", "Collapse/expand header icons (mobile/desktop toggle to notifications)"},
     {WENA_UI_FORMAT, "chart-forecast-no-velocity", "__remaining__ card(s) still open; no recent completions to project a date from."},
     {WENA_UI_FORMAT, "chart-forecast-projected", "At the recent pace of __average__ card(s)/week, the __remaining__ card(s) still open should be done by __date__."},
@@ -364,6 +390,10 @@ const char *wena_ui_key_text(const char *key, const char *fallback)
     if (fallback == NULL)
         for (i = 0; i < sizeof(key_texts) / sizeof(key_texts[0]); ++i)
             if (!strcmp(key_texts[i].key, key)) { fallback = key_texts[i].fallback; break; }
+    /* A key the named texts have, by its English there. */
+    if (fallback == NULL)
+        for (i = 0; i < sizeof(texts) / sizeof(texts[0]); ++i)
+            if (!strcmp(texts[i].i18n_key, key)) { fallback = texts[i].fallback_text; break; }
     return translated(key, fallback != NULL ? fallback : key);
 }
 

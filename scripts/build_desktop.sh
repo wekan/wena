@@ -27,7 +27,7 @@ $WENA_CC -std=c89 -pedantic-errors -Wall -Wextra -Werror -DNK_INPUT_MAX=256 $WEN
   -I"$root_dir/third_party/nuklear" $WENA_SDL_CFLAGS $WENA_SQLITE_CFLAGS \
   "$root_dir/client/desktop.c" "$root_dir/client/platform/sdl_nuklear.c" \
   "$root_dir/imports/preferences/collapse.c" \
-  "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" "$root_dir/client/platform/aga_palette.c" "$root_dir/client/platform/files.c" "$root_dir/client/platform/wekan_files.c" \
+  "$root_dir/client/platform/font.c" "$root_dir/client/platform/debug_log.c" "$root_dir/client/platform/aga_palette.c" "$root_dir/client/components/users/member_settings.c" "$root_dir/client/platform/files.c" "$root_dir/client/platform/wekan_files.c" \
   "$root_dir/server/ferretdb_sqlite.c" "$root_dir/server/wekan_sync.c" "$root_dir/server/board_search.c" "$root_dir/server/wekan_views.c" \
   "$root_dir/client/platform/svg.c" "$root_dir/client/platform/theme.c" "$root_dir/client/platform/dependencies.c" \
   "$root_dir/client/features/boards/settings.c" "$root_dir/client/features/boards/settings_store.c" \

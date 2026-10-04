@@ -282,6 +282,65 @@ int main(int argc, char **argv)
         assert(wena_wekan_sync_set_mobile_mode(db, "u1", 0) && wena_wekan_sync_mobile_mode(db, "u1") == 0);
         assert(wena_wekan_sync_mobile_mode(db, "nobody") == 0 && wena_wekan_sync_mobile_mode(db, NULL) == -1);
         assert(!wena_wekan_sync_set_mobile_mode(db, NULL, 1) && !wena_wekan_sync_set_mobile_mode(db, "nobody", 1));
+        /* Member Settings: WeKan's Edit Profile. */
+        {
+            WenaWekanProfile profile, read;
+            long count;
+            assert(wena_wekan_sync_profile(db, "u1", &profile));
+            assert(!strcmp(profile.fullname, "Ada L") && !strcmp(profile.username, "ada") && profile.is_admin);
+            assert(profile.email[0] == '\0' && profile.initials[0] == '\0');
+            strcpy(profile.fullname, "Ada \"Lovelace\" O'Brien");
+            strcpy(profile.username, "ada.l");
+            strcpy(profile.initials, "AL");
+            strcpy(profile.email, "ada@example.com");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_SAVED);
+            assert(wena_wekan_sync_profile(db, "u1", &read));
+            assert(!strcmp(read.fullname, profile.fullname) && !strcmp(read.username, "ada.l") &&
+                   !strcmp(read.initials, "AL") && !strcmp(read.email, "ada@example.com"));
+            /* As accounts-base makes it, with FerretDB's types. */
+            assert(!strcmp(q(db, "SELECT (_ferretdb_sjson -> '$.emails') || (_ferretdb_sjson -> '$.\"$s\".p.emails.t') "
+                                 "FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u1\"'"),
+                           "[{\"address\":\"ada@example.com\",\"verified\":false}]\"array\""));
+            /* A second save keeps the one address, changed. */
+            strcpy(profile.email, "ada@wekan.example");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_SAVED);
+            assert(!strcmp(q(db, "SELECT json_array_length(_ferretdb_sjson -> '$.emails') || (_ferretdb_sjson ->> "
+                                 "'$.emails[0].address') FROM fdb.users_5e7cc513 WHERE _ferretdb_sjson->'_id' = '\"u1\"'"),
+                           "1ada@wekan.example"));
+            /* Negative: another user's username or email, any case; no
+             * username; a space; an email without @; nothing changes. */
+            strcpy(profile.username, "BOB");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_USERNAME_TAKEN);
+            strcpy(profile.username, "");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_BAD_USERNAME);
+            strcpy(profile.username, "ada l");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_BAD_USERNAME);
+            strcpy(profile.username, "ada.l");
+            strcpy(profile.email, "nobody");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_BAD_EMAIL);
+            assert(wena_wekan_sync_profile(db, "u2", &read) && !strcmp(read.username, "bob"));
+            strcpy(read.email, "ADA@wekan.example");
+            assert(wena_wekan_sync_set_profile(db, "u2", &read) == WENA_WEKAN_PROFILE_EMAIL_TAKEN);
+            assert(wena_wekan_sync_profile(db, "u1", &read) && !strcmp(read.username, "ada.l") &&
+                   !strcmp(read.email, "ada@wekan.example"));
+            assert(!wena_wekan_sync_profile(db, "nobody", &read) && !wena_wekan_sync_profile(NULL, "u1", &read));
+            /* WeKan's Change Settings: Boolean fields and the card count. */
+            assert(wena_wekan_sync_profile_flag(db, "u1", "submitOnEnter") == 0);
+            assert(wena_wekan_sync_set_profile_flag(db, "u1", "submitOnEnter", 1));
+            assert(wena_wekan_sync_profile_flag(db, "u1", "submitOnEnter") == 1);
+            assert(!wena_wekan_sync_set_profile_flag(db, "u1", "x'); DROP", 1) &&
+                   wena_wekan_sync_profile_flag(db, "u1", "a.b") == -1);
+            assert(wena_wekan_sync_cards_count_at(db, "u1", &count) && count == 0);
+            assert(wena_wekan_sync_set_cards_count_at(db, "u1", 5) && wena_wekan_sync_cards_count_at(db, "u1", &count) &&
+                   count == 5);
+            assert(!wena_wekan_sync_set_cards_count_at(db, "u1", -2) && wena_wekan_sync_cards_count_at(db, "u1", &count) &&
+                   count == 5);
+            /* Back as the rest of this test expects it. */
+            strcpy(profile.username, "ada");
+            strcpy(profile.fullname, "Ada L");
+            strcpy(profile.email, "ada@wekan.example");
+            assert(wena_wekan_sync_set_profile(db, "u1", &profile) == WENA_WEKAN_PROFILE_SAVED);
+        }
         /* A new board: WeKan's fields, its Default swimlane, Ada its admin. */
         assert(wena_wekan_sync_new_board(db, "u1", "Fresh", made, sizeof(made)) && strlen(made) == 17);
         assert(!strcmp(q(db, "SELECT count(*) FROM board_members WHERE board_id = (SELECT id FROM boards WHERE title='Fresh')"), "1"));

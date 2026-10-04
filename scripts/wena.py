@@ -466,6 +466,7 @@ TEST_SUITES = (
     ('amiga-aga', 'test_amiga_aga.py', 'AmigaOS 3 AGA build: SDL patch, desktop AGA branch, catalog and release check'),
     ('release-link-flags', 'test_release_link_flags.py', "Haiku links SDL's C++ runtime, no other release system does"),
     ('attach-release-files', 'test_attach_release_files.py', 'Each release file attached as soon as its build job finishes'),
+    ('member-settings', 'test_member_settings.sh', "WeKan's member menu, Edit Profile and Change Settings"),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),

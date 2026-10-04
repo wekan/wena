@@ -1382,6 +1382,172 @@ int wena_wekan_sync_set_mobile_mode(sqlite3 *db, const char *actor, int mobile)
     return set_profile_flag(db, actor, "profile.mobileMode", mobile);
 }
 
+/* Member Settings ----------------------------------------------------- */
+
+static int profile_field_name(const char *field)
+{
+    size_t index;
+    if (field == NULL || field[0] == '\0' || strlen(field) > 40) return 0;
+    for (index = 0; field[index] != '\0'; ++index)
+        if (!((field[index] >= 'a' && field[index] <= 'z') || (field[index] >= 'A' && field[index] <= 'Z')))
+            return 0;
+    return 1;
+}
+
+int wena_wekan_sync_profile_flag(sqlite3 *db, const char *actor, const char *field)
+{
+    return profile_field_name(field) ? profile_flag(db, actor, field) : -1;
+}
+
+int wena_wekan_sync_set_profile_flag(sqlite3 *db, const char *actor, const char *field, int value)
+{
+    char key[64];
+    if (!profile_field_name(field)) return 0;
+    sprintf(key, "profile.%s", field);
+    return set_profile_flag(db, actor, key, value);
+}
+
+int wena_wekan_sync_cards_count_at(sqlite3 *db, const char *actor, long *count)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || count == NULL || !table_of(db, "users", table)) return 0;
+    *count = 0;
+    sprintf(sql, "SELECT CASE WHEN json_type(_ferretdb_sjson, '$.profile.showCardsCountAt') IN ('integer', 'real') "
+                 "THEN _ferretdb_sjson ->> '$.profile.showCardsCountAt' ELSE 0 END FROM " WENA_WEKAN_SCHEMA
+                 ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) { *count = (long)sqlite3_column_int64(statement, 0); ok = 1; }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+int wena_wekan_sync_set_cards_count_at(sqlite3 *db, const char *actor, long count)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], value[32];
+    WenaFerretField field;
+    /* WeKan's input takes -1 and up (min="-1"). */
+    if (db == NULL || actor == NULL || count < -1 || count > 100000L || !table_of(db, "users", table)) return 0;
+    sprintf(value, "%ld", count);
+    field.key = "profile.showCardsCountAt";
+    field.element = WENA_FERRET_INT;
+    field.value = value;
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, &field, 1);
+}
+
+static void copy_column(char *out, size_t capacity, sqlite3_stmt *statement, int column)
+{
+    const unsigned char *text = sqlite3_column_text(statement, column);
+    out[0] = '\0';
+    if (text != NULL && strlen((const char *)text) < capacity) strcpy(out, (const char *)text);
+}
+
+int wena_wekan_sync_profile(sqlite3 *db, const char *actor, WenaWekanProfile *profile)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int ok = 0;
+    if (db == NULL || actor == NULL || profile == NULL || !table_of(db, "users", table)) return 0;
+    memset(profile, 0, sizeof(*profile));
+    sprintf(sql, "SELECT coalesce(_ferretdb_sjson ->> '$.profile.fullname', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$.username', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$.profile.initials', ''), "
+                 "coalesce(_ferretdb_sjson ->> '$.emails[0].address', ''), "
+                 "CASE WHEN coalesce(_ferretdb_sjson ->> '$.isAdmin', 0) THEN 1 ELSE 0 END "
+                 "FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1)", table);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) {
+        copy_column(profile->fullname, sizeof(profile->fullname), statement, 0);
+        copy_column(profile->username, sizeof(profile->username), statement, 1);
+        copy_column(profile->initials, sizeof(profile->initials), statement, 2);
+        copy_column(profile->email, sizeof(profile->email), statement, 3);
+        profile->is_admin = sqlite3_column_int(statement, 4);
+        ok = 1;
+    }
+    sqlite3_finalize(statement);
+    return ok;
+}
+
+/* Another user already has this value at `path`. */
+static int taken(sqlite3 *db, const char *table, const char *actor, const char *path, const char *value)
+{
+    char sql[4096];
+    sqlite3_stmt *statement = NULL;
+    int found = 1;
+    sprintf(sql, "SELECT count(*) FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' <> json_quote(?1) "
+                 "AND lower(_ferretdb_sjson ->> '%s') = lower(?2)", table, path);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 1;
+    sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, value, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) == SQLITE_ROW) found = sqlite3_column_int(statement, 0) > 0;
+    sqlite3_finalize(statement);
+    return found;
+}
+
+int wena_wekan_sync_set_profile(sqlite3 *db, const char *actor, const WenaWekanProfile *profile)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], sql[4096];
+    char *name = NULL, *username = NULL, *initials = NULL, *emails = NULL, *element = NULL;
+    sqlite3_stmt *statement = NULL;
+    WenaFerretField fields[4];
+    int result = WENA_WEKAN_PROFILE_FAILED, count = 0;
+    if (db == NULL || actor == NULL || profile == NULL || !table_of(db, "users", table)) return result;
+    /* WeKan's form: a username is needed and unique, as is an email. */
+    if (profile->username[0] == '\0' || strchr(profile->username, ' ') != NULL) return WENA_WEKAN_PROFILE_BAD_USERNAME;
+    if (taken(db, table, actor, "$.username", profile->username)) return WENA_WEKAN_PROFILE_USERNAME_TAKEN;
+    if (profile->email[0] != '\0' &&
+        (strchr(profile->email, '@') == NULL || taken(db, table, actor, "$.emails[0].address", profile->email)))
+        return strchr(profile->email, '@') == NULL ? WENA_WEKAN_PROFILE_BAD_EMAIL : WENA_WEKAN_PROFILE_EMAIL_TAKEN;
+    if (!exec(db, "SAVEPOINT wena_profile")) goto done;
+    /* JSON strings, from SQLite's own quoting of them. */
+    sprintf(sql, "SELECT json_quote(?1), json_quote(?2), json_quote(?3)");
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) goto rollback;
+    sqlite3_bind_text(statement, 1, profile->fullname, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, profile->username, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 3, profile->initials, -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(statement) != SQLITE_ROW) goto rollback;
+    name = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+    username = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+    initials = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 2));
+    sqlite3_finalize(statement);
+    statement = NULL;
+    fields[count].key = "profile.fullname"; fields[count].element = WENA_FERRET_STRING; fields[count++].value = name;
+    fields[count].key = "username"; fields[count].element = WENA_FERRET_STRING; fields[count++].value = username;
+    fields[count].key = "profile.initials"; fields[count].element = WENA_FERRET_STRING; fields[count++].value = initials;
+    if (profile->email[0] != '\0') {
+        /* The first of WeKan's emails changes address; a user without one
+         * gets {address, verified: false}, as accounts-base makes them. */
+        sprintf(sql, "SELECT e, wena_sjson_element(e) FROM (SELECT CASE WHEN json_array_length(coalesce("
+                     "_ferretdb_sjson -> '$.emails', '[]')) > 0 THEN json_set(_ferretdb_sjson -> '$.emails', "
+                     "'$[0].address', ?2) ELSE json_array(json_object('address', ?2, 'verified', json('false'))) END AS e "
+                     "FROM " WENA_WEKAN_SCHEMA ".\"%s\" WHERE _ferretdb_sjson->'_id' = json_quote(?1))", table);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) goto rollback;
+        sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, profile->email, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(statement) != SQLITE_ROW) goto rollback;
+        emails = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 0));
+        element = sqlite3_mprintf("%s", (const char *)sqlite3_column_text(statement, 1));
+        sqlite3_finalize(statement);
+        statement = NULL;
+        fields[count].key = "emails"; fields[count].element = element; fields[count++].value = emails;
+    }
+    if (!wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, actor, fields, (size_t)count)) goto rollback;
+    result = exec(db, "RELEASE wena_profile") ? WENA_WEKAN_PROFILE_SAVED : WENA_WEKAN_PROFILE_FAILED;
+    goto done;
+rollback:
+    if (statement != NULL) sqlite3_finalize(statement);
+    statement = NULL;
+    (void)exec(db, "ROLLBACK TO wena_profile");
+    (void)exec(db, "RELEASE wena_profile");
+done:
+    sqlite3_free(name); sqlite3_free(username); sqlite3_free(initials);
+    sqlite3_free(emails); sqlite3_free(element);
+    return result;
+}
+
 static double map_percent(double value)
 {
     if (value < 0.0) value = 0.0;

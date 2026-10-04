@@ -472,6 +472,51 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         nk_fill_rect(out, nk_rect(x + P(5.5f), y + P(2.5f), P(5), P(9.5f)), 0.0f, c);
         nk_fill_circle(out, nk_rect(x + P(7.2f), y + P(12.8f), P(1.6f), P(1.6f)), c);
         break;
+    case WENA_ICON_KEY:
+        /* fa-key: the bow and the blade with its bit. */
+        nk_stroke_circle(out, nk_rect(x + P(1), y + P(1), P(7), P(7)), t * 1.2f, c);
+        line(out, x + P(6.5f), y + P(6.5f), x + P(14.5f), y + P(14.5f), t * 1.3f, c);
+        line(out, x + P(11.5f), y + P(11.5f), x + P(13.5f), y + P(9.5f), t * 1.3f, c);
+        line(out, x + P(13.5f), y + P(13.5f), x + P(15.5f), y + P(11.5f), t * 1.3f, c);
+        break;
+    case WENA_ICON_FLAG:
+        /* fa-flag: the pole and the waving cloth. */
+        line(out, x + P(2.5f), y + P(1), x + P(2.5f), y + P(15.5f), t * 1.2f, c);
+        nk_fill_triangle(out, x + P(3), y + P(1.5f), x + P(14), y + P(1.5f), x + P(3), y + P(9), c);
+        nk_fill_triangle(out, x + P(14), y + P(1.5f), x + P(14), y + P(9), x + P(3), y + P(9), c);
+        break;
+    case WENA_ICON_SIGN_OUT:
+        /* fa-sign-out: the door frame and the arrow leaving it. */
+        line(out, x + P(6.5f), y + P(1.5f), x + P(1.5f), y + P(1.5f), t, c);
+        line(out, x + P(1.5f), y + P(1.5f), x + P(1.5f), y + P(14.5f), t, c);
+        line(out, x + P(1.5f), y + P(14.5f), x + P(6.5f), y + P(14.5f), t, c);
+        line(out, x + P(5.5f), y + P(8), x + P(12.5f), y + P(8), t * 1.2f, c);
+        nk_fill_triangle(out, x + P(15.5f), y + P(8), x + P(11.5f), y + P(4.5f), x + P(11.5f), y + P(11.5f), c);
+        break;
+    case WENA_ICON_FONT:
+        /* fa-font: the letter A on its serifs. */
+        line(out, x + P(2.5f), y + P(14.5f), x + P(8), y + P(1.5f), t * 1.3f, c);
+        line(out, x + P(8), y + P(1.5f), x + P(13.5f), y + P(14.5f), t * 1.3f, c);
+        line(out, x + P(4.8f), y + P(9.5f), x + P(11.2f), y + P(9.5f), t * 1.2f, c);
+        line(out, x + P(1), y + P(14.5f), x + P(5), y + P(14.5f), t, c);
+        line(out, x + P(11), y + P(14.5f), x + P(15), y + P(14.5f), t, c);
+        break;
+    case WENA_ICON_PICTURE:
+        /* fa-picture-o: the frame, the sun and the mountains. */
+        nk_stroke_rect(out, nk_rect(x + P(0.5f), y + P(2), P(15), P(12)), P(1), t, c);
+        nk_fill_circle(out, nk_rect(x + P(3), y + P(4), P(3), P(3)), c);
+        nk_fill_triangle(out, x + P(2.5f), y + P(12.5f), x + P(7), y + P(7), x + P(10.5f), y + P(12.5f), c);
+        nk_fill_triangle(out, x + P(7), y + P(12.5f), x + P(10.5f), y + P(8.5f), x + P(13.5f), y + P(12.5f), c);
+        break;
+    case WENA_ICON_PAPERCLIP:
+        /* fa-paperclip: the wire's two loops. */
+        line(out, x + P(5), y + P(4), x + P(5), y + P(12), t, c);
+        line(out, x + P(11), y + P(3), x + P(11), y + P(12), t, c);
+        line(out, x + P(8), y + P(5), x + P(8), y + P(11), t, c);
+        nk_stroke_arc(out, x + P(8), y + P(12), P(3), 0.0f, 3.14159f, t, c);
+        nk_stroke_arc(out, x + P(8), y + P(3), P(3), 3.14159f, 6.28318f, t, c);
+        nk_stroke_arc(out, x + P(6.5f), y + P(4), P(1.5f), 3.14159f, 6.28318f, t, c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;

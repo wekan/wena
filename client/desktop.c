@@ -10,6 +10,7 @@
 #include "platform/dependencies.h"
 #include "platform/font.h"
 #include "platform/debug_log.h"
+#include "components/users/member_settings.h"
 #if defined(WENA_AMIGA_AGA)
 #include "platform/aga_palette.h"
 #include "../models/color.h"
@@ -302,6 +303,10 @@ typedef struct WenaDesktopToolbar {
     int collapse_retry;
     int collapse_writable;
     unsigned int actions;
+    /* WeKan's member menu: the chosen entry + 1, for the frame to open. */
+    int member_choice;
+    int is_admin;
+    WenaMemberItem member_ids[WENA_MEMBER_ITEM_COUNT];
 } WenaDesktopToolbar;
 
 static void desktop_toolbar(struct nk_context *context, void *opaque)
@@ -767,9 +772,17 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CARDS_SORT_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_MEMBER) {
-        DESKTOP_ITEM(WENA_ICON_GLOBE, WENA_UI_TEXT_CHANGE_LANGUAGE, 1, 0);
-        chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_MEMBER_SETTINGS),
-                                 width - 340.0f > 0.0f ? width - 340.0f : 0.0f, 80.0f, 320.0f, 1, items, count);
+        /* WeKan's memberMenuPopup, in its order; what Wena does not do yet is
+         * there, disabled. */
+        count = wena_member_menu_items(items, toolbar->member_ids, WENA_MEMBER_ITEM_COUNT, toolbar->is_admin);
+        {
+            /* Two columns when one would run past the window's bottom. */
+            int columns = 80.0f + 60.0f + (float)count * 36.0f > height ? 2 : 1;
+            float menu_w = columns == 2 ? 600.0f : 320.0f;
+            chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_MEMBER_SETTINGS),
+                                     width - menu_w - 20.0f > 0.0f ? width - menu_w - 20.0f : 0.0f, 80.0f, menu_w,
+                                     columns, items, count);
+        }
     } else chosen = WENA_WEKAN_MENU_NONE;
 #undef DESKTOP_ITEM
     if (chosen == WENA_WEKAN_MENU_CLOSED) menu->kind = DESKTOP_MENU_NONE;
@@ -795,7 +808,11 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
             menu->kind = DESKTOP_MENU_NONE;
             return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_MEMBER) {
-            toolbar->language_visible = 1;
+            if ((size_t)chosen < count && toolbar->member_ids[chosen] == WENA_MEMBER_CHANGE_LANGUAGE)
+                toolbar->language_visible = 1;
+            else if ((size_t)chosen < count) toolbar->member_choice = (int)toolbar->member_ids[chosen] + 1;
+            menu->kind = DESKTOP_MENU_NONE;
+            return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_CARD) {
             menu->kind = DESKTOP_MENU_NONE;
             desktop_close_other_editors(editors, chosen == WENA_CARD_ACTION_MOVE ?
@@ -1177,7 +1194,7 @@ static void desktop_usage(FILE *output)
           output);
     fputs("--show STATE opens card:ID, card-menu:ID, list-menu:ID, add-card:LIST, sidebar,\n"
           "multi-selection, visibility, watch, sort, sorted, view, lists-view, view:KEY, notifications,\n"
-          "mobile, drag-handles, "
+          "mobile, drag-handles, member-menu, edit-profile, change-settings, "
           "add-board, "
           "search:TERM, all-boards or open:BOARD (a board chosen on All Boards) first,\n"
           "with --smoke or"
@@ -1513,7 +1530,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaSearchSidebar search;
     WenaDesktopViews views;
     SDL_Texture *logo_texture;
-    int logo_width, logo_height, header_icons_collapsed, drag_handles, mobile_mode;
+    int logo_width, logo_height, header_icons_collapsed, drag_handles, mobile_mode, user_is_admin;
+    WenaMemberProfileForm profile_form;
+    WenaMemberSettingsForm settings_form;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
     size_t notification_count;
     int notifications_open;
@@ -1611,6 +1630,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     header_icons_collapsed = DESKTOP_AGA;
     drag_handles = 0;
     mobile_mode = 0;
+    user_is_admin = 0;
+    memset(&profile_form, 0, sizeof(profile_form));
+    memset(&settings_form, 0, sizeof(settings_form));
     notification_count = 0;
     notifications_open = 0;
     memset(&add_board, 0, sizeof(add_board));
@@ -1957,6 +1979,10 @@ board_session:
         desktop_views_reset(&views);
         drag_handles = wena_wekan_sync_drag_handles(database, actor_id) == 1;
         mobile_mode = wena_wekan_sync_mobile_mode(database, actor_id) == 1;
+        {
+            WenaWekanProfile me;
+            user_is_admin = wena_wekan_sync_profile(database, actor_id, &me) && me.is_admin;
+        }
         views.database = database;
         views.actor = actor_id;
         views.renderer = renderer;
@@ -2241,6 +2267,10 @@ window_ready:
             }
             else if (!strcmp(show, "notifications")) notifications_open = 1;
             else if (!strcmp(show, "mobile")) mobile_mode = 1;
+            else if (!strcmp(show, "member-menu")) toolbar.menu.kind = DESKTOP_MENU_MEMBER;
+            else if (!strcmp(show, "edit-profile") || !strcmp(show, "change-settings"))
+                toolbar.member_choice = 1 + (int)(!strcmp(show, "edit-profile") ? WENA_MEMBER_EDIT_PROFILE :
+                                                  WENA_MEMBER_CHANGE_SETTINGS);
             else if (!strcmp(show, "drag-handles")) drag_handles = 1;
             else if (!strcmp(show, "add-board")) { add_board.visible = 1; add_board.focus = 1; }
             else if (!strcmp(show, "view")) { toolbar.menu.kind = DESKTOP_MENU_VIEW; toolbar.menu.x = 140.0f; }
@@ -2404,8 +2434,27 @@ window_ready:
             {
                 WenaDesktopPanel menu_panel;
                 const char *dragged;
+                toolbar.is_admin = wekan_mode && user_is_admin;
                 menu_panel = desktop_menus(context, &toolbar, &editors, &layout, (float)width, (float)height);
                 if (menu_panel != DESKTOP_PANEL_NONE) opened_panel = menu_panel;
+                /* WeKan's member menu: its entries that Wena has. */
+                if (toolbar.member_choice > 0) {
+                    WenaMemberItem item = (WenaMemberItem)(toolbar.member_choice - 1);
+                    toolbar.member_choice = 0;
+                    if (item == WENA_MEMBER_ALL_BOARDS) { all_boards_page = 1; tiles_stale = 1; }
+                    else if (item == WENA_MEMBER_EDIT_PROFILE && wekan_mode) {
+                        WenaWekanProfile me;
+                        if (wena_wekan_sync_profile(database, actor_id, &me)) wena_member_profile_open(&profile_form, &me);
+                    } else if (item == WENA_MEMBER_CHANGE_SETTINGS && wekan_mode) {
+                        int on[WENA_MEMBER_TOGGLE_COUNT], t;
+                        long cards_at = 0;
+                        for (t = 0; t < WENA_MEMBER_TOGGLE_COUNT; ++t)
+                            on[t] = wena_wekan_sync_profile_flag(database, actor_id,
+                                                                 wena_member_toggle_field((WenaMemberToggle)t)) == 1;
+                        (void)wena_wekan_sync_cards_count_at(database, actor_id, &cards_at);
+                        wena_member_settings_open(&settings_form, on, cards_at);
+                    }
+                }
                 /* WeKan's header: the title renames, Filter opens its panel,
                  * the user's name its menu. */
                 if ((toolbar.header_actions & WENA_BOARD_HEADER_ALL_BOARDS) != 0u) {
@@ -2717,6 +2766,39 @@ window_ready:
                         strcpy(next_board, made);
                         running = 0;
                     } else wena_debug_log("new board: %s", wena_wekan_sync_error());
+                }
+            }
+            /* WeKan's Edit Profile and Change Settings. */
+            if (profile_form.visible &&
+                wena_member_profile_render(context, &profile_form, (float)width, (float)height) == WENA_MEMBER_SAVE &&
+                !smoke) {
+                WenaWekanProfile me;
+                wena_member_profile_read(&profile_form, &me);
+                profile_form.error = wena_wekan_sync_set_profile(database, actor_id, &me);
+                if (profile_form.error == WENA_WEKAN_PROFILE_SAVED) {
+                    profile_form.visible = 0;
+                    desktop_display_name(database, actor_id, user_name, sizeof(user_name));
+                } else wena_debug_log("edit profile: %d %s", profile_form.error, wena_wekan_sync_error());
+            }
+            if (settings_form.visible) {
+                int chosen_setting = wena_member_settings_render(context, &settings_form, (float)width, (float)height);
+                if (chosen_setting >= 2 && chosen_setting < 2 + WENA_MEMBER_TOGGLE_COUNT) {
+                    /* A toggle is written at once, as WeKan's. */
+                    WenaMemberToggle t = (WenaMemberToggle)(chosen_setting - 2);
+                    settings_form.on[t] = !settings_form.on[t];
+                    if (t == WENA_MEMBER_TOGGLE_DRAG_HANDLES) drag_handles = settings_form.on[t];
+                    if (!smoke && !wena_wekan_sync_set_profile_flag(database, actor_id, wena_member_toggle_field(t),
+                                                                    settings_form.on[t]))
+                        wena_debug_log("change settings: %s", wena_wekan_sync_error());
+                } else if (chosen_setting == WENA_MEMBER_SAVE && !smoke) {
+                    long cards_at;
+                    if (wena_member_settings_count(&settings_form, &cards_at) &&
+                        wena_wekan_sync_set_cards_count_at(database, actor_id, cards_at) &&
+                        wena_wekan_sync_set_profile_flag(database, actor_id,
+                            wena_member_toggle_field(WENA_MEMBER_TOGGLE_RESCUE_DESCRIPTION),
+                            settings_form.on[WENA_MEMBER_TOGGLE_RESCUE_DESCRIPTION]))
+                        settings_form.visible = 0;
+                    else wena_debug_log("change settings: %s", wena_wekan_sync_error());
                 }
             }
             /* A card a view chose: its details here, or its board. */

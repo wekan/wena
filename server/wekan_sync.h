@@ -116,6 +116,30 @@ int wena_wekan_sync_set_drag_handles(sqlite3 *db, const char *actor, int show);
 int wena_wekan_sync_mobile_mode(sqlite3 *db, const char *actor);
 int wena_wekan_sync_set_mobile_mode(sqlite3 *db, const char *actor, int mobile);
 
+/* Member Settings. WeKan's Edit Profile: profile.fullname, username,
+ * profile.initials and the first emails[].address; isAdmin is read only. */
+typedef struct WenaWekanProfile {
+    char fullname[256];
+    char username[128];
+    char initials[32];
+    char email[256];
+    int is_admin;
+} WenaWekanProfile;
+#define WENA_WEKAN_PROFILE_SAVED 1
+#define WENA_WEKAN_PROFILE_FAILED 0
+#define WENA_WEKAN_PROFILE_USERNAME_TAKEN (-1)  /* WeKan's error-username-taken */
+#define WENA_WEKAN_PROFILE_EMAIL_TAKEN (-2)     /* error-email-taken */
+#define WENA_WEKAN_PROFILE_BAD_USERNAME (-3)    /* empty, or with a space */
+#define WENA_WEKAN_PROFILE_BAD_EMAIL (-4)       /* not empty and without @ */
+int wena_wekan_sync_profile(sqlite3 *db, const char *actor, WenaWekanProfile *profile);
+int wena_wekan_sync_set_profile(sqlite3 *db, const char *actor, const WenaWekanProfile *profile);
+/* WeKan's Change Settings: a Boolean profile field (letters only, e.g.
+ * "submitOnEnter"), false when not set, -1 on failure; and showCardsCountAt. */
+int wena_wekan_sync_profile_flag(sqlite3 *db, const char *actor, const char *field);
+int wena_wekan_sync_set_profile_flag(sqlite3 *db, const char *actor, const char *field, int value);
+int wena_wekan_sync_cards_count_at(sqlite3 *db, const char *actor, long *count);
+int wena_wekan_sync_set_cards_count_at(sqlite3 *db, const char *actor, long count);
+
 /* The Map view's writes, as WeKan's Card.setMapPosition (each clamped to
  * 0..100 and rounded to hundredths; a value that is not a number removes
  * the card from the map) and Board.setMapImage(null). */

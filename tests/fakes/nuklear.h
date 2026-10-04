@@ -85,6 +85,7 @@ typedef unsigned int nk_rune;
 struct nk_text_edit;
 typedef int (*nk_plugin_filter)(const struct nk_text_edit *, nk_rune);
 int nk_filter_default(const struct nk_text_edit *edit, nk_rune rune);
+int nk_filter_decimal(const struct nk_text_edit *edit, nk_rune rune);
 unsigned int nk_edit_string(struct nk_context *context, unsigned int flags,
     char *buffer, int *length, int max, nk_plugin_filter filter);
 

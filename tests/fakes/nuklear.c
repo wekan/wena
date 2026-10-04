@@ -104,6 +104,12 @@ void nk_group_end(struct nk_context *context)
     --context->group_depth;
 }
 
+int nk_filter_decimal(const struct nk_text_edit *edit, nk_rune rune)
+{
+    (void)edit;
+    return (rune >= '0' && rune <= '9') || rune == '-';
+}
+
 int nk_filter_default(const struct nk_text_edit *edit, nk_rune rune)
 {
     (void)edit; (void)rune; return 1;

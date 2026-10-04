@@ -1,6 +1,42 @@
 # Upcoming Wena release
 
 <details>
+<summary>WeKan's member menu, with Edit Profile and Change Settings that save to the user's WeKan profile</summary>
+
+- The menu under the user's name is WeKan's memberMenuPopup now, in its
+  order and with its icons. It has two columns when one would run past the
+  window. All Boards, Admin Panel (for an admin only), Edit Profile, Change
+  Settings and Change Language work. The rest are there as WeKan has them,
+  disabled until Wena does them.
+- **Edit Profile** (editProfilePopup) edits Full Name, Username, Initials and
+  Email, into `profile.fullname`, `username`, `profile.initials` and the
+  first `emails[].address`, which is made `{address, verified: false}` when
+  the user has none. It shows WeKan's errors when another user has the
+  username or the email (in any case), when the username is empty or has a
+  space, and when the email has no @. The name in the header changes on save.
+- **Change Settings** (changeSettingsPopup) has WeKan's toggles: Show desktop
+  drag handles, Submit editors with Enter, Open many cards at once and the
+  checklist sound. Each is written at once to its profile field, and drag
+  handles apply to the board straight away. "Show cards count if list
+  contains more than" (`profile.showCardsCountAt`, -1 and up) and the rescue
+  dialogue setting are written on Save.
+- New icons, drawn as WeKan's Font Awesome ones: key, flag, sign-out, font,
+  picture and paperclip. A text key that only Wena's named texts had now
+  also falls back to its English there.
+- `--show member-menu`, `--show edit-profile` and `--show change-settings`
+  capture them.
+- Tests: `member-settings` checks the menu's order, Admin Panel shown only
+  to an admin, the enabled entries, the forms' fields in and out, Save,
+  close and the card count's bounds. `wekan-sync` checks the profile round
+  trip, the email array with FerretDB's types, taken and invalid usernames
+  and emails changing nothing, and the settings fields, refusing a field
+  name that is not plain letters.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>WeKan's mobile/desktop toggle and Show desktop drag handles work on the board</summary>
 
 - **The mobile/desktop toggle** in the header works now. In mobile mode, as
