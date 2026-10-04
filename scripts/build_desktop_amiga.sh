@@ -6,6 +6,9 @@
 #   amigaos4-ppc   AmigaOS 4, PowerPC: ELF, SDL2 from the image
 #   aros-amd64     AROS x86-64: relocatable ELF, SDL2 2.32.10 with AROS's port
 #   amigaos-m68k   AmigaOS 3.x, 68040 + FPU + RTG: HUNK, diasurgical's SDL2
+#   amigaos-m68k-aga
+#                  the same for AGA without RTG: an 8-bit 640x512 screen,
+#                  SDL's AGA path with scripts/patches/sdl2-amigaos3-aga.patch
 #
 # Runs on the host: it fetches the pinned, checksum-verified sources
 # (config/release-dependencies.json) into .tools/cache and then compiles
@@ -27,7 +30,7 @@ platform=
 case "$target" in
   amigaos4-ppc) sources="sqlite" ;;
   aros-amd64) sources="sqlite sdl2 sdl2-aros-patch sdl2-aros-static sdl2-aros-intern"; platform=linux/amd64 ;;
-  amigaos-m68k) sources="sqlite sdl2-amigaos3" ;;
+  amigaos-m68k|amigaos-m68k-aga) sources="sqlite sdl2-amigaos3" ;;
   *)
     echo "unknown Amiga desktop target: $target" >&2
     exit 2

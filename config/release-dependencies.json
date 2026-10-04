@@ -89,6 +89,12 @@
       "image": "amigadev/crosstools:m68k-amigaos-gcc10@sha256:d066f82528673c831d3ce1d84720b7a6c01ab513888bb67895194222a16726f4",
       "platforms": "linux/amd64 linux/arm64",
       "use": "m68k-amigaos-gcc (bebbo), libnix, CMake toolchain file in CMAKE_TOOLCHAIN_FILE"
+    },
+    {
+      "target": "amigaos-m68k-aga",
+      "image": "amigadev/crosstools:m68k-amigaos-gcc10@sha256:d066f82528673c831d3ce1d84720b7a6c01ab513888bb67895194222a16726f4",
+      "platforms": "linux/amd64 linux/arm64",
+      "use": "the amigaos-m68k image; vasmm68k_mot from it assembles SDL's AGA c2p"
     }
   ],
   "android-cmdline-tools-linux": {

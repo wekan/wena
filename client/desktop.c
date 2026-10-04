@@ -10,6 +10,10 @@
 #include "platform/dependencies.h"
 #include "platform/font.h"
 #include "platform/debug_log.h"
+#if defined(WENA_AMIGA_AGA)
+#include "platform/aga_palette.h"
+#include "../models/color.h"
+#endif
 #include "platform/files.h"
 #include "components/boards/swimlane_resize.h"
 #include "features/board.h"
@@ -1243,6 +1247,86 @@ static void desktop_log_video_failure(const char *step)
 #endif
 }
 
+#if defined(WENA_AMIGA_AGA)
+/* The AmigaOS 3 AGA build. AGA has no 32-bit screen: SDL opens an 8-bit
+ * one of the window's size, 640x512 here (PAL hi-res interlaced, the most
+ * AGA shows at 8 bits). Wena draws into its own 32-bit frame with SDL's
+ * software renderer, and each frame is mapped onto the palette of WeKan's
+ * colors (client/platform/aga_palette.c) and shown. With an RTG card the
+ * screen is 32-bit and the frame is copied as it is. */
+#define DESKTOP_AGA 1
+#define DESKTOP_WIDTH 640
+#define DESKTOP_HEIGHT 512
+#define DESKTOP_RESIZABLE 0
+static SDL_Surface *aga_frame;
+static WenaAgaPalette *aga_palette;
+static int aga_palette_set;
+
+static int desktop_aga_init(void)
+{
+    long exact[WENA_WEKAN_COLOR_COUNT + 64];
+    size_t count = 0, index, contracts;
+    const WenaColorContract *colors = wena_color_contracts(&contracts);
+    aga_palette = (WenaAgaPalette *)malloc(sizeof(*aga_palette));
+    if (aga_palette == NULL) return 0;
+    /* WeKan's UI colors first, the header blue leading, then its label
+     * and board colors. */
+    exact[count++] = (long)wena_wekan_rgb(WENA_WEKAN_HEADER);
+    for (index = 0; index < (size_t)WENA_WEKAN_COLOR_COUNT; ++index)
+        exact[count++] = (long)wena_wekan_rgb((WenaWekanColor)index);
+    for (index = 0; index < contracts && count < sizeof(exact) / sizeof(exact[0]); ++index) {
+        unsigned char rgb[3];
+        if (wena_color_rgb(colors[index].rgb, rgb))
+            exact[count++] = ((long)rgb[0] << 16) | ((long)rgb[1] << 8) | rgb[2];
+    }
+    wena_aga_palette_init(aga_palette, exact, count);
+    wena_debug_log("AGA palette: %d colors, %lu exact asked", aga_palette->count, (unsigned long)count);
+    return 1;
+}
+
+static int desktop_aga_present(SDL_Window *window)
+{
+    SDL_Surface *screen = SDL_GetWindowSurface(window);
+    int width, height;
+    if (screen == NULL || aga_frame == NULL) return 0;
+    width = screen->w < aga_frame->w ? screen->w : aga_frame->w;
+    height = screen->h < aga_frame->h ? screen->h : aga_frame->h;
+    if (screen->format->BytesPerPixel == 1 && screen->format->palette != NULL) {
+        if (!aga_palette_set) {
+            SDL_Color colors[WENA_AGA_COLORS];
+            int i;
+            for (i = 0; i < WENA_AGA_COLORS; ++i) {
+                colors[i].r = aga_palette->rgb[i][0];
+                colors[i].g = aga_palette->rgb[i][1];
+                colors[i].b = aga_palette->rgb[i][2];
+                colors[i].a = 255;
+            }
+            if (SDL_SetPaletteColors(screen->format->palette, colors, 0, WENA_AGA_COLORS) != 0) return 0;
+            aga_palette_set = 1;
+            wena_debug_log("AGA screen %dx%d, 8 bits: palette set", screen->w, screen->h);
+        }
+        if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) != 0) return 0;
+        wena_aga_palette_convert(aga_palette, aga_frame->pixels, (size_t)aga_frame->pitch, width, height,
+                                 (unsigned char *)screen->pixels, (size_t)screen->pitch);
+        if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+    } else if (SDL_BlitSurface(aga_frame, NULL, screen, NULL) != 0) return 0;
+    return SDL_UpdateWindowSurface(window) == 0;
+}
+
+/* Drawing a frame costs a 68040 much: after two quiet frames, wait for the
+ * next event (or a second) instead of drawing the same frame again. */
+static void desktop_aga_wait(int had_events, int *quiet)
+{
+    if (had_events) *quiet = 0;
+    else if (++*quiet >= 2) (void)SDL_WaitEventTimeout(NULL, 1000);
+}
+#else
+#define DESKTOP_AGA 0
+#define DESKTOP_WIDTH 1024
+#define DESKTOP_HEIGHT 720
+#define DESKTOP_RESIZABLE SDL_WINDOW_RESIZABLE
+#endif
+
 /* The frame drawn so far, read back from the renderer before it is shown. */
 static int desktop_screenshot(SDL_Renderer *renderer, const char *path)
 {
@@ -1252,8 +1336,32 @@ static int desktop_screenshot(SDL_Renderer *renderer, const char *path)
     surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_ARGB8888);
     if (surface == NULL) return 0;
     saved = SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
-                                 surface->pixels, surface->pitch) == 0 &&
-            SDL_SaveBMP(surface, path) == 0;
+                                 surface->pixels, surface->pitch) == 0;
+#if DESKTOP_AGA
+    /* What an AGA screen shows: the frame through the palette, 8 bits. */
+    if (saved) {
+        SDL_Surface *mapped = SDL_CreateRGBSurfaceWithFormat(0, width, height, 8, SDL_PIXELFORMAT_INDEX8);
+        SDL_Color colors[WENA_AGA_COLORS];
+        int i;
+        for (i = 0; i < WENA_AGA_COLORS; ++i) {
+            colors[i].r = aga_palette->rgb[i][0];
+            colors[i].g = aga_palette->rgb[i][1];
+            colors[i].b = aga_palette->rgb[i][2];
+            colors[i].a = 255;
+        }
+        saved = mapped != NULL && SDL_SetPaletteColors(mapped->format->palette, colors, 0, WENA_AGA_COLORS) == 0;
+        if (saved) {
+            wena_aga_palette_convert(aga_palette, surface->pixels, (size_t)surface->pitch, width, height,
+                                     (unsigned char *)mapped->pixels, (size_t)mapped->pitch);
+            saved = SDL_SaveBMP(mapped, path) == 0;
+        }
+        if (mapped != NULL) SDL_FreeSurface(mapped);
+        SDL_FreeSurface(surface);
+        if (saved) wena_debug_log("screenshot %s (%dx%d, AGA palette)", path, width, height);
+        return saved;
+    }
+#endif
+    saved = saved && SDL_SaveBMP(surface, path) == 0;
     SDL_FreeSurface(surface);
     if (saved) wena_debug_log("screenshot %s (%dx%d)", path, width, height);
     return saved;
@@ -1452,7 +1560,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     struct nk_font_atlas *atlas;
     struct nk_font *font;
     float ui_scale, input_scale;
-    int paused;
+    int paused, had_events, quiet_frames;
 #if DESKTOP_MOBILE
     int inset_left, inset_top;
 #endif
@@ -1485,7 +1593,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     memset(&views, 0, sizeof(views));
     logo_texture = NULL;
     logo_width = logo_height = 0;
-    header_icons_collapsed = 0;
+    /* 640 pixels have no room for all of the header: AGA starts with
+     * WeKan's << folded, as a narrow screen would. */
+    header_icons_collapsed = DESKTOP_AGA;
     drag_handles = 0;
     notification_count = 0;
     notifications_open = 0;
@@ -1935,10 +2045,10 @@ board_session:
             wena_debug_log("display %dx%d, %d bits per pixel", mode.w, mode.h, (int)SDL_BITSPERPIXEL(mode.format));
     }
     window = SDL_CreateWindow("WeKan Native", SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED, 1024, 720, SDL_WINDOW_RESIZABLE | DESKTOP_WINDOW_FLAGS |
+        SDL_WINDOWPOS_CENTERED, DESKTOP_WIDTH, DESKTOP_HEIGHT, DESKTOP_RESIZABLE | DESKTOP_WINDOW_FLAGS |
         (smoke && !DESKTOP_MOBILE ? SDL_WINDOW_HIDDEN : SDL_WINDOW_SHOWN));
     if (window == NULL) {
-        desktop_log_video_failure("SDL_CreateWindow 1024x720");
+        desktop_log_video_failure(DESKTOP_AGA ? "SDL_CreateWindow 640x512" : "SDL_CreateWindow 1024x720");
         DESKTOP_FAIL();
     }
 #if DESKTOP_IOS
@@ -1955,6 +2065,14 @@ board_session:
     ui_scale = desktop_mobile_scale(window, renderer, &input_scale);
     if (ui_scale != 1.0f && SDL_RenderSetScale(renderer, ui_scale, ui_scale) != 0) DESKTOP_FAIL();
     wena_debug_log("display scale %.2f, touch scale %.2f", ui_scale, input_scale);
+#elif DESKTOP_AGA
+    if (!desktop_aga_init()) DESKTOP_FAIL();
+    aga_frame = SDL_CreateRGBSurfaceWithFormat(0, DESKTOP_WIDTH, DESKTOP_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
+    renderer = aga_frame != NULL ? SDL_CreateSoftwareRenderer(aga_frame) : NULL;
+    if (renderer == NULL) {
+        desktop_log_video_failure("SDL_CreateSoftwareRenderer (AGA frame)");
+        DESKTOP_FAIL();
+    }
 #else
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     if (renderer == NULL) {
@@ -2023,10 +2141,13 @@ board_session:
 window_ready:
     wena_debug_log("window open, board %s loaded%s", board_id, smoke ? " (smoke)" : "");
     if (all_boards_page) wena_debug_log("showing All Boards");
-    running = 1; frames = 0;
+    running = 1; frames = 0; quiet_frames = 0;
+    (void)quiet_frames;
     while (running) {
         nk_input_begin(context);
+        had_events = 0;
         while (SDL_PollEvent(&event)) {
+            had_events = 1;
             if (event.type == SDL_QUIT) { running = 0; wena_debug_log("window closed"); }
 #if DESKTOP_MOBILE
             /* iOS ends an app that draws in the background. */
@@ -2037,6 +2158,7 @@ window_ready:
 #endif
             if (!smoke) (void)wena_sdl_handle_event(context, &event);
         }
+        (void)had_events;
         nk_input_end(context);
         if (show != NULL && frames == 0) {
             const WenaCard *shown;
@@ -2159,13 +2281,20 @@ window_ready:
             nk_sdl_render(NK_ANTI_ALIASING_ON);
             if (screenshot != NULL && frames == 2 && !desktop_screenshot(renderer, screenshot)) DESKTOP_FAIL();
             SDL_RenderPresent(renderer);
+#if DESKTOP_AGA
+            if (!desktop_aga_present(window)) DESKTOP_FAIL();
+#endif
             if (wekan_mode && sqlite3_total_changes(database) != synced_changes) {
                 if (wena_wekan_sync_export(database, actor_id) < 0)
                     wena_debug_log("writing %s: %s", database_path, wena_wekan_sync_error());
                 synced_changes = sqlite3_total_changes(database);
             }
             if (smoke) { ++frames; if (frames >= 3) running = 0; }
+#if DESKTOP_AGA
+            if (!smoke) desktop_aga_wait(had_events, &quiet_frames);
+#else
             if (!smoke) SDL_Delay(16);
+#endif
             continue;
         }
         if (width > 0 && height > 0 && !paused) {
@@ -2685,6 +2814,9 @@ window_ready:
             if (screenshot != NULL && frames == 2 && !desktop_screenshot(renderer, screenshot))
                 DESKTOP_FAIL();
             SDL_RenderPresent(renderer);
+#if DESKTOP_AGA
+            if (!desktop_aga_present(window)) DESKTOP_FAIL();
+#endif
         }
         /* WeKan's file gets what this frame changed. */
         if (wekan_mode && sqlite3_total_changes(database) != synced_changes) {
@@ -2696,7 +2828,11 @@ window_ready:
             ++frames;
             if (frames >= 3) running = 0;
         }
+#if DESKTOP_AGA
+        if (!smoke) desktop_aga_wait(had_events, &quiet_frames);
+#else
         if (!smoke) SDL_Delay(16);
+#endif
     }
     /* Another board from All Boards: this one's state goes, the window and
      * the database stay, and the board session starts again with it. */
@@ -2753,6 +2889,11 @@ cleanup:
     if (resize_cursor != NULL) SDL_FreeCursor(resize_cursor);
     if (arrow_cursor != NULL) SDL_FreeCursor(arrow_cursor);
     if (renderer != NULL) SDL_DestroyRenderer(renderer);
+#if DESKTOP_AGA
+    if (aga_frame != NULL) SDL_FreeSurface(aga_frame);
+    free(aga_palette);
+    aga_frame = NULL; aga_palette = NULL; aga_palette_set = 0;
+#endif
     if (window != NULL) SDL_DestroyWindow(window);
     if (sdl_started) { SDL_StopTextInput(); SDL_Quit(); }
     wena_board_presentation_close(&label_view);

@@ -32,7 +32,10 @@ def main() -> None:
     targets = [entry[0] for entry in entries]
     assert len(targets) == len(set(targets)), "duplicate target key"
     for target, name, job, status, release in entries:
-        assert re.fullmatch(r"[a-z0-9]+-[a-z0-9_]+", target), target
+        # system-cpu, and one display variant where a CPU has two: AmigaOS 3
+        # with RTG or with AGA (amigaos-m68k-aga).
+        assert re.fullmatch(r"[a-z0-9]+-[a-z0-9_]+(-aga)?", target), target
+        assert not target.endswith("-aga") or target == "amigaos-m68k-aga", target
         assert name, target
         assert job in JOBS, (target, job)
         assert status in {"ready", "planned"}, (target, status)

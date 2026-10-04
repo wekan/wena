@@ -1,0 +1,69 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2655,6 +2655,7 @@
+           set_source_files_properties("${AMIGAOS3_C2P_OBJECT}" PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+           list(APPEND SOURCE_FILES "${AMIGAOS3_C2P_OBJECT}")
+           target_compile_definitions(sdl-build-options INTERFACE SDL_AMIGAOS3_AGA=1)
++          target_compile_definitions(sdl-build-options INTERFACE SDL_AMIGAOS3_C2P_BPLSIZE_VALUE=${SDL_AMIGAOS3_C2P_BPLSIZE})
+           set(HAVE_AMIGAOS3_AGA TRUE)
+         endif()
+       endif()
+--- a/src/video/amigaos3/SDL_os3aga.c
++++ b/src/video/amigaos3/SDL_os3aga.c
+@@ -71,14 +71,32 @@
+ #endif
+ }
+ 
++#if defined(SDL_AMIGAOS3_AGA) && !defined(WARPUP) && defined(SDL_AMIGAOS3_C2P_BPLSIZE_VALUE)
++/* The Kalms c2p writes plane n at Planes[0] + n * BPLSIZE, assembled in:
++ * only a bitmap laid out exactly so may take it. Anything else - another
++ * size, an interleaved bitmap, planes allocated apart - would have it
++ * write over memory that is not the screen's. */
++static int OS3_AGA_PlanesContiguous(const struct BitMap *bm, int width, int height)
++{
++    int i;
++    if (bm->Depth != 8 || (width & 31) != 0 || (int)bm->BytesPerRow * 8 != width ||
++        (int)bm->Rows != height || (long)bm->BytesPerRow * (long)bm->Rows != (long)SDL_AMIGAOS3_C2P_BPLSIZE_VALUE) {
++        return 0;
++    }
++    for (i = 1; i < 8; i++) {
++        if ((const UBYTE *)bm->Planes[i] != (const UBYTE *)bm->Planes[0] + (long)i * (long)SDL_AMIGAOS3_C2P_BPLSIZE_VALUE) {
++            return 0;
++        }
++    }
++    return 1;
++}
++#endif
++
+ void OS3_AGA_C2P(const void *chunky, struct Screen *screen,
+                  int width, int height)
+ {
+     struct BitMap *bm;
+ 
+-    (void)width;
+-    (void)height;
+-
+     if (!screen) {
+         return;
+     }
+@@ -88,11 +106,16 @@
+         return;
+     }
+ 
+-#if defined(SDL_AMIGAOS3_AGA) && !defined(WARPUP)
+-    /* Kalms c2p expects contiguous bitplanes with BPLSIZE spacing.
+-     * Standard AGA screen bitmaps from OpenScreen have this layout. */
+-    c2p1x1_8_c5_gen((void *)chunky, (void *)bm->Planes[0]);
++#if defined(SDL_AMIGAOS3_AGA) && !defined(WARPUP) && defined(SDL_AMIGAOS3_C2P_BPLSIZE_VALUE)
++    if (OS3_AGA_PlanesContiguous(bm, width, height)) {
++        c2p1x1_8_c5_gen((void *)chunky, (void *)bm->Planes[0]);
++        return;
++    }
+ #endif
++    /* graphics.library V40's own chunky-to-planar: slower, any layout.
++     * The chunky rows are SDL's INDEX8 pitch, the width rounded up to 4. */
++    WriteChunkyPixels(&screen->RastPort, 0, 0, (ULONG)(width - 1), (ULONG)(height - 1),
++                      (UBYTE *)chunky, (LONG)((width + 3) & ~3));
+ }
+ 
+ #endif /* SDL_VIDEO_DRIVER_AMIGAOS3 */

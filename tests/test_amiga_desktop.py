@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "scripts" / "build_desktop_amiga.sh"
 CONTAINER = ROOT / "scripts" / "build_desktop_amiga_container.sh"
 PINS = json.loads((ROOT / "config" / "release-dependencies.json").read_text(encoding="utf-8"))
-TARGETS = ("amigaos4-ppc", "aros-amd64", "amigaos-m68k")
+TARGETS = ("amigaos4-ppc", "aros-amd64", "amigaos-m68k", "amigaos-m68k-aga")
 AMIGA = "defined(__amigaos__) || defined(__AROS__)"
 
 
@@ -41,6 +41,8 @@ def test_images_pinned_by_digest():
         "@sha256:9c4e978301da6b6584d68d4014caa1fa9e2689529e79e71f7190d40d1cb62e50")
     assert images["amigaos4-ppc"].startswith("amigadev/crosstools:ppc-amigaos@")
     assert images["amigaos-m68k"].startswith("amigadev/crosstools:m68k-amigaos-gcc10@")
+    # The AGA build is the same toolchain: one image, pinned once per target.
+    assert images["amigaos-m68k-aga"] == images["amigaos-m68k"]
     # The scripts name no image of their own: the digest lives in one place.
     for script in (HOST, CONTAINER):
         assert not re.search(r"sha256:[0-9a-f]{64}", script.read_text(encoding="utf-8")), script.name
@@ -92,6 +94,12 @@ def test_container_build():
     for option in ("-DM68K_CPU=68040", "-DM68K_FPU=hard", '"-DM68K_COMMON=-s -fbbb=- -ffast-math"',
                    "-DSDL_STATIC=ON", "-DSDL_SHARED=OFF", "-DSDL_AMIGAOS3_AGA=OFF"):
         assert option in script, option
+    # AGA: Wena's patch on the pinned fork, the c2p sized for 640x512 when
+    # vasm is there, and the desktop's own AGA frame.
+    assert 'patch -p1 -s < "$root_dir/scripts/patches/sdl2-amigaos3-aga.patch"' in script
+    assert "-DSDL_AMIGAOS3_AGA=ON -DSDL_AMIGAOS3_C2P_BPLSIZE=40960" in script
+    assert 'cflags="$cflags -DWENA_AMIGA_AGA=1"' in script
+    assert script.index("sdl2-amigaos3-aga.patch") < script.index("cmake -S")
     # The stack: libnix's swapstack module is linked for __stack.
     assert "-Wl,-u,___stkswap" in script
     # The proof at the end: format and no shared objects.

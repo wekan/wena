@@ -121,7 +121,8 @@ Platforms: Linux x86-64, ARM64, ARMv7, ARMv5, x86, RISC-V 64, POWER
 little-endian, IBM Z and MIPS64 little-endian; FreeBSD x86-64 and ARM64;
 NetBSD and OpenBSD x86-64 and ARM64; DragonFly BSD and Haiku
 x86-64; macOS Apple silicon and Intel; Windows x86-64, x86 and ARM64; AmigaOS
-3.x (68040 with FPU and an RTG graphics card), AmigaOS 4 and AROS x86-64,
+3.x (68040 with FPU: `wena-amigaos-m68k` for an RTG graphics card,
+`wena-amigaos-m68k-aga` for AGA), AmigaOS 4 and AROS x86-64,
 where the board is kept in `PROGDIR:wena.sqlite`; Android ARM64
 (`wena-android-arm64.apk`) and iOS ARM64 (`wena-ios-arm64.ipa`), where it is
 kept in the app's own data folder.
@@ -131,6 +132,11 @@ AROS `PROGDIR:wena-debug-log.txt`), holding the last run: the system, CPU,
 memory and stack where it can tell, SDL's video driver, and every startup
 step. A start that fails also prints its last steps where it was started.
 `WENA_LOG_DIR` puts the log (`desktop.log`) in that folder instead.
+
+`wena-amigaos-m68k-aga` opens its own 640x512 screen with 256 colors (PAL
+hi-res interlaced, the most AGA shows at 8 bits), draws into a 32-bit frame and
+maps it onto a palette that keeps WeKan's colors exact. It redraws only after
+input. With an RTG card it shows the same 640x512 frame in full color.
 
 The iOS `.ipa` is not signed: iOS installs only signed apps, so re-sign it with
 your own certificate, or with AltStore or Sideloadly. The Android `.apk` is

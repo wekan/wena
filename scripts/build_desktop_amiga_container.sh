@@ -45,12 +45,15 @@ case "$target" in
     strip=
     sqlite_cflags=-D_XOPEN_SOURCE=500
     ;;
-  amigaos-m68k)
+  amigaos-m68k|amigaos-m68k-aga)
     # 68040 with its FPU, libnix (-mcrt=nix20, AmigaOS 2.0+ C library), as
     # the image's CMake toolchain file builds SDL2. libnix's headers declare
     # static inline functions; __inline__ is how C89 spells it.
     cc="m68k-amigaos-gcc -mcrt=nix20 -m68040 -mhard-float"
     cflags=-Dinline=__inline__
+    # The AGA build draws into its own 32-bit frame and maps it onto an
+    # 8-bit palette (client/desktop.c, client/platform/aga_palette.c).
+    if [ "$target" = amigaos-m68k-aga ]; then cflags="$cflags -DWENA_AMIGA_AGA=1"; fi
     # libnix grows the stack to __stack (client/desktop.c) only when its
     # swapstack module is linked, and nothing else refers to it.
     ldflags="-s -Wl,-u,___stkswap"
@@ -140,18 +143,33 @@ case "$target" in
     sdl_cflags="-isystem $work/sdl-src/include"
     sdl_libs="$work/sdl/libSDL2.a"
     ;;
-  amigaos-m68k)
+  amigaos-m68k|amigaos-m68k-aga)
     if [ ! -f "$work/sdl/lib/libSDL2.a" ]; then
       rm -rf "$work/sdl-src" "$work/sdl-build" "$work/sdl"
       mkdir -p "$work/sdl-src"
       tar -xzf "$(fetch sdl2-amigaos3)" -C "$work/sdl-src" --strip-components=1
+      # RTG: no AGA chunky-to-planar. AGA: SDL's AGA path, for a 640x512
+      # 8-bit screen (40960 bytes a bitplane), with Wena's patch that uses
+      # the Kalms c2p only when the screen's planes are laid out as it
+      # writes them and graphics.library's WriteChunkyPixels otherwise.
+      # The c2p is assembled with vasm; without it the build still works,
+      # through WriteChunkyPixels alone.
+      aga_options="-DSDL_AMIGAOS3_AGA=OFF"
+      if [ "$target" = amigaos-m68k-aga ]; then
+        (cd "$work/sdl-src" && patch -p1 -s < "$root_dir/scripts/patches/sdl2-amigaos3-aga.patch")
+        if command -v vasmm68k_mot >/dev/null 2>&1; then
+          aga_options="-DSDL_AMIGAOS3_AGA=ON -DSDL_AMIGAOS3_C2P_BPLSIZE=40960"
+        else
+          echo "vasmm68k_mot not found: AGA frames go through WriteChunkyPixels only" >&2
+        fi
+      fi
       # DevilutionX's AmigaOS 3 options (68040, hard FPU, -fbbb=- turns off
-      # the m68k-specific optimiser pass), static, RTG only (no AGA
-      # chunky-to-planar), and none of the subsystems Wena does not use.
+      # the m68k-specific optimiser pass), static, and none of the
+      # subsystems Wena does not use.
       cmake -S "$work/sdl-src" -B "$work/sdl-build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$work/sdl" -DM68K_CPU=68040 -DM68K_FPU=hard \
         "-DM68K_COMMON=-s -fbbb=- -ffast-math" -DSDL_SHARED=OFF -DSDL_STATIC=ON \
-        -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_AMIGAOS3_LIBRARY=OFF -DSDL_AMIGAOS3_AGA=OFF \
+        -DSDL_TEST=OFF -DSDL_TESTS=OFF -DSDL_AMIGAOS3_LIBRARY=OFF $aga_options \
         -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_HIDAPI=OFF \
         -DSDL_SENSOR=OFF -DSDL_POWER=OFF > "$work/sdl-configure.log" 2>&1 ||
         { tail -40 "$work/sdl-configure.log" >&2; exit 1; }
@@ -219,7 +237,7 @@ if [ -n "$strip" ]; then "$strip" "$output"; fi
 # Prove it: the executable format each system loads, and no shared library.
 magic=$(od -An -tx1 -N6 "$output" | tr -d ' \n')
 case "$target" in
-  amigaos-m68k)
+  amigaos-m68k|amigaos-m68k-aga)
     # HUNK_HEADER: AmigaOS loadseg()ble executable.
     test "${magic%????}" = 000003f3 || { echo "$output: not a HUNK executable ($magic)" >&2; exit 1; }
     ;;

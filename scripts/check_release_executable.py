@@ -141,7 +141,7 @@ def elf_header(data):
 def amiga(target, data):
     """AmigaOS 3: a HUNK executable. AmigaOS 4: static big-endian PowerPC ELF.
     AROS: a relocatable ELF of the CPU its name says, which is what AROS loads."""
-    if target == "amigaos-m68k":
+    if target in ("amigaos-m68k", "amigaos-m68k-aga"):
         if data[:4] != b"\x00\x00\x03\xf3":
             raise ValueError("not an AmigaOS HUNK executable")
         return []

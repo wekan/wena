@@ -196,6 +196,45 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>A separate AmigaOS 3 AGA executable, wena-amigaos-m68k-aga, built by GitHub Actions</summary>
+
+- `wena-amigaos-m68k` needs an RTG card; this one is for AGA without one.
+  It is built from the same sources with `WENA_AMIGA_AGA`, in the same
+  pinned amigadev/crosstools image, as a new `amiga` job in the release
+  workflow.
+- AGA has no 32-bit screen. SDL's AGA path opens an 8-bit screen of the
+  window's size, so the window is 640x512 (PAL hi-res interlaced) and not
+  resizable. Wena draws into its own 32-bit frame with SDL's software
+  renderer and maps each frame onto 256 colors
+  (`client/platform/aga_palette.c`): WeKan's UI, label and board colors
+  first and exact, then a grey ramp for anti-aliased text and a 5x5x5 cube.
+  A color is matched the first time it is seen and remembered, since
+  matching all 32768 at the start would take seconds on a 68040. With an
+  RTG card the frame is copied in full color.
+- It redraws only after input: after two quiet frames it waits for the
+  next event, or a second, instead of drawing every 16 ms.
+- It starts with WeKan's « folded, as on a narrow screen, so the header
+  fits in 640 pixels.
+- SDL gets `scripts/patches/sdl2-amigaos3-aga.patch`. The fork's Kalms
+  chunky-to-planar writes plane n at Planes[0] + n x 40960, so it is used
+  only when the screen's bitmap is laid out exactly that way; any other
+  layout goes through graphics.library's WriteChunkyPixels instead of
+  writing over memory that is not the screen's. Without vasm in the image
+  the build still works, through WriteChunkyPixels alone.
+- `--screenshot` in this build saves what the AGA screen is given: the
+  8-bit, palette-mapped frame.
+- Tests: `aga-palette` (WeKan's colors exact, every one of the 32768 colors
+  near, the conversion with alpha and padded rows, no colors given, too
+  many given) and `amiga-aga` (the patch applies once to the pinned fork
+  and guards the c2p, the desktop's AGA branch, an 8-bit 640x512 screenshot
+  from a host build, the catalog, the workflow, and a non-HUNK file
+  refused).
+
+Thanks to xet7.
+
+</details>
+
 # v0.04 2026-10-04 Wena release
 
 <details>

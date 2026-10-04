@@ -254,6 +254,7 @@ jobs:
       matrix:
         include:
           - { target: amigaos-m68k }
+          - { target: amigaos-m68k-aga }
           - { target: amigaos4-ppc }
           - { target: aros-amd64 }
     runs-on: ubuntu-24.04

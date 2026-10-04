@@ -460,6 +460,8 @@ TEST_SUITES = (
     ('nuklear-options', 'test_nuklear_options.py', 'One set of Nuklear options in every unit, so nk_context has one layout'),
     ('sql-sources', 'test_sql_sources.py', 'No test or application SQL comes from outside the program (CodeQL cpp/sql-injection)'),
     ('debug-log', 'test_debug_log.sh', 'Desktop debug log folder, default board file and crash signal record'),
+    ('aga-palette', 'test_aga_palette.sh', 'AmigaOS 3 AGA palette: WeKan colors exact, every color near, frame conversion'),
+    ('amiga-aga', 'test_amiga_aga.py', 'AmigaOS 3 AGA build: SDL patch, desktop AGA branch, catalog and release check'),
     ('models', 'test_models.sh', 'Strict-C89 model/unit and negative validation'),
     ('locale', 'test_locale.sh', 'OS locale normalization, fallback, and RTL direction'),
     ('language-picker', 'test_language_picker.sh', 'Real Nuklear language selection and persisted override'),
