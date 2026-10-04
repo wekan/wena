@@ -1,3 +1,76 @@
+# Upcoming Wena release
+
+<details>
+<summary>Debugging a start that fails, as on AmigaOS 3.2: wena-debug-log.txt beside the program, and the last steps on screen</summary>
+
+- On AmigaOS 3.2 Wena said only "Unable to open the local Wena desktop":
+  outside a checkout without `WENA_LOG_DIR` there was no log, and every
+  reason it had was dropped.
+- Each start now writes `wena-debug-log.txt` beside the executable
+  (`PROGDIR:wena-debug-log.txt` on AmigaOS and AROS, which needs no program
+  name - a Workbench start has none), holding the last run. `WENA_LOG_DIR`
+  and a checkout's `.tools/log/wena` still come first.
+- The log's lines are also kept in memory, and a start that fails prints
+  its last 16 where it was started - the Shell or Workbench output window -
+  then the log file's name.
+- What is logged: the compiler, the SDL built with and run with; on
+  AmigaOS 3 and AROS the Exec version, the stack, free memory (largest
+  block, fast and chip) and, on AmigaOS 3, the CPU and FPU, with a warning
+  when they are below the 68040 and FPU the build needs; each startup step;
+  SDL's video driver, display mode and renderer; and when SDL cannot start
+  video, open the window or make the renderer, SDL's reason and its video
+  drivers. On AmigaOS 3 it adds that SDL there needs an RTG screen
+  (Picasso96 or CyberGraphX), since it is built without AGA.
+- The log's formatter is Wena's own, bounded: C89 has no vsnprintf.
+- Tests: `debug-log` (the formatter, cut lines, the last 48 lines,
+  wena-debug-log.txt beside the program on each system and PROGDIR: on the
+  Amiga, the last run only, WENA_LOG_DIR first, no folder and an unwritable
+  one), `desktop` (a start SDL refuses prints its steps, SDL's reason and
+  drivers, with and without WENA_LOG_DIR; a start that works prints none).
+
+Thanks to xet7.
+
+</details>
+
+<details>
+<summary>A separate AmigaOS 3 AGA executable, wena-amigaos-m68k-aga, built by GitHub Actions</summary>
+
+- `wena-amigaos-m68k` needs an RTG card; this one is for AGA without one.
+  It is built from the same sources with `WENA_AMIGA_AGA`, in the same
+  pinned amigadev/crosstools image, as a new `amiga` job in the release
+  workflow.
+- AGA has no 32-bit screen. SDL's AGA path opens an 8-bit screen of the
+  window's size, so the window is 640x512 (PAL hi-res interlaced) and not
+  resizable. Wena draws into its own 32-bit frame with SDL's software
+  renderer and maps each frame onto 256 colors
+  (`client/platform/aga_palette.c`): WeKan's UI, label and board colors
+  first and exact, then a grey ramp for anti-aliased text and a 5x5x5 cube.
+  A color is matched the first time it is seen and remembered, since
+  matching all 32768 at the start would take seconds on a 68040. With an
+  RTG card the frame is copied in full color.
+- It redraws only after input: after two quiet frames it waits for the
+  next event, or a second, instead of drawing every 16 ms.
+- It starts with WeKan's « folded, as on a narrow screen, so the header
+  fits in 640 pixels.
+- SDL gets `scripts/patches/sdl2-amigaos3-aga.patch`. The fork's Kalms
+  chunky-to-planar writes plane n at Planes[0] + n x 40960, so it is used
+  only when the screen's bitmap is laid out exactly that way; any other
+  layout goes through graphics.library's WriteChunkyPixels instead of
+  writing over memory that is not the screen's. Without vasm in the image
+  the build still works, through WriteChunkyPixels alone.
+- `--screenshot` in this build saves what the AGA screen is given: the
+  8-bit, palette-mapped frame.
+- Tests: `aga-palette` (WeKan's colors exact, every one of the 32768 colors
+  near, the conversion with alpha and padded rows, no colors given, too
+  many given) and `amiga-aga` (the patch applies once to the pinned fork
+  and guards the c2p, the desktop's AGA branch, an 8-bit 640x512 screenshot
+  from a host build, the catalog, the workflow, and a non-HUNK file
+  refused).
+
+Thanks to xet7.
+
+</details>
+
 # v0.05 2026-10-04 Wena release
 
 <details>
@@ -159,77 +232,6 @@ Thanks to xet7.
   icon doing nothing, the folded header), `wekan-sync` (the field off until
   set, written as FerretDB's bool, nobody and no user), `image-decode` (the
   embedded logo decodes at 97 x 28 with transparency).
-
-Thanks to xet7.
-
-</details>
-
-<details>
-<summary>Debugging a start that fails, as on AmigaOS 3.2: wena-debug-log.txt beside the program, and the last steps on screen</summary>
-
-- On AmigaOS 3.2 Wena said only "Unable to open the local Wena desktop":
-  outside a checkout without `WENA_LOG_DIR` there was no log, and every
-  reason it had was dropped.
-- Each start now writes `wena-debug-log.txt` beside the executable
-  (`PROGDIR:wena-debug-log.txt` on AmigaOS and AROS, which needs no program
-  name - a Workbench start has none), holding the last run. `WENA_LOG_DIR`
-  and a checkout's `.tools/log/wena` still come first.
-- The log's lines are also kept in memory, and a start that fails prints
-  its last 16 where it was started - the Shell or Workbench output window -
-  then the log file's name.
-- What is logged: the compiler, the SDL built with and run with; on
-  AmigaOS 3 and AROS the Exec version, the stack, free memory (largest
-  block, fast and chip) and, on AmigaOS 3, the CPU and FPU, with a warning
-  when they are below the 68040 and FPU the build needs; each startup step;
-  SDL's video driver, display mode and renderer; and when SDL cannot start
-  video, open the window or make the renderer, SDL's reason and its video
-  drivers. On AmigaOS 3 it adds that SDL there needs an RTG screen
-  (Picasso96 or CyberGraphX), since it is built without AGA.
-- The log's formatter is Wena's own, bounded: C89 has no vsnprintf.
-- Tests: `debug-log` (the formatter, cut lines, the last 48 lines,
-  wena-debug-log.txt beside the program on each system and PROGDIR: on the
-  Amiga, the last run only, WENA_LOG_DIR first, no folder and an unwritable
-  one), `desktop` (a start SDL refuses prints its steps, SDL's reason and
-  drivers, with and without WENA_LOG_DIR; a start that works prints none).
-
-Thanks to xet7.
-
-</details>
-
-<details>
-<summary>A separate AmigaOS 3 AGA executable, wena-amigaos-m68k-aga, built by GitHub Actions</summary>
-
-- `wena-amigaos-m68k` needs an RTG card; this one is for AGA without one.
-  It is built from the same sources with `WENA_AMIGA_AGA`, in the same
-  pinned amigadev/crosstools image, as a new `amiga` job in the release
-  workflow.
-- AGA has no 32-bit screen. SDL's AGA path opens an 8-bit screen of the
-  window's size, so the window is 640x512 (PAL hi-res interlaced) and not
-  resizable. Wena draws into its own 32-bit frame with SDL's software
-  renderer and maps each frame onto 256 colors
-  (`client/platform/aga_palette.c`): WeKan's UI, label and board colors
-  first and exact, then a grey ramp for anti-aliased text and a 5x5x5 cube.
-  A color is matched the first time it is seen and remembered, since
-  matching all 32768 at the start would take seconds on a 68040. With an
-  RTG card the frame is copied in full color.
-- It redraws only after input: after two quiet frames it waits for the
-  next event, or a second, instead of drawing every 16 ms.
-- It starts with WeKan's « folded, as on a narrow screen, so the header
-  fits in 640 pixels.
-- SDL gets `scripts/patches/sdl2-amigaos3-aga.patch`. The fork's Kalms
-  chunky-to-planar writes plane n at Planes[0] + n x 40960, so it is used
-  only when the screen's bitmap is laid out exactly that way; any other
-  layout goes through graphics.library's WriteChunkyPixels instead of
-  writing over memory that is not the screen's. Without vasm in the image
-  the build still works, through WriteChunkyPixels alone.
-- `--screenshot` in this build saves what the AGA screen is given: the
-  8-bit, palette-mapped frame.
-- Tests: `aga-palette` (WeKan's colors exact, every one of the 32768 colors
-  near, the conversion with alpha and padded rows, no colors given, too
-  many given) and `amiga-aga` (the patch applies once to the pinned fork
-  and guards the c2p, the desktop's AGA branch, an 8-bit 640x512 screenshot
-  from a host build, the catalog, the workflow, and a non-HUNK file
-  refused).
 
 Thanks to xet7.
 
