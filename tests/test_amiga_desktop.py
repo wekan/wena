@@ -238,10 +238,159 @@ def test_sqlite_options_with_wal_requests():
         assert sorted(path.name for path in temp.iterdir() if path.name.startswith("board")) == ["board.sqlite"]
 
 
+LIBNIX_LSEEK = r'''
+/* libnix's lseek() on AmigaDOS, which cannot Seek() past the end of a file:
+ * it seeks to the end and writes the gap from a buffer it has not cleared.
+ * Here the gap is filled with 'J', so stray bytes are easy to see. */
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+off_t wena_test_libnix_lseek(int descriptor, off_t offset, int whence)
+{
+    if (whence == SEEK_SET) {
+        off_t end = lseek(descriptor, 0, SEEK_END);
+        char junk[512];
+        memset(junk, 'J', sizeof(junk));
+        while (end >= 0 && end < offset) {
+            size_t part = offset - end > (off_t)sizeof(junk) ? sizeof(junk) : (size_t)(offset - end);
+            if (write(descriptor, junk, part) <= 0) return -1;
+            end += (off_t)part;
+        }
+    }
+    return lseek(descriptor, offset, whence);
+}
+
+/* SQLite's own way without pread() and pwrite(), which is what the Amiga
+ * builds got: lseek() to the offset, then read() or write(). */
+ssize_t wena_test_seek_pread(int descriptor, void *buffer, size_t count, off_t offset)
+{
+    if (wena_test_libnix_lseek(descriptor, offset, SEEK_SET) != offset) return -1;
+    return read(descriptor, buffer, count);
+}
+
+ssize_t wena_test_seek_pwrite(int descriptor, const void *buffer, size_t count, off_t offset)
+{
+    if (wena_test_libnix_lseek(descriptor, offset, SEEK_SET) != offset) return -1;
+    return write(descriptor, buffer, count);
+}
+'''
+
+LIBNIX_LSEEK_H = """#include <sys/types.h>
+off_t wena_test_libnix_lseek(int descriptor, off_t offset, int whence);
+ssize_t wena_test_seek_pread(int descriptor, void *buffer, size_t count, off_t offset);
+ssize_t wena_test_seek_pwrite(int descriptor, const void *buffer, size_t count, off_t offset);
+"""
+
+ATTACH_PROBE = r'''
+#include <sqlite3.h>
+#include <stdio.h>
+#include <string.h>
+/* What wena_wekan_sync_attach does with a new wekan.sqlite: attach it to an
+ * in-memory database, make tables, write rows; then the file must be a
+ * database that opens again and passes integrity_check. */
+int main(int argc, char **argv)
+{
+    sqlite3 *db;
+    sqlite3_stmt *statement;
+    char header[16];
+    FILE *file;
+    int ok;
+    (void)argc;
+    if (sqlite3_open(":memory:", &db) != SQLITE_OK) return 2;
+    if (sqlite3_prepare_v2(db, "ATTACH DATABASE ?1 AS fdb", -1, &statement, NULL) != SQLITE_OK) return 3;
+    sqlite3_bind_text(statement, 1, argv[1], -1, SQLITE_TRANSIENT);
+    ok = sqlite3_step(statement) == SQLITE_DONE;
+    sqlite3_finalize(statement);
+    if (!ok) { fprintf(stderr, "attach: %s\n", sqlite3_errmsg(db)); return 4; }
+    if (sqlite3_exec(db, "PRAGMA fdb.journal_mode=WAL; CREATE TABLE fdb.t(x TEXT NOT NULL) STRICT;"
+                     "WITH RECURSIVE c(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM c WHERE i<3000) "
+                     "INSERT INTO fdb.t SELECT hex(randomblob(40)) FROM c;", NULL, NULL, NULL) != SQLITE_OK) {
+        fprintf(stderr, "write: %s\n", sqlite3_errmsg(db)); return 5;
+    }
+    sqlite3_close(db);
+    file = fopen(argv[1], "rb");
+    if (file == NULL || fread(header, 1, 16, file) != 16) return 6;
+    fclose(file);
+    if (memcmp(header, "SQLite format 3", 16) != 0) { fprintf(stderr, "header: %.16s\n", header); return 7; }
+    if (sqlite3_open(argv[1], &db) != SQLITE_OK) return 8;
+    if (sqlite3_prepare_v2(db, "PRAGMA integrity_check", -1, &statement, NULL) != SQLITE_OK) return 9;
+    ok = sqlite3_step(statement) == SQLITE_ROW && !strcmp((const char *)sqlite3_column_text(statement, 0), "ok");
+    sqlite3_finalize(statement);
+    sqlite3_close(db);
+    if (!ok) return 10;
+    puts("attached file ok");
+    return 0;
+}
+'''
+
+
+def test_sqlite_never_seeks_past_the_end():
+    """AmigaDOS cannot seek past a file's end, and libnix's lseek() fills the
+    gap with stray bytes: a new wekan.sqlite became 24 bytes of garbage
+    (wena6 log, traced with vamos). The Amiga SQLite reads and writes at an
+    offset through sqlite_amiga_vfs.c instead, and a fresh attached file is a
+    sound database even with libnix's lseek() - while the same build without
+    those options reproduces the fault."""
+    cc = os.environ.get("CC") or shutil.which("cc")
+    pin = PINS["sqlite"]
+    archive = ROOT / ".tools" / "cache" / pin["url"].rsplit("/", 1)[1]
+    if not cc or not archive.is_file() or hashlib.sha256(archive.read_bytes()).hexdigest() != pin["sha256"]:
+        print("skipped the libnix lseek probe: no C compiler or no pinned amalgamation in .tools/cache")
+        return
+    script = CONTAINER.read_text(encoding="utf-8").replace("\\\n", " ")
+    line = next(line for line in script.splitlines() if '-c "$sqlite_dir/sqlite3.c"' in line)
+    tokens = line.replace('"$root_dir', '"' + str(ROOT)).replace('"', "").split()
+    options = []
+    for index, token in enumerate(tokens):
+        if token.startswith("-D"):
+            options.append(token)
+        elif token == "-include":
+            options += [token, tokens[index + 1]]
+    for needed in ("-DUSE_PREAD", "-Dpread=wena_sqlite_pread", "-Dpwrite=wena_sqlite_pwrite", "-include"):
+        assert needed in options, needed
+    # This host's SQLite always uses pread() and pwrite(); the Amiga's had
+    # neither and seeked instead, which these stand for.
+    without = [o for o in options if o not in ("-DUSE_PREAD", "-Dpread=wena_sqlite_pread",
+                                               "-Dpwrite=wena_sqlite_pwrite", "-include")
+               and not o.endswith("sqlite_amiga_io.h")]
+    without += ["-Dpread=wena_test_seek_pread", "-Dpwrite=wena_test_seek_pwrite"]
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as temp:
+        temp = Path(temp)
+        with zipfile.ZipFile(archive) as bundle:
+            for name in bundle.namelist():
+                if name.rsplit("/", 1)[-1] in {"sqlite3.c", "sqlite3.h"}:
+                    (temp / name.rsplit("/", 1)[-1]).write_bytes(bundle.read(name))
+        (temp / "libnix_lseek.c").write_text(LIBNIX_LSEEK, encoding="utf-8")
+        (temp / "libnix_lseek.h").write_text(LIBNIX_LSEEK_H, encoding="utf-8")
+        (temp / "probe.c").write_text(ATTACH_PROBE, encoding="utf-8")
+        libnix = ["-include", str(temp / "libnix_lseek.h"), "-Dlseek=wena_test_libnix_lseek"]
+        subprocess.run([cc, "-c", str(temp / "libnix_lseek.c"), "-o", str(temp / "libnix.o")], check=True)
+        subprocess.run([cc, "-c", str(temp / "probe.c"), "-isystem", str(temp), "-o", str(temp / "probe.o")],
+                       check=True)
+        subprocess.run([cc, "-std=c89", "-pedantic-errors", "-Wall", "-Wextra", "-Werror", "-isystem", str(temp),
+                        *libnix, "-c", str(ROOT / "server" / "sqlite_amiga_vfs.c"), "-o", str(temp / "vfs.o")],
+                       check=True, timeout=120)
+        results = {}
+        for kind, flags in (("fixed", options), ("unfixed", without)):
+            subprocess.run([cc, "-c", "-w", *flags, *libnix, str(temp / "sqlite3.c"), "-o", str(temp / "sqlite3.o")],
+                           check=True, timeout=600)
+            subprocess.run([cc, str(temp / "probe.o"), str(temp / "sqlite3.o"), str(temp / "vfs.o"),
+                            str(temp / "libnix.o"), "-o", str(temp / ("probe-" + kind))], check=True, timeout=120)
+            database = temp / (kind + ".sqlite")
+            results[kind] = subprocess.run([str(temp / ("probe-" + kind)), str(database)], text=True,
+                                           capture_output=True, timeout=120)
+        fixed, unfixed = results["fixed"], results["unfixed"]
+        assert fixed.returncode == 0 and "attached file ok" in fixed.stdout, (fixed.returncode, fixed.stderr)
+        assert b"J" * 16 not in (temp / "fixed.sqlite").read_bytes()
+        # Negative: without them, libnix's lseek() spoils the new file, as on
+        # the Amiga - the probe above would catch a return of the fault.
+        assert unfixed.returncode != 0, ("the libnix lseek model no longer reproduces the fault", unfixed.stdout)
+
+
 def main():
     for test in (test_images_pinned_by_digest, test_sources_pinned, test_container_build,
                  test_c_platform_branches, test_host_build_unchanged, test_refuses_unknown_target,
-                 test_sqlite_options_with_wal_requests):
+                 test_sqlite_options_with_wal_requests, test_sqlite_never_seeks_past_the_end):
         test()
     print("Amiga desktop build checks passed")
 

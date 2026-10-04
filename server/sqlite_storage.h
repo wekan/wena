@@ -11,6 +11,8 @@ int wena_sqlite_connection_harden(sqlite3 *database);
 
 int wena_sqlite_open(const char *path, const unsigned char *migration, size_t length,
                      const char *expected_sha256, sqlite3 **database);
+/* Why the last wena_sqlite_open failed, "" after one that worked. */
+const char *wena_sqlite_open_error(void);
 int wena_sqlite_integrity(sqlite3 *database);
 /* Read-only, consistent validation of every recorded migration against the
  * compiled ordered registry. NULL accepts any supported schema; a checksum

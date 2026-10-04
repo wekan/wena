@@ -71,6 +71,46 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>AmigaOS 3 opens WeKan's files: SQLite no longer seeks past the end of a file</summary>
+
+- wena6 log: both AmigaOS 3 builds (RTG and AGA) stopped on WeKan's
+  database with no reason given. Running the released
+  `wena-amigaos-m68k` under vamos (amitools' AmigaOS emulator) traced
+  it. SQLite's first look at the header of the new, empty
+  `wekan.sqlite` seeked to offset 24. AmigaDOS cannot Seek() past the
+  end of a file, and libnix's lseek() makes up for it by writing the
+  gap from memory it never cleared. The file became 24 stray bytes
+  ("ar(0)) = 0 AND card_id N"), and ATTACH failed with "file is not a
+  database", on that start and every start after it.
+- The Amiga builds' SQLite (`-DUSE_PREAD`, with `pread` and `pwrite`
+  from `server/sqlite_amiga_vfs.c`, declared by
+  `server/sqlite_amiga_io.h`) now reads and writes at an offset without
+  seeking past the end. A read there is the end of the file; a write
+  there pads with zeros first. This covers AmigaOS 3, AmigaOS 4 and
+  AROS alike.
+- A `wekan.sqlite` already spoiled this way (not empty, under 512
+  bytes, without SQLite's header) is renamed to
+  `wekan.sqlite.not-a-database`, never removed, and a new database is
+  made.
+- So that the next failure says why, a failed open now names its step
+  and SQLite's reason:
+  - each step of opening WeKan's files is logged on its own;
+  - `wena_sqlite_open` and the attach record why they failed;
+  - SQLite's own error log (the OS call, errno and file of a failed
+    open, the SQL of a failed statement) goes to the debug log.
+- Tests:
+  - `amiga-desktop` builds SQLite with the Amiga options over an lseek()
+    that behaves like libnix's. A fresh attached file is a sound
+    database. The same build without the new options fails "file is
+    not a database", as on the Amiga.
+  - `wekan-files`: the spoiled file is set aside twice under two names;
+    a real header, an empty file, a large file and a missing one stay.
+
+Thanks to xet7.
+
+</details>
+
 # v0.05 2026-10-04 Wena release
 
 <details>

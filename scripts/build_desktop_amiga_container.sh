@@ -201,6 +201,13 @@ esac
 #                         sleep() instead (no locks, so SQLite never waits).
 #   fchmod, fchown        no-ops in sqlite_amiga_vfs.c: AmigaDOS has no
 #                         Unix owners or modes (and libnix no such calls).
+#   USE_PREAD, pread, pwrite
+#                         reads and writes at an offset through
+#                         sqlite_amiga_vfs.c, declared by sqlite_amiga_io.h:
+#                         AmigaDOS cannot seek past the end of a file and
+#                         libnix's lseek() fills the gap with stray bytes,
+#                         which turned a new wekan.sqlite into 24 bytes of
+#                         garbage. These never seek past the end.
 #   EXTRA_INIT            registers the "amiga" VFS (unix-none, AmigaDOS
 #                         names) as the default, see sqlite_amiga_vfs.c.
 sqlite_dir="$work/sqlite"
@@ -220,6 +227,8 @@ $cc -O2 $sqlite_cflags -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -DSQLI
   -DSQLITE_OMIT_WAL -DSQLITE_MAX_MMAP_SIZE=0 -DSQLITE_TEMP_STORE=3 -DSQLITE_STMTJRNL_SPILL=-1 \
   -DSQLITE_DISABLE_DIRSYNC -DHAVE_NANOSLEEP=0 -Dfchmod=wena_sqlite_fchmod \
   -Dfchown=wena_sqlite_fchown -DSQLITE_EXTRA_INIT=wena_sqlite_amiga_init \
+  -DUSE_PREAD -Dpread=wena_sqlite_pread -Dpwrite=wena_sqlite_pwrite \
+  -include "$root_dir/server/sqlite_amiga_io.h" \
   -c "$sqlite_dir/sqlite3.c" -o "$sqlite_dir/sqlite3.o"
 $cc -std=c89 -pedantic-errors -Wall -Wextra -Werror -O2 $cflags -isystem "$sqlite_dir" \
   -c "$root_dir/server/sqlite_amiga_vfs.c" -o "$sqlite_dir/sqlite_amiga_vfs.o"

@@ -286,35 +286,67 @@ int wena_sqlite_upgrade(sqlite3 *database, const char *target_sha256)
     return migrate(database, target, 0);
 }
 
+static char open_error[256];
+
+const char *wena_sqlite_open_error(void)
+{
+    return open_error;
+}
+
 int wena_sqlite_open(const char *path, const unsigned char *migration, size_t length,
                      const char *expected_sha256, sqlite3 **database)
 {
-    sqlite3 *db; char actual[65];
+    sqlite3 *db = NULL; char actual[65];
     const WenaCompiledMigration *target;
     size_t index, offset;
+    const char *step;
+    open_error[0] = '\0';
     if(database!=NULL)*database=NULL;
-    if(path==NULL||migration==NULL||length==0||expected_sha256==NULL||database==NULL)return 0;
+    if(path==NULL||migration==NULL||length==0||expected_sha256==NULL||database==NULL){
+        strcpy(open_error, "missing argument");return 0;}
     target = target_for_hash(expected_sha256);
-    if (target == NULL || length != target->bundle_length) return 0;
+    if (target == NULL || length != target->bundle_length) {
+        strcpy(open_error, "the compiled migrations are not a known bundle");
+        return 0;
+    }
     wena_sha256_hex(migration,length,actual);
-    if(strcmp(actual,target->bundle_sha256)!=0)return 0;
+    if(strcmp(actual,target->bundle_sha256)!=0){
+        sqlite3_snprintf(sizeof(open_error), open_error, "the compiled migrations hash to %s, not %s",
+                         actual, target->bundle_sha256);
+        return 0;
+    }
     offset = 0;
     for (index = 0; index < (size_t)target->version; ++index) {
         if (migrations[index].length > length - offset ||
             memcmp(migration + offset, migrations[index].sql,
-                migrations[index].length) != 0) return 0;
+                migrations[index].length) != 0) {
+            sqlite3_snprintf(sizeof(open_error), open_error, "compiled migration %d differs", (int)index + 1);
+            return 0;
+        }
         offset += migrations[index].length;
     }
-    if (offset != length) return 0;
-    if(sqlite3_open_v2(path,&db,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_FULLMUTEX,NULL)!=SQLITE_OK){if(db)sqlite3_close(db);return 0;}
+    if (offset != length) { strcpy(open_error, "the compiled migrations have bytes left over"); return 0; }
+    if(sqlite3_open_v2(path,&db,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_FULLMUTEX,NULL)!=SQLITE_OK){
+        sqlite3_snprintf(sizeof(open_error), open_error, "open %.120s: %s", path,
+                         db != NULL ? sqlite3_errmsg(db) : "out of memory");
+        if (db) sqlite3_close(db);
+        return 0;
+    }
+    step = "hardening (defensive, untrusted schema)";
     if (!wena_sqlite_connection_harden(db)) goto fail;
     sqlite3_busy_timeout(db,5000);
-    if(sqlite3_exec(db,"PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;",NULL,NULL,NULL)!=SQLITE_OK||!scalar_text(db,"PRAGMA quick_check","ok"))goto fail;
+    step = "foreign_keys, journal_mode, synchronous";
+    if(sqlite3_exec(db,"PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;",NULL,NULL,NULL)!=SQLITE_OK)goto fail;
+    step = "quick_check";
+    if(!scalar_text(db,"PRAGMA quick_check","ok"))goto fail;
     /* Read version/history only after obtaining the writer lock. A concurrent
      * creator may have finished the migration while this opener was waiting. */
+    step = "migrations";
     if(!migrate(db,target,1))goto fail;
     *database=db;return 1;
-fail: sqlite3_close(db);return 0;
+fail:
+    sqlite3_snprintf(sizeof(open_error), open_error, "%s on %.120s: %s", step, path, sqlite3_errmsg(db));
+    sqlite3_close(db);return 0;
 }
 
 /* Additive extensions may be absent only before their introduction. */

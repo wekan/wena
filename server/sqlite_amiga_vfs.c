@@ -6,6 +6,8 @@
 #include <sqlite3.h>
 #include <string.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include "sqlite_amiga_io.h"
 
 static sqlite3_vfs amiga_vfs;
 
@@ -38,6 +40,42 @@ int wena_sqlite_fchown(int descriptor, uid_t owner, gid_t group)
 {
     (void)descriptor; (void)owner; (void)group;
     return 0;
+}
+
+/* Reading and writing at an offset. These C libraries have no pread() or
+ * pwrite(), so the unix VFS would lseek() and then read() or write(). But
+ * AmigaDOS cannot Seek() past the end of a file, and libnix's lseek()
+ * makes up for it by writing the gap - from whatever is in its buffer. A
+ * new, empty wekan.sqlite was read at offset 24 by SQLite's first look at
+ * its header, and became 24 bytes of stray memory ("file is not a
+ * database"), on every start after it too.
+ *
+ * So: a read at or past the end is the end of the file, as pread() is; a
+ * write past the end first fills the gap with zeros, from the end, as a
+ * POSIX file would read back. lseek() is only ever asked for the end or an
+ * offset inside the file. */
+ssize_t wena_sqlite_pread(int descriptor, void *buffer, size_t count, off_t offset)
+{
+    off_t end = lseek(descriptor, 0, SEEK_END);
+    if (end < 0 || offset < 0) return -1;
+    if (offset >= end) return 0;
+    if (lseek(descriptor, offset, SEEK_SET) != offset) return -1;
+    return read(descriptor, buffer, count);
+}
+
+ssize_t wena_sqlite_pwrite(int descriptor, const void *buffer, size_t count, off_t offset)
+{
+    static const char zeros[512];
+    off_t end = lseek(descriptor, 0, SEEK_END);
+    if (end < 0 || offset < 0) return -1;
+    while (end < offset) {
+        size_t part = offset - end > (off_t)sizeof(zeros) ? sizeof(zeros) : (size_t)(offset - end);
+        ssize_t written = write(descriptor, zeros, part);
+        if (written <= 0) return -1;
+        end += written;
+    }
+    if (end != offset && lseek(descriptor, offset, SEEK_SET) != offset) return -1;
+    return write(descriptor, buffer, count);
 }
 
 /* "unix-none": these systems have no fcntl() byte-range locks, and one

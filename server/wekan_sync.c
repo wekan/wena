@@ -238,16 +238,36 @@ int wena_wekan_sync_attach(sqlite3 *db, const char *path)
     char table[WENA_FERRETDB_TABLE_CAPACITY];
     size_t index;
     int ok;
-    if (db == NULL || path == NULL || !wena_wekan_sync_functions(db)) return 0;
+    last_error[0] = '\0';
+    if (db == NULL || path == NULL) return 0;
+    if (!wena_wekan_sync_functions(db)) {
+        sqlite3_snprintf(sizeof(last_error), last_error, "registering functions: %s", sqlite3_errmsg(db));
+        return 0;
+    }
     ok = sqlite3_prepare_v2(db, "ATTACH DATABASE ?1 AS " WENA_WEKAN_SCHEMA, -1, &statement, NULL) == SQLITE_OK &&
          sqlite3_bind_text(statement, 1, path, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
          sqlite3_step(statement) == SQLITE_DONE;
     sqlite3_finalize(statement);
+    /* The file's name and SQLite's reason: on AmigaOS this is where an
+     * AmigaDOS name or a C library without some call shows. */
+    if (!ok) {
+        sqlite3_snprintf(sizeof(last_error), last_error, "ATTACH %.200s: %s (%d, extended %d)", path,
+                         sqlite3_errmsg(db), sqlite3_errcode(db), sqlite3_extended_errcode(db));
+        return 0;
+    }
     /* FerretDB's own settings for the file (pool/uri.go). */
-    if (!ok || !exec(db, "PRAGMA " WENA_WEKAN_SCHEMA ".journal_mode=WAL; PRAGMA " WENA_WEKAN_SCHEMA
-                         ".synchronous=NORMAL") || !wena_ferretdb_prepare(db, WENA_WEKAN_SCHEMA)) return 0;
+    if (!exec(db, "PRAGMA " WENA_WEKAN_SCHEMA ".journal_mode=WAL; PRAGMA " WENA_WEKAN_SCHEMA
+                  ".synchronous=NORMAL")) return 0;
+    if (!wena_ferretdb_prepare(db, WENA_WEKAN_SCHEMA)) {
+        sqlite3_snprintf(sizeof(last_error), last_error, "FerretDB's metadata table: %s", sqlite3_errmsg(db));
+        return 0;
+    }
     for (index = 0; index < COLLECTION_COUNT; ++index)
-        if (!table_of(db, collections[index], table)) return 0;
+        if (!table_of(db, collections[index], table)) {
+            sqlite3_snprintf(sizeof(last_error), last_error, "the %s collection: %s", collections[index],
+                             sqlite3_errmsg(db));
+            return 0;
+        }
     return 1;
 }
 

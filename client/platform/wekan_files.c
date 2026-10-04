@@ -2,6 +2,7 @@
 #include "debug_log.h"
 #include "files.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static char separator_for(int system)
@@ -105,4 +106,40 @@ int wena_wekan_files_prepare(const char *root, int system)
             !wena_make_parent_directories(path)) return 0;
     }
     return 1;
+}
+
+int wena_wekan_files_set_aside_broken(const char *database, char *moved, size_t capacity)
+{
+    static const char header[16] = "SQLite format 3";
+    char start[16];
+    FILE *file;
+    long size;
+    size_t got, length;
+    int attempt;
+    if (moved != NULL && capacity > 0) moved[0] = '\0';
+    if (database == NULL || moved == NULL || capacity == 0) return -1;
+    file = fopen(database, "rb");
+    if (file == NULL) return 0;
+    got = fread(start, 1, sizeof(start), file);
+    size = fseek(file, 0L, SEEK_END) == 0 ? ftell(file) : -1L;
+    fclose(file);
+    if (size <= 0 || size >= 512 || (got == sizeof(start) && memcmp(start, header, sizeof(start)) == 0))
+        return 0;
+    length = strlen(database);
+    for (attempt = 1; attempt <= 9; ++attempt) {
+        FILE *taken;
+        if (length + 20 > capacity) return -1;
+        memcpy(moved, database, length);
+        strcpy(moved + length, ".not-a-database");
+        if (attempt > 1) {
+            moved[length + 15] = '-';
+            moved[length + 16] = (char)('0' + attempt);
+            moved[length + 17] = '\0';
+        }
+        if ((taken = fopen(moved, "rb")) != NULL) { fclose(taken); continue; }
+        if (rename(database, moved) == 0) return 1;
+        break;
+    }
+    moved[0] = '\0';
+    return -1;
 }

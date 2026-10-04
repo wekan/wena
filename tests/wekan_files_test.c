@@ -56,6 +56,39 @@ int main(int argc, char **argv)
     sprintf(file, "%s/avatars", path); assert(wena_file_kind(file) == WENA_FILE_OTHER);
     sprintf(file, "%s/db", path); assert(wena_file_kind(file) == WENA_FILE_OTHER);
     assert(wena_wekan_files_prepare(path, WENA_SYSTEM_OTHER)); /* again: nothing to do */
+    /* A database that is no database - 24 stray bytes, as libnix's lseek()
+     * left a new wekan.sqlite on AmigaOS - is renamed aside, never removed. */
+    {
+        char database[1024], moved[1100], text[64];
+        FILE *out;
+        sprintf(database, "%s/db/wekan.sqlite", path);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 0 && moved[0] == '\0');
+        out = fopen(database, "wb"); assert(out != NULL); fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 0); /* empty: SQLite's own */
+        out = fopen(database, "wb"); assert(out != NULL);
+        fputs("ar(0)) = 0 AND card_id N", out); fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 1);
+        sprintf(text, "%s", moved + strlen(moved) - 15);
+        assert(!strcmp(text, ".not-a-database") && wena_file_kind(database) == WENA_FILE_MISSING);
+        assert(wena_file_kind(moved) == WENA_FILE_REGULAR);
+        /* Again: the first name is taken, the next one is used. */
+        out = fopen(database, "wb"); assert(out != NULL); fputs("JJJJ", out); fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 1);
+        assert(!strcmp(moved + strlen(moved) - 17, ".not-a-database-2"));
+        /* Negative: a real SQLite header, and anything 512 bytes or more,
+         * stay where they are; so does a missing file; no room for the name. */
+        out = fopen(database, "wb"); assert(out != NULL);
+        fwrite("SQLite format 3\0\020\000", 1, 18, out); fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 0);
+        out = fopen(database, "wb"); assert(out != NULL);
+        { int i; for (i = 0; i < 600; ++i) fputc('J', out); }
+        fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, sizeof(moved)) == 0);
+        assert(wena_file_kind(database) == WENA_FILE_REGULAR);
+        out = fopen(database, "wb"); assert(out != NULL); fputs("JJ", out); fclose(out);
+        assert(wena_wekan_files_set_aside_broken(database, moved, 10) == -1 && wena_file_kind(database) == WENA_FILE_REGULAR);
+        assert(wena_wekan_files_set_aside_broken(NULL, moved, sizeof(moved)) == -1);
+    }
     puts("wekan-files: WRITABLE_PATH rules, beside the executable, folders and db/wekan.sqlite passed");
     return 0;
 }

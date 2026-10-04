@@ -1231,6 +1231,15 @@ static void desktop_log_system(void)
 #endif
 }
 
+/* SQLite's own error log - the OS call, errno and file of a failed open,
+ * the SQL and message of a failed statement - into the debug log. It is
+ * installed before SQLite starts (sqlite3_config must come first). */
+static void desktop_sqlite_log(void *unused, int code, const char *message)
+{
+    (void)unused;
+    wena_debug_log("SQLite %d: %s", code, message != NULL ? message : "");
+}
+
 /* SDL's video drivers in this build, and why the one that failed did: on
  * AmigaOS 3 SDL is built for RTG screens only (Picasso96 or CyberGraphX),
  * so a plain ECS or AGA Workbench has no driver that can open a window. */
@@ -1581,6 +1590,9 @@ int DESKTOP_MAIN(int argc, char **argv)
     wena_debug_log("wena-desktop starting, %d argument(s)", argc - 1);
     for (i = 1; i < argc; ++i) wena_debug_log("argument %d: %s", i, argv[i]);
     desktop_log_system();
+    if (sqlite3_config(SQLITE_CONFIG_LOG, desktop_sqlite_log, (void *)NULL) != SQLITE_OK)
+        wena_debug_log("SQLite's error log could not be installed");
+    wena_debug_log("SQLite %s, threadsafe %d", sqlite3_libversion(), sqlite3_threadsafe());
     if (wena_debug_log_path()[0] != '\0')
         fprintf(stderr, "Wena debug log: %s\n", wena_debug_log_path());
     database_path = NULL; actor_id = NULL; board_id = NULL;
@@ -1738,12 +1750,36 @@ int DESKTOP_MAIN(int argc, char **argv)
         int index;
         /* Wena's tables in memory over WeKan's file, read in; what Wena
          * changes is written back after each frame that changed something. */
-        if (!wena_sqlite_open(":memory:", migration.bytes, migration.length, migration.sha256, &database) ||
-            !wena_wekan_sync_attach(database, database_path) ||
-            !wena_wekan_sync_user(database, wena_environment("WENA_USER", wanted, sizeof(wanted)) ? wanted : NULL,
-                                  wekan_actor, sizeof(wekan_actor)) ||
-            !wena_wekan_sync_import(database)) {
+        /* One step at a time, each failure with its own reason. */
+        if (!wena_sqlite_open(":memory:", migration.bytes, migration.length, migration.sha256, &database)) {
+            wena_debug_log("Wena's tables in memory: %s", wena_sqlite_open_error());
+            DESKTOP_FAIL();
+        }
+        {
+            /* A wekan.sqlite that libnix's lseek() spoiled on AmigaOS (see
+             * server/sqlite_amiga_vfs.c) is renamed aside, and a new one made. */
+            char moved[WENA_EXECUTABLE_PATH_CAPACITY + 32];
+            int aside = wena_wekan_files_set_aside_broken(database_path, moved, sizeof(moved));
+            if (aside == 1) {
+                wena_debug_log("%s was not a database: renamed to %s", database_path, moved);
+                fprintf(stderr, "%s was not a database; it is kept as %s\n", database_path, moved);
+            } else if (aside < 0)
+                wena_debug_log("%s is not a database and could not be renamed", database_path);
+        }
+        wena_debug_log("attaching %s", database_path);
+        if (!wena_wekan_sync_attach(database, database_path)) {
             wena_debug_log("WeKan's database %s: %s", database_path, wena_wekan_sync_error());
+            DESKTOP_FAIL();
+        }
+        wena_debug_log("the user");
+        if (!wena_wekan_sync_user(database, wena_environment("WENA_USER", wanted, sizeof(wanted)) ? wanted : NULL,
+                                  wekan_actor, sizeof(wekan_actor))) {
+            wena_debug_log("the user in %s: %s / %s", database_path, wena_wekan_sync_error(), sqlite3_errmsg(database));
+            DESKTOP_FAIL();
+        }
+        wena_debug_log("reading WeKan's documents");
+        if (!wena_wekan_sync_import(database)) {
+            wena_debug_log("reading %s: %s / %s", database_path, wena_wekan_sync_error(), sqlite3_errmsg(database));
             DESKTOP_FAIL();
         }
         actor_id = wekan_actor;

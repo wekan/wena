@@ -23,4 +23,14 @@ int wena_wekan_files_database(const char *root, int system, char *out, size_t ca
 /* Creates the root and its attachments, avatars and db folders. */
 int wena_wekan_files_prepare(const char *root, int system);
 
+/* A database file that is no database: not empty, smaller than the 512
+ * bytes of the smallest SQLite file, and without SQLite's header - what
+ * libnix's lseek() made of a new wekan.sqlite on AmigaOS before Wena's
+ * SQLite stopped seeking past the end. It is renamed, never removed, to
+ * "<database>.not-a-database" (then .not-a-database-2 ... -9), and the
+ * new name goes in `moved`. 1 when it was set aside, 0 when there was
+ * nothing to do (missing, empty, a database, or too large to be this),
+ * -1 when it could not be renamed. */
+int wena_wekan_files_set_aside_broken(const char *database, char *moved, size_t capacity);
+
 #endif
