@@ -145,6 +145,42 @@ int main(void)
                                       1790000000000.0, 600.0f, card, sizeof(card)) == WENA_BOARD_VIEW_OPEN_CARD);
         nk_end(&context);
         assert(!strcmp(card, "c1"));
+        /* The Map: without an image WeKan's empty text; with one, the
+         * cards not on it - choosing one places it next - and Remove. */
+        {
+            size_t map = wena_board_view_index("board-view-map");
+            static char texture[4];
+            wena_ui_controls_begin();
+            context.label_count = 0;
+            assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+            (void)wena_board_view_render(&context, map, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card));
+            nk_end(&context);
+            for (i = 0, j = 0; i < (size_t)context.label_count; ++i) j |= strstr(context.labels[i], "no map image") != NULL;
+            assert(j);
+            strcpy(data.map_image, "img1");
+            state.map_texture = texture; state.map_width = 400; state.map_height = 200;
+            cards[1].map_x.set = cards[1].map_y.set = 1; cards[1].map_x.ms = 50.0; cards[1].map_y.ms = 50.0;
+            context.button_to_press = "Done card";
+            wena_ui_controls_begin();
+            assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+            (void)wena_board_view_render(&context, map, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card));
+            nk_end(&context);
+            assert(!strcmp(state.map_placing, "c1") && control("Not on the map") && !control("Open card"));
+            context.button_to_press = "Remove the map image";
+            assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+            assert(wena_board_view_render(&context, map, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card)) ==
+                   WENA_BOARD_VIEW_REMOVE_MAP);
+            nk_end(&context);
+            /* Negative: an image that could not be read says so. */
+            state.map_texture = NULL;
+            wena_ui_controls_begin();
+            context.label_count = 0;
+            assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+            (void)wena_board_view_render(&context, map, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card));
+            nk_end(&context);
+            for (i = 0, j = 0; i < (size_t)context.label_count; ++i) j |= strstr(context.labels[i], "img1") != NULL;
+            assert(j && !control("Not on the map"));
+        }
         /* Negative: a chart key or a lists view is not drawn here. */
         assert(wena_board_view_render(&context, 0, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card)) ==
                WENA_BOARD_VIEW_NO_ACTION);

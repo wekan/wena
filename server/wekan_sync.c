@@ -2,6 +2,7 @@
 #include "ferretdb_sqlite.h"
 #include "wekan_defaults_data.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1310,6 +1311,42 @@ int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int in
     sqlite3_free(value);
     sqlite3_free(element);
     return ok;
+}
+
+static double map_percent(double value)
+{
+    if (value < 0.0) value = 0.0;
+    if (value > 100.0) value = 100.0;
+    return floor(value * 100.0 + 0.5) / 100.0;
+}
+
+int wena_wekan_sync_set_card_map(sqlite3 *db, const char *card, double x, double y)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY], xs[64], ys[64];
+    WenaFerretField fields[2];
+    if (db == NULL || card == NULL || !(x == x) || !(y == y)) return card != NULL && db != NULL ? wena_wekan_sync_clear_card_map(db, card) : 0;
+    if (!table_of(db, "cards", table)) return 0;
+    sprintf(xs, "%.17g", map_percent(x));
+    sprintf(ys, "%.17g", map_percent(y));
+    fields[0].key = "mapX"; fields[0].element = WENA_FERRET_DOUBLE; fields[0].value = xs;
+    fields[1].key = "mapY"; fields[1].element = WENA_FERRET_DOUBLE; fields[1].value = ys;
+    return wena_ferretdb_update(db, WENA_WEKAN_SCHEMA, table, card, fields, 2);
+}
+
+int wena_wekan_sync_clear_card_map(sqlite3 *db, const char *card)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    static const char *const keys[2] = {"mapX", "mapY"};
+    if (db == NULL || card == NULL || !table_of(db, "cards", table)) return 0;
+    return wena_ferretdb_unset(db, WENA_WEKAN_SCHEMA, table, card, keys, 2);
+}
+
+int wena_wekan_sync_remove_map_image(sqlite3 *db, const char *board)
+{
+    char table[WENA_FERRETDB_TABLE_CAPACITY];
+    static const char *const keys[1] = {"mapImageAttachmentId"};
+    if (db == NULL || board == NULL || !table_of(db, "boards", table)) return 0;
+    return wena_ferretdb_unset(db, WENA_WEKAN_SCHEMA, table, board, keys, 1);
 }
 
 int wena_wekan_sync_set_language(sqlite3 *db, const char *actor, const char *language)

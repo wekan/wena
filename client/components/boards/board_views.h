@@ -34,6 +34,8 @@ const char *wena_board_view_name(size_t index);
 /* What a drawn view asks for. */
 #define WENA_BOARD_VIEW_NO_ACTION 0u
 #define WENA_BOARD_VIEW_OPEN_CARD 1u      /* its id in `card` */
+#define WENA_BOARD_VIEW_PLACE_CARD 2u     /* the Map: map_place_card at map_place_x/y percent */
+#define WENA_BOARD_VIEW_REMOVE_MAP 4u     /* the Map: Remove the map image */
 
 /* A report chart as WeKan draws it, in the window's remaining space: the
  * title, the method note, the chart (and a second one), the note under it,
@@ -59,6 +61,15 @@ typedef struct WenaBoardViewState {
     int gantt_mode;           /* 0 day, 1 week, 2 month */
     char sprint_id[WENA_VIEW_ID];
     char field_id[WENA_VIEW_ID];
+    /* The Map: its image as the desktop made it a texture (NULL when it
+     * could not be read or decoded, map_status saying why), the card being
+     * placed, and where it was put. */
+    void *map_texture;
+    int map_width, map_height;
+    int map_status;           /* WenaImageResult, -1 when the file is not there */
+    char map_placing[WENA_VIEW_ID];
+    char map_place_card[WENA_VIEW_ID];
+    double map_place_x, map_place_y;
 } WenaBoardViewState;
 
 /* One of the views that are not the lists or a chart, as WeKan draws it.

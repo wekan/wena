@@ -1034,6 +1034,103 @@ static unsigned int bigboard_view(struct nk_context *context, const WenaViewData
     return action;
 }
 
+/* Map --------------------------------------------------------------------- */
+
+/* boardMap.js isPlaced: both coordinates set. */
+static int placed(const WenaViewCard *c)
+{
+    return c->map_x.set && c->map_y.set;
+}
+
+static unsigned int map_view(struct nk_context *context, WenaBoardViewState *state, const WenaViewData *data,
+                             char *card, size_t capacity)
+{
+    unsigned int action = WENA_BOARD_VIEW_NO_ACTION;
+    struct nk_rect canvas;
+    float body_width = context->current->layout->bounds.w - 32.0f, image_width, image_height, scale;
+    size_t i, unplaced = 0;
+    if (!data->map_image[0]) { note(context, T("map-view-empty")); return action; }
+    if (state->map_texture == NULL || state->map_width <= 0 || state->map_height <= 0) {
+        char text[1200];
+        sprintf(text, "%.40s: %.1000s", T("error"), data->map_image_path[0] ? data->map_image_path : data->map_image);
+        note(context, text);
+        return action;
+    }
+    /* The image fits the stage, beside the cards not on it. */
+    image_width = body_width - 280.0f;
+    if (image_width < 200.0f) image_width = 200.0f;
+    scale = image_width / (float)state->map_width;
+    image_height = (float)state->map_height * scale;
+    nk_layout_row_begin(context, NK_STATIC, image_height > 260.0f ? image_height : 260.0f, 2);
+    nk_layout_row_push(context, image_width);
+    canvas = nk_widget_bounds(context);
+    canvas.h = image_height;
+    nk_image(context, nk_image_ptr(state->map_texture));
+    for (i = 0; i < data->card_count; ++i) {
+        const WenaViewCard *c = &data->cards[i];
+        struct nk_rect marker;
+        const WenaViewLabel *label = NULL;
+        char number[16];
+        size_t k;
+        if (c->archived || c->deleted_at.set) continue;
+        if (!placed(c)) { ++unplaced; continue; }
+        for (k = 0; k < c->label_count && label == NULL; ++k) label = wena_view_label(data, c->label_ids[k]);
+        number[0] = '\0';
+        if (c->card_number) sprintf(number, "%d", c->card_number);
+        marker = nk_rect(canvas.x + canvas.w * (float)(c->map_x.ms / 100.0) - 11.0f,
+                         canvas.y + canvas.h * (float)(c->map_y.ms / 100.0) - 22.0f, 22.0f, 22.0f);
+        {
+            unsigned char rgb[3];
+            int color = 0x12a6ebb;
+            if (label != NULL && wena_color_rgb(label->color, rgb)) color = 0x1000000 | (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+            wena_wekan_fill(context, marker.x, marker.y, marker.w, marker.h, color, 11.0f);
+            wena_wekan_fill(context, marker.x, marker.y + marker.h - 11.0f, 11.0f, 11.0f, color, 2.0f);
+        }
+        if (number[0]) {
+            const struct nk_user_font *face = wena_wekan_font(context, WENA_WEKAN_FONT_SMALL);
+            if (face != NULL) {
+                float w = face->width(face->userdata, face->height, number, (int)strlen(number));
+                nk_draw_text(nk_window_get_canvas(context), nk_rect(marker.x + (marker.w - w) / 2.0f, marker.y + 4.0f, w + 2.0f, face->height),
+                             number, (int)strlen(number), face, nk_rgba(0, 0, 0, 0), nk_rgb(255, 255, 255));
+            }
+        }
+        /* A marker opens its card. */
+        if (nk_input_mouse_clicked(&context->input, NK_BUTTON_LEFT, marker) && open_card(c, card, capacity))
+            action |= WENA_BOARD_VIEW_OPEN_CARD;
+    }
+    /* Placing: the chosen card goes where the map is clicked. */
+    if (state->map_placing[0] && !(action & WENA_BOARD_VIEW_OPEN_CARD) &&
+        nk_input_mouse_clicked(&context->input, NK_BUTTON_LEFT, canvas)) {
+        strcpy(state->map_place_card, state->map_placing);
+        state->map_place_x = (context->input.mouse.pos.x - canvas.x) / canvas.w * 100.0;
+        state->map_place_y = (context->input.mouse.pos.y - canvas.y) / canvas.h * 100.0;
+        state->map_placing[0] = '\0';
+        action |= WENA_BOARD_VIEW_PLACE_CARD;
+    }
+    /* The side: the cards not on the map, and removing the image. */
+    nk_layout_row_push(context, 260.0f);
+    if (nk_group_begin_titled(context, "map/side", "", 0)) {
+        heading(context, T("map-view-unplaced"));
+        if (unplaced) {
+            note(context, T("map-view-place-hint"));
+            for (i = 0; i < data->card_count; ++i) {
+                const WenaViewCard *c = &data->cards[i];
+                if (c->archived || c->deleted_at.set || placed(c)) continue;
+                nk_layout_row_dynamic(context, ROW + 4.0f, 1);
+                if (wena_wekan_button(context, c->title, strcmp(state->map_placing, c->id) ? WENA_WEKAN_BUTTON : WENA_WEKAN_BUTTON_ADD)) {
+                    if (!strcmp(state->map_placing, c->id)) state->map_placing[0] = '\0';
+                    else strcpy(state->map_placing, c->id);
+                }
+            }
+        } else note(context, T("map-view-all-placed"));
+        nk_layout_row_dynamic(context, 30.0f, 1);
+        if (wena_wekan_button(context, T("map-view-remove-image"), WENA_WEKAN_BUTTON)) action |= WENA_BOARD_VIEW_REMOVE_MAP;
+        nk_group_end(context);
+    }
+    nk_layout_row_end(context);
+    return action;
+}
+
 /* The entry ------------------------------------------------------------------ */
 
 unsigned int wena_board_view_render(struct nk_context *context, size_t index, WenaBoardViewState *state,
@@ -1059,6 +1156,7 @@ unsigned int wena_board_view_render(struct nk_context *context, size_t index, We
     if (!strcmp(key, "board-view-gantt-dhtmlx")) return frappe_view(context, state, data, 1, now, card, capacity);
     if (!strcmp(key, "board-view-roadmap")) return roadmap_view(context, state, data, now, card, capacity);
     if (!strcmp(key, "board-view-bigboard")) return bigboard_view(context, all, card, capacity);
+    if (!strcmp(key, "board-view-map")) return map_view(context, state, data, card, capacity);
     if (!strncmp(key, "board-view-product-backlog", 26) || !strcmp(key, "board-view-sprints") ||
         !strcmp(key, "board-view-sprint-report") || !strcmp(key, "board-view-velocity"))
         return scrum_view(context, state, data, key, card, capacity);

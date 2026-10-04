@@ -118,6 +118,9 @@ int nk_group_begin(struct nk_context *context, const char *title,
                    unsigned int flags);
 void nk_group_end(struct nk_context *context);
 int nk_group_begin_titled(struct nk_context *context, const char *name, const char *title, unsigned int flags);
+struct nk_image { void *ptr; };
+struct nk_image nk_image_ptr(void *ptr);
+void nk_image(struct nk_context *context, struct nk_image image);
 void nk_layout_row(struct nk_context *context, int format, float height, int columns, const float *ratio);
 void nk_layout_row_static(struct nk_context *context, float height, int item_width, int columns);
 

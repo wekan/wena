@@ -180,6 +180,7 @@ typedef struct WenaViewData {
     char board_color[33];
     int active_members;
     char map_image[WENA_VIEW_ID];   /* board.mapImageAttachmentId */
+    char map_image_path[1024];      /* its attachment's file, as WeKan recorded it */
     /* board.scrum: where estimates come from, and their unit. */
     int estimate_from_field;
     char estimate_field_id[WENA_VIEW_ID];

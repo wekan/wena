@@ -105,6 +105,13 @@ int wena_wekan_sync_notifications(sqlite3 *db, const char *actor, WenaWekanNotif
 /* WeKan's read checkbox: the entry's `read` becomes now (a Date) or null. */
 int wena_wekan_sync_set_notification_read(sqlite3 *db, const char *actor, int index, int read);
 
+/* The Map view's writes, as WeKan's Card.setMapPosition (each clamped to
+ * 0..100 and rounded to hundredths; a value that is not a number removes
+ * the card from the map) and Board.setMapImage(null). */
+int wena_wekan_sync_set_card_map(sqlite3 *db, const char *card, double x, double y);
+int wena_wekan_sync_clear_card_map(sqlite3 *db, const char *card);
+int wena_wekan_sync_remove_map_image(sqlite3 *db, const char *board);
+
 /* A per-board map in the user's profile, as WeKan keeps collapsed lists and
  * swimlanes and swimlane heights: profile.<field>.<board>.<id> = value.
  * Reading calls `entry` with each id and its value (true is 1); writing

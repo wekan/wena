@@ -346,6 +346,32 @@ int main(int argc, char **argv)
         /* Capacity: the newest only. */
         assert(wena_wekan_sync_notifications(db, "u3", items, 1, &count) && count == 1 && items[0].index == 2);
     }
+    /* The Map's writes: a card's place, clamped to 0..100 and rounded, as
+     * doubles; a place that is not a number takes it off; the board's
+     * image removed. */
+    {
+        double nan = 0.0;
+        nan = nan / nan;
+        assert(wena_wekan_sync_set_card_map(db, "c2", 12.345, 150.0));
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson ->> 'mapX') || ',' || (_ferretdb_sjson ->> 'mapY') || "
+                             "(_ferretdb_sjson -> '$.\"$s\".p.mapX.t') FROM fdb.cards_81f16044 WHERE _ferretdb_sjson->'_id' = '\"c2\"'"),
+                       "12.35,100\"double\""));
+        assert(wena_wekan_sync_set_card_map(db, "c2", -3.0, 0.004));
+        assert(!strcmp(q(db, "SELECT (_ferretdb_sjson ->> 'mapX') || ',' || (_ferretdb_sjson ->> 'mapY') FROM fdb.cards_81f16044 "
+                             "WHERE _ferretdb_sjson->'_id' = '\"c2\"'"), "0,0"));
+        assert(wena_wekan_sync_set_card_map(db, "c2", nan, 5.0));
+        assert(!strcmp(q(db, "SELECT count(*) FROM fdb.cards_81f16044 WHERE _ferretdb_sjson->'_id' = '\"c2\"' AND "
+                             "_ferretdb_sjson -> 'mapX' IS NULL AND _ferretdb_sjson -> '$.\"$s\".p.mapY' IS NULL"), "1"));
+        x(db, "UPDATE fdb.boards_7c666488 SET _ferretdb_sjson = json_set(_ferretdb_sjson, '$.mapImageAttachmentId', 'img', "
+              "'$.\"$s\".p.mapImageAttachmentId', json('{\"t\":\"string\"}'), '$.\"$s\".\"$k\"[#]', 'mapImageAttachmentId') "
+              "WHERE _ferretdb_sjson->'_id' = '\"b1\"'");
+        assert(wena_wekan_sync_remove_map_image(db, "b1"));
+        assert(!strcmp(q(db, "SELECT count(*) FROM fdb.boards_7c666488 WHERE _ferretdb_sjson->'_id' = '\"b1\"' AND "
+                             "_ferretdb_sjson -> 'mapImageAttachmentId' IS NULL"), "1"));
+        /* Negative: no card, no board, nothing written. */
+        assert(!wena_wekan_sync_set_card_map(db, "missing", 1.0, 1.0) && !wena_wekan_sync_set_card_map(db, NULL, 1.0, 1.0));
+        assert(!wena_wekan_sync_remove_map_image(db, NULL));
+    }
     /* The user: asked for by username, else the admin, and one is made in a
      * file without users. */
     assert(wena_wekan_sync_user(db, "bob", user, sizeof(user)) && !strcmp(user, "u2"));

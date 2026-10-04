@@ -26,6 +26,7 @@
 #include "components/sidebar/notifications_drawer.h"
 #include "components/boards/board_views.h"
 #include "../server/wekan_views.h"
+#include "../models/image_decode.h"
 #include <time.h>
 #include "../server/board_search.h"
 #include "features/card_description.h"
@@ -510,14 +511,19 @@ typedef struct WenaDesktopViews {
     WenaBoardViewState state;
     char open_card[WENA_ID_CAPACITY];
     char open_board[WENA_ID_CAPACITY];
+    /* The Map image, as a texture of the window's renderer. */
+    SDL_Renderer *renderer;
+    SDL_Texture *map_texture;
+    char map_loaded[WENA_ID_CAPACITY];
+    char files_root[WENA_EXECUTABLE_PATH_CAPACITY];
 } WenaDesktopViews;
 
-/* Which views Wena draws so far: every one but the Map. */
+/* Every view of WeKan's is drawn. */
 static int desktop_view_drawn(size_t view)
 {
     size_t count;
-    const WenaBoardView *views = wena_board_views(&count);
-    return view < count && strcmp(views[view].key, "board-view-map") != 0;
+    (void)wena_board_views(&count);
+    return view < count;
 }
 
 static const char *desktop_view_text(const char *key, const char *fallback)
@@ -525,8 +531,63 @@ static const char *desktop_view_text(const char *key, const char *fallback)
     return wena_ui_key_text(key, fallback);
 }
 
+static void desktop_map_free(WenaDesktopViews *views)
+{
+    if (views->map_texture != NULL) SDL_DestroyTexture(views->map_texture);
+    views->map_texture = NULL;
+    views->map_loaded[0] = '\0';
+    views->state.map_texture = NULL;
+    views->state.map_width = views->state.map_height = 0;
+}
+
+/* The Map image: the attachment's recorded file, else the same name in
+ * this wekan-files/attachments (a bundle moved to another folder), decoded
+ * and made a texture once per image. */
+static void desktop_map_load(WenaDesktopViews *views)
+{
+    char path[WENA_EXECUTABLE_PATH_CAPACITY + 1100];
+    const char *recorded = views->data.map_image_path, *name;
+    FILE *file = NULL;
+    unsigned char *bytes = NULL;
+    long length;
+    WenaImage image;
+    if (!strcmp(views->map_loaded, views->data.map_image) && views->map_loaded[0]) return;
+    desktop_map_free(views);
+    views->state.map_status = -1;
+    strcpy(views->map_loaded, views->data.map_image);
+    if (!views->data.map_image[0] || views->renderer == NULL) return;
+    if (recorded[0]) file = fopen(recorded, "rb");
+    name = strrchr(recorded, '/');
+    if (name == NULL) name = strrchr(recorded, '\\');
+    name = name != NULL ? name + 1 : recorded;
+    if (file == NULL && name[0] && strlen(views->files_root) + strlen(name) + 16 < sizeof(path)) {
+        sprintf(path, "%s/attachments/%s", views->files_root, name);
+        file = fopen(path, "rb");
+    }
+    if (file == NULL) { wena_debug_log("map image %s: not found", views->data.map_image); return; }
+    if (fseek(file, 0, SEEK_END) == 0 && (length = ftell(file)) > 0 && length < 64L * 1024L * 1024L &&
+        fseek(file, 0, SEEK_SET) == 0 && (bytes = (unsigned char *)malloc((size_t)length)) != NULL &&
+        fread(bytes, 1, (size_t)length, file) == (size_t)length) {
+        views->state.map_status = (int)wena_image_decode(bytes, (size_t)length, &image);
+        if (views->state.map_status == WENA_IMAGE_OK) {
+            views->map_texture = SDL_CreateTexture(views->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
+                                                   (int)image.width, (int)image.height);
+            if (views->map_texture != NULL && SDL_UpdateTexture(views->map_texture, NULL, image.rgba, (int)image.width * 4) == 0) {
+                SDL_SetTextureBlendMode(views->map_texture, SDL_BLENDMODE_BLEND);
+                views->state.map_texture = views->map_texture;
+                views->state.map_width = (int)image.width;
+                views->state.map_height = (int)image.height;
+            } else wena_debug_log("map image texture: %s", SDL_GetError());
+            wena_image_free(&image);
+        } else wena_debug_log("map image %s: cannot decode (%d)", views->data.map_image, views->state.map_status);
+    }
+    free(bytes);
+    fclose(file);
+}
+
 static void desktop_views_reset(WenaDesktopViews *views)
 {
+    desktop_map_free(views);
     wena_view_data_free(&views->data);
     wena_view_data_free(&views->all);
     wena_chart_result_free(&views->chart);
@@ -581,9 +642,17 @@ static void desktop_board_view(struct nk_context *context, void *opaque, float h
                     views->all_changes = changes;
                 }
             }
+            if (!strcmp(view->key, "board-view-map")) desktop_map_load(views);
             action = wena_board_view_render(context, views->view, &views->state, &views->data,
                                             views->all_loaded ? &views->all : NULL, (double)time(NULL) * 1000.0,
                                             height, card, sizeof(card));
+            /* The Map's writes, as WeKan's setMapPosition and setMapImage. */
+            if ((action & WENA_BOARD_VIEW_PLACE_CARD) != 0u &&
+                !wena_wekan_sync_set_card_map(views->database, views->state.map_place_card, views->state.map_place_x,
+                                              views->state.map_place_y))
+                wena_debug_log("map place %s: %s", views->state.map_place_card, wena_wekan_sync_error());
+            if ((action & WENA_BOARD_VIEW_REMOVE_MAP) != 0u && !wena_wekan_sync_remove_map_image(views->database, views->board))
+                wena_debug_log("map image: %s", wena_wekan_sync_error());
             if ((action & WENA_BOARD_VIEW_OPEN_CARD) != 0u) {
                 const WenaViewCard *shown = wena_view_card(&views->data, card);
                 if (shown == NULL && views->all_loaded) shown = wena_view_card(&views->all, card);
@@ -1401,6 +1470,7 @@ int DESKTOP_MAIN(int argc, char **argv)
             }
             database_path = default_database;
             wekan_mode = 1;
+            strcpy(views.files_root, root);
             wena_debug_log("WeKan's files in %s, database %s", root, database_path);
         } else if (board_id == NULL) {
             if (!wena_desktop_default_database(database_env,
@@ -1654,6 +1724,7 @@ board_session:
         desktop_views_reset(&views);
         views.database = database;
         views.actor = actor_id;
+        views.renderer = renderer;
         strcpy(views.board, snapshot->board.id);
         if (!wena_wekan_sync_notifications(database, actor_id, notifications, WENA_WEKAN_NOTIFICATIONS,
                                            &notification_count)) {
@@ -1791,6 +1862,7 @@ board_session:
 #endif
     context = nk_sdl_init(window, renderer);
     if (context == NULL) DESKTOP_FAIL();
+    views.renderer = renderer;
     wena_sdl_install_clipboard(context);
     nk_sdl_font_stash_begin(&atlas);
     /* Baked at the screen's pixels, measured in layout units (ui_scale is 1

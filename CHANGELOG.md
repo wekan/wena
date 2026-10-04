@@ -574,6 +574,36 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's Map view is drawn, with Wena's own decoder for the map image</summary>
+
+- The Map view shows the board's uploaded map image with a marker for each
+  card on it - its first label's color, its card number - and, beside it,
+  WeKan's "Not on the map" list: choose a card, then click where it
+  belongs. A marker opens its card. Remove the map image takes it off the
+  board. Both write WeKan's own fields: the card's `mapX` and `mapY`
+  (clamped to 0..100 and rounded, as Card.setMapPosition) and the board's
+  `mapImageAttachmentId`.
+- The image is the attachment's recorded file, or the same name in this
+  wekan-files/attachments when the bundle has moved.
+- Wena decodes it itself (`models/image_decode.c`, no new library): PNG in
+  every color type and bit depth with transparency and Adam7, baseline and
+  extended JPEG, and GIF's first frame with transparency and interlacing.
+  WebP and progressive JPEG are refused, and the view then says which file
+  could not be read.
+- With this, every one of WeKan's 35 board views is drawn.
+- Tests: `image-decode` (new) decodes 33 PNG, GIF and JPEG images with
+  known pixels - exactly, JPEG within its loss - and refuses WebP, a
+  progressive JPEG, a truncated PNG and unknown bytes; `wekan-sync` writes
+  and clears a card's place and removes the image; `wekan-views` reads the
+  image's file and the cards' places and numbers; `board-views` draws the
+  Map without an image, with one - choosing a card to place, Remove - and
+  with one that could not be read; `desktop` opens the Map.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

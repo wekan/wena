@@ -198,3 +198,15 @@ void nk_layout_row_static(struct nk_context *context, float height, int item_wid
 {
     (void)context; (void)height; (void)item_width; (void)columns;
 }
+
+struct nk_image nk_image_ptr(void *ptr)
+{
+    struct nk_image image;
+    image.ptr = ptr;
+    return image;
+}
+
+void nk_image(struct nk_context *context, struct nk_image image)
+{
+    (void)context; (void)image;
+}

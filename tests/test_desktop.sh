@@ -426,7 +426,7 @@ assert 'board ' + first[0][0] + '\n' in log and log.count('window open') == 2, l
 # WeKan's report views draw from the same file: a chart and its table.
 for view in ('board-view-burndown', 'board-view-aging-wip', 'board-view-monte-carlo', 'board-view-table',
              'board-view-cal', 'board-view-timeline', 'board-view-gantt-dhtmlx', 'board-view-bigboard',
-             'board-view-multiboard-cal', 'board-view-sprints'):
+             'board-view-multiboard-cal', 'board-view-sprints', 'board-view-map'):
     run = subprocess.run([exe, '--smoke', '--show', 'view:' + view], env=wekan_env, capture_output=True,
                          text=True, timeout=30)
     assert run.returncode == 0, (view, run.stdout, run.stderr)

@@ -259,7 +259,18 @@ static int load_board(sqlite3 *db, const char *board, WenaViewData *data)
         copy(data->estimate_unit, sizeof(data->estimate_unit), sqlite3_column_text(statement, 5));
     }
     sqlite3_finalize(statement);
-    return step == SQLITE_ROW || step == SQLITE_DONE;
+    if (step != SQLITE_ROW && step != SQLITE_DONE) return 0;
+    /* The Map image's file: the attachment's original version. */
+    if (data->map_image[0] && table(db, "attachments", boards)) {
+        sprintf(sql, "SELECT coalesce(x->>'$.versions.original.path', x->>'path', '') FROM (SELECT _ferretdb_sjson AS x "
+                     "FROM %s WHERE _ferretdb_sjson->'_id' = json_quote(?1))", boards);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+        sqlite3_bind_text(statement, 1, data->map_image, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(statement) == SQLITE_ROW)
+            copy(data->map_image_path, sizeof(data->map_image_path), sqlite3_column_text(statement, 0));
+        sqlite3_finalize(statement);
+    }
+    return 1;
 }
 
 static int load_custom_fields(sqlite3 *db, const char *board, WenaViewData *data)

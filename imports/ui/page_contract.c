@@ -345,6 +345,11 @@ static const struct {
     {WENA_UI_KEY, "username", "Username"},
     {WENA_UI_KEY, "wednesday", "Wednesday"},
     {WENA_UI_KEY, "week", "Week"},
+    {WENA_UI_KEY, "map-view-all-placed", "Every card is on the map."},
+    {WENA_UI_KEY, "map-view-empty", "This board has no map image yet. A board admin can upload one - a floor plan, a site map or a drawing - and the cards can then be placed on it."},
+    {WENA_UI_KEY, "map-view-place-hint", "Drag a card onto the map, or choose it and then click where it belongs."},
+    {WENA_UI_KEY, "map-view-remove-image", "Remove the map image"},
+    {WENA_UI_KEY, "map-view-unplaced", "Not on the map"},
     {WENA_UI_FORMAT, "chart-forecast-no-velocity", "__remaining__ card(s) still open; no recent completions to project a date from."},
     {WENA_UI_FORMAT, "chart-forecast-projected", "At the recent pace of __average__ card(s)/week, the __remaining__ card(s) still open should be done by __date__."},
 };

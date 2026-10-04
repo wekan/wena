@@ -44,9 +44,15 @@ int main(int argc, char **argv)
     sprintf(path, "%s/wekan.sqlite", argv[1]);
     assert(wena_wekan_sync_attach(db, path));
     /* Negative: a file without activities or history loads, with none. */
-    doc(db, "boards", "{\"_id\":\"b1\",\"title\":\"Board\",\"labels\":[{\"_id\":\"g1\",\"name\":\"Bug\",\"color\":\"red\"}]}");
+    doc(db, "boards", "{\"_id\":\"b1\",\"title\":\"Board\",\"labels\":[{\"_id\":\"g1\",\"name\":\"Bug\",\"color\":\"red\"}],"
+        "\"mapImageAttachmentId\":\"img1\",\"color\":\"belize\",\"members\":[{\"userId\":\"u1\",\"isActive\":true},"
+        "{\"userId\":\"u9\",\"isActive\":false}]}");
+    doc(db, "attachments", "{\"_id\":\"img1\",\"versions\":{\"original\":{\"path\":\"/files/attachments/img1-original.png\"}}}");
     assert(wena_wekan_views_load(db, "b1", &data) && data.card_count == 0 && data.activity_count == 0 &&
            data.change_count == 0 && data.label_count == 1 && !strcmp(data.board_title, "Board"));
+    /* The Map's image file; the board's color and active members. */
+    assert(!strcmp(data.map_image, "img1") && !strcmp(data.map_image_path, "/files/attachments/img1-original.png") &&
+           !strcmp(data.board_color, "belize") && data.active_members == 1);
     wena_view_data_free(&data);
     doc(db, "users", "{\"_id\":\"u1\",\"username\":\"ada\",\"profile\":{\"fullname\":\"Ada L\"}}");
     doc(db, "lists", "{\"_id\":\"l2\",\"title\":\"Done\",\"boardId\":\"b1\",\"sort\":2,\"wipLimit\":{\"value\":3,\"enabled\":true}}");
@@ -58,7 +64,7 @@ int main(int argc, char **argv)
         "\"createdAt\":1700000000000,\"dueAt\":1700500000000,\"spentTime\":2.5,\"assignees\":[\"u1\"],\"members\":[\"u1\"],"
         "\"labelIds\":[\"g1\"],\"vote\":{\"positive\":[\"u1\",\"u2\"],\"negative\":[\"u3\"]},\"poker\":{\"estimation\":\"5\"},"
         "\"cardDependencies\":[{\"cardId\":\"c2\",\"type\":\"blocks\"},{\"cardId\":\"c9\",\"type\":\"relates\"}],"
-        "\"description\":\"Text\"}");
+        "\"description\":\"Text\",\"mapX\":12.5,\"mapY\":40,\"cardNumber\":7}");
     doc(db, "cards", "{\"_id\":\"c2\",\"title\":\"Second\",\"boardId\":\"b1\",\"listId\":\"l2\",\"swimlaneId\":\"s1\",\"sort\":2,"
         "\"createdAt\":1700100000000,\"endAt\":1700200000000,\"archived\":true,\"archivedAt\":1700300000000}");
     doc(db, "cards", "{\"_id\":\"cx\",\"title\":\"Other board\",\"boardId\":\"b2\",\"listId\":\"lx\",\"createdAt\":1700000000000}");
@@ -92,8 +98,9 @@ int main(int argc, char **argv)
            card->assignee_count == 1 && !strcmp(card->assignees[0], "u1") && card->label_count == 1 &&
            card->votes_positive == 2 && card->votes_negative == 1 && card->has_poker && card->poker == 5.0 &&
            card->dependency_count == 1 && card->dependencies[0].blocks && !strcmp(card->description, "Text"));
+    assert(card->map_x.set && card->map_x.ms == 12.5 && card->map_y.set && card->map_y.ms == 40.0 && card->card_number == 7);
     card = wena_view_card(&data, "c2");
-    assert(card != NULL && card->archived && card->archived_at.set && card->end_at.set && !card->has_poker);
+    assert(card != NULL && card->archived && card->archived_at.set && card->end_at.set && !card->has_poker && !card->map_x.set);
     card = wena_view_card(&data, "c3");
     assert(card != NULL && !strcmp(card->title, "Removed") && card->deleted_at.set && card->deleted_at.ms == 1700600000000.0);
     assert(wena_view_card(&data, "cx") == NULL);
@@ -121,7 +128,11 @@ int main(int argc, char **argv)
     doc(db, "cards", "{\"_id\":\"c4\",\"title\":\"Mine card\",\"boardId\":\"b3\",\"dueAt\":1700000000000}");
     doc(db, "cards", "{\"_id\":\"c5\",\"title\":\"Archived\",\"boardId\":\"b3\",\"archived\":true}");
     assert(wena_wekan_views_load_all(db, "u1", &data));
-    assert(data.card_count == 1 && !strcmp(data.cards[0].id, "c4") && !strcmp(data.cards[0].board_title, "Mine"));
+    /* The open cards of both of Ada's boards, each named by its board, and
+     * the boards with their lists, for Bigboard. */
+    assert(data.card_count == 2 && wena_view_card(&data, "c4") != NULL && !strcmp(wena_view_card(&data, "c4")->board_title, "Mine") &&
+           !strcmp(wena_view_card(&data, "c1")->board_title, "Board") && wena_view_card(&data, "c5") == NULL);
+    assert(data.board_count == 2 && data.list_count == 2 && !strcmp(data.lists[0].board_id, "b1"));
     wena_view_data_free(&data);
     /* Negative: missing arguments. */
     assert(!wena_wekan_views_load(NULL, "b1", &data) && !wena_wekan_views_load(db, NULL, &data));
