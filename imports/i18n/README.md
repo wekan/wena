@@ -4,8 +4,15 @@
 source is `wekan/imports/i18n/data/*.i18n.json` at the revision pinned in
 `config/i18n-lock.json`. The bundle records every source filename and SHA-256,
 retains canonical English key order and exact translated UTF-8 values, and is
-compressed to keep every single-file Wena executable within the documented 12 MiB
-translation-data budget.
+LZMA-compressed (format `WENA-I18N-2`) to stay within the documented 12 MiB
+translation-data budget: WeKan's 3,900 keys in 246 languages are about 71 MB of
+JSON and 7 MB here.
+
+A web address keeps its translated `%XX` escapes. Any other value whose
+placeholders (`__name__`, `%s`, `%1` ...) differ from English would format
+wrongly, so for that key in that language the catalog holds the English value,
+and the generator prints each such pair. The fix belongs in WeKan's locale
+file; the next regeneration then takes the translation.
 
 The translations and generator are distributed under WeKan's MIT license,
 copyright Lauri Ojansivu and contributors. Regenerate from a checkout of the pinned

@@ -10,7 +10,7 @@ import hashlib
 import json
 import shutil
 import shlex
-import zlib
+import lzma
 from pathlib import Path
 import os
 import sqlite3
@@ -150,7 +150,7 @@ args = ['--database', str(new), '--actor', 'local-user', '--board', 'new-board',
 run = subprocess.run([exe, *args], env=env, capture_output=True, text=True, timeout=20)
 assert run.returncode == 0, run.stderr
 raw = (root/'imports/i18n/wekan-i18n.bin').read_bytes()
-canonical = json.loads(zlib.decompress(raw[20:]))
+canonical = json.loads(lzma.decompress(raw[20:]))
 fi = dict(next(item for item in canonical['languages'] if item['tag'] == 'fi')['entries'])
 with sqlite3.connect(new) as db:
     assert db.execute('SELECT title FROM boards').fetchone() == ('Uusi taulu',)

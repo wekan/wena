@@ -10,9 +10,9 @@ import json
 from pathlib import Path
 import re
 import struct
-import zlib
+import lzma
 
-from generate_i18n_catalog import MAGIC, placeholders
+from generate_i18n_catalog import MAGIC, MAXIMUM_PAYLOAD, placeholders
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,9 +27,9 @@ def load_catalog(root=ROOT):
     if not raw.startswith(MAGIC):
         raise ValueError("invalid canonical catalog marker")
     size, count = struct.unpack(">II", raw[len(MAGIC):len(MAGIC) + 8])
-    if size > 64 * 1024 * 1024:
+    if size > MAXIMUM_PAYLOAD:
         raise ValueError("canonical catalog is too large")
-    payload = zlib.decompress(raw[len(MAGIC) + 8:])
+    payload = lzma.decompress(raw[len(MAGIC) + 8:], format=lzma.FORMAT_XZ, memlimit=MAXIMUM_PAYLOAD * 2)
     if len(payload) != size:
         raise ValueError("canonical payload length mismatch")
     data = json.loads(payload)
@@ -129,7 +129,7 @@ def main():
     args = parser.parse_args()
     try:
         output = generate()
-    except (ValueError, KeyError, zlib.error) as error:
+    except (ValueError, KeyError, lzma.LZMAError) as error:
         raise SystemExit(str(error)) from error
     if args.check:
         if not args.output.is_file() or args.output.read_text() != output:

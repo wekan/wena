@@ -443,6 +443,31 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Translations copied from WeKan's current files: 3,894 texts in 246 languages</summary>
+
+- Wena's translation catalog is regenerated from WeKan's
+  `imports/i18n/data` at WeKan 9465382420, up from 2,417 texts to 3,894,
+  so every text of WeKan's current UI - Sort by votes and the board views
+  among them - is there in every language WeKan has.
+- The catalog is now LZMA-compressed (format `WENA-I18N-2`): 7 MB instead
+  of the 17.5 MB zlib would make, inside the 12 MiB budget. Its readers
+  allow 128 MiB of uncompressed JSON (it is 71 MB).
+- A web address keeps its translated `%XX` escapes. A value whose
+  placeholders differ from English (20 Blockly texts and one other in this
+  revision) uses English for that key in that language, and the generator
+  lists each one, instead of the whole catalog being refused; the fix
+  belongs in WeKan's locale file.
+- The runtime UI texts and the notices are regenerated from it.
+- Tests: `generate-i18n-catalog` checks the new format, the English
+  fallback for a wrong placeholder with its report, and a translated web
+  address kept; the catalog readers in `ui-contract` and `desktop` read
+  LZMA.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

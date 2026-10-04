@@ -1,11 +1,11 @@
 {
   "source_repository": "https://github.com/wekan/wekan",
-  "source_revision": "d6b851c6a23834477bfeb3f0592196360bc57830",
+  "source_revision": "9465382420602a7ee16b8823ca1e2067b03ada4b",
   "license": "MIT",
   "language_count": 246,
-  "english_key_count": 2417,
+  "english_key_count": 3894,
   "catalog_path": "imports/i18n/wekan-i18n.bin",
-  "catalog_bytes": 10487381,
+  "catalog_bytes": 6970940,
   "maximum_catalog_bytes": 12582912,
-  "catalog_sha256": "338595a7eea3cf8a8b5cfc093c75628a532d42643130757e4957249ed23e36fb"
+  "catalog_sha256": "c0fc4b33554c142ff9c7e40644ecfc3fd6ed63ddc8e8eac259c1dcf6d8342b2a"
 }

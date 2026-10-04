@@ -7,7 +7,7 @@ import re
 import struct
 import subprocess
 import tempfile
-import zlib
+import lzma
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def english_keys():
     raw = (ROOT / "imports" / "i18n" / "wekan-i18n.bin").read_bytes()
-    payload = json.loads(zlib.decompress(raw[20:]).decode("utf-8"))
+    payload = json.loads(lzma.decompress(raw[20:]).decode("utf-8"))
     english = next(language for language in payload["languages"] if language["tag"] == "en")
     return {key for key, _value in english["entries"]}
 

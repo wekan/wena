@@ -6,11 +6,12 @@ import json
 from pathlib import Path
 import struct
 import sys
-import zlib
+import lzma
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MAGIC = b"WENA-I18N-1\n"
+MAGIC = b"WENA-I18N-2\n"
+MAXIMUM_PAYLOAD = 128 * 1024 * 1024
 
 
 def fail(message):
@@ -33,12 +34,12 @@ def verify(lock_path=None):
     if not raw.startswith(MAGIC) or len(raw) < len(MAGIC) + 8:
         fail("catalog marker is missing")
     uncompressed_size, header_languages = struct.unpack(">II", raw[len(MAGIC):len(MAGIC) + 8])
-    if uncompressed_size > 64 * 1024 * 1024:
-        fail("uncompressed catalog exceeds 64 MiB safety limit")
+    if uncompressed_size > MAXIMUM_PAYLOAD:
+        fail("uncompressed catalog exceeds 128 MiB safety limit")
     try:
-        payload_bytes = zlib.decompress(raw[len(MAGIC) + 8:])
+        payload_bytes = lzma.decompress(raw[len(MAGIC) + 8:], format=lzma.FORMAT_XZ, memlimit=MAXIMUM_PAYLOAD * 2)
         payload = json.loads(payload_bytes.decode("utf-8"))
-    except (zlib.error, UnicodeDecodeError, json.JSONDecodeError) as error:
+    except (lzma.LZMAError, UnicodeDecodeError, json.JSONDecodeError) as error:
         fail(f"catalog payload is invalid: {error}")
     if len(payload_bytes) != uncompressed_size:
         fail("uncompressed byte count differs from header")
