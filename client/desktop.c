@@ -307,6 +307,9 @@ typedef struct WenaDesktopToolbar {
     /* WeKan's member menu: the chosen entry + 1, for the frame to open. */
     int member_choice;
     int is_admin;
+    /* WeKan's announcement bar under the header, and its close was clicked. */
+    const char *announcement;
+    int announcement_closed;
     WenaMemberItem member_ids[WENA_MEMBER_ITEM_COUNT];
 } WenaDesktopToolbar;
 
@@ -315,6 +318,19 @@ static void desktop_toolbar(struct nk_context *context, void *opaque)
     WenaDesktopToolbar *toolbar;
     toolbar = (WenaDesktopToolbar *)opaque;
     toolbar->actions = 0u;
+    if (toolbar->announcement != NULL && toolbar->announcement[0] != '\0') {
+        /* WeKan's .announcement: #f8ecbd, the message centred, a close cross. */
+        struct nk_rect bar;
+        nk_layout_row_begin(context, NK_DYNAMIC, 30.0f, 2);
+        nk_layout_row_push(context, 0.95f);
+        bar = nk_widget_bounds(context);
+        wena_wekan_fill(context, bar.x, bar.y, bar.w + 60.0f, bar.h, 0x1000000 | 0xf8ecbd, 0.0f);
+        wena_wekan_text(context, toolbar->announcement, WENA_WEKAN_FONT_BODY, WENA_WEKAN_TEXT, NK_TEXT_CENTERED);
+        nk_layout_row_push(context, 0.04f);
+        if (wena_wekan_icon_button(context, WENA_ICON_TIMES, wena_ui_text(WENA_UI_TEXT_CLOSE), 12.0f, WENA_WEKAN_ICON))
+            toolbar->announcement_closed = 1;
+        nk_layout_row_end(context);
+    }
     toolbar->filter_changed = 0;
     toolbar->board_refresh = 0;
     toolbar->collapse_retry = 0;
@@ -1356,6 +1372,21 @@ static void desktop_aga_wait(int had_events, int *quiet)
 #define DESKTOP_RESIZABLE SDL_WINDOW_RESIZABLE
 #endif
 
+/* WeKan's announcement bar: the message while it is enabled and this user
+ * has not dismissed this text (models/announcements.js). */
+static void desktop_banner(sqlite3 *database, const char *actor, char *banner, size_t capacity,
+                           char *version, size_t version_capacity)
+{
+    WenaWekanAnnouncement note;
+    char dismissed[128];
+    banner[0] = version[0] = '\0';
+    if (!wena_wekan_sync_announcement(database, &note) || !note.enabled || note.body[0] == '\0' ||
+        !wena_wekan_announcement_version(&note, version, version_capacity)) return;
+    if (wena_wekan_sync_dismissed_announcement(database, actor, dismissed, sizeof(dismissed)) &&
+        !strcmp(dismissed, version)) return;
+    if (strlen(note.body) < capacity) strcpy(banner, note.body);
+}
+
 static void desktop_admin_info(WenaAdminPanel *admin, const char *label, const char *value)
 {
     if (admin->info_count >= WENA_ADMIN_INFO_LINES) return;
@@ -1588,6 +1619,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     WenaMemberProfileForm profile_form;
     WenaMemberSettingsForm settings_form;
     WenaAdminPanel admin;
+    char banner[2048], banner_version[128];
     WenaWekanPerson *people;
     size_t people_count;
     WenaWekanNotification notifications[WENA_WEKAN_NOTIFICATIONS];
@@ -1691,6 +1723,7 @@ int DESKTOP_MAIN(int argc, char **argv)
     memset(&profile_form, 0, sizeof(profile_form));
     memset(&settings_form, 0, sizeof(settings_form));
     memset(&admin, 0, sizeof(admin));
+    banner[0] = banner_version[0] = '\0';
     people = NULL;
     people_count = 0;
     notification_count = 0;
@@ -2043,6 +2076,7 @@ board_session:
             WenaWekanProfile me;
             user_is_admin = wena_wekan_sync_profile(database, actor_id, &me) && me.is_admin;
         }
+        desktop_banner(database, actor_id, banner, sizeof(banner), banner_version, sizeof(banner_version));
         views.database = database;
         views.actor = actor_id;
         views.renderer = renderer;
@@ -2418,6 +2452,7 @@ window_ready:
                     memcpy(note.body, admin.announcement, (size_t)admin.announcement_length);
                 if (!wena_wekan_sync_set_announcement(database, &note))
                     wena_debug_log("announcement: %s", sqlite3_errmsg(database));
+                desktop_banner(database, actor_id, banner, sizeof(banner), banner_version, sizeof(banner_version));
             }
             if ((admin_action & WENA_ADMIN_LOGIN) != 0u && !smoke &&
                 !wena_wekan_sync_set_registration(database, admin.disable_registration, admin.disable_forgot_password))
@@ -2568,6 +2603,15 @@ window_ready:
                 WenaDesktopPanel menu_panel;
                 const char *dragged;
                 toolbar.is_admin = wekan_mode && user_is_admin;
+                toolbar.announcement = banner;
+                if (toolbar.announcement_closed) {
+                    /* Dismissed as WeKan's: this text's version, kept. */
+                    toolbar.announcement_closed = 0;
+                    if (!smoke && banner_version[0] != '\0' &&
+                        !wena_wekan_sync_dismiss_announcement(database, actor_id, banner_version))
+                        wena_debug_log("announcement: %s", sqlite3_errmsg(database));
+                    banner[0] = '\0';
+                }
                 menu_panel = desktop_menus(context, &toolbar, &editors, &layout, (float)width, (float)height);
                 if (menu_panel != DESKTOP_PANEL_NONE) opened_panel = menu_panel;
                 /* WeKan's member menu: its entries that Wena has. */

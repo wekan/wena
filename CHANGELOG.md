@@ -62,6 +62,12 @@ Thanks to xet7.
   `announcementVersion`, a djb2 over the id, title and body in UTF-16
   units - and the user's `profile.dismissedAnnouncementVersion` are read
   and written, matching WeKan's own values.
+- The board shows WeKan's announcement bar under the header (`#f8ecbd`,
+  the message centred, a close cross) while the announcement is on and the
+  user has not dismissed this text. Closing it writes
+  `profile.dismissedAnnouncementVersion`, as WeKan's dismissAnnouncement
+  does, so a dismissal holds in both, and an edited announcement shows
+  again.
 - **Settings / Version**: what Wena runs on: the database file, SQLite, SDL,
   the platform, and the counts of people and boards.
 - `--show admin-version`, `admin-announcement`, `admin-people` and
