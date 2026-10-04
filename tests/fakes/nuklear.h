@@ -36,6 +36,7 @@ struct nk_style_button {
 struct nk_style_window {
     struct nk_style_item fixed_background;
     struct nk_vec2 padding, group_padding, popup_padding, spacing, scrollbar_size;
+    float group_border;
     struct nk_color border_color;
 };
 struct nk_style_edit { struct nk_style_item normal, hover, active; float border; };
@@ -116,6 +117,9 @@ int nk_button_label(struct nk_context *context, const char *title);
 int nk_group_begin(struct nk_context *context, const char *title,
                    unsigned int flags);
 void nk_group_end(struct nk_context *context);
+int nk_group_begin_titled(struct nk_context *context, const char *name, const char *title, unsigned int flags);
+void nk_layout_row(struct nk_context *context, int format, float height, int columns, const float *ratio);
+void nk_layout_row_static(struct nk_context *context, float height, int item_width, int columns);
 
 struct nk_color nk_rgb(int r, int g, int b);
 struct nk_color nk_rgba(int r, int g, int b, int a);
@@ -142,6 +146,7 @@ int nk_widget_is_hovered(struct nk_context *);
 void nk_spacing(struct nk_context *, int columns);
 void nk_spacer(struct nk_context *);
 int nk_input_is_mouse_hovering_rect(const struct nk_input *, struct nk_rect);
+int nk_input_mouse_clicked(const struct nk_input *, enum nk_buttons, struct nk_rect);
 int nk_input_is_mouse_pressed(const struct nk_input *, enum nk_buttons);
 int nk_input_is_mouse_released(const struct nk_input *, enum nk_buttons);
 int nk_input_is_mouse_down(const struct nk_input *, enum nk_buttons);

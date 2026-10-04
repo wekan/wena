@@ -504,15 +504,20 @@ typedef struct WenaDesktopViews {
     size_t chart_view;
     int chart_ready;
     WenaChartResult chart;
+    WenaViewData all;         /* every board's, for two views */
+    int all_loaded;
+    sqlite3_int64 all_changes;
+    WenaBoardViewState state;
     char open_card[WENA_ID_CAPACITY];
+    char open_board[WENA_ID_CAPACITY];
 } WenaDesktopViews;
 
-/* Which views Wena draws so far: the lists and WeKan's report charts. */
+/* Which views Wena draws so far: every one but the Map. */
 static int desktop_view_drawn(size_t view)
 {
     size_t count;
     const WenaBoardView *views = wena_board_views(&count);
-    return view < count && (view <= WENA_BOARD_VIEW_LISTS || views[view].chart != NULL);
+    return view < count && strcmp(views[view].key, "board-view-map") != 0;
 }
 
 static const char *desktop_view_text(const char *key, const char *fallback)
@@ -523,8 +528,10 @@ static const char *desktop_view_text(const char *key, const char *fallback)
 static void desktop_views_reset(WenaDesktopViews *views)
 {
     wena_view_data_free(&views->data);
+    wena_view_data_free(&views->all);
     wena_chart_result_free(&views->chart);
     views->loaded = 0;
+    views->all_loaded = 0;
     views->chart_ready = 0;
 }
 
@@ -563,6 +570,26 @@ static void desktop_board_view(struct nk_context *context, void *opaque, float h
             for (f = 0; f < sizeof(flow) / sizeof(flow[0]); ++f)
                 if (!strcmp(view->chart, flow[f])) { sprintf(key, "flow-note-%s", flow[f]); note = wena_ui_key_text(key, NULL); }
             (void)wena_board_chart_render(context, wena_ui_key_text(view->label_key, NULL), note, &views->chart);
+        } else if (views->loaded && view->chart == NULL) {
+            char card[WENA_ID_CAPACITY];
+            unsigned int action;
+            /* The calendar of every board and Bigboard read every board. */
+            if (!strcmp(view->key, "board-view-multiboard-cal") || !strcmp(view->key, "board-view-bigboard")) {
+                if (!views->all_loaded || views->all_changes != changes) {
+                    wena_view_data_free(&views->all);
+                    views->all_loaded = wena_wekan_views_load_all(views->database, views->actor, &views->all);
+                    views->all_changes = changes;
+                }
+            }
+            action = wena_board_view_render(context, views->view, &views->state, &views->data,
+                                            views->all_loaded ? &views->all : NULL, (double)time(NULL) * 1000.0,
+                                            height, card, sizeof(card));
+            if ((action & WENA_BOARD_VIEW_OPEN_CARD) != 0u) {
+                const WenaViewCard *shown = wena_view_card(&views->data, card);
+                if (shown == NULL && views->all_loaded) shown = wena_view_card(&views->all, card);
+                strcpy(views->open_card, card);
+                strcpy(views->open_board, shown != NULL && shown->board_id[0] ? shown->board_id : views->board);
+            }
         } else {
             nk_layout_row_dynamic(context, 24.0f, 1);
             wena_wekan_text(context, wena_ui_key_text(views->loaded ? "no-results" : "flow-error", NULL),
@@ -2302,6 +2329,17 @@ window_ready:
                         running = 0;
                     } else wena_debug_log("new board: %s", wena_wekan_sync_error());
                 }
+            }
+            /* A card a view chose: its details here, or its board. */
+            if (views.open_card[0]) {
+                const WenaCard *shown = desktop_selected_card(snapshot, views.open_card);
+                if (shown != NULL) (void)wena_card_details_open(&editors.details, shown);
+                else if (strcmp(views.open_board, snapshot->board.id) && strlen(views.open_board) < sizeof(next_board) &&
+                         !smoke) {
+                    strcpy(next_board, views.open_board);
+                    running = 0;
+                }
+                views.open_card[0] = '\0';
             }
             if (notifications_open && (search.visible || sidebar.visible)) notifications_open = 0;
             if (notifications_open) {

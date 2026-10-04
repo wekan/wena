@@ -533,6 +533,7 @@ TEST_SUITES = (
     ('board-views', 'test_board_views.sh', "WeKan's board views: the menu's 35 views, a report chart drawn"),
     ('wekan-views', 'test_wekan_views.sh', "WeKan's records for the board views, from wekan.sqlite"),
     ('charts', 'test_charts.py', "Wena's report charts against WeKan's own calculations in Node"),
+    ('view-rows', 'test_view_rows.py', "Wena's Table, Calendar, Time, Timeline, Gantt and Scrum views against WeKan's code"),
     ('wekan-sync', 'test_wekan_sync.sh', "WeKan's documents and Wena's tables: import, changed fields only, new documents, deletes"),
     ('ferretdb-compat', 'test_ferretdb_compat.sh', 'Ferretdb compat regression checks'),
     ('wekan-compat-inventory', 'test_wekan_compat_inventory.py', 'Wekan compat inventory regression checks'),

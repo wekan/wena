@@ -43,6 +43,7 @@ int nk_widget_is_hovered(struct nk_context *c) { (void)c; return 0; }
 void nk_spacing(struct nk_context *c, int n) { (void)c; (void)n; }
 void nk_spacer(struct nk_context *c) { (void)c; }
 int nk_input_is_mouse_hovering_rect(const struct nk_input *i, struct nk_rect r) { (void)i; (void)r; return 0; }
+int nk_input_mouse_clicked(const struct nk_input *i, enum nk_buttons b, struct nk_rect r) { (void)i; (void)b; (void)r; return 0; }
 int nk_input_is_mouse_pressed(const struct nk_input *i, enum nk_buttons b) { (void)i; (void)b; return 0; }
 int nk_input_is_mouse_released(const struct nk_input *i, enum nk_buttons b) { (void)i; (void)b; return 0; }
 int nk_input_is_mouse_down(const struct nk_input *i, enum nk_buttons b) { (void)i; (void)b; return 0; }

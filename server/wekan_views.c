@@ -91,8 +91,15 @@ static const char *const card_columns[] = {
     "x->>'$.poker.estimation', ",
     "(SELECT group_concat((value->>'cardId') || ':' || CASE value->>'type' WHEN 'blocks' THEN 'b' ELSE 'i' END, ';') ",
     "FROM json_each(x, '$.cardDependencies') WHERE value->>'type' IN ('blocks', 'is-blocked-by')), ",
-    "substr(coalesce(x->>'description', ''), 1, 255)",
+    "substr(coalesce(x->>'description', ''), 1, 255), ",
+    /* 25: the card number, the Map's place, the custom fields, card.scrum */
+    "x->>'cardNumber', x->>'mapX', x->>'mapY', ",
+    "(SELECT group_concat((value->>'_id') || char(31) || json_type(value, '$.value') || char(31) || ",
+    "coalesce(value->>'value', ''), char(30)) FROM json_each(x, '$.customFields')), ",
+    "x->>'$.scrum.sprintId', x->>'$.scrum.releaseId', x->>'$.scrum.issueType', x->>'$.scrum.backlogRank', ",
+    "CASE WHEN coalesce(x->>'dueComplete', 0) THEN 1 ELSE 0 END",
     NULL};
+#define CARD_COLUMN_COUNT 34
 
 /* Appends parts to `sql`; 0 when they do not fit. */
 static int append(char *sql, size_t capacity, const char *const *parts)
@@ -155,6 +162,36 @@ static int read_card(sqlite3_stmt *s, WenaViewCard *card)
     }
     card->dependency_count = split_dependencies(card->dependencies, WENA_VIEW_DEPENDENCIES, sqlite3_column_text(s, 23));
     copy(card->description, sizeof(card->description), sqlite3_column_text(s, 24));
+    card->card_number = sqlite3_column_int(s, 25);
+    card->map_x = time_of(s, 26);
+    card->map_y = time_of(s, 27);
+    /* "id US type US value RS ..." */
+    {
+        const char *at = (const char *)sqlite3_column_text(s, 28);
+        while (at != NULL && *at && card->field_count < WENA_VIEW_FIELDS) {
+            const char *type = strchr(at, 31), *value, *end;
+            WenaViewFieldValue *field = &card->fields[card->field_count];
+            if (type == NULL || (value = strchr(type + 1, 31)) == NULL) break;
+            end = strchr(value + 1, 30);
+            if ((size_t)(type - at) < sizeof(field->field_id)) {
+                size_t length = end != NULL ? (size_t)(end - value - 1) : strlen(value + 1);
+                memcpy(field->field_id, at, (size_t)(type - at));
+                field->field_id[type - at] = '\0';
+                if (length >= sizeof(field->value)) length = sizeof(field->value) - 1;
+                memcpy(field->value, value + 1, length);
+                field->value[length] = '\0';
+                field->is_number = !strncmp(type + 1, "integer", 7) || !strncmp(type + 1, "real", 4);
+                field->number = field->is_number ? strtod(field->value, NULL) : 0.0;
+                ++card->field_count;
+            }
+            at = end != NULL ? end + 1 : NULL;
+        }
+    }
+    copy(card->sprint_id, sizeof(card->sprint_id), sqlite3_column_text(s, 29));
+    copy(card->release_id, sizeof(card->release_id), sqlite3_column_text(s, 30));
+    copy(card->issue_type, sizeof(card->issue_type), sqlite3_column_text(s, 31));
+    card->backlog_rank = time_of(s, 32);
+    card->due_complete = sqlite3_column_int(s, 33);
     return 1;
 }
 
@@ -202,22 +239,200 @@ static int load_board(sqlite3 *db, const char *board, WenaViewData *data)
         ++data->label_count;
     }
     sqlite3_finalize(statement);
+    if (step != SQLITE_DONE) return 0;
+    /* The board's color, active members, Map image and Scrum settings. */
+    sprintf(sql, "SELECT coalesce(x->>'color', ''), (SELECT count(*) FROM json_each(x, '$.members') m "
+                 "WHERE coalesce(m.value->>'isActive', 1)), coalesce(x->>'mapImageAttachmentId', ''), "
+                 "CASE WHEN x->>'$.scrum.settings.estimateSource' = 'customField' THEN 1 ELSE 0 END, "
+                 "coalesce(x->>'$.scrum.settings.estimateCustomFieldId', ''), "
+                 "coalesce(x->>'$.scrum.settings.estimateUnit', 'points') "
+                 "FROM (SELECT _ferretdb_sjson AS x FROM %s WHERE _ferretdb_sjson->'_id' = json_quote(?1))", boards);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+    step = sqlite3_step(statement);
+    if (step == SQLITE_ROW) {
+        copy(data->board_color, sizeof(data->board_color), sqlite3_column_text(statement, 0));
+        data->active_members = sqlite3_column_int(statement, 1);
+        copy(data->map_image, sizeof(data->map_image), sqlite3_column_text(statement, 2));
+        data->estimate_from_field = sqlite3_column_int(statement, 3);
+        copy(data->estimate_field_id, sizeof(data->estimate_field_id), sqlite3_column_text(statement, 4));
+        copy(data->estimate_unit, sizeof(data->estimate_unit), sqlite3_column_text(statement, 5));
+    }
+    sqlite3_finalize(statement);
+    return step == SQLITE_ROW || step == SQLITE_DONE;
+}
+
+static int load_custom_fields(sqlite3 *db, const char *board, WenaViewData *data)
+{
+    char fields[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    sqlite3_stmt *statement = NULL;
+    size_t capacity = 0, item_capacity = 0;
+    int step;
+    if (!table(db, "customFields", fields)) return 1;
+    sprintf(sql, "SELECT x->>'_id', coalesce(x->>'name', ''), coalesce(x->>'type', ''), i.value->>'_id', "
+                 "coalesce(i.value->>'name', '') FROM (SELECT _ferretdb_sjson AS x FROM %s) "
+                 "LEFT JOIN json_each(x, '$.settings.dropdownItems') i WHERE EXISTS (SELECT 1 FROM json_each(x, '$.boardIds') b "
+                 "WHERE b.value = ?1) ORDER BY x->>'name', x->>'_id', i.key", fields);
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+    sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+    while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+        const char *id = (const char *)sqlite3_column_text(statement, 0);
+        if (id == NULL) continue;
+        if (data->custom_field_count == 0 || strcmp(data->custom_fields[data->custom_field_count - 1].id, id)) {
+            WenaViewCustomField *field;
+            data->custom_fields = (WenaViewCustomField *)grow(data->custom_fields, &capacity, data->custom_field_count,
+                                                             sizeof(WenaViewCustomField));
+            if (data->custom_fields == NULL) { sqlite3_finalize(statement); return 0; }
+            field = &data->custom_fields[data->custom_field_count++];
+            copy(field->id, sizeof(field->id), sqlite3_column_text(statement, 0));
+            copy(field->name, sizeof(field->name), sqlite3_column_text(statement, 1));
+            copy(field->type, sizeof(field->type), sqlite3_column_text(statement, 2));
+        }
+        if (sqlite3_column_text(statement, 3) != NULL) {
+            struct WenaViewFieldItem *item;
+            data->field_items = (struct WenaViewFieldItem *)grow(data->field_items, &item_capacity,
+                                                                  data->field_item_count, sizeof(*data->field_items));
+            if (data->field_items == NULL) { sqlite3_finalize(statement); return 0; }
+            item = &data->field_items[data->field_item_count++];
+            copy(item->field_id, sizeof(item->field_id), (const unsigned char *)id);
+            copy(item->item_id, sizeof(item->item_id), sqlite3_column_text(statement, 3));
+            copy(item->name, sizeof(item->name), sqlite3_column_text(statement, 4));
+        }
+    }
+    sqlite3_finalize(statement);
     return step == SQLITE_DONE;
 }
 
+/* sprint.report's totals: [committed, completed, added, removed, incomplete]. */
+static const char *const totals[5] = {"committed", "completed", "added", "removed", "incomplete"};
+
+static int load_scrum(sqlite3 *db, const char *board, WenaViewData *data)
+{
+    char name[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[2048];
+    sqlite3_stmt *statement = NULL;
+    size_t capacity = 0;
+    int step, t;
+    if (table(db, "scrumSprints", name)) {
+        sprintf(sql, "SELECT x->>'_id', coalesce(x->>'name', ''), coalesce(x->>'goal', ''), coalesce(x->>'state', ''), "
+                     "x->>'plannedStart', x->>'plannedEnd', x->>'$.closeSnapshot.at', "
+                     "CASE WHEN x->'report' IS NOT NULL AND x->'closeSnapshot' IS NOT NULL THEN 1 ELSE 0 END, "
+                     "coalesce(x->>'$.report.unit', ''), coalesce(x->>'$.report.plannedWorkingDays', -1), "
+                     "json(x->'report') FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE x->>'boardId' = ?1 "
+                     "ORDER BY coalesce(x->>'plannedStart', x->>'_id'), x->>'_id'", name);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+        sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+        while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+            WenaViewSprint *sprint;
+            data->sprints = (WenaViewSprint *)grow(data->sprints, &capacity, data->sprint_count, sizeof(WenaViewSprint));
+            if (data->sprints == NULL) { sqlite3_finalize(statement); return 0; }
+            sprint = &data->sprints[data->sprint_count++];
+            memset(sprint, 0, sizeof(*sprint));
+            copy(sprint->id, sizeof(sprint->id), sqlite3_column_text(statement, 0));
+            copy(sprint->name, sizeof(sprint->name), sqlite3_column_text(statement, 1));
+            copy(sprint->goal, sizeof(sprint->goal), sqlite3_column_text(statement, 2));
+            copy(sprint->state, sizeof(sprint->state), sqlite3_column_text(statement, 3));
+            sprint->planned_start = time_of(statement, 4);
+            sprint->planned_end = time_of(statement, 5);
+            sprint->closed_at = time_of(statement, 6);
+            sprint->has_report = sqlite3_column_int(statement, 7);
+            copy(sprint->unit, sizeof(sprint->unit), sqlite3_column_text(statement, 8));
+            sprint->working_days = sqlite3_column_int(statement, 9);
+        }
+        sqlite3_finalize(statement);
+        if (step != SQLITE_DONE) return 0;
+        /* Each report's totals: count, estimate, unknown. */
+        for (t = 0; t < 5; ++t) {
+            size_t i;
+            sprintf(sql, "SELECT x->>'_id', coalesce(x->>'$.report.%s.count', 0), coalesce(x->>'$.report.%s.estimate', 0), "
+                         "coalesce(x->>'$.report.%s.unknown', 0) FROM (SELECT _ferretdb_sjson AS x FROM %s) "
+                         "WHERE x->>'boardId' = ?1 AND x->'report' IS NOT NULL", totals[t], totals[t], totals[t], name);
+            if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+            sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+            while ((step = sqlite3_step(statement)) == SQLITE_ROW)
+                for (i = 0; i < data->sprint_count; ++i)
+                    if (!strcmp(data->sprints[i].id, (const char *)sqlite3_column_text(statement, 0))) {
+                        data->sprints[i].totals[t][0] = sqlite3_column_double(statement, 1);
+                        data->sprints[i].totals[t][1] = sqlite3_column_double(statement, 2);
+                        data->sprints[i].totals[t][2] = sqlite3_column_double(statement, 3);
+                    }
+            sqlite3_finalize(statement);
+            if (step != SQLITE_DONE) return 0;
+        }
+    }
+    capacity = 0;
+    if (table(db, "scrumReleases", name)) {
+        sprintf(sql, "SELECT x->>'_id', coalesce(x->>'name', ''), coalesce(x->>'goal', ''), coalesce(x->>'state', ''), "
+                     "coalesce(x->>'notes', ''), x->>'plannedStart', x->>'plannedEnd', x->>'releasedAt' "
+                     "FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE x->>'boardId' = ?1 "
+                     "ORDER BY coalesce(x->>'plannedStart', x->>'_id'), x->>'_id'", name);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+        sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+        while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+            WenaViewRelease *release;
+            data->releases = (WenaViewRelease *)grow(data->releases, &capacity, data->release_count, sizeof(WenaViewRelease));
+            if (data->releases == NULL) { sqlite3_finalize(statement); return 0; }
+            release = &data->releases[data->release_count++];
+            copy(release->id, sizeof(release->id), sqlite3_column_text(statement, 0));
+            copy(release->name, sizeof(release->name), sqlite3_column_text(statement, 1));
+            copy(release->goal, sizeof(release->goal), sqlite3_column_text(statement, 2));
+            copy(release->state, sizeof(release->state), sqlite3_column_text(statement, 3));
+            copy(release->notes, sizeof(release->notes), sqlite3_column_text(statement, 4));
+            release->planned_start = time_of(statement, 5);
+            release->planned_end = time_of(statement, 6);
+            release->released_at = time_of(statement, 7);
+        }
+        sqlite3_finalize(statement);
+        if (step != SQLITE_DONE) return 0;
+    }
+    capacity = 0;
+    if (table(db, "scrumEvents", name)) {
+        sprintf(sql, "SELECT x->>'_id', coalesce(x->>'sprintId', ''), coalesce(x->>'kind', ''), coalesce(x->>'name', ''), "
+                     "x->>'startsAt', coalesce(x->>'timeboxMinutes', 0), coalesce(x->>'notes', '') "
+                     "FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE x->>'boardId' = ?1 "
+                     "ORDER BY x->>'startsAt', x->>'_id'", name);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
+        sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+        while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+            WenaViewEvent *event;
+            data->events = (WenaViewEvent *)grow(data->events, &capacity, data->event_count, sizeof(WenaViewEvent));
+            if (data->events == NULL) { sqlite3_finalize(statement); return 0; }
+            event = &data->events[data->event_count++];
+            copy(event->id, sizeof(event->id), sqlite3_column_text(statement, 0));
+            copy(event->sprint_id, sizeof(event->sprint_id), sqlite3_column_text(statement, 1));
+            copy(event->kind, sizeof(event->kind), sqlite3_column_text(statement, 2));
+            copy(event->name, sizeof(event->name), sqlite3_column_text(statement, 3));
+            event->starts_at = time_of(statement, 4);
+            event->timebox_minutes = sqlite3_column_double(statement, 5);
+            copy(event->notes, sizeof(event->notes), sqlite3_column_text(statement, 6));
+        }
+        sqlite3_finalize(statement);
+        if (step != SQLITE_DONE) return 0;
+    }
+    return 1;
+}
+
+static int load_lists_where(sqlite3 *db, const char *where, const char *bind, WenaViewData *data);
+
 static int load_lists(sqlite3 *db, const char *board, WenaViewData *data)
 {
-    char lists[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[1024];
+    return load_lists_where(db, "x->>'boardId' = ?1", board, data);
+}
+
+static int load_lists_where(sqlite3 *db, const char *where, const char *bind, WenaViewData *data)
+{
+    char lists[WENA_FERRETDB_TABLE_CAPACITY + 16], sql[2048];
     sqlite3_stmt *statement = NULL;
     size_t capacity = 0;
     int step;
     if (!table(db, "lists", lists)) return 1;
     sprintf(sql, "SELECT x->>'_id', coalesce(x->>'title', ''), coalesce(x->>'sort', 0), "
-                 "CASE WHEN coalesce(x->>'$.wipLimit.enabled', 0) THEN 1 ELSE 0 END, coalesce(x->>'$.wipLimit.value', 0) "
-                 "FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE x->>'boardId' = ?1 AND NOT coalesce(x->>'archived', 0) "
-                 "AND coalesce(x->>'type', 'list') = 'list' ORDER BY coalesce(x->>'sort', 0), x->>'_id'", lists);
+                 "CASE WHEN coalesce(x->>'$.wipLimit.enabled', 0) THEN 1 ELSE 0 END, coalesce(x->>'$.wipLimit.value', 0), "
+                 "coalesce(x->>'boardId', '') FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE ", lists);
+    if (!append1(sql, sizeof(sql), where) ||
+        !append1(sql, sizeof(sql), " AND NOT coalesce(x->>'archived', 0) AND coalesce(x->>'type', 'list') = 'list' "
+                                   "ORDER BY coalesce(x->>'sort', 0), x->>'_id'")) return 0;
     if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
-    sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 1, bind, -1, SQLITE_TRANSIENT);
     while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
         WenaViewList *list;
         data->lists = (WenaViewList *)grow(data->lists, &capacity, data->list_count, sizeof(WenaViewList));
@@ -229,6 +444,7 @@ static int load_lists(sqlite3 *db, const char *board, WenaViewData *data)
         list->sort = sqlite3_column_double(statement, 2);
         list->wip_enabled = sqlite3_column_int(statement, 3);
         list->wip_value = sqlite3_column_int(statement, 4);
+        copy(list->board_id, sizeof(list->board_id), sqlite3_column_text(statement, 5));
     }
     sqlite3_finalize(statement);
     return step == SQLITE_DONE;
@@ -289,10 +505,18 @@ static int load_activities(sqlite3 *db, const char *board, WenaViewData *data)
     size_t capacity = 0;
     int step;
     if (!table(db, "activities", activities)) return 1;
-    sprintf(sql, "SELECT coalesce(x->>'activityType', ''), coalesce(x->>'cardId', ''), coalesce(x->>'listId', ''), "
-                 "coalesce(x->>'oldListId', ''), coalesce(x->>'userId', ''), x->>'createdAt' "
-                 "FROM (SELECT _ferretdb_sjson AS x FROM %s) WHERE x->>'boardId' = ?1 "
-                 "ORDER BY x->>'createdAt', x->>'_id'", activities);
+    {
+        static const char *const head[] = {
+            "SELECT coalesce(x->>'activityType', ''), coalesce(x->>'cardId', ''), coalesce(x->>'listId', ''), ",
+            "coalesce(x->>'oldListId', ''), coalesce(x->>'userId', ''), x->>'createdAt', ",
+            "coalesce(x->>'oldSwimlaneId', ''), coalesce(x->>'memberId', ''), coalesce(x->>'assigneeId', ''), ",
+            "coalesce(x->>'labelId', ''), substr(coalesce(x->>'oldValue', ''), 1, 255), coalesce(x->>'timeKey', ''), ",
+            "x->>'timeOldValue', x->'oldListId' IS NOT NULL, x->'oldSwimlaneId' IS NOT NULL ",
+            "FROM (SELECT _ferretdb_sjson AS x FROM ", NULL};
+        sql[0] = '\0';
+        if (!append(sql, sizeof(sql), head) || !append1(sql, sizeof(sql), activities) ||
+            !append1(sql, sizeof(sql), ") WHERE x->>'boardId' = ?1 ORDER BY x->>'createdAt', x->>'_id'")) return 0;
+    }
     if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) return 0;
     sqlite3_bind_text(statement, 1, board, -1, SQLITE_TRANSIENT);
     while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
@@ -307,6 +531,15 @@ static int load_activities(sqlite3 *db, const char *board, WenaViewData *data)
         copy(a->old_list_id, sizeof(a->old_list_id), sqlite3_column_text(statement, 3));
         copy(a->user_id, sizeof(a->user_id), sqlite3_column_text(statement, 4));
         a->at = time_of(statement, 5);
+        copy(a->old_swimlane_id, sizeof(a->old_swimlane_id), sqlite3_column_text(statement, 6));
+        copy(a->member_id, sizeof(a->member_id), sqlite3_column_text(statement, 7));
+        copy(a->assignee_id, sizeof(a->assignee_id), sqlite3_column_text(statement, 8));
+        copy(a->label_id, sizeof(a->label_id), sqlite3_column_text(statement, 9));
+        copy(a->old_value, sizeof(a->old_value), sqlite3_column_text(statement, 10));
+        copy(a->time_key, sizeof(a->time_key), sqlite3_column_text(statement, 11));
+        a->time_old = time_of(statement, 12);
+        a->has_old_list = sqlite3_column_int(statement, 13);
+        a->has_old_swimlane = sqlite3_column_int(statement, 14);
     }
     sqlite3_finalize(statement);
     return step == SQLITE_DONE;
@@ -419,7 +652,7 @@ static int load_changes(sqlite3 *db, const char *board, WenaViewData *data)
             if (!read_card(statement, &card)) continue;
             for (j = 0; j < data->card_count; ++j) if (!strcmp(data->cards[j].id, card.id)) { known = 1; break; }
             if (known) continue;
-            card.deleted_at = time_of(statement, 25);
+            card.deleted_at = time_of(statement, CARD_COLUMN_COUNT);
             data->cards = (WenaViewCard *)grow(data->cards, &capacity, data->card_count, sizeof(WenaViewCard));
             if (data->cards == NULL) { sqlite3_finalize(statement); return 0; }
             data->cards[data->card_count++] = card;
@@ -436,7 +669,8 @@ int wena_wekan_views_load(sqlite3 *db, const char *board, WenaViewData *data)
     memset(data, 0, sizeof(*data));
     strcpy(data->board_id, board);
     if ((table(db, "cards", cards) && !load_cards(db, cards, "x->>'boardId' = ?1", board, data)) ||
-        !load_board(db, board, data) || !load_lists(db, board, data) || !load_swimlanes(db, board, data) ||
+        !load_board(db, board, data) || !load_custom_fields(db, board, data) || !load_scrum(db, board, data) ||
+        !load_lists(db, board, data) || !load_swimlanes(db, board, data) ||
         !load_users(db, data) || !load_activities(db, board, data) || !load_changes(db, board, data)) {
         wena_view_data_free(data);
         return 0;
@@ -456,6 +690,34 @@ int wena_wekan_views_load_all(sqlite3 *db, const char *actor, WenaViewData *data
                    "'$.members') m WHERE m.value->>'userId' = ?1 AND coalesce(m.value->>'isActive', 1))) "
                    "AND NOT coalesce(x->>'archived', 0)", boards);
     if (!load_cards(db, cards, where, actor, data) || !load_users(db, data)) { wena_view_data_free(data); return 0; }
+    /* The boards themselves, as Bigboard stacks them (bigboardQuery: the
+     * user's boards, not archived, not WeKan's helper boards, by sort), and
+     * their lists. */
+    {
+        char sql[1024], lists_where[1024];
+        sqlite3_stmt *statement = NULL;
+        size_t capacity = 0;
+        int step;
+        sprintf(sql, "SELECT b._ferretdb_sjson->>'_id', coalesce(b._ferretdb_sjson->>'title', '') FROM %s b "
+                     "WHERE NOT coalesce(b._ferretdb_sjson->>'archived', 0) AND coalesce(b._ferretdb_sjson->>'type', "
+                     "'board') = 'board' AND coalesce(b._ferretdb_sjson->>'title', '') NOT GLOB '^*^' AND EXISTS "
+                     "(SELECT 1 FROM json_each(b._ferretdb_sjson, '$.members') m WHERE m.value->>'userId' = ?1) "
+                     "ORDER BY coalesce(b._ferretdb_sjson->>'sort', 0), b._ferretdb_sjson->>'_id'", boards);
+        if (sqlite3_prepare_v2(db, sql, -1, &statement, NULL) != SQLITE_OK) { wena_view_data_free(data); return 0; }
+        sqlite3_bind_text(statement, 1, actor, -1, SQLITE_TRANSIENT);
+        while ((step = sqlite3_step(statement)) == SQLITE_ROW) {
+            data->boards = (struct WenaViewBoard *)grow(data->boards, &capacity, data->board_count, sizeof(*data->boards));
+            if (data->boards == NULL) break;
+            copy(data->boards[data->board_count].id, WENA_VIEW_ID, sqlite3_column_text(statement, 0));
+            copy(data->boards[data->board_count].title, WENA_VIEW_TITLE, sqlite3_column_text(statement, 1));
+            ++data->board_count;
+        }
+        sqlite3_finalize(statement);
+        if (step != SQLITE_DONE) { wena_view_data_free(data); return 0; }
+        sprintf(lists_where, "x->>'boardId' IN (SELECT b._ferretdb_sjson->>'_id' FROM %s b WHERE EXISTS (SELECT 1 FROM "
+                             "json_each(b._ferretdb_sjson, '$.members') m WHERE m.value->>'userId' = ?1))", boards);
+        if (table(db, "lists", sql) && !load_lists_where(db, lists_where, actor, data)) { wena_view_data_free(data); return 0; }
+    }
     /* Each card's board, by title, for the calendar to name. */
     for (i = 0; i < data->card_count; ++i) {
         char sql[512];

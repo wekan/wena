@@ -262,7 +262,7 @@ def main():
         tool = work / "charts_tool"
         subprocess.run(["cc", "-std=c89", "-pedantic-errors", "-Wall", "-Wextra", "-Werror",
                         str(ROOT / "tests/charts_tool.c"), str(ROOT / "models/charts.c"),
-                        str(ROOT / "models/view_data.c"), "-lm", "-o", str(tool)], check=True)
+                        str(ROOT / "models/view_data.c"), str(ROOT / "models/view_rows.c"), "-lm", "-o", str(tool)], check=True)
         for seed in (1, 2, 3):
             fx = fixture(seed)
             (work / "fixture.json").write_text(json.dumps(fx))

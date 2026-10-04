@@ -4,6 +4,7 @@
 #include "../client/platform/nuklear_options.h"
 #include <nuklear.h>
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -90,5 +91,65 @@ int main(void)
     assert(control("Control Chart") && j && !control("Card"));
     wena_chart_result_free(&result);
     assert(wena_board_chart_render(NULL, "x", NULL, &result) == WENA_BOARD_VIEW_NO_ACTION);
+
+    /* The other views drawn, each with WeKan's title or columns; a card's
+     * title in the Table opens it. */
+    {
+        static const char *const keys[] = {"board-view-table", "board-view-cal", "board-view-multiboard-cal",
+            "board-view-time", "board-view-timeline", "board-view-stats", "board-view-group-by-assignee",
+            "board-view-gantt", "board-view-gantt-frappe", "board-view-gantt-dhtmlx", "board-view-product-backlog",
+            "board-view-sprints", "board-view-sprint-report", "board-view-velocity", "board-view-roadmap",
+            "board-view-bigboard"};
+        static const char *const expected[] = {"Card", "Today", "Today", "Time", "Timeline", "Board status",
+            "Group by Assignee", "Gantt", "Frappe Gantt", "DHTMLX Gantt", "Product Backlog", "Sprints",
+            "Sprint Report", "Velocity", "Roadmap", "Done card"};
+        WenaBoardViewState state;
+        WenaViewList lists[1];
+        WenaViewSwimlane lanes[1];
+        struct WenaViewBoard boards[1];
+        char card[WENA_VIEW_ID];
+        size_t k;
+        memset(&state, 0, sizeof(state));
+        memset(lists, 0, sizeof(lists)); memset(lanes, 0, sizeof(lanes)); memset(boards, 0, sizeof(boards));
+        strcpy(lists[0].id, "l1"); strcpy(lists[0].title, "To Do"); strcpy(lists[0].board_id, "b1");
+        strcpy(lanes[0].id, "s1"); strcpy(lanes[0].title, "Default");
+        strcpy(boards[0].id, "b1"); strcpy(boards[0].title, "Board");
+        strcpy(cards[0].list_id, "l1"); strcpy(cards[0].swimlane_id, "s1"); strcpy(cards[0].board_id, "b1");
+        strcpy(cards[1].list_id, "l1"); strcpy(cards[1].swimlane_id, "s1"); strcpy(cards[1].board_id, "b1");
+        cards[0].start_at.set = 1; cards[0].start_at.ms = 1789100000000.0;
+        cards[0].due_at.set = 1; cards[0].due_at.ms = 1789900000000.0;
+        cards[0].spent_time = 3.0;
+        data.card_count = 2; data.lists = lists; data.list_count = 1; data.swimlanes = lanes; data.swimlane_count = 1;
+        data.boards = boards; data.board_count = 1;
+        strcpy(data.board_title, "Board status");
+        for (k = 0; k < sizeof(keys) / sizeof(keys[0]); ++k) {
+            size_t index = wena_board_view_index(keys[k]);
+            int found = 0;
+            assert(index != WENA_BOARD_VIEW_SWIMLANES && views[index].chart == NULL);
+            wena_ui_controls_begin();
+            context.label_count = 0;
+            assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+            context.current->layout->clip = nk_rect(0, 0, 1024, 720);
+            (void)wena_board_view_render(&context, index, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card));
+            nk_end(&context);
+            found = control(expected[k]);
+            for (i = 0; !found && i < (size_t)context.label_count; ++i) found = !strcmp(context.labels[i], expected[k]);
+            if (!found) fprintf(stderr, "%s: no %s\n", keys[k], expected[k]);
+            assert(found);
+        }
+        /* The Table: a card's title opens it; the Stats name the board. */
+        context.button_to_press = "Done card";
+        assert(nk_begin(&context, "view", nk_rect(0, 0, 1024, 720), 0));
+        context.current->layout->clip = nk_rect(0, 0, 1024, 720);
+        assert(wena_board_view_render(&context, wena_board_view_index("board-view-table"), &state, &data, &data,
+                                      1790000000000.0, 600.0f, card, sizeof(card)) == WENA_BOARD_VIEW_OPEN_CARD);
+        nk_end(&context);
+        assert(!strcmp(card, "c1"));
+        /* Negative: a chart key or a lists view is not drawn here. */
+        assert(wena_board_view_render(&context, 0, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card)) ==
+               WENA_BOARD_VIEW_NO_ACTION);
+        assert(wena_board_view_render(NULL, 2, &state, &data, &data, 1790000000000.0, 600.0f, card, sizeof(card)) ==
+               WENA_BOARD_VIEW_NO_ACTION);
+    }
     return 0;
 }

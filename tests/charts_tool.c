@@ -3,11 +3,12 @@
  * its table - headers, then rows, tab separated - its note and its plot, the
  * same way the test prints WeKan's. */
 #include "../models/charts.h"
+#include "../models/view_rows.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define FIELDS 24
+#define FIELDS 40
 
 static char *fields[FIELDS];
 
@@ -85,6 +86,95 @@ static void print_table(const char *name, const WenaChartTable *table)
     }
 }
 
+static void time_text(const WenaViewTime *t)
+{
+    if (t->set) printf("%.0f", t->ms); else printf("-");
+}
+
+/* The other views' rows, as test_view_rows.py compares them. */
+static int views(WenaViewData *data, double now)
+{
+    static const WenaTableField fields_[] = {WENA_TABLE_TITLE, WENA_TABLE_LIST, WENA_TABLE_SWIMLANE, WENA_TABLE_ASSIGNEES,
+                                             WENA_TABLE_LABELS, WENA_TABLE_START, WENA_TABLE_DUE, WENA_TABLE_END};
+    static const char *const queries[] = {"", "card 1", "  REVIEW ", "nothing"};
+    size_t f, d, g, q, i, count;
+    WenaViewTableRow *rows = (WenaViewTableRow *)calloc(data->card_count + 1, sizeof(*rows));
+    WenaCalendarEvent *events = (WenaCalendarEvent *)calloc(data->card_count * 4 + 1, sizeof(*events));
+    WenaTimelineCard *timeline = (WenaTimelineCard *)calloc(data->card_count + 1, sizeof(*timeline));
+    WenaGanttTask *tasks = (WenaGanttTask *)calloc(data->card_count + 1, sizeof(*tasks));
+    const WenaViewCard **cards = (const WenaViewCard **)calloc(data->card_count + 1, sizeof(*cards));
+    const WenaViewSprint **sprints = (const WenaViewSprint **)calloc(data->sprint_count + 1, sizeof(*sprints));
+    WenaTimeSummary summary;
+    WenaAssigneeGroup *groups = NULL;
+    long group_count;
+    double markers[50];
+    if (!rows || !events || !timeline || !tasks || !cards || !sprints) return 1;
+    for (f = 0; f < sizeof(fields_) / sizeof(fields_[0]); ++f)
+        for (d = 0; d < 2; ++d)
+            for (g = 0; g < 2; ++g)
+                for (q = 0; q < 4; ++q) {
+                    count = wena_view_table_rows(data, queries[q], fields_[f], (int)d, (int)g, rows, data->card_count);
+                    printf("table\t%d\t%lu\t%lu\t%s", (int)fields_[f], (unsigned long)d, (unsigned long)g, queries[q]);
+                    for (i = 0; i < count; ++i) printf("\t%s", rows[i].card->id);
+                    printf("\n");
+                }
+    count = wena_view_calendar_events(data, now - 40.0 * 86400000.0, now - 10.0 * 86400000.0, events, data->card_count * 4);
+    for (i = 0; i < count; ++i) printf("calendar\t%s\t%d\t%.0f\t%.0f\n", events[i].card->id, (int)events[i].kind, events[i].start, events[i].end);
+    if (!wena_view_time(data, now, "No assignee", &summary)) return 1;
+    printf("time\t%s\t%ld\t%ld\t%ld\t%ld\n", "x", summary.remaining_days, summary.remaining_hour, summary.remaining_cards,
+           summary.cards_with_time);
+    for (i = 0; i < summary.assignee_count; ++i) { char h[32]; wena_chart_number(summary.by_assignee[i].hours, h, sizeof(h));
+        printf("time-assignee\t%s\t%s\t%ld\n", summary.by_assignee[i].label, h, summary.by_assignee[i].cards); }
+    for (i = 0; i < summary.card_count; ++i) printf("time-card\t%s\n", summary.by_card[i]->id);
+    wena_view_time_free(&summary);
+    group_count = wena_view_assignee_groups(data, "No assignee", &groups);
+    for (i = 0; i < (size_t)group_count; ++i) {
+        size_t k;
+        printf("group\t%s", groups[i].label);
+        for (k = 0; k < groups[i].card_count; ++k) printf("\t%s", groups[i].cards[k]->id);
+        printf("\n");
+    }
+    wena_view_groups_free(groups, group_count);
+    count = wena_view_timeline_markers(data, markers, 50);
+    for (i = 0; i < count; ++i) printf("marker\t%.0f\n", markers[i]);
+    for (q = 0; q < 3; ++q) {
+        double at = q == 0 ? 0.0 : now - (double)q * 20.0 * 86400000.0;
+        count = wena_view_timeline(data, q == 0, at, timeline);
+        for (i = 0; i < count; ++i) {
+            size_t k;
+            printf("timeline\t%lu\t%s\t%d\t%s\t%s\t%d\t", (unsigned long)q, timeline[i].card->id, timeline[i].existed,
+                   timeline[i].title, timeline[i].list_id, timeline[i].archived);
+            time_text(&timeline[i].due_at);
+            printf("\t");
+            for (k = 0; k < timeline[i].label_count; ++k) printf("%s%s", k ? "," : "", timeline[i].label_ids[k]);
+            printf("\t");
+            for (k = 0; k < timeline[i].member_count; ++k) printf("%s%s", k ? "," : "", timeline[i].members[k]);
+            printf("\n");
+        }
+    }
+    for (i = 0; i < data->card_count; ++i) cards[i] = &data->cards[i];
+    count = wena_view_gantt_tasks(cards, data->card_count, now, tasks);
+    for (i = 0; i < count; ++i) printf("gantt\t%s\t%.0f\t%.0f\t%d\t%d\n", tasks[i].card->id, tasks[i].start, tasks[i].end,
+                                       tasks[i].done, tasks[i].overdue);
+    for (q = 0; q < 2; ++q) {
+        count = wena_view_scrum_cards(data, q ? "sp1" : "", cards);
+        printf("scrum\t%lu", (unsigned long)q);
+        for (i = 0; i < count; ++i) printf("\t%s", cards[i]->id);
+        printf("\n");
+    }
+    for (i = 0; i < data->card_count; ++i) {
+        double estimate;
+        if (wena_view_card_estimate(data, &data->cards[i], &estimate)) { char e[32]; wena_chart_number(estimate, e, sizeof(e));
+            printf("estimate\t%s\t%s\n", data->cards[i].id, e); }
+        else printf("estimate\t%s\t-\n", data->cards[i].id);
+    }
+    count = wena_view_velocity(data, sprints);
+    printf("velocity");
+    for (i = 0; i < count; ++i) printf("\t%s", sprints[i]->id);
+    printf("\n");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     static char line[8192];
@@ -101,6 +191,7 @@ int main(int argc, char **argv)
     data.activities = (WenaViewActivity *)calloc(20000, sizeof(WenaViewActivity));
     data.changes = (WenaViewChange *)calloc(20000, sizeof(WenaViewChange));
     data.change_dependencies = (WenaViewDependency *)calloc(20000, sizeof(WenaViewDependency));
+    data.swimlanes = (WenaViewSwimlane *)calloc(100, sizeof(WenaViewSwimlane));
     if (!data.cards || !data.lists || !data.users || !data.labels || !data.activities || !data.changes ||
         !data.change_dependencies) return 1;
     while (fgets(line, sizeof(line), stdin) != NULL) {
@@ -114,6 +205,25 @@ int main(int argc, char **argv)
             l->sort = atof(fields[3]);
             l->wip_enabled = atoi(fields[4]);
             l->wip_value = atoi(fields[5]);
+        } else if (!strcmp(fields[0], "S") && n >= 4) {
+            WenaViewSwimlane *s = &data.swimlanes[data.swimlane_count++];
+            copy(s->id, sizeof(s->id), fields[1]);
+            copy(s->title, sizeof(s->title), fields[2]);
+            s->sort = atof(fields[3]);
+        } else if (!strcmp(fields[0], "E") && n >= 2) {
+            /* The board's Scrum estimate field: "E|fieldId" */
+            data.estimate_from_field = 1;
+            copy(data.estimate_field_id, sizeof(data.estimate_field_id), fields[1]);
+        } else if (!strcmp(fields[0], "P") && n >= 5) {
+            /* A sprint: id, name, state, closed at, has report */
+            WenaViewSprint *s;
+            if (data.sprints == NULL) data.sprints = (WenaViewSprint *)calloc(50, sizeof(WenaViewSprint));
+            s = &data.sprints[data.sprint_count++];
+            copy(s->id, sizeof(s->id), fields[1]);
+            copy(s->name, sizeof(s->name), fields[2]);
+            copy(s->state, sizeof(s->state), fields[3]);
+            s->closed_at = when(fields[4]);
+            s->has_report = n > 5 && atoi(fields[5]);
         } else if (!strcmp(fields[0], "U") && n >= 3) {
             WenaViewUser *u = &data.users[data.user_count++];
             copy(u->id, sizeof(u->id), fields[1]);
@@ -147,6 +257,23 @@ int main(int argc, char **argv)
             c->assignee_count = ids(c->assignees, WENA_VIEW_PEOPLE, fields[13]);
             c->label_count = ids(c->label_ids, WENA_VIEW_LABELS, fields[14]);
             c->dependency_count = dependencies(c->dependencies, WENA_VIEW_DEPENDENCIES, fields[18]);
+            /* 21: received, members, sprint, rank, release, sort, estimate field value, description */
+            if (n >= 29) {
+                c->received_at = when(fields[21]);
+                c->member_count = ids(c->members, WENA_VIEW_PEOPLE, fields[22]);
+                copy(c->sprint_id, sizeof(c->sprint_id), fields[23]);
+                c->backlog_rank = when(fields[24]);
+                copy(c->release_id, sizeof(c->release_id), fields[25]);
+                c->sort = atof(fields[26]);
+                if (fields[27][0]) {
+                    c->field_count = 1;
+                    copy(c->fields[0].field_id, WENA_VIEW_ID, "est");
+                    copy(c->fields[0].value, WENA_VIEW_TITLE, fields[27] + 1);
+                    c->fields[0].is_number = fields[27][0] == 'n';
+                    c->fields[0].number = atof(fields[27] + 1);
+                }
+                copy(c->description, sizeof(c->description), fields[28]);
+            }
         } else if (!strcmp(fields[0], "A") && n >= 7) {
             WenaViewActivity *a = &data.activities[data.activity_count++];
             copy(a->type, sizeof(a->type), fields[1]);
@@ -155,6 +282,17 @@ int main(int argc, char **argv)
             copy(a->old_list_id, sizeof(a->old_list_id), fields[4]);
             copy(a->user_id, sizeof(a->user_id), fields[5]);
             a->at = when(fields[6]);
+            /* 7: old swimlane, member, label, old value, time key, time old, has old list, has old swimlane */
+            if (n >= 15) {
+                copy(a->old_swimlane_id, sizeof(a->old_swimlane_id), fields[7]);
+                copy(a->member_id, sizeof(a->member_id), fields[8]);
+                copy(a->label_id, sizeof(a->label_id), fields[9]);
+                copy(a->old_value, sizeof(a->old_value), fields[10]);
+                copy(a->time_key, sizeof(a->time_key), fields[11]);
+                a->time_old = when(fields[12]);
+                a->has_old_list = atoi(fields[13]);
+                a->has_old_swimlane = atoi(fields[14]);
+            }
         } else if (!strcmp(fields[0], "H") && n >= 15) {
             WenaViewChange *h = &data.changes[data.change_count++];
             h->kind = !strcmp(fields[1], "position") ? WENA_VIEW_CHANGE_POSITION :
@@ -178,6 +316,7 @@ int main(int argc, char **argv)
             h->at = when(fields[12]);
         }
     }
+    if (!strncmp(argv[1], "views", 5)) return views(&data, strtod(argv[2], NULL));
     if (!wena_chart_compute(argv[1], &data, strtod(argv[2], NULL), &options, NULL, &result)) return 1;
     print_table("table", &result.table);
     print_table("detail", &result.detail);

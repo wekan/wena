@@ -12,6 +12,7 @@
 #define WENA_VIEW_PEOPLE 8
 #define WENA_VIEW_LABELS 8
 #define WENA_VIEW_DEPENDENCIES 8
+#define WENA_VIEW_FIELDS 8
 
 typedef struct WenaViewTime {
     double ms;
@@ -22,6 +23,15 @@ typedef struct WenaViewDependency {
     char card_id[WENA_VIEW_ID];
     int blocks;               /* 1 "blocks", 0 "is-blocked-by" */
 } WenaViewDependency;
+
+/* A card's value of a board custom field, as text ("" when not set); a
+ * number keeps its number too. */
+typedef struct WenaViewFieldValue {
+    char field_id[WENA_VIEW_ID];
+    char value[WENA_VIEW_TITLE];
+    double number;
+    int is_number;
+} WenaViewFieldValue;
 
 typedef struct WenaViewCard {
     char id[WENA_VIEW_ID];
@@ -45,10 +55,61 @@ typedef struct WenaViewCard {
     WenaViewDependency dependencies[WENA_VIEW_DEPENDENCIES];
     char description[256];    /* the start of it, for the Table view */
     char board_title[WENA_VIEW_TITLE];  /* the calendar of several boards names it */
+    int card_number;          /* 0 when the board does not number cards */
+    WenaViewTime map_x, map_y; /* the Map view's place, percent */
+    size_t field_count;
+    WenaViewFieldValue fields[WENA_VIEW_FIELDS];
+    /* card.scrum */
+    char sprint_id[WENA_VIEW_ID];
+    char release_id[WENA_VIEW_ID];
+    char issue_type[WENA_VIEW_TITLE];
+    WenaViewTime backlog_rank; /* not a time: a rank, set or not */
+    int due_complete;
 } WenaViewCard;
+
+typedef struct WenaViewCustomField {
+    char id[WENA_VIEW_ID];
+    char name[WENA_VIEW_TITLE];
+    char type[24];            /* text, dropdown, number ... */
+} WenaViewCustomField;
+
+/* A board's sprint, release or scrum event (scrumSprints, scrumReleases,
+ * scrumEvents), with what its views show. */
+typedef struct WenaViewSprint {
+    char id[WENA_VIEW_ID];
+    char name[WENA_VIEW_TITLE];
+    char goal[256];
+    char state[16];           /* planned, active, closed, cancelled */
+    WenaViewTime planned_start, planned_end, closed_at;
+    /* sprint.report, as the server stored it on close */
+    int has_report;
+    char unit[WENA_VIEW_TITLE];
+    double totals[5][3];      /* committed, completed, added, removed, incomplete: count, estimate, unknown */
+    int working_days;         /* -1 when not known */
+} WenaViewSprint;
+
+typedef struct WenaViewRelease {
+    char id[WENA_VIEW_ID];
+    char name[WENA_VIEW_TITLE];
+    char goal[256];
+    char state[16];
+    char notes[256];
+    WenaViewTime planned_start, planned_end, released_at;
+} WenaViewRelease;
+
+typedef struct WenaViewEvent {
+    char id[WENA_VIEW_ID];
+    char sprint_id[WENA_VIEW_ID];
+    char kind[16];            /* planning, daily, review, retrospective */
+    char name[WENA_VIEW_TITLE];
+    WenaViewTime starts_at;
+    double timebox_minutes;
+    char notes[256];
+} WenaViewEvent;
 
 typedef struct WenaViewList {
     char id[WENA_VIEW_ID];
+    char board_id[WENA_VIEW_ID];
     char title[WENA_VIEW_TITLE];
     double sort;
     int wip_enabled;
@@ -79,6 +140,15 @@ typedef struct WenaViewActivity {
     char old_list_id[WENA_VIEW_ID];
     char user_id[WENA_VIEW_ID];
     WenaViewTime at;
+    /* What the Timeline undoes (models/lib/boardTimeline.js). */
+    char old_swimlane_id[WENA_VIEW_ID];
+    char member_id[WENA_VIEW_ID];
+    char assignee_id[WENA_VIEW_ID];
+    char label_id[WENA_VIEW_ID];
+    char old_value[256];
+    char time_key[16];
+    WenaViewTime time_old;
+    int has_old_list, has_old_swimlane;
 } WenaViewActivity;
 
 /* One changeHistory row about a card, as the flow charts replay it: a move
@@ -107,6 +177,32 @@ typedef struct WenaViewChange {
 typedef struct WenaViewData {
     char board_id[WENA_VIEW_ID];
     char board_title[WENA_VIEW_TITLE];
+    char board_color[33];
+    int active_members;
+    char map_image[WENA_VIEW_ID];   /* board.mapImageAttachmentId */
+    /* board.scrum: where estimates come from, and their unit. */
+    int estimate_from_field;
+    char estimate_field_id[WENA_VIEW_ID];
+    char estimate_unit[WENA_VIEW_TITLE];
+    struct WenaViewBoard {       /* every board, for Bigboard */
+        char id[WENA_VIEW_ID];
+        char title[WENA_VIEW_TITLE];
+    } *boards;
+    size_t board_count;
+    WenaViewCustomField *custom_fields;
+    size_t custom_field_count;
+    struct WenaViewFieldItem {   /* a dropdown field's items */
+        char field_id[WENA_VIEW_ID];
+        char item_id[WENA_VIEW_ID];
+        char name[WENA_VIEW_TITLE];
+    } *field_items;
+    size_t field_item_count;
+    WenaViewSprint *sprints;
+    size_t sprint_count;
+    WenaViewRelease *releases;
+    size_t release_count;
+    WenaViewEvent *events;
+    size_t event_count;
     WenaViewCard *cards;
     size_t card_count;
     WenaViewList *lists;      /* not archived, by sort: the board left to right */
@@ -131,5 +227,8 @@ const char *wena_view_user_name(const WenaViewData *data, const char *id);
 const WenaViewList *wena_view_list(const WenaViewData *data, const char *id);
 const WenaViewCard *wena_view_card(const WenaViewData *data, const char *id);
 const WenaViewLabel *wena_view_label(const WenaViewData *data, const char *id);
+/* A card's value of a custom field as WeKan shows it (customFieldsWD's
+ * trueValue): a dropdown's item name, else the value; "" when none. */
+const char *wena_view_field_value(const WenaViewData *data, const WenaViewCard *card, const char *field_id);
 
 #endif

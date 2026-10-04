@@ -529,6 +529,51 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>WeKan's other board views are drawn: Table, Calendars, Time, Timeline, Stats, Gantts, Scrum, Roadmap, Bigboard</summary>
+
+- Table: WeKan's columns - Edit, Card, List, Swimlane, Assignees, Members,
+  Labels as chips, Received, Start, Due, End - with its search, sorting by
+  any column both ways, 25 cards a page and grouping by swimlane; Edit or
+  a title opens the card.
+- Calendar and the Calendar of every board: WeKan's month, week, day and
+  list, Monday first, opening on the month at today, with Today, Previous
+  and Next; a card spanning its start to its end and an hour at its
+  received, due and end dates, the other boards' cards named with their
+  board. A card clicked opens, on its own board.
+- Time (time spent, cards with time, overtime, the remaining time until
+  due, hours by assignee and by card, the adjustments by author), Stats
+  (the board's status) and Group by Assignee.
+- Timeline: the points in time of the board's activities, at most 50, and
+  the lists with every card as it was then - title, description, labels,
+  members, due date, archived - undoing what happened since.
+- Gantt (a table a week, a day a column, the received, start, due and end
+  dates in WeKan's colors), Frappe Gantt and DHTMLX Gantt (bars from start
+  to due, red when overdue, filled when done, by day, week or month, and
+  DHTMLX's Task / Start / Duration grid) and Roadmap (the cards grouped by
+  a text or dropdown custom field, each group's bars).
+- Product Backlog, Sprints (the sprints, a sprint's goal, state, cards and
+  events, the releases), Sprint Report and Velocity, from WeKan's sprints,
+  releases and events and their stored reports.
+- Bigboard: every board of the user stacked, each with its lists and cards.
+- What they read is WeKan's own: custom fields with dropdown items, card
+  numbers, card.scrum, the board's Scrum settings and members, sprints,
+  releases and events, and every board's lists (`server/wekan_views.c`).
+- The Map view is still listed and not drawn: it needs the uploaded image
+  decoded, which follows.
+- Tests: `view-rows` (new) computes the Table's order for every sortable
+  column both ways, grouped or not and with searches, the Calendar's
+  events, the Time sums, the assignee groups, the Timeline's markers and
+  its cards at three points in time, the Gantt tasks and the Scrum order
+  and estimates on three seeded boards both with WeKan's own JavaScript in
+  Node and with Wena, and requires them to be the same; `board-views`
+  draws every one of these views and opens a card from the Table;
+  `desktop` opens seven more views on a WeKan file.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

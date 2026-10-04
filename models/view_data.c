@@ -13,6 +13,12 @@ void wena_view_data_free(WenaViewData *data)
     free(data->activities);
     free(data->changes);
     free(data->change_dependencies);
+    free(data->custom_fields);
+    free(data->boards);
+    free(data->field_items);
+    free(data->sprints);
+    free(data->releases);
+    free(data->events);
     memset(data, 0, sizeof(*data));
 }
 
@@ -41,6 +47,20 @@ const WenaViewCard *wena_view_card(const WenaViewData *data, const char *id)
     for (i = 0; i < data->card_count; ++i)
         if (!strcmp(data->cards[i].id, id)) return &data->cards[i];
     return NULL;
+}
+
+const char *wena_view_field_value(const WenaViewData *data, const WenaViewCard *card, const char *field_id)
+{
+    size_t i, j;
+    if (data == NULL || card == NULL || field_id == NULL) return "";
+    for (i = 0; i < card->field_count; ++i) {
+        if (strcmp(card->fields[i].field_id, field_id)) continue;
+        for (j = 0; j < data->field_item_count; ++j)
+            if (!strcmp(data->field_items[j].field_id, field_id) && !strcmp(data->field_items[j].item_id, card->fields[i].value))
+                return data->field_items[j].name;
+        return card->fields[i].value;
+    }
+    return "";
 }
 
 const WenaViewLabel *wena_view_label(const WenaViewData *data, const char *id)

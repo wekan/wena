@@ -182,3 +182,19 @@ int nk_property_int(struct nk_context *context,const char *name,int minimum,
     if (*value>maximum) *value=maximum;
     return 0;
 }
+
+int nk_group_begin_titled(struct nk_context *context, const char *name, const char *title, unsigned int flags)
+{
+    (void)title;
+    return nk_group_begin(context, name, flags);
+}
+
+void nk_layout_row(struct nk_context *context, int format, float height, int columns, const float *ratio)
+{
+    (void)context; (void)format; (void)height; (void)columns; (void)ratio;
+}
+
+void nk_layout_row_static(struct nk_context *context, float height, int item_width, int columns)
+{
+    (void)context; (void)height; (void)item_width; (void)columns;
+}
