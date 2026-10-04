@@ -237,6 +237,31 @@ int main(void)
             if (!strcmp(context.labels[index], "Two")) two = index;
         }
         assert(two >= 0 && zed > two && context.vec2_depth == 0);
+        /* WeKan's other sorts: due first-missing ascending, creation either
+         * way, votes highest first. Zed: due later, older, 2 votes; Two:
+         * no due date, newer, 1 vote. */
+        cards[0].has_due_at = 1; cards[0].due_at = 2000.0;
+        cards[0].has_created_at = 1; cards[0].created_at = 100.0; cards[0].votes = 2;
+        cards[1].has_created_at = 1; cards[1].created_at = 200.0; cards[1].votes = 1;
+        {
+            static const int modes[4] = {WENA_BOARD_SORT_DUE, WENA_BOARD_SORT_CREATED_NEWEST,
+                                         WENA_BOARD_SORT_CREATED_OLDEST, WENA_BOARD_SORT_VOTES};
+            static const int zed_first[4] = {0, 0, 1, 1};
+            int mode;
+            for (mode = 0; mode < 4; ++mode) {
+                layout.card_sort = modes[mode];
+                context.label_count = 0;
+                zed = two = -1;
+                assert(wena_board_feature_render(&context, &layout, 800.0f, 600.0f));
+                for (index = 0; index < context.label_count; ++index) {
+                    if (!strcmp(context.labels[index], "Zed")) zed = index;
+                    if (!strcmp(context.labels[index], "Two")) two = index;
+                }
+                assert(zed >= 0 && two >= 0 && (zed < two) == zed_first[mode]);
+            }
+        }
+        cards[0].has_due_at = cards[0].has_created_at = cards[1].has_created_at = 0;
+        cards[0].votes = cards[1].votes = 0;
         layout.card_sort = WENA_BOARD_SORT_NONE;
         strcpy(cards[0].title, "One");
     }

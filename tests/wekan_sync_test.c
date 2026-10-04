@@ -113,6 +113,10 @@ int main(int argc, char **argv)
     /* WeKan's list width; negative: one out of WeKan's 100..1000 stays the layout's default. */
     assert(!strcmp(snapshot->lists[0].id, "li1") && snapshot->lists[0].width == 300u);
     assert(!strcmp(snapshot->lists[1].id, "li2") && snapshot->lists[1].width == 0u);
+    /* Sort Cards' fields: c1 is due, neither has votes or a creation time;
+     * negative: no due date is "not set", not 0. */
+    assert(snapshot->cards[1].has_due_at && snapshot->cards[1].due_at == 1700000000000.0);
+    assert(!snapshot->cards[0].has_due_at && !snapshot->cards[0].has_created_at && snapshot->cards[0].votes == 0);
     /* WeKan's description badge: c2 has a description (sorted first), c1 none. */
     assert(!strcmp(snapshot->cards[0].id, "c2") && snapshot->cards[0].has_description);
     assert(!strcmp(snapshot->cards[1].id, "c1") && !snapshot->cards[1].has_description);

@@ -47,6 +47,10 @@ typedef struct WenaSwimlaneResize {
 
 #define WENA_BOARD_SORT_NONE 0
 #define WENA_BOARD_SORT_TITLE 1
+#define WENA_BOARD_SORT_DUE 2             /* dueAt ascending */
+#define WENA_BOARD_SORT_CREATED_NEWEST 3  /* createdAt descending */
+#define WENA_BOARD_SORT_CREATED_OLDEST 4  /* createdAt ascending */
+#define WENA_BOARD_SORT_VOTES 5           /* vote score, highest first */
 
 typedef struct WenaBoardLayout {
     const WenaBoard *board;

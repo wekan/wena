@@ -13,6 +13,14 @@ typedef struct WenaCard {
     int archived;
     /* A description is set: WeKan's description badge on the minicard. */
     int has_description;
+    /* WeKan's fields Sort Cards orders by, for showing only: due and
+     * creation times in milliseconds (0 when not set) and the vote score,
+     * positive votes minus negative ones. */
+    double due_at;
+    double created_at;
+    int votes;
+    int has_due_at;
+    int has_created_at;
 } WenaCard;
 
 int wena_card_init(WenaCard *card, const char *id, const char *board_id,

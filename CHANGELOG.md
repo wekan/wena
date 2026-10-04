@@ -468,6 +468,26 @@ Thanks to xet7.
 
 </details>
 
+<details>
+<summary>Sort Cards sorts by due date, creation time and votes too, as WeKan does</summary>
+
+- All of WeKan's Sort Cards choices work, in WeKan's order: Due Date,
+  Title (Alphabetically), Created At (Newest First), Created At (Oldest
+  First) and Sort by votes, each with a check when it is on.
+- They sort as WeKan's do: Mongo's order of `dueAt` and `createdAt` - a
+  card without the field first when ascending, last when descending - with
+  the card's `_id` breaking ties, and votes by score (positive minus
+  negative votes), highest first, keeping the list's own order for a tie.
+  The title sort now also breaks ties by `_id`.
+- WeKan's `dueAt`, `createdAt` and `vote` are read in from wekan.sqlite
+  for this; sorting stays for showing only, as in WeKan.
+- Tests: `wekan-sync` reads a due date and tells a missing one from 0;
+  `board-feature` sorts a list each way, with a card missing a due date.
+
+Thanks to xet7.
+
+</details>
+
 # v0.03 2026-10-04 Wena release
 
 <details>

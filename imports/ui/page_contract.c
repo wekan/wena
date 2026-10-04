@@ -72,6 +72,7 @@ static const WenaUiTextContract texts[] = {
     {WENA_UI_TEXT_TITLE_ALPHABETICALLY, "title-alphabetically", "Title (Alphabetically)"},
     {WENA_UI_TEXT_CREATED_NEWEST, "created-at-newest-first", "Created At (Newest First)"},
     {WENA_UI_TEXT_CREATED_OLDEST, "created-at-oldest-first", "Created At (Oldest First)"},
+    {WENA_UI_TEXT_SORT_BY_VOTES, "sort-by-votes", "Sort by votes"},
     {WENA_UI_TEXT_BOARD_VIEW_SWIMLANES, "board-view-swimlanes", "Swimlanes"},
     {WENA_UI_TEXT_BOARD_VIEW_LISTS, "board-view-lists", "Lists"},
     {WENA_UI_TEXT_BOARD_VIEW_CALENDAR, "board-view-cal", "Calendar"},

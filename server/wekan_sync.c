@@ -417,8 +417,19 @@ static const char *const import_21[] = {
     "FROM (SELECT _ferretdb_sjson AS x FROM {lists}) WHERE " ID " IN (SELECT id FROM lists) ",
     "AND x->>'width' BETWEEN 100 AND 1000",
     NULL};
+/* Cards' due and creation times and vote score, which Sort Cards orders by;
+ * the board loader (server/sqlite_board.c) reads them from here. */
+static const char *const import_22[] = {
+    "CREATE TABLE IF NOT EXISTS main.wena_card_meta(card_id TEXT PRIMARY KEY, due_at REAL, created_at REAL, ",
+    "votes INTEGER NOT NULL) STRICT; ",
+    "INSERT OR IGNORE INTO wena_card_meta(card_id, due_at, created_at, votes) SELECT " ID ", ",
+    "CASE WHEN typeof(x->>'dueAt') IN ('integer', 'real') THEN x->>'dueAt' END, ",
+    "CASE WHEN typeof(x->>'createdAt') IN ('integer', 'real') THEN x->>'createdAt' END, ",
+    "coalesce(json_array_length(x, '$.vote.positive'), 0) - coalesce(json_array_length(x, '$.vote.negative'), 0) ",
+    "FROM (SELECT _ferretdb_sjson AS x FROM {cards}) WHERE " ID " IN (SELECT id FROM cards)",
+    NULL};
 static const char *const *const import_sql[] = {
-    import_0, import_1, import_2, import_3, import_4, import_5, import_6, import_7, import_8, import_9, import_10, import_11, import_12, import_13, import_14, import_15, import_16, import_17, import_18, import_19, import_20, import_21};
+    import_0, import_1, import_2, import_3, import_4, import_5, import_6, import_7, import_8, import_9, import_10, import_11, import_12, import_13, import_14, import_15, import_16, import_17, import_18, import_19, import_20, import_21, import_22};
 
 /* Export ------------------------------------------------------------------ */
 

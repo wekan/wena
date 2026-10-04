@@ -365,6 +365,12 @@ void wena_wekan_icon_draw(struct nk_context *context, WenaIcon icon,
         line(out, x + P(8), y + P(8.5f), x + P(13), y + P(8.5f), t, c);
         line(out, x + P(8), y + P(13), x + P(11.5f), y + P(13), t, c);
         break;
+    case WENA_ICON_THUMBS_UP:
+        /* fa-thumbs-o-up: the cuff and the hand with its raised thumb. */
+        nk_fill_rect(out, nk_rect(x + P(1), y + P(7), P(3.5f), P(8)), 0.0f, c);
+        nk_stroke_rect(out, nk_rect(x + P(6), y + P(6.5f), P(8.5f), P(8.5f)), P(2), t * 0.8f, c);
+        line(out, x + P(6.5f), y + P(7), x + P(9.5f), y + P(1.5f), t, c);
+        break;
     case WENA_ICON_NONE:
     case WENA_ICON_COUNT:
         break;

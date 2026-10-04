@@ -429,18 +429,45 @@ static void wena_render_card(struct nk_context *context, const WenaBoardLayout *
     }
 }
 
-/* WeKan's Sort Cards by title: a card and its place in the list's own
- * order, which moves and drops keep using. */
+/* WeKan's Sort Cards: a card and its place in the list's own order, which
+ * moves and drops keep using. */
 typedef struct SortedCard {
     const WenaCard *card;
     size_t position;
 } SortedCard;
 
-static int by_title(const void *a, const void *b)
+/* qsort has no context: the sort being drawn. */
+static int sort_mode;
+
+/* Mongo's order of a field that may be missing: missing first ascending,
+ * last descending. */
+static int by_time(int has_a, double a, int has_b, double b, int descending)
+{
+    int order = has_a != has_b ? (has_a ? 1 : -1) : a < b ? -1 : a > b;
+    return descending ? -order : order;
+}
+
+/* WeKan's sorts (boardHeader.js cardsSortPopup): Mongo's sort with the card's
+ * _id as the tiebreaker (cardSortTiebreaker.js); votes keep the list's own
+ * order for a tie (voteSortCards.js). */
+static int by_sort(const void *a, const void *b)
 {
     const SortedCard *x = (const SortedCard *)a, *y = (const SortedCard *)b;
-    int order = strcmp(x->card->title, y->card->title);
-    return order != 0 ? order : x->position < y->position ? -1 : x->position > y->position;
+    int order = 0;
+    switch (sort_mode) {
+    case WENA_BOARD_SORT_TITLE: order = strcmp(x->card->title, y->card->title); break;
+    case WENA_BOARD_SORT_DUE:
+        order = by_time(x->card->has_due_at, x->card->due_at, y->card->has_due_at, y->card->due_at, 0); break;
+    case WENA_BOARD_SORT_CREATED_NEWEST: case WENA_BOARD_SORT_CREATED_OLDEST:
+        order = by_time(x->card->has_created_at, x->card->created_at, y->card->has_created_at, y->card->created_at,
+                        sort_mode == WENA_BOARD_SORT_CREATED_NEWEST); break;
+    case WENA_BOARD_SORT_VOTES:
+        order = y->card->votes - x->card->votes;
+        if (order == 0) return x->position < y->position ? -1 : x->position > y->position;
+        return order;
+    default: break;
+    }
+    return order != 0 ? order : strcmp(x->card->id, y->card->id);
 }
 
 static void wena_render_cards(struct nk_context *context,
@@ -453,7 +480,8 @@ static void wena_render_cards(struct nk_context *context,
 
     if (!layout->card_drop_area && layout->card_drop_target)
         layout->card_drop_target(context, layout->card_drop_context, list, swimlane);
-    sorted = layout->card_sort == WENA_BOARD_SORT_TITLE && layout->card_count > 0 ?
+    sorted = layout->card_sort > WENA_BOARD_SORT_NONE && layout->card_sort <= WENA_BOARD_SORT_VOTES &&
+             layout->card_count > 0 ?
         (SortedCard *)malloc(layout->card_count * sizeof(*sorted)) : NULL;
     ordinal = 0;
     for (index = 0; index < layout->card_count; ++index) {
@@ -469,7 +497,8 @@ static void wena_render_cards(struct nk_context *context,
         } else wena_render_card(context, layout, list, card, ordinal++);
     }
     if (sorted != NULL) {
-        qsort(sorted, ordinal, sizeof(*sorted), by_title);
+        sort_mode = layout->card_sort;
+        qsort(sorted, ordinal, sizeof(*sorted), by_sort);
         for (index = 0; index < ordinal; ++index)
             wena_render_card(context, layout, list, sorted[index].card, sorted[index].position);
         free(sorted);

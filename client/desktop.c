@@ -558,14 +558,16 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_BOARD_VIEW_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 82.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_SORT) {
-        /* WeKan's choices; Wena keeps the titles, not due dates or creation
-         * times, so those cannot be chosen. WeKan's newer "Sort by votes" is
-         * not in the pinned catalog (config/i18n-lock.json). */
-        DESKTOP_ITEM(WENA_ICON_CALENDAR, WENA_UI_TEXT_DUE_DATE, 0, 0);
+        /* WeKan's choices, in its order; the item's place picks the sort. */
+        static const int sorts[] = {WENA_BOARD_SORT_DUE, WENA_BOARD_SORT_TITLE, WENA_BOARD_SORT_CREATED_NEWEST,
+                                    WENA_BOARD_SORT_CREATED_OLDEST, WENA_BOARD_SORT_VOTES};
+        size_t s;
+        DESKTOP_ITEM(WENA_ICON_CALENDAR, WENA_UI_TEXT_DUE_DATE, 1, 0);
         DESKTOP_ITEM(WENA_ICON_SORT_ALPHA, WENA_UI_TEXT_TITLE_ALPHABETICALLY, 1, 1);
-        items[count - 1].checked = layout->card_sort == WENA_BOARD_SORT_TITLE;
-        DESKTOP_ITEM(WENA_ICON_ARROW_DOWN, WENA_UI_TEXT_CREATED_NEWEST, 0, 1);
-        DESKTOP_ITEM(WENA_ICON_ARROW_UP, WENA_UI_TEXT_CREATED_OLDEST, 0, 1);
+        DESKTOP_ITEM(WENA_ICON_ARROW_DOWN, WENA_UI_TEXT_CREATED_NEWEST, 1, 1);
+        DESKTOP_ITEM(WENA_ICON_ARROW_UP, WENA_UI_TEXT_CREATED_OLDEST, 1, 1);
+        DESKTOP_ITEM(WENA_ICON_THUMBS_UP, WENA_UI_TEXT_SORT_BY_VOTES, 1, 1);
+        for (s = 0; s < count; ++s) items[s].checked = layout->card_sort == sorts[s];
         chosen = wena_wekan_menu(context, wena_ui_text(WENA_UI_TEXT_CARDS_SORT_TITLE),
                                  menu->x + 300.0f < width ? menu->x : width - 300.0f, 46.0f, 300.0f, 1, items, count);
     } else if (menu->kind == DESKTOP_MENU_MEMBER) {
@@ -586,7 +588,9 @@ static WenaDesktopPanel desktop_menus(struct nk_context *context, WenaDesktopToo
             menu->kind = DESKTOP_MENU_NONE;
             return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_SORT) {
-            toolbar->card_sort = chosen == 1 ? WENA_BOARD_SORT_TITLE : WENA_BOARD_SORT_NONE;
+            static const int sorts[] = {WENA_BOARD_SORT_DUE, WENA_BOARD_SORT_TITLE, WENA_BOARD_SORT_CREATED_NEWEST,
+                                        WENA_BOARD_SORT_CREATED_OLDEST, WENA_BOARD_SORT_VOTES};
+            toolbar->card_sort = chosen < 5 ? sorts[chosen] : WENA_BOARD_SORT_NONE;
             menu->kind = DESKTOP_MENU_NONE;
             return DESKTOP_PANEL_NONE;
         } else if (menu->kind == DESKTOP_MENU_VISIBILITY || menu->kind == DESKTOP_MENU_WATCH) {

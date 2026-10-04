@@ -211,6 +211,34 @@ static int load_descriptions(sqlite3 *db, const char *board, WenaSqliteBoardSnap
     return result == SQLITE_DONE;
 }
 
+/* Cards' due and creation times and vote score from wena_card_meta, which
+ * the working tables over WeKan's file have (server/wekan_sync.c). */
+static int load_card_meta(sqlite3 *db, const char *board, WenaSqliteBoardSnapshot *snapshot)
+{
+    sqlite3_stmt *statement = NULL;
+    const char *id;
+    size_t i;
+    int result, present;
+    if (!table_present(db, "wena_card_meta", &present)) return 0;
+    if (!present) return 1;
+    if (!prepare(db, "SELECT m.card_id, m.due_at, m.created_at, m.votes FROM wena_card_meta m JOIN cards c "
+                     "ON c.id = m.card_id WHERE c.board_id = ?1", board, &statement)) return 0;
+    while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
+        if ((id = text_column(statement, 0, 1)) == NULL) continue;
+        for (i = 0; i < snapshot->card_count; ++i)
+            if (!strcmp(snapshot->cards[i].id, id)) {
+                WenaCard *card = &snapshot->cards[i];
+                card->has_due_at = sqlite3_column_type(statement, 1) != SQLITE_NULL;
+                card->due_at = card->has_due_at ? sqlite3_column_double(statement, 1) : 0.0;
+                card->has_created_at = sqlite3_column_type(statement, 2) != SQLITE_NULL;
+                card->created_at = card->has_created_at ? sqlite3_column_double(statement, 2) : 0.0;
+                card->votes = sqlite3_column_int(statement, 3);
+            }
+    }
+    sqlite3_finalize(statement);
+    return result == SQLITE_DONE;
+}
+
 static int parents_present(const WenaSqliteBoardSnapshot *s,
                             const char *lane, const char *list)
 {
@@ -266,7 +294,8 @@ int wena_sqlite_board_read_transaction(sqlite3 *db,const char *board,WenaSqliteB
         load_hierarchy(db, board, staged, 1) && load_metadata(db,board,staged,3) &&
         load_metadata(db,board,staged,4) && load_metadata(db,board,staged,0) &&
         load_metadata(db,board,staged,1) && load_metadata(db,board,staged,2) && load_widths(db, board, staged) &&
-        load_cards(db, board, staged) && load_descriptions(db, board, staged);
+        load_cards(db, board, staged) && load_descriptions(db, board, staged) &&
+        load_card_meta(db, board, staged);
 }
 
 int wena_sqlite_board_load(sqlite3 *db, const char *board,
