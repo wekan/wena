@@ -1,4 +1,4 @@
-# Upcoming Wena release
+# v0.09 2026-10-04 Wena release
 
 <details>
 <summary>AROS x86 32-bit (ABIv0) and ARM 64-bit builds: wena-aros-i386 and wena-aros-arm64</summary>
