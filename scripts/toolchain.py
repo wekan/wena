@@ -66,8 +66,9 @@ VM_SYSTEMS = {"freebsd": "FreeBSD", "netbsd": "NetBSD", "openbsd": "OpenBSD",
               "dragonflybsd": "DragonFly", "haiku": "Haiku"}
 
 # A package per package manager. "--cask NAME" is a Homebrew cask; several
-# names are separated by spaces. A manager missing from an entry has no
-# package for it, and the target is then not buildable on that computer.
+# names are separated by spaces, and " | " separates alternatives, of which apt
+# installs the first it has every package of. A manager missing from an entry
+# has no package for it, and the target is then not buildable on that computer.
 PACKAGES = {
     "gcc": {"apt": "gcc libc6-dev", "dnf": "gcc glibc-devel", "choco": "mingw",
             "winget": "BrechtSanders.WinLibs.POSIX.UCRT"},
@@ -85,7 +86,9 @@ PACKAGES = {
     "cmake": {"brew": "cmake", "apt": "cmake", "dnf": "cmake", "choco": "cmake", "winget": "Kitware.CMake"},
     "docker": {"brew": "--cask docker-desktop", "apt": "docker.io", "dnf": "moby-engine",
                "choco": "docker-desktop", "winget": "Docker.DockerDesktop"},
-    "qemu": {"apt": "qemu-user-static binfmt-support", "dnf": "qemu-user-static"},
+    # Debian 13 and Ubuntu 26.04 made qemu-user-static a purely virtual package:
+    # qemu-user-binfmt registers the now static qemu-user with binfmt_misc instead.
+    "qemu": {"apt": "qemu-user-static binfmt-support | qemu-user-binfmt", "dnf": "qemu-user-static"},
     "git": {"brew": "git", "apt": "git", "dnf": "git", "choco": "git", "winget": "Git.Git"},
     "sdl2": {"brew": "sdl2", "apt": "libsdl2-dev", "dnf": "SDL2-devel"},
     "sqlite": {"apt": "libsqlite3-dev", "dnf": "sqlite-devel"},
@@ -219,13 +222,33 @@ class Installer:
                      "--accept-source-agreements", "--accept-package-agreements"] for name in names]
         raise AssertionError(self.manager)
 
+    def choose(self, spec):
+        """The package names to install: of " | " alternatives, the first that apt
+        has an installable version of every package of (apt-cache show fails for
+        a purely virtual one), after updating apt's lists to know."""
+        alternatives = [names.split() for names in spec.split("|")]
+        if len(alternatives) == 1 or self.manager != "apt":
+            return alternatives[0]
+        if not self.updated:
+            update = self.privileged(["apt-get", "update"])
+            self.say("Updating apt's package lists: " + " ".join(update))
+            self.run(update)
+            self.updated = True
+        for names in alternatives:
+            if self.run(["apt-cache", "show", "--no-all-versions", *names],
+                        capture_output=True).returncode == 0:
+                return names
+        return alternatives[0]
+
     def install(self, package, why):
         spec = PACKAGES[package].get(self.manager) if self.manager else None
         if spec is None:
             raise Unavailable(f"{why} is missing, and {self.no_package_reason(package)}")
         if not self.allowed:
             raise Unavailable(f"{why} is missing (WENA_NO_INSTALL is set; install {spec} with {self.manager})")
-        for command in self.commands(spec.split()):
+        names = self.choose(spec)
+        spec = " ".join(names)
+        for command in self.commands(names):
             self.say("Installing " + why + ": " + " ".join(command))
             if self.run(command).returncode != 0:
                 raise Unavailable(f"could not install {spec} with {self.manager}"
@@ -482,13 +505,17 @@ class Builder:
         brewed = home / "libexec" / "openjdk.jdk" / "Contents" / "Home"
         self.plan.env["JAVA_HOME"] = str(brewed if brewed.is_dir() else home)
 
-    def desktop(self):
+    def nuklear(self):
+        """Every target compiles the pinned Nuklear submodule, which a clone
+        without --recurse-submodules does not have."""
         if not (self.root / "third_party" / "nuklear" / "nuklear.h").is_file():
             self.need("git", "git")
             self.installer.say("Fetching third_party/nuklear")
             if self.run(["git", "-C", str(self.root), "submodule", "update", "--init",
                          "third_party/nuklear"]).returncode != 0:
                 raise Unavailable("could not fetch the third_party/nuklear submodule")
+
+    def desktop(self):
         if self.host.system == "macos":
             self.xcode_sdk("macosx")
             self.need("sdl2-config", "sdl2", "SDL2")
@@ -550,6 +577,7 @@ def prepare(target, builder=None):
         raise Unavailable(f"no build requirements are known for {target}")
     if builder.host.system == "windows":
         builder.windows_shell()
+    builder.nuklear()
     if target == "desktop":
         builder.desktop()
     else:

@@ -1,3 +1,33 @@
+# Upcoming Wena release
+
+<details>
+<summary>Build all on Ubuntu 26.04 installs QEMU, and every target fetches Nuklear first</summary>
+
+- On Ubuntu 26.04 (resolute), every Linux target for another CPU stopped
+  with "could not install qemu-user-static binfmt-support with apt":
+  `qemu-user-static` is now a purely virtual package, provided by
+  `qemu-user-binfmt` (or its `-hwe` variant), and apt will not choose
+  between them. Debian 13 made the same change. The QEMU package is now
+  a list of alternatives: after updating its lists, apt is asked with
+  `apt-cache show` which one it can install, so older Debian and Ubuntu
+  still get `qemu-user-static binfmt-support` and newer ones
+  `qemu-user-binfmt`.
+- linux-amd64 stopped with "dependency checksum differs from lock:
+  third_party/nuklear/nuklear.h" in a clone made without
+  `--recurse-submodules`. The file was missing, not changed: only the local
+  desktop build fetched the Nuklear submodule. Every target fetches it now,
+  and the dependency check says "dependency is missing" with the command
+  that fetches it, instead of reporting a missing file as tampered.
+- Tests: `toolchain` checks that apt installs `qemu-user-binfmt` where
+  `qemu-user-static` is virtual and `qemu-user-static` where it is not,
+  with apt's lists updated once and before the question; that every kind
+  of target fetches the submodule, none when it is there, and that a failed
+  fetch stops the build. `dependency-check` checks the missing-file message.
+
+Thanks to xet7.
+
+</details>
+
 # v0.09 2026-10-04 Wena release
 
 <details>

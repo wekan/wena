@@ -30,7 +30,10 @@ def verify(root=ROOT):
         raise ValueError('incomplete Nuklear input/license inventory')
     for name, expected in dependency['files'].items():
         path = root / name
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        if not path.is_file():
+            raise ValueError('dependency is missing: ' + name +
+                             ' (run: git submodule update --init third_party/nuklear)')
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise ValueError('dependency checksum differs from lock: ' + name)
     header = (root / 'third_party/nuklear/nuklear.h').read_text()
     match = re.search(r'VERSION:\s*\*\s*v([0-9.]+)', header)

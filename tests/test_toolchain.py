@@ -41,6 +41,8 @@ PROVIDES = {
     "Docker.DockerDesktop": {"docker"}, "git": {"git", "sh", "file"}, "Git.Git": {"git", "sh", "file"},
     "sdl2": {"sdl2-config"}, "libsdl2-dev": {"sdl2-config"}, "SDL2-devel": {"sdl2-config"},
 }
+# Ubuntu 26.04's apt: qemu-user-static only names the packages that provide it.
+RESOLUTE_VIRTUAL = {"qemu-user-static"}
 
 
 class Completed:
@@ -52,8 +54,9 @@ class Computer:
     """A fake computer: the commands it has, and what was run on it."""
 
     def __init__(self, host, commands=(), managers=("brew", "apt-get", "dnf", "choco", "winget"),
-                 docker_running=True, sdks=("macosx",), failing=()):
+                 docker_running=True, sdks=("macosx",), failing=(), virtual=()):
         self.host = host
+        self.virtual = set(virtual)
         self.commands = set(commands) | set(managers)
         self.docker_running = docker_running
         self.sdks, self.failing = set(sdks), set(failing)
@@ -72,6 +75,8 @@ class Computer:
                     return Completed(1)
                 self.commands |= PROVIDES.get(name, set())
             return Completed(0)
+        if words[:2] == ["apt-cache", "show"]:
+            return Completed(100 if self.virtual & set(words[2:]) else 0)
         if words[:2] == ["docker", "info"]:
             return Completed(0 if self.docker_running else 1)
         if words[:2] == ["docker", "image"]:
@@ -176,7 +181,16 @@ def test_targets():
     assert computer.installs() == []
     computer = Computer(UBUNTU_ARM, {"docker"})
     prepare(computer, "linux-amd64")
-    assert any("qemu-user-static" in command for command in computer.installs())
+    assert computer.installs()[-1][-3:] == ["--yes", "qemu-user-static", "binfmt-support"]
+    # Ubuntu 26.04 and Debian 13: qemu-user-static is purely virtual; qemu-user-binfmt instead.
+    computer = Computer(UBUNTU_ARM, {"docker"}, virtual=RESOLUTE_VIRTUAL)
+    prepare(computer, "linux-amd64")
+    assert computer.installs()[-1][-3:] == ["install", "--yes", "qemu-user-binfmt"]
+    assert not any("qemu-user-static" in command for command in computer.installs())
+    # apt's lists are updated once, before asking it which alternative it has.
+    updates = [index for index, command in enumerate(computer.ran) if command[-2:] == ["apt-get", "update"]]
+    shows = [index for index, command in enumerate(computer.ran) if command[:2] == ["apt-cache", "show"]]
+    assert len(updates) == 1 and updates[0] < shows[0]
     computer = Computer(MAC, {"docker"})
     prepare(computer, "linux-s390x")
     assert computer.installs() == []
@@ -267,6 +281,38 @@ def test_unavailable():
     unavailable(computer, "amigaos-m68k", "administrator")
 
 
+def test_nuklear():
+    # Every target fetches the Nuklear submodule a plain clone does not have.
+    with tempfile.TemporaryDirectory() as temp:
+        for target in ("linux-amd64", "windows-amd64", "desktop"):
+            computer = Computer(UBUNTU, {"docker", "git", "cc", "sdl2-config"})
+            builder = computer.builder()
+            builder.root = Path(temp)
+            toolchain.prepare(target, builder)
+            assert ["git", "-C", temp, "submodule", "update", "--init", "third_party/nuklear"] in computer.ran, target
+        # Negative: a fetch that fails says so instead of building without it.
+        computer = Computer(UBUNTU, {"docker", "git"})
+        builder = computer.builder()
+        builder.root = Path(temp)
+        computer.run = lambda command, **kwargs: Completed(1 if "submodule" in command else 0)
+        builder.run = computer.run
+        try:
+            toolchain.prepare("linux-amd64", builder)
+        except toolchain.Unavailable as error:
+            assert "third_party/nuklear" in str(error)
+        else:
+            raise AssertionError("built without Nuklear")
+    # Present already: nothing is fetched.
+    computer = Computer(UBUNTU, {"docker"})
+    builder = computer.builder()
+    with tempfile.TemporaryDirectory() as temp:
+        builder.root = Path(temp)
+        (Path(temp) / "third_party" / "nuklear").mkdir(parents=True)
+        (Path(temp) / "third_party" / "nuklear" / "nuklear.h").write_text("")
+        toolchain.prepare("linux-amd64", builder)
+    assert not any("submodule" in command for command in computer.ran)
+
+
 def test_ndk():
     host = toolchain.Host("linux", "amd64", "debian")
     assert set(toolchain.NDK_ARCHIVES) == {"linux", "macos", "windows"}
@@ -347,6 +393,7 @@ def main():
     test_package_managers()
     test_targets()
     test_unavailable()
+    test_nuklear()
     test_ndk()
     test_entry_points()
     print("toolchain: ok")

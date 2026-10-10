@@ -37,7 +37,8 @@ class DependenciesTests(unittest.TestCase):
                 module.verify(root)
             shutil.copyfile(ROOT / backend.relative_to(root), backend)
             (root / 'third_party/nuklear/LICENSE').unlink()
-            with self.assertRaisesRegex(ValueError, 'checksum'):
+            # A missing file is not a tampered one: say so, and how to fetch it.
+            with self.assertRaisesRegex(ValueError, 'missing: third_party/nuklear/LICENSE.*submodule update'):
                 module.verify(root)
 
 
