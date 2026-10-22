@@ -66,7 +66,7 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Create the release, or find the newest one
         id: release
         shell: bash
@@ -116,11 +116,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: env.WANTED == 'true'
       - name: Build, smoke-test and package in ${{ matrix.image }} (${{ matrix.platform }})
         id: build
@@ -133,7 +133,7 @@ jobs:
         run: |
           docker run --rm --platform "$PLATFORM" -v "$PWD:/w" -w /w "$IMAGE" \
             sh scripts/build_desktop_release_container.sh "$TARGET"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -171,7 +171,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -186,7 +186,7 @@ jobs:
           memory: 6G
           cpu_count: 4
           run: sh scripts/build_desktop_release_vm.sh ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -217,7 +217,7 @@ jobs:
           - { target: macos-amd64, runner: macos-15-intel }
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -238,7 +238,7 @@ jobs:
           cat "$WENA_LOG_DIR/desktop.log"
           "dist/release/$TARGET/wena" --licenses > /dev/null
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena" release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -265,7 +265,7 @@ jobs:
         target: [windows-amd64, windows-i686, windows-arm64]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -285,7 +285,7 @@ jobs:
           export TMPDIR="$PWD/.tools/tmp"
           sh scripts/build_desktop_release.sh "$TARGET" "dist/release/$TARGET/wena.exe"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.exe" release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -309,9 +309,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       # The attach script: the file is attached here, once it has run on Windows.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -365,7 +365,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -382,7 +382,7 @@ jobs:
           sh scripts/build_desktop_amiga.sh "$TARGET" "dist/release/$TARGET/wena"
           python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena" release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -413,7 +413,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -449,7 +449,7 @@ jobs:
           sh scripts/build_desktop_android.sh "dist/release/$TARGET/wena.apk"
           python3 scripts/check_release_executable.py "$TARGET" "dist/release/$TARGET/wena.apk"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.apk" release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -480,7 +480,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.WANTED == 'true'
         with:
           submodules: true
@@ -508,7 +508,7 @@ jobs:
           xcrun simctl launch --console "$device" fi.wekan.wena --smoke | tee "$RUNNER_TEMP/smoke.log"
           grep -q "Wena desktop smoke passed" "$RUNNER_TEMP/smoke.log"
           python3 scripts/package_desktop_release.py binary "$TARGET" "dist/release/$TARGET/wena.ipa" release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.WANTED == 'true'
         with:
           name: wena-${{ matrix.target }}
@@ -534,7 +534,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: SHA256SUMS over every file the release has, and what it still lacks
         shell: bash
         env:

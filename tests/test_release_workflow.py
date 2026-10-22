@@ -200,7 +200,29 @@ def test_cancel_stops_every_job():
         assert always_jobs_unbounded(d) == ["x.yml: a (no timeout-minutes of 60 or less)", "x.yml: b (reusable workflow)"]
 
 
+def test_actions_run_on_node24():
+    """The workflows use the action majors that run on Node.js 24.
+
+    checkout v4, upload-artifact v4, download-artifact v4 and
+    setup-qemu-action v3 run on node20, which GitHub is retiring; their
+    current majors are v7, v7, v8 and v4.
+    """
+    minimum = {
+        "actions/checkout": 7,
+        "actions/upload-artifact": 7,
+        "actions/download-artifact": 8,
+        "docker/setup-qemu-action": 4,
+    }
+    for workflow in sorted(WORKFLOWS.glob("*.yml")):
+        for action, major in re.findall(r"uses: ([\w.-]+/[\w.-]+)@v(\d+)", workflow.read_text(encoding="utf-8")):
+            if action in minimum:
+                assert int(major) >= minimum[action], f"{workflow.name}: {action}@v{major}"
+    # Negative: the check sees an old major.
+    assert re.findall(r"uses: ([\w.-]+/[\w.-]+)@v(\d+)", "  - uses: actions/checkout@v4") == [("actions/checkout", "4")]
+
+
 if __name__ == "__main__":
     main()
     test_missing()
+    test_actions_run_on_node24()
     test_cancel_stops_every_job()

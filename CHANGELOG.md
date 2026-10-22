@@ -1,6 +1,20 @@
 # Upcoming Wena release
 
 <details>
+<summary>The release workflows use the GitHub Actions that run on Node.js 24</summary>
+
+- `actions/checkout` v4 → v7, `actions/upload-artifact` v4 → v7,
+  `actions/download-artifact` v4 → v8 and `docker/setup-qemu-action` v3 → v4.
+  The old majors run on Node.js 20, which GitHub is retiring. The artifact is
+  still downloaded by name, so its path is unchanged, and v8 now stops on a
+  download whose hash does not match.
+- Tests: `release_workflow` fails on an older major of any of the four.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Cancel workflow keeps stopping a release run</summary>
 
 - Cancel workflow does not cancel a job whose `if:` is still true, and

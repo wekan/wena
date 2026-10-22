@@ -41,7 +41,7 @@ jobs:
       tag: ${{ steps.find.outputs.tag }}
       targets: ${{ steps.find.outputs.targets }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Compare the release's files with the ready targets
         id: find
         shell: bash
