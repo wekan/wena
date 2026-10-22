@@ -18,6 +18,36 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 WORKFLOW = WORKFLOWS / "release-all.yml"
 
 
+def always_jobs_unbounded(workflows):
+    """Jobs that a cancel cannot stop and that may run on without a bound.
+
+    Cancelling a run re-evaluates the `if:` of every running job, and a job
+    whose `if:` is still true - always() is, in a cancelled run - is not
+    cancelled and still starts if it has not. Such a job must end on its own:
+    a timeout of 60 minutes or less, and never a reusable workflow, which can
+    have none. node-patches' openbsd-arm64 resume stages were reusable
+    workflows on always(), and Cancel workflow did not stop them.
+    """
+    bad = []
+    for f in sorted(Path(workflows).glob('*.y*ml')):
+        t = f.read_text(encoding='utf-8')
+        m = re.search(r'^jobs:\n', t, re.M)
+        if not m:
+            continue
+        for p in re.split(r'^(?=  [A-Za-z0-9_-]+:\s*$)', t[m.end():], flags=re.M):
+            h = re.match(r'  ([A-Za-z0-9_-]+):', p)
+            c = re.search(r'^    if:\s*(.+)$', p, re.M)
+            if not h or not c or 'always()' not in c.group(1):
+                continue
+            if re.search(r'^    uses:', p, re.M):
+                bad.append(f'{f.name}: {h.group(1)} (reusable workflow)')
+                continue
+            to = re.search(r'^    timeout-minutes:\s*(\d+)', p, re.M)
+            if not to or int(to.group(1)) > 60:
+                bad.append(f'{f.name}: {h.group(1)} (no timeout-minutes of 60 or less)')
+    return bad
+
+
 def module(name):
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
     loaded = importlib.util.module_from_spec(spec)
@@ -157,6 +187,20 @@ def test_missing():
     assert all(package.targets()[t][2] == "ready" for t in package.missing_from([]))
 
 
+def test_cancel_stops_every_job():
+    """Cancel workflow stops the run: only bounded jobs run after it."""
+    assert always_jobs_unbounded(WORKFLOWS) == []
+    # Negative: the check finds an unbounded always() job and a reusable one.
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        Path(d, "x.yml").write_text(
+            "jobs:\n  a:\n    if: ${{ always() }}\n    runs-on: x\n"
+            "  b:\n    if: ${{ always() }}\n    uses: ./y.yml\n"
+            "  c:\n    if: ${{ always() }}\n    timeout-minutes: 15\n")
+        assert always_jobs_unbounded(d) == ["x.yml: a (no timeout-minutes of 60 or less)", "x.yml: b (reusable workflow)"]
+
+
 if __name__ == "__main__":
     main()
     test_missing()
+    test_cancel_stops_every_job()

@@ -1,6 +1,20 @@
 # Upcoming Wena release
 
 <details>
+<summary>Cancel workflow keeps stopping a release run</summary>
+
+- Cancel workflow does not cancel a job whose `if:` is still true, and
+  `always()` is true in a cancelled run. The one job here on `always()`,
+  Checksums of the release, has its 30-minute timeout.
+- Tests: `release_workflow` fails on a job on `always()` that is a reusable
+  workflow or has no timeout of 60 minutes or less, and checks that the
+  check finds both.
+
+Thanks to xet7.
+
+</details>
+
+<details>
 <summary>Build all on Ubuntu 26.04 installs QEMU, and every target fetches Nuklear first</summary>
 
 - On Ubuntu 26.04 (resolute), every Linux target for another CPU stopped
